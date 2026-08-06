@@ -14,12 +14,13 @@ exposes **Operations**; a **Definition** is a named, configured use of one; a **
 
 **Provider**:
 A named capability for talking to one kind of system — its schemas, its Operations, and the
-Capabilities it requires — together with an implementation.
+Capabilities it requires. A Provider is a Manifest and nothing else; `hyper` supplies every effect it
+describes.
 _Avoid_: Model, Driver, Plugin, Connector
 
 **Manifest**:
-The declared half of a Provider: data rather than code, stating the Provider's schemas, Operations,
-and required Capabilities. It is what a human reviews in place of the implementation.
+The whole of a Provider: data rather than code, stating its schemas, Operations, and required
+Capabilities. There is no implementation behind it to review, which is why reviewing it is enough.
 _Avoid_: Schema, Spec, Descriptor
 
 **Operation**:
@@ -43,11 +44,27 @@ Orthogonal to Kind, so an Opaque Operation still declares whether it destroys.
 _Avoid_: Shell, Untyped, Raw, Escape hatch
 
 **Capability**:
-A permission a Provider must declare in its Manifest in order to be granted it.
+One effect `hyper` can perform on a Manifest's behalf, drawn from a closed set that only `hyper`
+defines. A Manifest declares the Capabilities it requires and a Target declaration grants them; an
+Operation reaches only what both name.
 _Avoid_: Permission, Grant, Scope
 
+**Pattern**:
+A behaviour `hyper` performs around a call — pagination, polling to a terminal condition, retry —
+which a Manifest parameterises but does not implement. A Pattern may never change an Operation's Kind
+or the number of Records it affects.
+_Avoid_: Strategy, Policy, Middleware, Hook
+
+**Auth scheme**:
+A way of authenticating a request, implemented by `hyper` and chosen by name in a Manifest. The
+Manifest supplies its parameters and the Target its credentials, so Provider authors never handle a
+secret and cannot invent a scheme.
+_Avoid_: Auth method, Credential type, Signer
+
 **Extension**:
-A Provider authored and distributed by someone other than the tool itself.
+A Provider authored and distributed by someone other than `hyper` itself. Being a Manifest, it
+contains no code; it may not shadow a built-in Provider's name, and the Capabilities reserved to
+built-ins are never granted to it.
 _Avoid_: Plugin, Package, Module
 
 ### Authored artefacts
@@ -75,8 +92,14 @@ _Avoid_: Limit, Cap, Quota, Threshold
 
 **Target**:
 A concrete system an Operation acts on, and the unit of both blast radius and credentials. A
-Definition declares the Targets it accepts; an invocation binds one.
+Definition declares by name the Targets it accepts; an invocation binds one.
 _Avoid_: Environment, Account, Host, Context
+
+**Target declaration**:
+The reviewed half of a Target: which Kinds it accepts, which Capabilities it grants, which endpoint
+it names. An artefact in the repository, holding no credentials, so every static check runs without
+them.
+_Avoid_: Target config, Connection, Profile
 
 **Local**:
 The reserved Target meaning this machine and the public internet, holding no credentials.
