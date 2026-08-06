@@ -60,6 +60,11 @@ _Avoid_: Workflow, Playbook, Pipeline, Job
 One entry in a Procedure: a single Operation, invoked through a Definition, against one Target.
 _Avoid_: Task, Job, Stage
 
+**Bound**:
+The maximum number of Records an effectful Step may affect, declared by the Step's author. Mandatory
+on a `destroy` Step, where an absent Bound means unbounded rather than unchecked.
+_Avoid_: Limit, Cap, Quota, Threshold
+
 ### The world
 
 **Target**:
@@ -70,6 +75,11 @@ _Avoid_: Environment, Account, Host, Context
 **Local**:
 The reserved Target meaning this machine and the public internet, holding no credentials.
 _Avoid_: Default, None, Empty
+
+**Expansion**:
+The resolution of a Step's selector to the concrete Records it will act on. Only Assets are reachable
+by Expansion; anything `hyper` did not create must be named by literal identifier.
+_Avoid_: Resolution, Matching, Fan-out, Globbing
 
 ### The record
 
@@ -96,6 +106,11 @@ _Avoid_: Deletion marker, Soft delete
 **Run**:
 A single execution of an Operation or a Procedure, and the unit against which change is reviewed.
 _Avoid_: Execution, Invocation, Job
+
+**Refusal**:
+A terminal Run outcome in which a guardrail declined a Step before any effect reached the world.
+Distinct from failure, which means the world resisted.
+_Avoid_: Rejection, Denial, Block, Abort
 
 **Provenance**:
 The record, carried by every Record version, of which code produced it: Definition revision, Manifest
