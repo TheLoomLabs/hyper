@@ -31,6 +31,12 @@ An Operation's declared blast radius — `read`, `mutate`, or `destroy`. Always 
 Manifest, never inferred from an Operation's name.
 _Avoid_: Type, Verb, Category
 
+**Repeatability**:
+An Operation's declared behaviour when a Procedure is run again: `repeatable` (invoke it again),
+`skip-if-recorded` (skip while the Asset it would produce still stands), or, when undeclared,
+run-once. Declared in the Manifest, never inferred.
+_Avoid_: Idempotency, Retry policy, Rerun mode
+
 **Opaque**:
 A trait on an Operation whose effects `hyper` cannot describe, such as an arbitrary shell command.
 Orthogonal to Kind, so an Opaque Operation still declares whether it destroys.
@@ -111,6 +117,17 @@ _Avoid_: Execution, Invocation, Job
 A terminal Run outcome in which a guardrail declined a Step before any effect reached the world.
 Distinct from failure, which means the world resisted.
 _Avoid_: Rejection, Denial, Block, Abort
+
+**Journal**:
+The append-only series of Run entries — one per Run, carrying its outcome, its Provenance, and every
+Step's Disposition. The only place a Refusal or an unconfirmed attempt is recorded, since neither
+writes a Record.
+_Avoid_: Log, Audit trail, Run state, Checkpoint
+
+**Disposition**:
+What a Step did in a Run: ran, skipped as already recorded, refused, never reached, or attempted with
+its outcome unknown. Held by the Journal rather than by any Record.
+_Avoid_: Status, State, Result, Outcome
 
 **Provenance**:
 The record, carried by every Record version, of which code produced it: Definition revision, Manifest
