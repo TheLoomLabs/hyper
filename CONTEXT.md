@@ -155,6 +155,12 @@ _Avoid_: Secret output, Vault write, Capture file
 A single execution of an Operation or a Procedure, and the unit against which change is reviewed.
 _Avoid_: Execution, Invocation, Job
 
+**Probe**:
+A `read` Operation invoked against `local` without a Definition, writing no Record and no Journal
+entry. It is a lookup rather than a Run, so it has no Trigger, no Provenance and no Disposition, and
+it can never be scheduled, sequenced into a Procedure, or used as a diff baseline.
+_Avoid_: Query, Check, Ad-hoc run, One-shot
+
 **Trigger**:
 What caused a Run to happen — a clock or a person — and which executor it happened on. A fact about
 the occasion rather than about the code, and the only thing that distinguishes a world that has not
