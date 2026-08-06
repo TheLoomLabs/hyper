@@ -88,6 +88,12 @@ The maximum number of Records an effectful Step may affect, declared by the Step
 on a `destroy` Step, where an absent Bound means unbounded rather than unchecked.
 _Avoid_: Limit, Cap, Quota, Threshold
 
+**Cadence**:
+A Procedure's declared recurrence, stated as a UTC cron expression. It is a lower bound on staleness
+rather than a promise of coverage, and `hyper` projects it into an external executor's clock rather
+than keeping one of its own.
+_Avoid_: Schedule, Trigger, Interval, Frequency
+
 ### The world
 
 **Target**:
@@ -136,6 +142,12 @@ _Avoid_: Deletion marker, Soft delete
 A single execution of an Operation or a Procedure, and the unit against which change is reviewed.
 _Avoid_: Execution, Invocation, Job
 
+**Trigger**:
+What caused a Run to happen — a clock or a person — and which executor it happened on. A fact about
+the occasion rather than about the code, and the only thing that distinguishes a world that has not
+changed from one nobody has looked at.
+_Avoid_: Source, Cause, Origin, Event
+
 **Refusal**:
 A terminal Run outcome in which a guardrail declined a Step before any effect reached the world.
 Distinct from failure, which means the world resisted.
@@ -152,7 +164,14 @@ What a Step did in a Run: ran, skipped as already recorded, refused, never reach
 its outcome unknown. Held by the Journal rather than by any Record.
 _Avoid_: Status, State, Result, Outcome
 
+**Store**:
+Where Records and the Journal live: a branch of the repository, written by every environment that
+runs. It is `hyper`'s account of the world rather than part of it, so it is never a Target and
+reaching it costs no Capability.
+_Avoid_: Database, State, Backend, Cache
+
 **Provenance**:
 The record, carried by every Record version, of which code produced it: Definition revision, Manifest
-digest, Extension digest, and repository revision.
+digest, Extension digest, repository revision, and the version of `hyper` that performed it — which,
+Providers being data, is the only code that ran.
 _Avoid_: Audit, History, Lineage
