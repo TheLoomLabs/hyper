@@ -58,7 +58,8 @@ _Avoid_: Strategy, Policy, Middleware, Hook
 **Auth scheme**:
 A way of authenticating a request, implemented by `hyper` and chosen by name in a Manifest. The
 Manifest supplies its parameters and the Target its credentials, so Provider authors never handle a
-secret and cannot invent a scheme.
+secret and cannot invent a scheme. Because the set is closed, `hyper` knows which positions of a
+request carry the secret and never renders them.
 _Avoid_: Auth method, Credential type, Signer
 
 **Extension**:
@@ -107,6 +108,12 @@ it names. An artefact in the repository, holding no credentials, so every static
 them.
 _Avoid_: Target config, Connection, Profile
 
+**Target credentials**:
+The unreviewed half of a Target: the secrets its Auth scheme requires, named by the declaration as
+environment variables and resolved once per Run. They live wherever the environment already keeps
+them, never in the repository and never at rest inside `hyper`.
+_Avoid_: Vault, Secret store, Keychain
+
 **Local**:
 The reserved Target meaning this machine and the public internet, holding no credentials.
 _Avoid_: Default, None, Empty
@@ -137,6 +144,12 @@ _Avoid_: Resource, Holding, Managed resource
 The terminal version of an Asset, recording that what it described was destroyed and what its last
 known state was.
 _Avoid_: Deletion marker, Soft delete
+
+**Secret sink**:
+The destination an invocation supplies for output an Operation declares secret. A Step producing such
+output Refuses when none is supplied, which is a fact about the invocation rather than about the
+environment it runs in.
+_Avoid_: Secret output, Vault write, Capture file
 
 **Run**:
 A single execution of an Operation or a Procedure, and the unit against which change is reviewed.
