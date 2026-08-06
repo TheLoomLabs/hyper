@@ -57,7 +57,7 @@
   <div class="banner">PROTOTYPE — throwaway. Branch <code>prototype/oversight-surfaces</code>. Answers issue #5: what do the oversight surfaces look like? Not code, not a spec. Flip variants with ← → or the bar at the bottom.</div>
 
   <h1>hyper — oversight surfaces</h1>
-  <p class="sub">Three structurally different renderings of the same four surfaces, against one shared scenario. Pick one, or steal parts.</p>
+  <p class="sub">Four renderings of the same four surfaces, against one shared scenario. <b>A</b>, <b>B</b> and <b>C</b> are the three structurally different options that were built to force the decision; <b>D</b> is the answer — C's gutter with B's tables — and is what opens by default.</p>
 
   <h3>The scenario, held constant across all three</h3>
   <p class="sub">A procedure <code>retire-preview-envs</code> with three steps: probe preview URLs (read, target <code>local</code>), relabel their servers (mutate, target <code>staging</code>, no bound declared), delete preview servers older than 14 days (destroy, target <code>staging</code>, bound 5). The AI raised that bound from 3 to 5 in this revision. A run on Tuesday succeeded; today's run refused because the destroy selector expanded to 23 assets.</p>
@@ -446,21 +446,167 @@ refused: bound exceeded — nothing was deleted
   </div>
 </div>
 
+<!-- ============================ VARIANT D ============================ -->
+<div class="variant" data-key="D" data-name="Chosen — C's gutter, B's tables">
+  <hr>
+  <h2>Variant D — Chosen <span class="sub" style="font-weight:400">· C's gutter with B's tables</span></h2>
+  <p class="sub">The gutter annotates what is in this file. A table aggregates what is assembled from elsewhere. Nothing states a claim the gutter has not already marked, and the Asset / Observation / provenance split becomes three headings rather than a column.</p>
+
+  <h3>1 · Definition review</h3>
+  <p class="note">The artefact is the object under review, not a table derived from it. Read the gutter strip vertically and you have B's step table for free — <code>envelope / read / mutate! / DESTROY</code> — without it being able to omit anything. <code>AUTHORITY</code> stays a table because it is assembled from two other files and can never be a gutter on this one.</p>
+<pre>
+$ hyper review procedures/retire-preview-envs.yaml
+
+  BLAST RADIUS      │  procedures/retire-preview-envs.yaml     a91f0c2 → working tree
+  ──────────────────┼──────────────────────────────────────────────────────────────
+                    │   procedure: retire-preview-envs
+  envelope ✓        │   targets: [local, staging]
+                    │   steps:
+  read     local    │     - id: probe
+                    │       definition: uptime
+                    │       operation: check_http
+                    │       over: observation("preview-urls")
+                    │
+  mutate!  staging  │     - id: label
+                    │       definition: hetzner-staging
+                    │       operation: set_server_labels
+                    │       over: asset(label="preview")
+                    │
+  DESTROY  staging  │     - id: retire
+                    │       definition: hetzner-staging
+                    │       operation: delete_server
+                    │       over: asset(label="preview", age &gt; "14d")
+                    │ -     bound: 3
+                    │ +     bound: 5
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION       TARGET   DEFINITION KINDS     TARGET KINDS         EFFECTIVE  DESTROY OPS
+  uptime           local    read                 read                 r          —
+  hetzner-staging  staging  read mutate destroy  read mutate destroy  r m d      delete_server
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  UNBOUNDED  line 11  step label    mutate with no declared bound
+  DESTROY    line 16  step retire   delete_server, bound 5
+  WIDENED    line 20  step retire   bound 3 → 5 since a91f0c2
+  ENVELOPE   line 2   ok            no step reaches a target outside [local, staging]
+</pre>
+
+  <h3>2 · Change review</h3>
+  <p class="note">Three actors, three tables. The third one — the code moved — is not something any of A, B or C proposed; it fell out of separating the first two.</p>
+<pre>
+$ hyper diff --since tuesday
+
+  staging     Tue 4 Aug 09:12   run 01K4M2H…   rev a91f0c2
+          →   Wed 6 Aug 11:03   run 01K4Z8Q…   rev 4d7e118
+
+  YOU DID THIS   5 assets
+  CHANGE  RECORD             VERSION  DETAIL
+  tomb †  srv/preview-8801   4 → 5    destroy confirmed 11:02
+  tomb †  srv/preview-8802   3 → 4    destroy confirmed 11:02
+  tomb †  srv/preview-8806   7 → 8    destroy confirmed 11:03
+  new     srv/preview-8821   – → 1    cx22 fsn1 2vcpu/4gb
+  mut     srv/preview-8815   9 → 10   labels.retire-after 2026-08-18 → 2026-08-25
+
+  THE WORLD MOVED   2 observations
+  CHANGE  RECORD                 VERSION  DETAIL
+  moved   http/status.hyper.dev  22 → 23  status 200 → 503
+  moved   cert/hyper.dev         22 → 23  days_left 41 → 34
+
+  THE CODE MOVED   2 fields
+  FIELD                PREVIOUS  CURRENT   DETAIL
+  definition revision  a91f0c2   4d7e118   step retire, bound 3 → 5
+  repo revision        1f0a3d7   88bc402
+  manifest digest      sha256:9c1f         unchanged
+  extension digest     —                   none
+
+  TOTALS  7 changes · 5 asset · 2 observation · 3 tombstone · code drifted
+</pre>
+
+  <h3>3 · Refusal</h3>
+  <p class="note">The most verbose surface in the tool, on purpose: ADR-0001 removed every bypass, so this rendering is the whole remediation path. The excerpt uses the same <code>│</code> idiom as the review gutter.</p>
+<pre>
+$ hyper run retire-preview-envs --target staging
+
+  STEP  ID      KIND     RESULT
+  1     probe   read     completed  12 records
+  2     label   mutate   completed  8 records
+  3     retire  destroy  REFUSED    0 records
+
+  refused: bound exceeded — nothing was deleted
+
+    procedures/retire-preview-envs.yaml:19
+     17 │     operation: delete_server
+     18 │     over: asset(label="preview", age &gt; "14d")
+     19 │     bound: 5
+        │            ^ expansion resolved 23 assets on staging
+        │
+        = checked at expansion, before the first call
+        = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+  EDIT ONE OF
+  FILE                                 LINE  FIELD           FROM         TO
+  procedures/retire-preview-envs.yaml  19    steps[2].bound  5            ≥ 23
+  procedures/retire-preview-envs.yaml  18    steps[2].over   age &gt; "14d"  age &gt; "30d"   expands to 4
+
+  steps 1-2 completed and their 20 records are written. step 3 wrote nothing.
+  run 01K4Z8QW6N   ·   hyper show 01K4Z8QW6N --expansion   for all 23
+</pre>
+
+  <h3>4 · JSON</h3>
+  <p class="note">NDJSON. Every terminal table row is one JSON row with a <code>type</code> discriminator, so both surfaces come out of one renderer and cannot drift. Summary is always last — which means outcome is known only at the end, and the exit code carries the weight. Those numbers are #13's.</p>
+<pre class="json">
+$ hyper diff --since tuesday --json
+{"type":"asset","change":"tombstone","record":"srv/preview-8801","target":"staging",
+ "from_version":4,"to_version":5,"confirmed_at":"2026-08-06T11:02:41Z"}
+{"type":"asset","change":"create","record":"srv/preview-8821","target":"staging",
+ "to_version":1,"detail":{"type":"cx22","region":"fsn1"}}
+{"type":"asset","change":"mutate","record":"srv/preview-8815","target":"staging",
+ "from_version":9,"to_version":10,"field":"labels.retire-after","from":"2026-08-18","to":"2026-08-25"}
+{"type":"observation","change":"moved","record":"http/status.hyper.dev","target":"staging",
+ "from_version":22,"to_version":23,"field":"status","from":200,"to":503}
+{"type":"provenance","field":"definition_revision","from":"a91f0c2","to":"4d7e118"}
+{"type":"summary","outcome":"completed","changes":7,"assets":5,"observations":2,"tombstones":3}
+
+$ hyper run retire-preview-envs --target staging --json
+{"type":"step","index":1,"id":"probe","kind":"read","result":"completed","records":12}
+{"type":"step","index":2,"id":"label","kind":"mutate","result":"completed","records":8}
+{"type":"step","index":3,"id":"retire","kind":"destroy","result":"refused","records":0}
+{"type":"refusal","check":"bound_exceeded","phase":"expansion","step":3,"step_id":"retire",
+ "operation":"delete_server","target":"staging","declared":5,"observed":23,
+ "artefact":"procedures/retire-preview-envs.yaml","line":19}
+{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":19,
+ "field":"steps[2].bound","from":5,"to":23}
+{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":18,
+ "field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
+{"type":"provenance","definition_revision":"4d7e118","manifest_digest":"sha256:9c1f",
+ "extension_digest":null,"repo_revision":"88bc402"}
+{"type":"summary","outcome":"refused","run":"01K4Z8QW6N3M2VT0BQ7YHR4C9E",
+ "records_written":20,"steps_completed":2}
+</pre>
+
+  <div class="cost">
+    <div><b>Buys you</b> One object under review — the artefact — with the scannability of a table over it. A summary that provably cannot contradict the source. A refusal you can act on without opening the file first.</div>
+    <div><b>Costs you</b> The gutter needs a line-oriented artefact format, so it constrains the authoring-language decision. Three tables in the change review means no single chronological scan.</div>
+    <div><b>Bets on</b> The reviewer reading the artefact rather than a report about it — which is what ADR-0001 already assumes, since editing that artefact is the only way past a refusal.</div>
+  </div>
+</div>
+
 <hr>
-<h2>What I want you to react to</h2>
+<h2>The five questions A/B/C were built to force — and how they landed</h2>
 <ol>
-  <li><b>Does the surface get to editorialise?</b> A says yes — it ranks, names the risk, tells you what to check. B says never. C says only structurally, by making the widening a <code>+</code> line. This is the real fork, and it decides whether a wrong summary is a possible failure mode.</li>
-  <li><b>Do "you did this" and "the world moved" get different visual treatment?</b> All three separate Asset from Observation, but only A separates them into two headings you cannot conflate.</li>
-  <li><b>Is provenance drift a first-class diff event?</b> All three show it. C makes it a change row alongside the others — the code moving is the same kind of fact as a server moving.</li>
-  <li><b>Is the terminal form the primary and JSON derived, or the reverse?</b> B's NDJSON is the surface that scales; its terminal table is nearly a rendering of it. A and C write the human form first.</li>
-  <li><b>Does the refusal show one remediation or several?</b> All three show two. Showing "narrow the selector → expands to 4" requires hyper to speculatively re-expand a selector it was just refused on. Worth the cost?</li>
-  <li><b>Same rendering for review and for CI?</b> None of these have a CI mode distinct from the terminal mode, on purpose — #4's rule that environment is not an axis. Colour and width would be the only difference.</li>
+  <li><b>Is the primary object of a definition review the artefact, or a table derived from it?</b> → <b>The artefact.</b> The gutter <i>is</i> a table column embedded in the source, so it buys B's scannability without divorcing the summary from the thing under review, and it cannot lie by omission. Principle: <b>the gutter annotates what is in this file; a table aggregates what is assembled from elsewhere.</b> The derived step table is dead; <code>AUTHORITY</code> survives because it is drawn from other files.</li>
+  <li><b>Does anything editorialise?</b> → <b>Only <code>FLAGS</code>, under a hard constraint:</b> every flag row points at a line the gutter already marked and introduces no claim of its own. It is an index into the artefact, not an opinion about it — which makes "the summary said the wrong three things" structurally impossible rather than merely unlikely. A's prose is gone.</li>
+  <li><b>NDJSON rows or a patch envelope?</b> → <b>NDJSON.</b> Terminal tables and JSON rows map one-to-one behind a single renderer; a patch envelope is a second document shape to keep in sync by hand. It streams, too. Accepted cost: outcome is only known at the last line, so consumers <code>tail -1</code> or trust the exit code — which puts more weight on codes that <b>#13</b> owns.</li>
+  <li><b>Refusal: caret excerpt, or just the remediation table?</b> → <b>Both.</b> The table says where to edit; the excerpt shows the line in context, which is what lets a reader judge whether raising the bound is the right fix at all or whether the selector is the thing that's wrong. Under ADR-0001 this rendering is the entire remediation path, so it is deliberately the most verbose surface in the tool.</li>
+  <li><b>Asset vs Observation: a column, or two tables?</b> → <b>Two tables.</b> #3 made this a type split, not an attribute, and #4 hangs Expansion-reachability on it; a column value renders the most consequential fact in the diff at the same weight as a version number three columns over.</li>
 </ol>
+<p class="note">Q5 had a consequence nobody asked for: once "you did this" and "the world moved" are separate headings, <b>provenance drift becomes the obvious third heading — "the code moved"</b>. Three actors, three tables. None of A, B or C had that; it fell out of the split.</p>
+<p class="note">D also fixes a factual error A and B shared: they reported <code>records written 0</code> on the refused run. #4 decision 10 says no Records for the <b>refused Step</b> — steps 1 and 2 completed and their records are written. Only C got this right. D reports <code>20</code>.</p>
 
 <h2>Left open, deliberately</h2>
 <ul>
-  <li>Exit code numbers. #13 owns them — the mockups just say <code>refused</code>.</li>
-  <li>The authoring language. All three show YAML because something had to be on the page; the fog entry says that is undecided.</li>
+  <li>Exit code numbers. #13 owns them — the mockups just say <code>refused</code>, and Q3 hands #13 the extra weight.</li>
+  <li>The authoring language. Every variant shows YAML because something had to be on the page; the fog entry says that is undecided. The gutter design assumes only that the artefact is line-oriented text.</li>
   <li>Where review happens — terminal only here. Whether a definition review also renders into a GitHub PR comment is unasked.</li>
 </ul>
 
@@ -483,8 +629,8 @@ document.querySelectorAll('pre').forEach(pre => {
     if (/^\$ /.test(l)) c = 'ln-cmd';
     else if (/^\s*(---|\+\+\+|@@)/.test(l)) c = 'ln-meta';
     // diff markers only at the gutter: column 0, or the 2-space-indented patch blocks
-    else if (/^\+/.test(l) || /^ {2}\+[ \S]/.test(l)) c = 'ln-add';
-    else if (/^-/.test(l) || /^ {2}-[ \S]/.test(l)) c = 'ln-del';
+    else if (/^\+/.test(l) || /^ {2}\+[ \S]/.test(l) || /│ \+/.test(l)) c = 'ln-add';
+    else if (/^-/.test(l) || /^ {2}-[ \S]/.test(l) || /│ -/.test(l)) c = 'ln-del';
     else if (/UNBOUNDED|DESTROY|WIDENED|refused|REFUSED|Refused|!|\^ |†|widened/.test(l)) c = 'ln-warn';
     else if (/^\s+=\s/.test(l)) c = 'ln-meta';
     return c ? '<span class="' + c + '">' + esc + '</span>' : esc;
@@ -511,7 +657,7 @@ addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') cycle(1);
 });
 addEventListener('hashchange', () => show(location.hash.slice(1) || 'A'));
-show(location.hash.slice(1) || 'A');
+show(location.hash.slice(1) || 'D');
 </script>
 </body>
 </html>
