@@ -119,8 +119,9 @@ The reserved Target meaning this machine and the public internet, holding no cre
 _Avoid_: Default, None, Empty
 
 **Expansion**:
-The resolution of a Step's selector to the concrete Records it will act on. Only Assets are reachable
-by Expansion; anything `hyper` did not create must be named by literal identifier.
+The resolution of a Step's selector to the concrete Records it will act on, scoped by Kind: a `read`
+Step may expand over Observations, an effectful one only over Assets. Anything `hyper` did not create
+must therefore be named by literal identifier before it can be changed.
 _Avoid_: Resolution, Matching, Fan-out, Globbing
 
 ### The record
@@ -129,6 +130,12 @@ _Avoid_: Resolution, Matching, Fan-out, Globbing
 An immutable, versioned series of what an Operation produced, identified by its Target, its
 Definition, and a name. Every Record is either an Observation or an Asset.
 _Avoid_: Data, Artifact, Output
+
+**Head**:
+The current version of a Record, derived from the order of the versions themselves rather than
+declared by a marker. Nothing in the Store points at it, which is what lets two environments write
+the same series without contending.
+_Avoid_: Latest, Current, Tip
 
 **Observation**:
 A Record of a fact read from the world at a point in time. `hyper` is not accountable for what it
@@ -140,9 +147,15 @@ A Record of something `hyper` created and is therefore accountable for. Having b
 `hyper` is the whole test — a thing merely observed is never an Asset.
 _Avoid_: Resource, Holding, Managed resource
 
+**Orphaned Asset**:
+An Asset whose Definition no longer exists. Expansion needs a Definition, so nothing in `hyper` can
+reach it again; it is never collected and is reported for as long as it stands.
+_Avoid_: Dangling resource, Leaked resource, Abandoned resource
+
 **Tombstone**:
-The terminal version of an Asset, recording that what it described was destroyed and what its last
-known state was.
+The version of an Asset recording that what it described was destroyed, and what its last known state
+was. Terminal for the Asset's life rather than for the series: recreating under the same identity
+writes a further version above it.
 _Avoid_: Deletion marker, Soft delete
 
 **Secret sink**:
@@ -189,6 +202,12 @@ runs. It is `hyper`'s account of the world rather than part of it, so it is neve
 reaching it costs no Capability.
 _Avoid_: Database, State, Backend, Cache
 
+**Compaction**:
+The removal of interior Observation versions, to the extent a reviewed artefact permits it. It never
+removes evidence — no Asset, no Tombstone, no Journal entry — and it reclaims tree size and scan cost
+rather than clone size.
+_Avoid_: GC, Pruning, Vacuum, Cleanup, Retention
+
 **Provenance**:
 The record, carried by every Record version, of which code produced it: Definition revision, Manifest
 digest, Extension digest, repository revision, and the version of `hyper` that performed it — which,
@@ -196,7 +215,7 @@ Providers being data, is the only code that ran.
 _Avoid_: Audit, History, Lineage
 
 **Comparison**:
-The rendering of one Run against the Run before it: the Assets `hyper` changed, the Observations the
-world changed, and the code that changed between the two. Retrospective by construction, so it
+The rendering of one Run against the previous Run of the same Procedure: the Assets `hyper` changed,
+the Observations the world changed, and the code that changed between the two. Retrospective by construction, so it
 reports what happened rather than proposing what would.
 _Avoid_: Diff, Drift, Plan, Changelog, Delta
