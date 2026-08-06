@@ -2560,5 +2560,255 @@ worth copying independent of anything else in Swamp.
 
 ---
 
-*Sections on the five primitives' full field-level schemas, DAG scheduling and `forEach` internals,
-the data layer, and vault cryptography follow below.*
+## 11. Synthesis
+
+### 11.1 Deliberate and non-obvious decisions worth taking seriously
+
+**1. The sealed grant-condition CEL dialect.** Three CEL surfaces, of which the one used for
+authorization decisions is strictly weaker: explicit variable declarations,
+`unlistedVariablesAreDyn: false` so undeclared references fail at *write* time, no I/O receivers, no
+extension registrations. And the seal is documented as **permanent**
+(`design/expressions.md:29-38`). Separating "the expression language users author in" from "the
+expression language security decisions are made in", and refusing to let them converge, is the best
+idea in the repo.
+
+**2. Vault sentinels.** Secrets are opaque `__SWAMP_VSEC_<hex>_<n>__` tokens through authoring,
+persistence, and expression evaluation, materialised only in the in-flight request. For shell
+execution they become `${__SWAMP_VAULT_N}` environment references — quoting-context-aware — so they
+never appear in a command string or a process argument list
+(`src/domain/vaults/vault_secret_bag.ts:150-168`). The persisted artifact is always safe to read,
+commit, and review.
+
+**3. Sensitive output routes to a vault at write time, and fails closed.** A `z.string().meta({
+sensitive: true })` on a model's output schema means the value is `put` into a vault and the data
+record gets `${{ vault.get(...) }}` in its place (`data_writer.ts:381-474`). Three enforcement
+points, including a **pre-flight check before the method runs**, added specifically because the
+old behaviour *"fails at persist time — but only after the method has already run, potentially
+creating cloud resources that cannot be recorded"* (`design/doctor-vaults.md:14-16`).
+
+**4. Files authoritative, SQLite derived.** The index can be dropped and rebuilt
+(`CATALOG_SCHEMA_VERSION`, drop-and-backfill at `catalog_store.ts:217-232`), which eliminates the
+entire category of index-migration bugs. Any hyper design with a database should ask whether the
+database can be deleted without data loss.
+
+**5. Unknown keys are rejected, not stripped** (`design/workflow.md:364-389`). With the failure
+story recorded:
+
+> "A step-level placement property (`labels`, `target`, `platform`, `queueTimeout`) found on a job
+> or workflow names the misplaced key and shows the step-level form. **Silent stripping here failed
+> open: the placement intent was discarded and the work ran on the orchestrator.**"
+
+Plus a Levenshtein did-you-mean, and a stated schema-evolution consequence: because suspended runs
+are re-parsed through the same schemas on resume, removing a field is a breaking change requiring
+*"an explicit migration or tolerance decision … never a silent strip"*. For AI-authored YAML this is
+the correct default and the reasoning is fully worked out.
+
+**6. Deletion tombstones that keep `data.latest()` resolvable.** After a successful `delete`-kind
+method, a new version is written containing `{...lastKnownState, deletedAt, deletedByMethod}`
+(`method_execution_service.ts:949-1017`), so re-runs stay idempotent and the record of what was
+destroyed survives. A genuinely good answer to "how does an immutable log represent a thing that no
+longer exists".
+
+**7. The only channel between steps is durable data.** No `steps.*` namespace, no ephemeral output
+bus. This is what makes resume-from-disk correct (the expression context is rebuilt from the store,
+`:2090`) and what makes every intermediate value queryable afterwards.
+
+**8. `guard` instead of implicit idempotence.** A per-step CEL predicate that may probe live
+infrastructure via `model.method(...)`, with an explicit refusal to be clever:
+*"Steps without a guard always execute on resume. If you didn't write a guard, you're saying 'always
+run this step.'"* (`design/workflow.md:206-208`).
+
+**9. Structure is data; only values are expressions.** `dependsOn` is a structural
+`TriggerCondition` DSL, not a CEL expression, with the *reference* on the edge and the *predicate*
+in the condition (`trigger_condition.ts:61-62`). The DAG stays statically analysable even though
+values are not.
+
+**10. Refusing to build, in writing.** `design/extension.md:243-266` declines a requested feature
+after surveying Terraform, OpenTofu, Ansible, Pulumi and `gh`, cites the specific issues each caused,
+documents the design it *would* ship if demand appeared, and closes the question. See §10.7b.
+
+**11. Run-tracker DB is deliberately not synced.** *"PIDs and heartbeats are inherently local — a PID
+from machine A is meaningless on machine B"* (`design/run-tracker.md:91-93`). Knowing which state is
+machine-local and refusing to replicate it is a discipline worth keeping.
+
+**12. `swamp audit` records what the AI agent did.** Not swamp operations — the bash/tool-use
+commands the coding agent ran, captured via each tool's hook system (`design/audit.md:1-7`). This is
+a third oversight stream that the map's model (review the definition; review the diff) does not
+have. Worth considering on its merits, separately from the fact that Swamp's implementation of it
+is unredacted and untrustworthy.
+
+### 11.2 Scar tissue, in one place
+
+| Evidence | What it says |
+| --- | --- |
+| `design/unification.md` (whole file) | Three storage shapes create enough pain that the maintainers are contemplating collapsing filesystem + datastore + registry into one versioned store, with git as a possible backend. |
+| `design/execution-drivers.md:1-12` | An entire pluggable driver abstraction — registry, 12-field config, 6-tier precedence, docker bundling — built, then deleted. Replaced by "run a containerized worker". |
+| `definition.ts:192-195`, `repo_marker_repository.ts:84-97` | The removed `driver`/`driverConfig` fields must still be *actively rejected* in two schemas. |
+| `design/run-tracker.md:6-12` | A SQLite DB with PIDs, heartbeats and a reaper, bolted on because status-mutable YAML files got stuck in "running" after process death. |
+| `design/repo.md:134-140` + `noop_repo_index_service.ts` | Symlink views removed; a 17-event domain-event system still fires into a noop handler. Symlink *fallback* read paths remain (`libswamp/workflows/edit.ts:191`). |
+| `unified_data_repository.ts:1389-1400` | `latest` is a text file now, with a `Deno.readLinkSync` fallback for legacy symlink repos. |
+| `repo_marker_repository.ts:41-67` | `.swamp.yaml` carries a deprecated `tool` field kept alive by a read normalizer, plus UI-dismissal state (`skillMigrationDismissed`, `lastSkillMigrationWarning`). |
+| `design/repo.md:54-70` | A `SUPERSEDED_SKILLS` constant and a startup scan warning about skill directories left by older binaries. |
+| `design/inputs.md:209-264` | Four overlapping sigils on one `--input` value slot (`@file`, `\@`, `@scoped/name`, `:json`), disambiguated by a heuristic that checks for dots. |
+| `design/audit.md:41-58` | Six AI-tool integrations, each with its own skills dir, instructions file, hook-config generator, and `postToolUse` payload normalizer. |
+| `design/extension.md:229-232` | Bundle caching moved from mtime to content fingerprint because *"mtime-based freshness was unreliable under atomic-rename saves, mtime-preserving sync tools, and sub-millisecond edits"*. |
+| `agent-constraints/adversarial-dimensions.md` + commit `9f0a184` | A review checklist written in the register of someone who has shipped canonicalization and authorize-vs-execute identity bugs. "fix(serve): close five security vulnerabilities in serve HA and vault subsystems". |
+| `design/run-tracker.md:76-82` | A global `unhandledrejection` swallower installed so extension code cannot kill the server. |
+| `dependency_extractor.ts:36-39` | `ArtifactDependencyTypes` — dependency inference declared and never used. |
+| Doc/code divergences | Reaped runs (`cancelled` vs `failed`); safety warnings ("prompt user" vs logged after install); `range()` documented but unregistered; README symlink views; skill references showing three obsolete paths. |
+
+The compound lesson: **the abstractions Swamp most regrets are the ones it added for flexibility it
+did not yet need** — execution drivers, datastore backends, the storage-tier split, the domain-event
+bus. The abstractions it does not regret are the ones that constrain (sealed grant CEL, unknown-key
+rejection, write-once terminal records, sentinels).
+
+### 11.3 What `hyper` should most carefully NOT copy
+
+Ordered by how much damage the mistake would do.
+
+**1. Implicit ordering — a DAG derived only from `dependsOn` while expressions read live state.**
+Swamp lets you write `${{ data.latest('scanner','result') }}` in a step with no dependency edge; the
+step may run concurrently with its producer and read stale or absent data, silently and
+non-deterministically (§9a.2). Compounded by accessors that *"read directly from disk on every
+call"* (`design/expressions.md:242-243`), so there is no snapshot isolation within a run either.
+When an **AI** writes the workflow, "the author is responsible for declaring the edge they already
+implied by referencing the data" is the wrong contract. hyper should either infer edges from
+references, or reject a reference without an edge — but not silently permit it.
+
+**2. Approval that suspends and exits 0.** A gated run in CI is indistinguishable from a successful
+one by exit code (§9a.7). No `--fail-on-suspend`, no test asserting it. If hyper ever grows a pause
+concept, the non-interactive exit-code contract must be designed first. (The map has already
+declined per-run approval; this is the reason to keep declining it, and the trap to avoid if the
+destructive-operations ticket reintroduces anything gate-shaped.)
+
+**3. An extension model with no sandbox and no declared permissions.** Extensions are `import()`ed
+into the host isolate, which holds every Deno permission except FFI; the manifest has no
+capabilities field; the safety analyzer treats `Deno.Command(` as a *warning*, never prompts, and
+scans the `.ts` sources while the prebuilt `.js` bundle is what actually runs (§10.4, §10.5). Every
+extension gets a live `VaultService`. The map keeps extensions in scope — then the permission model
+must be designed *before* the loader, because Swamp shows it cannot be retrofitted: the whole
+process is already fully privileged.
+
+**4. Secrets outside the access-control model.** `parseResourceSelector("secret:my-secret")` throws
+by design; `VaultService.get()` takes no principal; secret resolution is a regex scan over arbitrary
+strings, so whatever the author writes is fetched (§9c.6). Any hyper design where a definition can
+name a secret should make secret access a declared, checkable property of the definition — not an
+emergent consequence of string content.
+
+**5. An audit trail with no tamper-evidence, off by default, that only logs reads.** No hash chain,
+no signatures, `O_APPEND` only, gitignored, default umask, `deleteOlderThan` in the interface, and a
+filtered-by-default diagnostic prefix that is an unenforced convention (§9c.7, §9c.8). Plus the
+`callerContext` is the constant string `"expression:vault-resolve"`, so it cannot answer the
+question it exists to answer. Either build a trail that is trustworthy or do not claim one.
+
+**6. Encryption with no rotation and no recovery.** Losing `.key` or changing `ssh_key_path`
+permanently destroys every secret, and there is no `rotate-key`, no escrow, no export (§9c.3). Also
+avoid the second, weaker path: `ControlPlaneVaultProvider` stores its AES key in plaintext beside
+the ciphertext. If hyper encrypts anything locally, rotation and recovery are day-one requirements,
+not follow-ups.
+
+**7. Provenance that records the run but not the code.** Swamp records `workflowRunId`, `jobName`,
+`stepName`, `ownerRef` — but no definition version, no git SHA, no extension digest on the data
+record (§9b.8). For a tool whose thesis is human review of AI-authored automation, "which revision
+of the definition produced this?" is *the* question, and Swamp cannot answer it from the artifact.
+
+**8. Pluggable-everything before there is a second implementation.** Execution drivers were built
+with a registry, a 12-field config, and a six-level precedence chain, then deleted wholesale. The
+datastore abstraction now spans filesystem, S3, distributed locks, sync, hydration strategies, and
+namespaces — for a tool the map says will have one user and two environments. The `.swamp.yaml`
+per-setting precedence chains are each hand-rolled. Prefer one implementation until a second is
+actually required.
+
+**9. Overloaded value syntax.** The `--input` grammar needs a heuristic ("starts with a letter,
+contains a `/`, has no `.`") to tell a file path from a scoped identifier (§4). One sigil per
+meaning, or an explicit flag.
+
+**10. `forEach` conditions that are silently ignored.** A `dependsOn.condition` on a fan-out step
+shapes the DAG but is never evaluated at runtime (§9a.4). Either honour it or reject it at parse
+time.
+
+**11. Retention policy frozen into each record at write time.** Changing the policy does not affect
+data already written (§9b.10). Defensible, but it should be a decision, and read-time policy is
+probably the better default for a single-user tool.
+
+**12. Everything the map already declared out of scope** — quests and bingo boards, telemetry with a
+`distinct_id`, `swamp issue` support funnels, `serve` with HA and OAuth, six agent-tool
+integrations, an extension registry. The research confirms the call: the extension subsystem alone
+(20,866 LOC) is larger than the workflow engine (14,444 LOC).
+
+### 11.4 Two things hyper should copy the *reasoning* of, not the mechanism
+
+- **Isolation is a deployment property, not a config field.** Swamp's conclusion after deleting its
+  driver abstraction (`design/execution-drivers.md:8-10`). The mechanism (remote workers) is out of
+  scope for hyper; the conclusion — do not put an isolation selector in the authored artifact —
+  transfers directly.
+- **Pre-flight the check that would otherwise fail after the side effect.** `doctor vaults` exists
+  because a mutation succeeded and then could not be recorded (`design/doctor-vaults.md:14-16`).
+  Generalised: any hyper validation that runs *after* an effectful call is a latent version of that
+  bug.
+
+---
+
+## 12. Contradictions with the map's Notes
+
+Recorded explicitly so the map can be corrected.
+
+**1. "Swamp is Deno, not npm."** Half right, and the half that is wrong matters.
+Swamp is Deno-hosted, but it depends on npm heavily: 21 of 27 direct imports in `deno.json:21-58`
+are `npm:` specifiers (zod, react, ink, `@aws-sdk/client-cloudcontrol`, cel-js, croner, marked,
+seven `@opentelemetry/*`, …), and `deno.lock` resolves **200 npm packages** to 18 JSR ones. The
+extension system makes this worse rather than better: `npm:`, `jsr:` and `https:` are documented
+first-class peers, **inlined into the bundle on the author's machine at push time**, so extension
+dependencies never appear in the consumer's lockfile at all and version pinning is advisory
+(`design/extension.md:472-493`). The npm supply-chain surface is not smaller than an equivalent Node
+tool's; it is less visible.
+
+**2. "Permissions off by default."** Wrong. `scripts/compile.ts:157-171` ships the binary with
+`--allow-read --allow-write --allow-env --allow-run --allow-sys --allow-net` — every permission
+category Deno currently has except `--allow-ffi` and `--allow-import`. The accompanying comment
+frames "individual flags instead of `--allow-all`" as least-privilege, but that is about *future*
+categories, not present ones. And Swamp uses Deno's permission model nowhere else: zero occurrences
+of `new Worker(`, `Deno.permissions`, or `PermissionOptions` in the entire tree.
+
+**3. "No lifecycle scripts."** Correct, and worth keeping. No `nodeModulesDir` is set and no task
+passes `--allow-scripts`, so npm packages resolve into Deno's global cache without executing
+`postinstall`. **[inferred from the absence of those settings, not from an explicit statement.]**
+
+**4. "Likely `deno compile`d."** Confirmed — `scripts/compile.ts` runs `deno compile` with an
+embedded Deno runtime and `--include .claude/skills`, and the Dockerfile just copies the resulting
+binary (`FROM denoland/deno:2.7.5`).
+
+**5. Not a contradiction, but an unrecorded divergence: Swamp has no MCP server.** Its agent
+interface is skills-files-plus-CLI, across six tools. The only `modelcontextprotocol` references in
+the tree are transitive deps of `promptfoo` under `evals/`. hyper's "MCP-first" decision is a
+genuine departure from the prior art, not an inheritance — which is fine, but the map currently
+reads as though Swamp established that ground.
+
+**6. "Its five primitives (Models, Definitions, Workflows, Vaults, Data) are the starting
+decomposition."** The five are a marketing artifact, not the model. Swamp's own bundled skill lists
+a different five-plus-two (Models, Data, Workflows, Vaults, Extensions, Grants, Serve), and the code
+carries Reports, Datastores, Workers and Grants as first-class kinds too. Critically, **Definition
+is not a peer of Model — it is an instance of one** (§2.1). The real decomposition is three layers
+(type in code / instance in YAML / orchestration in YAML) plus two stores (data, secrets).
+
+**7. "Data layer — how versioned, immutable, provenanced artifacts are … diffed."** Swamp has **no
+diff**. No `swamp data diff`, no drift detection; `design/high-level.md:20-23` self-flags drift
+detection as unimplemented. Only `--since` time-window filtering exists. The "what changed since
+Tuesday" half of oversight is not prior art to be adapted — hyper would be designing it from
+scratch.
+
+**8. "Swamp ships OpenTelemetry"** (listed under Observability). Confirmed, and more than the note
+suggests: traces *and* native OTLP log records, with secrets redacted before export, spanning CLI →
+workflow → job → step → model method, and `TRACEPARENT` propagation into extensions and containers
+(`README.md:326-386`). It is opt-in via `OTEL_EXPORTER_OTLP_ENDPOINT` with zero overhead when unset.
+Note the framing though: the README says its main value is *"most useful for long-running `swamp
+serve` daemons"* — i.e. it earns its place in the architecture the map has explicitly declined.
+
+**9. "Authoring language — YAML? CEL expressions like Swamp?"** Worth recording that Swamp runs
+**three** CEL dialects, not one (§4), and that its CEL has no `??` operator, cannot use `namespace`
+as an identifier, and has a documented parsing limitation where an expression containing a literal
+`}}` splits prematurely (`design/workflow.md:271-275`).
+
+---
+
+*Manual/website coverage is summarised in §13 below.*
