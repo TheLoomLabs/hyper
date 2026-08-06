@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE — hyper oversight surfaces (#5)</title>
+<style>
+  :root {
+    --bg: #f6f6f4; --fg: #1b1b1a; --dim: #6c6c68; --line: #dedcd6;
+    --card: #ffffff; --term-bg: #14161a; --term-fg: #d7dae0;
+    --add: #57ab5a; --del: #e5534b; --warn: #d29922; --meta: #6e7681; --cmd: #79c0ff;
+    --accent: #5319e7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#101113; --fg:#e6e6e3; --dim:#95958f; --line:#2a2c30; --card:#17181b; --accent:#a98bff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif; padding-bottom: 96px; }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 40px 24px; }
+  h1 { font-size: 22px; margin:0 0 6px; letter-spacing:-0.01em; }
+  h2 { font-size: 17px; margin: 40px 0 4px; letter-spacing:-0.01em; }
+  h3 { font-size: 13px; text-transform: uppercase; letter-spacing:0.07em; color: var(--dim); margin: 28px 0 8px; font-weight:600; }
+  p { margin: 8px 0; }
+  .sub { color: var(--dim); font-size: 14px; }
+  .banner { border:1px dashed var(--accent); color:var(--accent); border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:24px; }
+  .note { border-left: 3px solid var(--line); padding: 4px 0 4px 14px; color: var(--dim); font-size: 14px; margin: 10px 0 18px; }
+  .note b { color: var(--fg); font-weight:600; }
+  pre { background: var(--term-bg); color: var(--term-fg); border-radius: 10px; padding: 18px 20px; overflow-x: auto;
+        font: 12.5px/1.62 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; margin: 0 0 8px;
+        border: 1px solid #23262c; }
+  pre.json { background: var(--card); color: var(--fg); border:1px solid var(--line); }
+  .ln-cmd { color: var(--cmd); }
+  .ln-add { color: var(--add); }
+  .ln-del { color: var(--del); }
+  .ln-warn { color: var(--warn); }
+  .ln-meta { color: var(--meta); }
+  .variant { display:none; }
+  .variant.on { display:block; }
+  .cost { display:flex; gap:22px; flex-wrap:wrap; font-size:13px; margin:10px 0 6px; }
+  .cost div { flex:1; min-width:220px; }
+  .cost b { display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.07em; color:var(--dim); margin-bottom:2px; }
+  ol, ul { margin: 8px 0; padding-left: 20px; }
+  li { margin: 5px 0; }
+  code { font: 12.5px ui-monospace, Menlo, monospace; background: rgba(128,128,128,.14); padding: 1px 5px; border-radius:4px; }
+  hr { border:0; border-top:1px solid var(--line); margin: 44px 0 0; }
+  .bar { position: fixed; left:50%; transform:translateX(-50%); bottom: 20px; display:flex; align-items:center; gap:4px;
+         background: var(--fg); color: var(--bg); border-radius: 999px; padding: 6px 8px; box-shadow: 0 8px 30px rgba(0,0,0,.28); z-index:50; }
+  .bar button { all:unset; cursor:pointer; padding: 6px 12px; border-radius:999px; font-size:14px; line-height:1; }
+  .bar button:hover { background: rgba(128,128,128,.35); }
+  .bar .label { padding: 0 12px; font-size:13px; font-weight:600; white-space:nowrap; }
+  .bar .kbd { font-size:11px; opacity:.55; padding-right:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="banner">PROTOTYPE — throwaway. Branch <code>prototype/oversight-surfaces</code>. Answers issue #5: what do the oversight surfaces look like? Not code, not a spec. Flip variants with ← → or the bar at the bottom.</div>
+
+  <h1>hyper — oversight surfaces</h1>
+  <p class="sub">Three structurally different renderings of the same four surfaces, against one shared scenario. Pick one, or steal parts.</p>
+
+  <h3>The scenario, held constant across all three</h3>
+  <p class="sub">A procedure <code>retire-preview-envs</code> with three steps: probe preview URLs (read, target <code>local</code>), relabel their servers (mutate, target <code>staging</code>, no bound declared), delete preview servers older than 14 days (destroy, target <code>staging</code>, bound 5). The AI raised that bound from 3 to 5 in this revision. A run on Tuesday succeeded; today's run refused because the destroy selector expanded to 23 assets.</p>
+
+  <h3>The four surfaces</h3>
+  <ol class="sub">
+    <li><b>Definition review</b> — authoring time, before anything runs. Includes the always-computed blast-radius summary handed over from #4.</li>
+    <li><b>Change review</b> — "what changed since Tuesday". Assets vs Observations diff differently; provenance is part of the answer.</li>
+    <li><b>Refusal</b> — the whole remediation path, since #4/ADR-0001 removed every bypass flag.</li>
+    <li><b>JSON</b> — not decoration: CI reads outcome as explicit state, never by parsing prose.</li>
+  </ol>
+
+<!-- ============================ VARIANT A ============================ -->
+<div class="variant" data-key="A" data-name="Brief — prose-first">
+  <hr>
+  <h2>Variant A — Brief</h2>
+  <p class="sub">The tool writes you a short report. Sentences, not tables. The surface takes a position on what matters and says it in words; structure is implied by paragraph, not by column. Reads like a well-written PR description.</p>
+
+  <h3>1 · Definition review</h3>
+<pre>
+$ hyper review procedures/retire-preview-envs.yaml
+
+  retire-preview-envs                                    procedure · 3 steps · rev 4d7e118
+
+  Probes preview URLs, relabels the servers behind them, and deletes preview
+  servers older than 14 days.
+
+  It may act on two targets: staging and local.
+  It may destroy on staging, through delete_server only, at most 5 per run.
+  It may mutate on staging with no bound declared — an unbounded mutate.
+  Everything else is read-only.
+
+  Nothing here reaches prod. No step binds it, and nothing reachable through
+  this procedure declares it.
+
+  Three things worth checking before you approve:
+
+    1. Step 2 `label` declares no bound. If the selector widens, the write
+       widens with it. Declare one unless unbounded is what you meant.
+
+    2. Step 3 `retire` can only ever reach servers hyper created. Preview
+       servers made by hand are invisible to it and will be left standing.
+
+    3. This revision raised step 3's bound from 3 to 5. That is a widening
+       of destroy authority and it is the reason you are reading this.
+
+  Artefacts:  procedures/retire-preview-envs.yaml
+              definitions/hetzner-staging.yaml   ← where destroy is granted
+              definitions/uptime.yaml
+</pre>
+
+  <h3>2 · Change review</h3>
+<pre>
+$ hyper diff --since tuesday
+
+  staging · retire-preview-envs — 7 changes since Tue 4 Aug 09:12
+
+  You destroyed 3 preview servers.
+      preview-8801, preview-8802, preview-8806 — all confirmed, tombstoned.
+
+  You created 1.
+      preview-8821 — cx22, 2 vCPU / 4 GB, fsn1.
+
+  You changed 1.
+      preview-8815 — labels.retire-after  2026-08-18 → 2026-08-25
+
+  The world moved under 2 observations. hyper did not do this.
+      status.hyper.dev   200 → 503        first seen failing 06:40 today
+      cert:hyper.dev     41 → 34 days     to expiry
+
+  Worth knowing: the code changed between these two runs.
+      procedure rev  a91f0c2 → 4d7e118    (step 3 bound: 3 → 5)
+      repo rev       1f0a3d7 → 88bc402
+</pre>
+
+  <h3>3 · Refusal</h3>
+<pre>
+$ hyper run retire-preview-envs --target staging
+
+  probe    12 urls checked
+  label    8 servers relabelled
+
+  Refused. Nothing was deleted.
+
+  Step 3 `retire` declared a bound of 5. Its selector expanded to 23 assets
+  on staging, so hyper stopped before the first call.
+
+  This is a guardrail, not a failure — the world was not touched, and no flag
+  overrides it. The way past is to edit an artefact and put it back through
+  review:
+
+      raise the bound         procedures/retire-preview-envs.yaml:19
+                              bound: 5   →   bound: 23
+
+      or narrow the selector  procedures/retire-preview-envs.yaml:18
+                              age &gt; "14d"   →   age &gt; "30d"    expands to 4
+
+  Recorded as run 01K4Z8QW6N.  See all 23:  hyper show 01K4Z8QW6N --expansion
+
+  refused
+</pre>
+
+  <h3>4 · JSON</h3>
+  <p class="note">Mirrors the prose one-for-one — nested, semantic, one object per concept. A CI job reads <code>.outcome</code>; a human reads the same tree.</p>
+<pre class="json">
+{
+  "outcome": "refused",
+  "run": "01K4Z8QW6N3M2VT0BQ7YHR4C9E",
+  "procedure": { "name": "retire-preview-envs", "revision": "4d7e118" },
+  "refusal": {
+    "check": "bound_exceeded",
+    "step": { "index": 3, "id": "retire", "operation": "delete_server", "kind": "destroy" },
+    "target": "staging",
+    "declared": 5,
+    "observed": 23,
+    "phase": "expansion",
+    "summary": "Step `retire` declared a bound of 5; expansion resolved 23 assets.",
+    "remediation": [
+      { "artefact": "procedures/retire-preview-envs.yaml", "line": 19,
+        "field": "steps[2].bound", "from": 5, "to": 23 },
+      { "artefact": "procedures/retire-preview-envs.yaml", "line": 18,
+        "field": "steps[2].over", "hint": "narrow the selector", "example_expansion": 4 }
+    ]
+  },
+  "effects": { "records_written": 0, "steps_completed": 2 },
+  "provenance": {
+    "definition_revision": "4d7e118", "manifest_digest": "sha256:9c1f…",
+    "extension_digest": null, "repo_revision": "88bc402"
+  }
+}
+</pre>
+
+  <div class="cost">
+    <div><b>Buys you</b> A reviewer who is not in the loop can read it cold. Editorialising means the surface can say "this widened destroy authority" instead of leaving you to spot it.</div>
+    <div><b>Costs you</b> Prose is unscannable at 40 steps and ungreppable in a CI log. And the editorial voice must be right — a summary that says the wrong three things is worse than no summary.</div>
+    <div><b>Bets on</b> Review being a human act of reading, not scanning.</div>
+  </div>
+</div>
+
+<!-- ============================ VARIANT B ============================ -->
+<div class="variant" data-key="B" data-name="Ledger — tabular, dense">
+  <hr>
+  <h2>Variant B — Ledger</h2>
+  <p class="sub">Everything is a table. Fixed columns, one row per thing, no narrative anywhere. The surface asserts nothing and ranks nothing — it lays the facts out in a grid and lets you scan. Same shape at 3 steps and at 300.</p>
+
+  <h3>1 · Definition review</h3>
+<pre>
+$ hyper review procedures/retire-preview-envs.yaml
+
+PROCEDURE  retire-preview-envs                                  rev 4d7e118
+TARGETS    local, staging                                       declared, transitive
+
+#  STEP    OPERATION           KIND     DEFINITION       TARGET   OVER                       BOUND
+1  probe   check_http          read     uptime           local    observation(preview-urls)  n/a
+2  label   set_server_labels   mutate   hetzner-staging  staging  asset(label=preview)       UNBOUNDED
+3  retire  delete_server       destroy  hetzner-staging  staging  asset(label=preview,>14d)  5
+
+AUTHORITY
+DEFINITION       TARGET   DEFINITION KINDS      TARGET KINDS          EFFECTIVE  DESTROY OPS
+uptime           local    read                  read                  r          —
+hetzner-staging  staging  read mutate destroy   read mutate destroy   r m d      delete_server
+
+FLAGS
+UNBOUNDED  step 2   mutate, no declared bound
+DESTROY    step 3   delete_server, bound 5
+WIDENED    step 3   bound 3 → 5 since rev a91f0c2
+OK         envelope no step reaches a target outside the declared set
+</pre>
+
+  <h3>2 · Change review</h3>
+<pre>
+$ hyper diff --since 2026-08-04T09:12Z --target staging
+
+CHANGE  RECORD KIND  RECORD                  VERSION  DETAIL
+tomb    asset        srv/preview-8801        4 → †5   destroy confirmed 11:02
+tomb    asset        srv/preview-8802        3 → †4   destroy confirmed 11:02
+tomb    asset        srv/preview-8806        7 → †8   destroy confirmed 11:03
+new     asset        srv/preview-8821        – → 1    cx22 fsn1 2vcpu/4gb
+mut     asset        srv/preview-8815        9 → 10   labels.retire-after 08-18 → 08-25
+moved   observation  http/status.hyper.dev   22 → 23  status 200 → 503
+moved   observation  cert/hyper.dev          22 → 23  days_left 41 → 34
+
+PROVENANCE
+FIELD                PREVIOUS     CURRENT
+definition revision  a91f0c2      4d7e118
+manifest digest      sha256:9c1f  sha256:9c1f
+extension digest     —            —
+repo revision        1f0a3d7      88bc402
+
+TOTALS  7 changes · 5 asset · 2 observation · 3 tombstone · 1 provenance drift
+</pre>
+
+  <h3>3 · Refusal</h3>
+<pre>
+$ hyper run retire-preview-envs --target staging
+
+STEP  ID      KIND     RESULT
+1     probe   read     completed  12 records
+2     label   mutate   completed  8 records
+3     retire  destroy  REFUSED
+
+OUTCOME    refused
+CHECK      bound_exceeded
+PHASE      expansion — before the first call
+STEP       3  retire  delete_server (destroy)
+TARGET     staging
+DECLARED   5
+OBSERVED   23
+EFFECTS    none for this step · 0 records written · nothing deleted
+
+EDIT ONE OF
+FILE                                 LINE  FIELD           FROM         TO
+procedures/retire-preview-envs.yaml  19    steps[2].bound  5            ≥ 23
+procedures/retire-preview-envs.yaml  18    steps[2].over   age &gt; "14d"  age &gt; "30d"  → 4
+
+NO BYPASS  ADR-0001 — no --force, no --skip-checks. Edit and re-review.
+RUN        01K4Z8QW6N3M2VT0BQ7YHR4C9E
+</pre>
+
+  <h3>4 · JSON</h3>
+  <p class="note">Table-shaped, so <b>NDJSON</b>: one row per line, one object per row, a <code>type</code> discriminator on each. <code>hyper diff --json | jq 'select(.type=="tomb")'</code> works without walking a tree. The final line is always the summary.</p>
+<pre class="json">
+{"type":"step","index":1,"id":"probe","kind":"read","result":"completed","records":12}
+{"type":"step","index":2,"id":"label","kind":"mutate","result":"completed","records":8}
+{"type":"step","index":3,"id":"retire","kind":"destroy","result":"refused"}
+{"type":"refusal","check":"bound_exceeded","phase":"expansion","step":3,"step_id":"retire",
+ "operation":"delete_server","target":"staging","declared":5,"observed":23}
+{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":19,
+ "field":"steps[2].bound","from":5,"to":23}
+{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":18,
+ "field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
+{"type":"provenance","definition_revision":"4d7e118","manifest_digest":"sha256:9c1f",
+ "extension_digest":null,"repo_revision":"88bc402"}
+{"type":"summary","outcome":"refused","run":"01K4Z8QW6N3M2VT0BQ7YHR4C9E","records_written":0}
+</pre>
+
+  <div class="cost">
+    <div><b>Buys you</b> Scales flat. Greppable, diffable, jq-able with no tree-walking. The tool never editorialises, so it can never editorialise wrongly.</div>
+    <div><b>Costs you</b> Nothing is ranked, so the one row that matters sits at the same weight as the other 39. A reviewer must already know what to look for.</div>
+    <div><b>Bets on</b> Review being scanning, and the reader being the same person every time.</div>
+  </div>
+</div>
+
+<!-- ============================ VARIANT C ============================ -->
+<div class="variant" data-key="C" data-name="Patch — diff-native everywhere">
+  <hr>
+  <h2>Variant C — Patch</h2>
+  <p class="sub">One mental model for all four surfaces: the unified diff. The definition review is a diff of the artefact with blast radius in the gutter. The change review is a diff of the world. The refusal is a compiler error plus the patch that fixes it. You are always in code-review mode.</p>
+
+  <h3>1 · Definition review</h3>
+<pre>
+$ hyper review procedures/retire-preview-envs.yaml
+
+--- a/procedures/retire-preview-envs.yaml    a91f0c2
++++ b/procedures/retire-preview-envs.yaml    working tree
+
+           - id: probe
+ read        definition: uptime
+ local       operation: check_http
+             over: observation("preview-urls")
+
+           - id: label
+ mutate!     definition: hetzner-staging              ! unbounded mutate
+ staging     operation: set_server_labels
+             over: asset(label="preview")
+
+           - id: retire
+ DESTROY     definition: hetzner-staging
+ staging     operation: delete_server                 ← granted in hetzner-staging.yaml:6
+-            bound: 3
++            bound: 5                                 ← destroy authority widened
+             over: asset(label="preview", age &gt; "14d")
+
+  blast radius   local    read
+                 staging  read · mutate (UNBOUNDED) · destroy (delete_server ≤ 5)
+                 prod     not reachable
+
+  this revision  1 change, and it widens a destroy bound
+</pre>
+
+  <h3>2 · Change review</h3>
+<pre>
+$ hyper diff --since tuesday
+
+--- staging   Tue 4 Aug 09:12   run 01K4M2H…   rev a91f0c2
++++ staging   Wed 6 Aug 11:03   run 01K4Z8Q…   rev 4d7e118
+
+ asset srv/preview-8801
+-  state: running
++  state: destroyed                    † tombstone v5, confirmed 11:02
+
+ asset srv/preview-8802
+-  state: running
++  state: destroyed                    † tombstone v4, confirmed 11:02
+
+ asset srv/preview-8806
+-  state: running
++  state: destroyed                    † tombstone v8, confirmed 11:03
+
++asset srv/preview-8821                  created, v1
++  type: cx22   region: fsn1
+
+ asset srv/preview-8815
+   labels:
+-    retire-after: 2026-08-18
++    retire-after: 2026-08-25
+
+ observation http/status.hyper.dev
+-  status: 200
++  status: 503                         the world moved — hyper did not do this
+
+ observation cert/hyper.dev
+-  days_left: 41
++  days_left: 34
+
+! provenance
+-  definition revision a91f0c2
++  definition revision 4d7e118         the code changed between these runs
+-  repo revision       1f0a3d7
++  repo revision       88bc402
+</pre>
+
+  <h3>3 · Refusal</h3>
+<pre>
+$ hyper run retire-preview-envs --target staging
+
+refused: bound exceeded — nothing was deleted
+
+  procedures/retire-preview-envs.yaml:19
+    17 |     operation: delete_server
+    18 |     over: asset(label="preview", age &gt; "14d")
+    19 |     bound: 5
+       |            ^ expansion resolved 23 assets on staging
+       |
+       = a destroy bound is checked at expansion, before the first call
+       = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+  apply one:
+
+  @@ raise the bound @@
+  -     bound: 5
+  +     bound: 23
+
+  @@ or narrow the selector — expands to 4 @@
+  -     over: asset(label="preview", age &gt; "14d")
+  +     over: asset(label="preview", age &gt; "30d")
+
+  steps 1-2 completed and their records are written. step 3 wrote nothing.
+  run 01K4Z8QW6N   ·   hyper show 01K4Z8QW6N --expansion   to see all 23
+</pre>
+
+  <h3>4 · JSON</h3>
+  <p class="note">Patch-shaped, like the terminal: every surface is a list of <code>op</code> / <code>path</code> / <code>from</code> / <code>to</code> events. The same envelope carries a world diff, an artefact diff, and a refusal — one parser for all three.</p>
+<pre class="json">
+{
+  "outcome": "refused",
+  "run": "01K4Z8QW6N3M2VT0BQ7YHR4C9E",
+  "base": { "run": "01K4M2H…", "definition_revision": "a91f0c2" },
+  "head": { "definition_revision": "4d7e118", "repo_revision": "88bc402" },
+  "changes": [
+    { "op": "tombstone", "path": "staging/asset/srv~preview-8801", "from": "running",
+      "to": "destroyed", "version": 5, "confirmed_at": "2026-08-06T11:02:41Z" },
+    { "op": "create", "path": "staging/asset/srv~preview-8821", "to": { "type": "cx22" }, "version": 1 },
+    { "op": "replace", "path": "staging/asset/srv~preview-8815/labels/retire-after",
+      "from": "2026-08-18", "to": "2026-08-25", "version": 10 },
+    { "op": "replace", "path": "staging/observation/http~status.hyper.dev/status",
+      "from": 200, "to": 503, "actor": "world" }
+  ],
+  "refusal": {
+    "check": "bound_exceeded", "phase": "expansion",
+    "at": { "artefact": "procedures/retire-preview-envs.yaml", "line": 19, "field": "steps[2].bound" },
+    "declared": 5, "observed": 23,
+    "patches": [
+      { "op": "replace", "path": "steps[2].bound", "from": 5, "to": 23 },
+      { "op": "replace", "path": "steps[2].over", "from": "asset(label=\"preview\", age &gt; \"14d\")",
+        "to": "asset(label=\"preview\", age &gt; \"30d\")", "example_expansion": 4 }
+    ]
+  }
+}
+</pre>
+
+  <div class="cost">
+    <div><b>Buys you</b> One idiom to learn, reused four times. The remediation is literally a patch, so the fix is mechanical. Widened authority is impossible to miss — it is a <code>+</code> line.</div>
+    <div><b>Costs you</b> A first run has no base to diff against, and a diff-native tool has to answer "what is this thing" as well as "what changed". Change review of 400 records is a very long patch.</div>
+    <div><b>Bets on</b> The reader being a person who reviews code all day, and on there usually being a previous revision.</div>
+  </div>
+</div>
+
+<hr>
+<h2>What I want you to react to</h2>
+<ol>
+  <li><b>Does the surface get to editorialise?</b> A says yes — it ranks, names the risk, tells you what to check. B says never. C says only structurally, by making the widening a <code>+</code> line. This is the real fork, and it decides whether a wrong summary is a possible failure mode.</li>
+  <li><b>Do "you did this" and "the world moved" get different visual treatment?</b> All three separate Asset from Observation, but only A separates them into two headings you cannot conflate.</li>
+  <li><b>Is provenance drift a first-class diff event?</b> All three show it. C makes it a change row alongside the others — the code moving is the same kind of fact as a server moving.</li>
+  <li><b>Is the terminal form the primary and JSON derived, or the reverse?</b> B's NDJSON is the surface that scales; its terminal table is nearly a rendering of it. A and C write the human form first.</li>
+  <li><b>Does the refusal show one remediation or several?</b> All three show two. Showing "narrow the selector → expands to 4" requires hyper to speculatively re-expand a selector it was just refused on. Worth the cost?</li>
+  <li><b>Same rendering for review and for CI?</b> None of these have a CI mode distinct from the terminal mode, on purpose — #4's rule that environment is not an axis. Colour and width would be the only difference.</li>
+</ol>
+
+<h2>Left open, deliberately</h2>
+<ul>
+  <li>Exit code numbers. #13 owns them — the mockups just say <code>refused</code>.</li>
+  <li>The authoring language. All three show YAML because something had to be on the page; the fog entry says that is undecided.</li>
+  <li>Where review happens — terminal only here. Whether a definition review also renders into a GitHub PR comment is unasked.</li>
+</ul>
+
+</div>
+
+<div class="bar">
+  <button id="prev" aria-label="previous variant">←</button>
+  <span class="label" id="label">A — Brief</span>
+  <button id="next" aria-label="next variant">→</button>
+  <span class="kbd">← →</span>
+</div>
+
+<script>
+// line colouring — cheap, rule-based, throwaway
+document.querySelectorAll('pre').forEach(pre => {
+  const lines = pre.textContent.replace(/^\n/, '').replace(/\n$/, '').split('\n');
+  pre.innerHTML = lines.map(l => {
+    const esc = l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    let c = '';
+    if (/^\$ /.test(l)) c = 'ln-cmd';
+    else if (/^\s*(---|\+\+\+|@@)/.test(l)) c = 'ln-meta';
+    // diff markers only at the gutter: column 0, or the 2-space-indented patch blocks
+    else if (/^\+/.test(l) || /^ {2}\+[ \S]/.test(l)) c = 'ln-add';
+    else if (/^-/.test(l) || /^ {2}-[ \S]/.test(l)) c = 'ln-del';
+    else if (/UNBOUNDED|DESTROY|WIDENED|refused|REFUSED|Refused|!|\^ |†|widened/.test(l)) c = 'ln-warn';
+    else if (/^\s+=\s/.test(l)) c = 'ln-meta';
+    return c ? '<span class="' + c + '">' + esc + '</span>' : esc;
+  }).join('\n');
+});
+
+const variants = [...document.querySelectorAll('.variant')];
+const label = document.getElementById('label');
+function show(key) {
+  const i = Math.max(0, variants.findIndex(v => v.dataset.key === key));
+  variants.forEach((v, n) => v.classList.toggle('on', n === i));
+  label.textContent = variants[i].dataset.key + ' — ' + variants[i].dataset.name;
+  if (location.hash.slice(1) !== variants[i].dataset.key) location.hash = variants[i].dataset.key;
+}
+function cycle(d) {
+  const cur = variants.findIndex(v => v.classList.contains('on'));
+  show(variants[(cur + d + variants.length) % variants.length].dataset.key);
+}
+document.getElementById('prev').onclick = () => cycle(-1);
+document.getElementById('next').onclick = () => cycle(1);
+addEventListener('keydown', e => {
+  if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.key === 'ArrowLeft') cycle(-1);
+  if (e.key === 'ArrowRight') cycle(1);
+});
+addEventListener('hashchange', () => show(location.hash.slice(1) || 'A'));
+show(location.hash.slice(1) || 'A');
+</script>
+</body>
+</html>
