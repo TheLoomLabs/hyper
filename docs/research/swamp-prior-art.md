@@ -11,12 +11,44 @@ Primary sources, in descending order of trust:
 2. **`design/*.md` in that repo** — 27 internal design documents, 13,529 lines. These are the
    maintainers' own architecture notes, including superseded ones. Far more candid than the
    README or the manual.
-3. **The manual** at `swamp-club.com/manual`.
+3. **The manual** at `swamp-club.com/manual` — all 146 pages listed in `sitemap.xml` were fetched
+   and read (§13). It is not in the public repo. It is mechanism-heavy and mostly reliable, with the
+   specific exceptions catalogued in §13.7.
 4. **The README** — *treat as unreliable*. It describes at least one feature that the design docs
-   say was removed (see "Stale claims" below).
+   say was removed (§8.2).
+
+**Trust order established by this research: `src/` > `design/` > the manual > bundled skills >
+README > marketing pages.**
 
 Every claim below cites a path relative to the Swamp repo root. Anything not directly read is
 marked **[inferred]**. Where a question could not be answered, it says so.
+
+---
+
+## Contents
+
+If you read only three sections, read **§9a.2** (implicit ordering), **§9a.7** (approval gates and
+the CI exit code), and **§11** (synthesis: what to copy, what not to).
+
+| § | Section |
+| --- | --- |
+| 1 | What Swamp actually is — thesis, agent interface, storage split |
+| 2 | The primitives, corrected — Model / Definition / Workflow / Vault / Data schemas and addressing |
+| 3a | Repo config: `.swamp.yaml` |
+| 3b | Expressions: CEL, three surfaces, namespaces, the live-state hazard |
+| 4 | Inputs — JSON Schema, `forEach`, the `--input` grammar |
+| 5 | Execution drivers — an abstraction built, then deleted; vault sentinels |
+| 6 | Sensitive data and the vault pre-flight |
+| 7 | Run tracking — the SQLite crash-recovery bolt-on |
+| 8 | Scar tissue |
+| 9 | Supply chain — correcting the map |
+| 9a | **Execution semantics** — DAG, concurrency, `forEach`, failure, resume, approvals |
+| 9b | **The data layer** — storage, addressing, immutability, query, redaction, provenance, diff |
+| 9c | **Vaults** — encryption, keys, refresh hooks, access control, audit |
+| 10 | **The extension model** — loading, contract, sandboxing, `npm:`, integrity |
+| 11 | **Synthesis** — deliberate decisions, scar tissue, what not to copy |
+| 12 | Contradictions with the map's Notes |
+| 13 | The manual and the marketing surface |
 
 ---
 
@@ -432,11 +464,13 @@ text file).
 unimplemented. `design/vaults.md:645-702` self-flags its `swamp/lets-get-sensitive` vault model as
 not present in the codebase.
 
-**Trust order for anyone reading Swamp: `src/` > `design/` > bundled skills > README > manual.**
+**Trust order for anyone reading Swamp: `src/` > `design/` > the manual > bundled skills > README >
+marketing pages.** (The manual ranks above the bundled skills because it is maintained as a
+deliverable; see §13.)
 
 ---
 
-## 3. Repo config: `.swamp.yaml`
+## 3a. Repo config: `.swamp.yaml`
 
 The full marker schema, verbatim from
 `src/infrastructure/persistence/repo_marker_repository.ts:41-67`:
@@ -491,7 +525,7 @@ Each setting re-implements its own chain. There is no single precedence resolver
 
 ---
 
-## 3. Expressions: CEL with `${{ }}` delimiters
+## 3b. Expressions: CEL with `${{ }}` delimiters
 
 Swamp embeds Google CEL in YAML using `${{ ... }}`. Source: `design/expressions.md`.
 
@@ -925,11 +959,11 @@ cleanup's own failure shadows the original error"* — a bug class they clearly 
 Map #1's Notes say: *"Swamp is **Deno**, not npm (no lifecycle scripts, permissions off by
 default, likely `deno compile`d)."* Two of those three are wrong.
 
-**Swamp depends on npm, heavily.** `deno.json:21-58` maps 27 direct imports, of which **21 are
-`npm:` specifiers** — `zod`, `react`, `ink`, `@aws-sdk/client-cloudcontrol`, `@marcbachmann/cel-js`,
-`croner`, `marked`, seven `@opentelemetry/*` packages, `fast-json-patch`, `fast-check`,
-`@vercel/beautiful-mermaid`. Only 6 are `jsr:`. `deno.lock` (version 5) resolves **200 npm packages
-and 18 JSR packages**.
+**Swamp depends on npm, heavily.** `deno.json:21-58` maps 36 direct imports, of which **24 are
+`npm:` specifiers** and 12 are `jsr:` — the npm side includes `zod`, `react`, `ink`,
+`@aws-sdk/client-cloudcontrol`, `@marcbachmann/cel-js`, `croner`, `marked`, `fast-json-patch`,
+`fast-check`, `@vercel/beautiful-mermaid`, and nine `@opentelemetry/*` packages. `deno.lock`
+(version 5) resolves **200 npm packages and 18 JSR packages**.
 
 **Lifecycle scripts:** correct, they do not run. `deno.json` sets no `nodeModulesDir` and no task
 passes `--allow-scripts`, so Deno resolves npm packages into its global cache without executing
@@ -1037,7 +1071,7 @@ entirely the author's responsibility, and the failure is silent and non-determin
 For a tool whose premise is that **an AI writes the workflow**, this is exactly the wrong default.
 An AI that writes a data reference and forgets the dependency edge produces a workflow that passes
 validation, usually works, and intermittently reads stale infrastructure state. Combined with the
-"expressions read live disk state" finding in §4, this is the sharpest "do not copy" in the report.
+"expressions read live disk state" finding in §3b, this is the sharpest "do not copy" in the report.
 
 ### 9a.3 Concurrency
 
@@ -2727,7 +2761,23 @@ meaning, or an explicit flag.
 shapes the DAG but is never evaluated at runtime (§9a.4). Either honour it or reject it at parse
 time.
 
-**11. Retention policy frozen into each record at write time.** Changing the policy does not affect
+**11. A typed model layer with an unschematised shell escape hatch.** Swamp's pitch is typed models
+with Zod schemas, validated inputs and outputs. But `command/shell` accepts an arbitrary `run:`
+string, pre-flight checks are skippable (`--skip-checks`), and — per the manual's own reference —
+schema mismatches on write "produce a warning, not an error" (§13.7). Nothing stops an AI agent from
+routing every task through `command/shell` and getting none of the guarantees. **A typed layer with
+a shell escape hatch provides the safety of a shell.** If hyper wants the typed-artifact property to
+mean anything, the escape hatch has to be either absent, or visibly and irreversibly marked in the
+artifact so a reviewer sees it.
+
+**12. Rollback that rewinds the record but not the effect.** The manual warns against its own
+`rollbackOnFailure` feature for exactly this: rolling back the data-layer writes for three
+successfully-provisioned VMs while the VMs still exist is *"worse than partial writes: it is a silent
+divergence between what Swamp knows and what is actually running"* (§13.5). Any transactional
+framing hyper adopts must distinguish "undo the record" from "undo the effect", and refuse the first
+without the second.
+
+**13. Retention policy frozen into each record at write time.** Changing the policy does not affect
 data already written (§9b.10). Defensible, but it should be a decision, and read-time policy is
 probably the better default for a single-user tool.
 
@@ -2754,9 +2804,9 @@ integrations, an extension registry. The research confirms the call: the extensi
 Recorded explicitly so the map can be corrected.
 
 **1. "Swamp is Deno, not npm."** Half right, and the half that is wrong matters.
-Swamp is Deno-hosted, but it depends on npm heavily: 21 of 27 direct imports in `deno.json:21-58`
+Swamp is Deno-hosted, but it depends on npm heavily: 24 of 36 direct imports in `deno.json:21-58`
 are `npm:` specifiers (zod, react, ink, `@aws-sdk/client-cloudcontrol`, cel-js, croner, marked,
-seven `@opentelemetry/*`, …), and `deno.lock` resolves **200 npm packages** to 18 JSR ones. The
+nine `@opentelemetry/*`, …), and `deno.lock` resolves **200 npm packages** to 18 JSR ones. The
 extension system makes this worse rather than better: `npm:`, `jsr:` and `https:` are documented
 first-class peers, **inlined into the bundle on the author's machine at push time**, so extension
 dependencies never appear in the consumer's lockfile at all and version pinning is advisory
@@ -2805,10 +2855,238 @@ Note the framing though: the README says its main value is *"most useful for lon
 serve` daemons"* — i.e. it earns its place in the architecture the map has explicitly declined.
 
 **9. "Authoring language — YAML? CEL expressions like Swamp?"** Worth recording that Swamp runs
-**three** CEL dialects, not one (§4), and that its CEL has no `??` operator, cannot use `namespace`
+**three** CEL dialects, not one (§3b), and that its CEL has no `??` operator, cannot use `namespace`
 as an identifier, and has a documented parsing limitation where an expression containing a literal
 `}}` splits prematurely (`design/workflow.md:271-275`).
 
 ---
 
-*Manual/website coverage is summarised in §13 below.*
+## 13. The manual and the marketing surface
+
+The manual is at `swamp-club.com/manual`. **It is not in the public GitHub repo** — no `docs/`,
+`site/`, or `www/` directory, and greps for its slugs find nothing. `design/*.md` and
+`.claude/skills/swamp/references/**` are different documents.
+
+Retrieval notes: `/llms.txt` and `/manual/reference/*.md` both 404, so there are no markdown
+alternates. `sitemap.xml` lists 163 URLs, **146 under `/manual`** — of which the manual index links
+only about 61, the rest being nested sub-pages. All 146 were fetched and converted (≈1.02 MB of
+markdown, 1,452 fenced code blocks). Coverage of the manual is therefore complete; the quotes below
+are a selection, not the whole corpus.
+
+### 13.1 Swamp's own thesis, in its own words
+
+From `/manual/explanation/how-swamp-works`:
+
+> "Swamp is an adaptive automation framework designed to be operated by AI agents. It decomposes
+> automation into a small set of composable primitives: models, workflows, vaults, extensions,
+> skills, and a data layer — also known as The Swamp. Each primitive does one thing. What matters is
+> how they fit together."
+
+Note that this is **six primitives, and the list differs again** from both the README and the
+bundled skill. "Definitions" is not among them — consistent with §2.1.
+
+From the marketing site:
+
+> "Deterministic automation for AI agents."
+> "Your agent nails the task, then can't do it twice."
+> "Instead of *performing* the work each time, it *builds* a workflow. Typed models, secrets pulled
+> from a vault, every result kept. The agent decides once; Swamp *runs* it the same way every time."
+
+And from `/manual/explanation/ai-agent-integration`, the clearest statement of the bet:
+
+> "Swamp is operated through AI agents. Not as an optional integration or a convenience layer on top
+> of a human-first interface, but as the primary design target. The CLI, the file formats, the data
+> model, and the extension system were all shaped by the question: what does an AI agent need to do
+> this well?"
+>
+> "Automation frameworks traditionally give humans a GUI or a CLI and expect them to learn the
+> system's concepts, memorize commands, and wire things together manually. Swamp inverts this. The
+> human describes what they want."
+
+This is the thesis hyper shares. Worth noting where hyper's map already differs: Swamp's answer to
+"what does an agent need" is *skills files + a CLI*; hyper's is MCP.
+
+### 13.2 Configuration precedence — this closes a map open question
+
+The map lists "Configuration precedence — Swamp layers repo/user/env/flag. Likely needed, not yet
+sharp." The manual states it exactly (`/manual/explanation/configuration-layers`):
+
+> "…that configuration comes from four sources: `.swamp.yaml` (repo-level, checked into version
+> control), `swamp config set` (user-level, stored in `~/.config/swamp/`), environment variables
+> prefixed with `SWAMP_`, and CLI flags. Precedence follows a strict order: **CLI flags override
+> environment variables, which override user config, which overrides repo config, which overrides
+> built-in defaults.**"
+
+With stated rationale per layer: repo config "holds settings the whole team shares"; user config
+"holds personal preferences… should not be version-controlled"; env vars are "the override layer for
+CI/CD pipelines"; flags are "for one-off overrides."
+
+A fifth source exists for the server — `.swamp/serve.yaml`, occupying the same precedence slot as
+`.swamp.yaml` — with one carve-out worth copying:
+
+> "Security-sensitive settings (authentication mode, admin identity, TLS certificates) are excluded
+> from the serve config file entirely and remain CLI-only or environment-variable-only."
+
+Repo root resolution (`/manual/reference/repository-configuration`): `--repo-dir` → `SWAMP_REPO_DIR`
+→ walk up from cwd, **bounded by the git repo root, or 10 ancestor levels outside a git repo**.
+
+Caveat for hyper: the manual describes one clean four-layer order, but §3a of this document shows the
+implementation hand-rolls a separate chain per setting. The documented model is the one to copy; the
+implementation is not evidence that it was easy.
+
+### 13.3 CLI and output contract
+
+Global flags, verbatim from `/manual/reference/doctor`:
+
+| Flag | Description |
+| --- | --- |
+| `--json` | "Output in JSON format (non-interactive)." |
+| `--log` | "Force flat log output (no interactive tree)." |
+| `--log-level <level>` | `trace`, `debug`, `info`, `warning`, `error`, `fatal` |
+| `-q`, `--quiet` | "Suppress non-essential output." |
+| `--no-telemetry` | |
+| `--show-properties` | "Show structured properties in log output." |
+| `--no-color` | |
+| `--server` | "Run against a remote `swamp serve` instance (env: `SWAMP_SERVE_URL`)." |
+| `--token` | "Server token in `<name>.<secret>` format; only with `--server`" |
+| `--repo-dir <dir>` | env: `SWAMP_REPO_DIR` |
+
+Output-mode conventions worth stealing:
+
+- `--json` is universal, and **implies non-interactive**: `data prune` — "Output in JSON format;
+  implies non-interactive mode (skips confirmation prompt)"; `vault read-secret` — "In `--json`
+  mode, outputs the value directly without prompting."
+- TTY-sensitivity is explicit rather than implicit: `data query` with no predicate opens a TUI on a
+  TTY, and **returns an error** in non-interactive mode rather than doing something arbitrary.
+- Long-running commands stream **NDJSON, not a wrapped array**: `extension pull --json` emits "a
+  stream of JSON objects, one per pull stage… the stream is not wrapped in an outer array."
+- `--junit` (with `--out`) for CI, and "`--junit` and `--json` cannot be combined."
+
+**Exit codes** — the only place Swamp gets specific, and it is a good model:
+
+- `swamp model method run`: `0` success, `1` general error, **`75` lock contention — "retry with
+  exponential backoff"**. Machine-readable error codes on stderr: `lock_timeout`, `model_not_found`,
+  `unknown_model_type`, `unknown_method`, `no_evaluated_definition`, `missing_deps`,
+  `method_execution_failed`, `not_authenticated`, `cancelled`.
+- All seven `doctor` subcommands: `0` pass / `1` fail — so CI can gate on any of them.
+- `swamp workflow run` blocks and its exit code reflects the outcome: "There is no async or detached
+  mode on the CLI." (Except for suspension — see §9a.7, where the code returns 0.)
+
+A distinct exit code for a *retryable* condition, plus a stable error-code vocabulary alongside the
+human message, is exactly what the map's "CLI surface and JSON output contract" item needs.
+
+Documented command families: `model`, `workflow`, `data`, `vault`, `extension`, `repo`, `config`,
+`doctor`, `run`, `auth`, `access`, `worker`, `serve`, `datastore`, `issue`, `agent`, `update`,
+`completions`, `version`, `report`, `source`, `summarise`, `telemetry`, `audit`. Note the manual
+mentions `workflow list`, `workflow status`, `workflow runs`, `report run`, and `report search` only
+in prose, with no flags table — treat those as unverified.
+
+### 13.4 Dry-run: per-command, never global
+
+**There is no global `--dry-run` or plan mode.** `--dry-run` exists on `data gc`, `data prune`,
+`run gc`, `vault migrate`, `extension push`, and `doctor extensions` — i.e. on *housekeeping*
+commands only.
+
+`swamp model method run` and `swamp workflow run` have **no `--dry-run`**. The nearest equivalents
+are `model validate` / `model evaluate` and `workflow validate` / `workflow evaluate` ("Test CEL
+expressions in a workflow without executing it"), plus `workflow get --graph`. **[inferred]** that
+these are the intended substitute — the manual never calls them a dry-run.
+
+For a tool that provisions and deletes infrastructure, that is a notable gap, and it bears directly
+on hyper's destructive-operations ticket: Swamp's answer to "what will this do?" is "evaluate the
+expressions and look at the DAG", not "simulate the effects".
+
+### 13.5 The `rollbackOnFailure` warning
+
+The single most valuable safety passage in the manual
+(`/manual/explanation/models-types-and-methods`):
+
+> "**Do not use `rollbackOnFailure` on methods that interact with external systems.** If a method
+> provisions three VMs in a cloud provider, writes their IDs to the data layer, then fails
+> provisioning a fourth, rollback discards the records of VMs 1–3 — but those VMs still exist in the
+> cloud. The data layer now says they do not exist. **This is worse than partial writes: it is a
+> silent divergence between what Swamp knows and what is actually running.**"
+
+Swamp shipped a transactional-rollback feature and then had to document that using it against real
+infrastructure produces silent drift. The general principle for hyper: **a rollback that only
+rewinds the record, not the effect, is worse than no rollback**, because it converts a visible
+partial failure into an invisible inconsistency. This should inform whatever hyper does about
+partial failure of destructive operations.
+
+Related, and good: the manual's rationale for keeping `prune` out of `gc` — "gc runs unattended
+(including as an automatic post-method hook), while prune defaults to a confirmation prompt and
+supports `--dry-run` for preview." Splitting operations by *whether they may run unattended* is a
+cleaner axis than splitting by what they delete.
+
+### 13.6 Other safety mechanisms the manual documents
+
+- **Pre-flight vault validation**: a mutating method with sensitive outputs and no vault "is rejected
+  immediately — before any method logic runs." (Matches §6.)
+- **Checks run before execution**, with stated reasoning: "A check that fails before execution begins
+  leaves nothing to clean up." But they are skippable via `--skip-checks`, `--skip-check`, and
+  `--skip-check-label`, with no documented restriction — so the guarantee is opt-out by default.
+- **Guards + `resume --from`**: "Steps that completed successfully before the failure are **not
+  re-run** — this prevents repeating irreversible side effects."
+- **Assert severities** `low|medium|high` with a `--fail-on` threshold (default `low`).
+- **Uniform destructive-command convention**: `-y, --yes` (with `--force`/`-f` accepted) on every
+  delete-shaped command, and explicit irreversibility language — `data prune`: "Deletion is
+  irreversible."; `datastore lock release --force` sits under a heading literally called
+  "Breakglass".
+- **`swamp serve` hard refusal**, and the reasoning is worth quoting: off-loopback binding "requires
+  both `--cert-file` / `--key-file` and `--auth-mode` other than `none`. **This is not
+  configurable.**" Because "An unauthenticated, unencrypted control plane on the network is arbitrary
+  remote execution." A non-negotiable refusal, stated as such.
+- **`runModel` limits**: max call depth 10, max 100 total invocations, cycle detection, and "Vault
+  secrets are isolated per extension" — the one place per-extension scoping does exist.
+- **Remote workers**: "Workers never receive vault credentials or connection details — they see only
+  the resolved plaintext for secrets referenced by the current step."
+
+### 13.7 Claims to treat as marketing, not mechanism
+
+The manual is unusually mechanism-heavy — a corpus-wide grep for "seamless", "effortless",
+"enterprise-grade", "just works", "guarantee" finds essentially nothing under `/manual`; the hits
+are all on the marketing pages. That makes the remaining unsupported claims easier to isolate:
+
+1. **"Deterministic automation for AI agents."** The strongest claim on the site, and nowhere
+   defined. Nothing in the manual describes determinism enforcement — no pinned execution
+   environment for `command/shell`, no replay, no input hashing. Our own findings (§3b: expressions
+   read live disk state; §9a.2: no inferred ordering) suggest the opposite. Treat "deterministic" as
+   meaning "the same YAML is executed again", nothing stronger.
+2. **"Extreme Token Efficiency"** — no measurement, baseline, or mechanism anywhere.
+3. **"adaptive automation framework"** — "adaptive" is never defined across 146 pages.
+4. **"It plugs into any agent harness, with any model"** — the docs actually cover six built-in
+   tools plus a custom-tool definition that captures three facts, and concede custom tools "get the
+   substance (skills and instructions) without the polish (audit recording, diagnostics, harness
+   awareness)."
+5. **"Nothing leaves your environment unless you configure a datastore"** — true of *produced
+   artifacts*, not of the process: telemetry is on by default and posts to `api.swamp-club.com`, and
+   extension pull/push, `swamp issue`, and `auth` are all network operations.
+6. **"Swamp is interesting because it doesn't trust AI." / "The agent reasons freely. Swamp keeps it
+   honest."** The actual enforcement surface is schema validation, sensitive-literal rejection,
+   pre-flight checks, and approval gates. But checks are skippable and `command/shell` is an
+   unschematised escape hatch — **nothing prevents an agent from routing everything through
+   `command/shell`**, which dissolves the typed-model guarantee entirely. This is the most important
+   gap between Swamp's pitch and its mechanism, and it is a trap hyper can fall into identically:
+   *a typed model layer with a shell escape hatch provides the safety of a shell.*
+7. **"Secrets are never frozen into YAML files, never written to `.swamp` data, and never cached
+   between runs."** There *is* a real mechanism behind this (§9c.9), so it is checkable rather than
+   vapor — but "never" is absolute, and §9b.7 found documented gaps (audit logs explicitly not
+   covered; `z.record()`/`z.union()` sensitive fields missed).
+8. **An internal contradiction worth noting.** The manual says "Schemas are validated at creation
+   time and execution time, so type mismatches surface early." But `/manual/reference/data` says:
+   "Resource data is validated against the spec's Zod schema on write. **Schema mismatches produce a
+   warning, not an error.**" The typed-data guarantee is softer than advertised.
+9. **Unsourced aggregates** — a "153,577,370 automation events" homepage counter, and testimonial
+   claims ("shipped 900 times in four weeks", "Killing n8n") attributed to individuals and podcasts.
+
+### 13.8 Incidental facts worth recording
+
+- License is **AGPL-3.0** with a "Swamp Extension and Definition Exception" (`COPYING`,
+  `COPYING-EXCEPTION`), plus a trademark policy that reserves the name.
+- The canonical source is self-hosted at `git.swamp-club.com/swamp-club/swamp`; GitHub is a mirror.
+- The vendor entity is **System Initiative** (named on the extension-scorecard page), which explains
+  the reserved `si` collective alongside `swamp`.
+- Contribution model: **fork PRs are automatically closed** — issue-driven only, justified as
+  "supply chain security in the age of AI-generated code" (`README.md:167-172`).
+- The manual enforces its own terminology: "Always use 'operative' in prose — never 'operator'";
+  "Always use 'collective' in prose — never 'organization'" (`/manual/reference/glossary`).
