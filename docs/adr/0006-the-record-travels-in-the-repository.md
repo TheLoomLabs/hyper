@@ -11,8 +11,8 @@ refuses on *evidence* — the Journal's Disposition, `never reached → run it` 
 reads the head version of a Record. With neither present, every run-once Step is permanently
 never-reached and every `skip-if-recorded` Step never skips, so a nightly provisioning Procedure
 builds a fresh VM every night, and each one is an Asset in a store that evaporates when the runner
-does. The Bound does not catch it: magnitude one per Run is the correct magnitude. The change review
-has no baseline either, since there is no previous Run to diff against. Persistence is therefore
+does. The Bound does not catch it: magnitude one per Run is the correct magnitude. The Comparison
+has no baseline either, since there is no previous Run to compare against. Persistence is therefore
 load-bearing for the safety model, not a convenience for the human.
 
 ## Considered options
@@ -44,7 +44,7 @@ load-bearing for the safety model, not a convenience for the human.
   guarantee that a crash loses at most the in-flight Step has to be re-earned: the open Journal entry
   is pushed at Run start, the Store is pushed after every effectful Step, and reads batch to the end.
   Without this, a runner dying after five creates leaves five VMs with no Assets — invisible to the
-  change review, unreachable by Expansion, and rebuilt by the next Run.
+  Comparison, unreachable by Expansion, and rebuilt by the next Run.
 - **Only effectful Runs close open Journal entries.** Read-only Runs carry no `concurrency` group, so
   a monitoring cadence would otherwise find a live provisioning Run's open entry and write a false
   `failed` outcome for a Run still in progress. A read-only Run has nothing to protect: it reads and
@@ -58,5 +58,5 @@ load-bearing for the safety model, not a convenience for the human.
 - **Laptop and CI are not mutually excluded.** The `concurrency` group serialises Actions against
   itself and nothing else, and distinguishing a live open entry from a crashed one would need the
   heartbeat the execution model refused. Accepted as a limit: no record is lost (a non-fast-forward
-  push forces fetch-rebase-retry), the overlap is visible in the change review afterwards, and there
+  push forces fetch-rebase-retry), the overlap is visible in the Comparison afterwards, and there
   is one user.

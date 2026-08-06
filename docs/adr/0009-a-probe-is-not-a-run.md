@@ -17,9 +17,9 @@ intersect because there is nothing to protect.
 
 ## Consequences
 
-- **A Probe cannot be scheduled, sequenced, or diffed.** It may not carry a Cadence, may not appear as
-  a Step in a Procedure, and can never be a diff baseline. It is weaker in every direction than a
-  dry-run, which at least writes a marked Journal entry.
+- **A Probe cannot be scheduled, sequenced, or compared.** It may not carry a Cadence, may not
+  appear as a Step in a Procedure, and can never be a Comparison baseline. It is weaker in every
+  direction than a dry-run, which at least writes a marked Journal entry.
 - **A Probe is invisible afterwards.** Nothing records that it happened, which is correct for a look
   and wrong for anything you want to know twice. That asymmetry is self-enforcing: ask the same
   question next week and the record will say nothing was observed, because nothing was. Wanting the

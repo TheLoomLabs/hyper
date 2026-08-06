@@ -23,9 +23,9 @@ model) true rather than aspirational.
 - **No secret ever enters the Store.** The Store is a branch that gets pushed, so the rule has to
   hold for outputs as well as inputs: a Manifest declares which of an Operation's output fields are
   secret, and `hyper` writes the Record with a redaction marker carrying *presence only* — no digest,
-  no length. A digest would let a diff report that a credential rotated, which is genuinely useful,
+  no length. A digest would let the Comparison report that a credential rotated, which is genuinely useful,
   and it would also publish an offline-crackable oracle for any secret a human chose rather than a
-  machine generated. The diff says *redacted, unknown* instead, which is the honest answer.
+  machine generated. The Comparison says *redacted, unknown* instead, which is the honest answer.
 - **A secret-valued output requires a sink, and the absence of one is a Refusal.** The invocation
   supplies a path for secret outputs or it does not; a Step whose Operation declares one Refuses when
   it does not. The obvious phrasing — refuse when unattended — is illegal here, because that is an
@@ -49,7 +49,7 @@ model) true rather than aspirational.
 - **The CI secret surface is generated, not hand-written.** The workflow `hyper` projects for a
   Procedure derives its `env:` block from the Target declarations of the Targets that Procedure
   transitively touches, and the Actions secret and the environment variable share one name. Adding a
-  Target to a Procedure therefore makes a new secret appear in a diff rather than in YAML nobody
+  Target to a Procedure therefore makes a new secret appear in the Comparison rather than in YAML nobody
   reviewed.
 - **`hyper` reads credentials and does not acquire them.** OIDC federation is not implemented. If a
   Target ever needs it, it arrives as Auth schemes `hyper` owns, not as a third-party action inside a

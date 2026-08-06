@@ -51,7 +51,11 @@ offline, without credentials, which gives an agent a correctness oracle that a p
   cleverness routes around it: the Provider is unwritable until `hyper` grows the primitive and
   ships. The failure mode moves from *the author wrote subtly dangerous code* to *the author could not
   write this Provider at all*. This is the accepted price, and the closed set will feel too small
-  early.
+  early. Re-examined when the project's thesis was named, and accepted deliberately rather than
+  reluctantly: a description language expressive enough to encode arbitrary computation is a program
+  you must trust, which is the thing being replaced. The ceiling is not the price of verifiability —
+  it is the same fact stated from the other side. What remains unowned is the *process* by which the
+  closed set grows without becoming an open one by attrition.
 - **A registry can exist and it makes no safety claim.** Distribution is a separate concern precisely
   because there is nothing to vet: `hyper` verifies that fetched bytes match a published digest, never
   that an extension is benign. The honest promise is not "this extension was checked" but "a hostile

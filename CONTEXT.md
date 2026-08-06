@@ -158,7 +158,7 @@ _Avoid_: Execution, Invocation, Job
 **Probe**:
 A `read` Operation invoked against `local` without a Definition, writing no Record and no Journal
 entry. It is a lookup rather than a Run, so it has no Trigger, no Provenance and no Disposition, and
-it can never be scheduled, sequenced into a Procedure, or used as a diff baseline.
+it can never be scheduled, sequenced into a Procedure, or used as a Comparison baseline.
 _Avoid_: Query, Check, Ad-hoc run, One-shot
 
 **Trigger**:
@@ -194,3 +194,9 @@ The record, carried by every Record version, of which code produced it: Definiti
 digest, Extension digest, repository revision, and the version of `hyper` that performed it — which,
 Providers being data, is the only code that ran.
 _Avoid_: Audit, History, Lineage
+
+**Comparison**:
+The rendering of one Run against the Run before it: the Assets `hyper` changed, the Observations the
+world changed, and the code that changed between the two. Retrospective by construction, so it
+reports what happened rather than proposing what would.
+_Avoid_: Diff, Drift, Plan, Changelog, Delta
