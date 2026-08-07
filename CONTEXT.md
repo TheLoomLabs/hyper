@@ -93,7 +93,8 @@ _Avoid_: Limit, Cap, Quota, Threshold
 **Cadence**:
 A Procedure's declared recurrence, stated as a UTC cron expression. It is a lower bound on staleness
 rather than a promise of coverage, and `hyper` projects it into an external executor's clock rather
-than keeping one of its own.
+than keeping one of its own. It is also the declaration the last Journal entry is read against, which
+is what makes staleness readable rather than merely bounded.
 _Avoid_: Schedule, Trigger, Interval, Frequency
 
 **Repository declaration**:

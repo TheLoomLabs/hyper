@@ -46,7 +46,14 @@ the artefact the review surface. A cron line in `.github/workflows` escaped both
 - **There is no local clock.** Scheduled recurrence is an Actions property; the laptop authors, runs
   ad hoc, and reviews.
 - **Overdue renders, never refuses.** Being overdue is a fact about the executor, not about the
-  artefact or the world, and every guardrail refuses only on what `hyper` controls.
+  artefact or the world, and every guardrail refuses only on what `hyper` controls. *Amended by
+  ADR-0021:* it renders as facts placed side by side — the gloss and the last Journal entry — and
+  `hyper` never asserts the judgement itself.
+- **The generated workflow renders into the job summary.** *Added by ADR-0021.* The projection carries
+  two `hyper` invocations rather than one — the Run, then the Comparison under `if: always()` — `tee`s
+  both to `$GITHUB_STEP_SUMMARY` as fenced text, and names the job after the Procedure, since that
+  string is the subject line of the executor's own failure email. The runtime binary is told nothing
+  about any of this; only `project` knows the executor.
 - **The lock projects too.** A Procedure containing any effectful Step generates a workflow carrying a
   `concurrency` group with `cancel-in-progress: false`, which is how the execution model's
   single-store lock survives two runners that share no filesystem.
