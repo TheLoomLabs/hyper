@@ -72,8 +72,9 @@ _Avoid_: Plugin, Package, Module
 ### Authored artefacts
 
 **Definition**:
-A named, configured use of a Provider, declaring which Targets it may act on. The durable artefact an
-agent authors and a human reviews; nothing is invoked except through one.
+A named, authority-scoped use of a Provider: which Kinds it claims and which Targets it may act on. It
+carries no argument values — those belong to the Step, where they are read beside the Bound. The
+durable artefact an agent authors and a human reviews; nothing is invoked except through one.
 _Avoid_: Model, Instance, Config, Binding, Profile
 
 **Procedure**:
@@ -123,13 +124,16 @@ them, never in the repository and never at rest inside `hyper`.
 _Avoid_: Vault, Secret store, Keychain
 
 **Local**:
-The reserved Target meaning this machine and the public internet, holding no credentials.
+The reserved Target meaning this machine, reserved because it holds no credentials rather than because
+it reaches everything. Like any Target it declares the hosts it grants, so there is no
+unconstrained-reach Target.
 _Avoid_: Default, None, Empty
 
 **Expansion**:
-The resolution of a Step's selector to the concrete Records it will act on, scoped by Kind: a `read`
-Step may expand over Observations, an effectful one only over Assets. Anything `hyper` did not create
-must therefore be named by literal identifier before it can be changed.
+The resolution of a Step's selector to the concrete Records it will act on, scoped to the Step's own
+Definition and Target, and by Kind: a `read` Step may expand over Observations, an effectful one only
+over Assets. Anything `hyper` did not create must therefore be named by literal identifier, which is a
+selector form of its own.
 _Avoid_: Resolution, Matching, Fan-out, Globbing
 
 ### The record
@@ -201,8 +205,9 @@ be gone, and `hyper` never guesses which.
 _Avoid_: Log, Audit trail, Run state, Checkpoint
 
 **Disposition**:
-What a Step did in a Run: ran, skipped as already recorded, refused, never reached, or attempted with
-its outcome unknown — together with the Record identities it acted on and what `hyper` itself did to
+What a Step did in a Run: ran, skipped as already recorded, skipped by condition, refused, never
+reached, or attempted with its outcome unknown — the two skips being distinct because only the first
+is Repeatability evidence — together with the Record identities it acted on and what `hyper` itself did to
 reach that outcome, which is the only account of a Pattern's attempts, pages and poll iterations. Held
 by the Journal rather than by any Record.
 _Avoid_: Status, State, Result, Outcome
