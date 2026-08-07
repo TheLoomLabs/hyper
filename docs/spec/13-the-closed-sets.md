@@ -44,7 +44,12 @@ when — is undecided. It is not decided here.
 
 ## `error_code`
 
-**Open.**
+Members named so far, contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
+`kind-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
+`series-reference`, `capability-mismatch`, `identity-undeclared`, `target-class-mismatch`,
+`kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
+`bound-missing`, `host-not-granted`. Further members are named where §5, §7, and §11 state the checks
+that carry them.
 
 ## The path grammar
 
