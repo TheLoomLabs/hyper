@@ -96,6 +96,12 @@ rather than a promise of coverage, and `hyper` projects it into an external exec
 than keeping one of its own.
 _Avoid_: Schedule, Trigger, Interval, Frequency
 
+**Repository declaration**:
+The reviewed artefact granting authority over the repository as a whole: which version of `hyper` may
+act on it, and how long Records are kept. It admits only facts that govern every Run and belong to no
+Procedure, Definition, or Target.
+_Avoid_: Config, Settings, Manifest, Policy, Lockfile
+
 ### The world
 
 **Target**:
