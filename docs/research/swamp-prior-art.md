@@ -2,6 +2,10 @@
 
 Research for [hyper#2](https://github.com/TheLoomLabs/hyper/issues/2). Investigated 2026-08-06.
 
+**Frozen at Swamp commit `5bfddaa`, read 2026-08-06.** This document is never updated — it is
+evidence at a point in time, and a stale re-read would be worse than none. If Swamp has moved on,
+that is expected; re-research from scratch rather than editing this file.
+
 ## Sources and method
 
 Primary sources, in descending order of trust:
