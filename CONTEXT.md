@@ -52,7 +52,8 @@ _Avoid_: Permission, Grant, Scope
 **Pattern**:
 A behaviour `hyper` performs around a call — pagination, polling to a terminal condition, retry —
 which a Manifest parameterises but does not implement. A Pattern may never change an Operation's Kind
-or the number of Records it affects.
+or the number of Records it affects, and retry may follow only a failure that provably happened before
+the request was sent, so no Pattern can change the number of times the world was touched.
 _Avoid_: Strategy, Policy, Middleware, Hook
 
 **Auth scheme**:
@@ -188,12 +189,15 @@ _Avoid_: Rejection, Denial, Block, Abort
 **Journal**:
 The append-only series of Run entries — one per Run, carrying its outcome, its Provenance, and every
 Step's Disposition. The only place a Refusal or an unconfirmed attempt is recorded, since neither
-writes a Record.
+writes a Record. An entry carrying no outcome is **open**: the Run may be in flight or its process may
+be gone, and `hyper` never guesses which.
 _Avoid_: Log, Audit trail, Run state, Checkpoint
 
 **Disposition**:
 What a Step did in a Run: ran, skipped as already recorded, refused, never reached, or attempted with
-its outcome unknown. Held by the Journal rather than by any Record.
+its outcome unknown — together with the Record identities it acted on and what `hyper` itself did to
+reach that outcome, which is the only account of a Pattern's attempts, pages and poll iterations. Held
+by the Journal rather than by any Record.
 _Avoid_: Status, State, Result, Outcome
 
 **Store**:
