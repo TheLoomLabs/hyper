@@ -244,11 +244,15 @@ contract and has no `--json` variant: a consumer wanting Step-level structure re
 two, `outcome` for a Run and `result` for everything else, and §8 states both. A Probe is on the
 `result` side, having no outcome triple to report (ADR-0009).
 
-**`error_code` is closed and has two halves.** The set §12 states holds both: a Refusal's is the
-identifier of the check that declined it, minting no vocabulary of its own, and a failure's is one
-`hyper` owns. No `error_code` is ever Provider-supplied — a Provider is data and can no more invent one
-than it can invent an Auth scheme (ADR-0004) — because a CI-facing contract that grows by extension is
-one where an Extension author mints a code somebody's script treats as retryable.
+**`error_code` names a check, and a failure carries none.** Every member of the set §12 states is the
+identifier of a check that declined, stated where §12 attributes it, so the code mints no vocabulary of
+its own and a `refused` Run carries one where a `failed` one carries nothing. There is no second half
+for failure: the ways the world can resist are not a set `hyper` could close over, and what tells two
+failures apart is the exit code below — closed, finer than the outcome triple, and four of its seven
+members `failed`, which is where a Store lost to contention is told from a Step that errored. No
+`error_code` is ever Provider-supplied — a Provider is data and can no more invent one than it can
+invent an Auth scheme (ADR-0004) — because a CI-facing contract that grows by extension is one where an
+Extension author mints a code somebody's script treats as retryable.
 
 **Colour and width are the only differences between a terminal and a CI log**, and colour never carries
 a fact of its own (§8, ADR-0015). The job summary §10 states is those same renderings relocated rather

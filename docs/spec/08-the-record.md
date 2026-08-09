@@ -161,8 +161,8 @@ different fact on the page from the same Disposition after one.
 A Refusal writes no Record — nothing happened to the world — so the Journal is the only place it is
 held, and it is held in full: the Step file carries the check that declined it under its `error_code`
 (§12), the Step, the Target it would have bound, and what was declared against what was found (§5),
-beside the entry's own Provenance. An attempt whose outcome never came back is recorded the same way
-and for the same reason.
+beside the entry's own Provenance. An attempt whose outcome never came back is held there as fully and
+for the same reason, less the `error_code`: nothing declined it, so there is no check to name (§9).
 
 ### The Trigger
 

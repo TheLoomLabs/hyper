@@ -132,8 +132,12 @@ uses (§3), and what each one did on a given Step is carried by that Step's Disp
 
 ## `error_code`
 
-**Closed.** Thirty-two members, each named where the check or the condition carrying it is stated, and
-none of them ever Provider-supplied (§9, ADR-0004).
+**Closed.** Thirty-two members, each the identifier of a check that declined, named where that check is
+stated, and none of them ever Provider-supplied (§9, ADR-0004).
+
+No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
+resisting and has none, and the ways it can resist are not a set anything could close over. Two
+failures are told apart by the exit code above rather than here.
 
 Sixteen are contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,

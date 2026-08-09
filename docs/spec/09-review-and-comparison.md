@@ -223,9 +223,10 @@ every table above is one object, a Comparison's header is one object, and nothin
 A long Run streams.
 
 The last row is always the terminal row, and its absence means the stream was cut off. There are two,
-and the type is itself the discriminator: a Run emits `outcome`, carrying the outcome, the exit code
-(§9) and, where there is one, the `error_code`; everything else emits `result`, carrying the truncation
-marker. Both are always emitted, `failed` and `refused` included.
+and the type is itself the discriminator: a Run emits `outcome`, carrying the outcome and the exit code
+(§9), plus the `error_code` of the check that declined it where the outcome is `refused` — a `completed`
+or a `failed` Run carries none at all, a failure having no check to name (§12). Everything else emits
+`result`, carrying the truncation marker. Both are always emitted, `failed` and `refused` included.
 
 Consumers filter rows rather than queries. There is no expression language over the stream and none
 behind it (ADR-0013): `hyper changes --json | jq 'select(.type=="asset")'` is the shape of every
