@@ -108,7 +108,14 @@ and `store-schema-unsupported`, a Store file whose schema version is above the r
 contributes `credential-absent`, a credential a Target declaration names and the environment does not
 hold, checked before a Run's first Step. §10's two are the projection's: `cadence-malformed`, a Cadence
 outside the cron grammar §10 states, and `projection-stale`, a generated workflow that is not what
-`project` would write now. Further members are named where §11 states the checks that carry them.
+`project` would write now. §11's seven are distribution's. Three are the pin's: `version-pin-mismatch`,
+a binary whose version differs from the Repository declaration's pin in either direction;
+`version-pin-absent`, a command that needs the pin and finds none; and `release-artefact-absent`,
+`project` unable to resolve a published artefact for its own version. Four are the Extension's:
+`extension-digest-mismatch`, fetched bytes or an installed Manifest that no longer match the digest
+`install` verified; `provider-name-collision`, a Manifest taking a built-in Provider's name;
+`capability-reserved`, a Manifest in `providers/` declaring a Capability reserved to built-ins; and
+`manifest-schema-unsupported`, a Manifest whose schema version is above the reader's (ADR-0028).
 
 ## The path grammar
 

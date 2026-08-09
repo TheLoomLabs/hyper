@@ -89,7 +89,9 @@ declared parameters, and the class of Target its Definitions may bind — a stat
 a set that could expand a Definition's reach. A Manifest alone carries an explicit schema-version field;
 the other four artefacts carry
 none, since the repository-wide version pin already fixes which binary reads them and a Manifest is the
-one artefact authored by someone outside that pin's reach (ADR-0023).
+one artefact authored by someone outside that pin's reach (ADR-0023). An installed Manifest carries one
+further block, written by `hyper` rather than authored: the registry ref and digest `install` verified
+it against (§11).
 
 ### Target declaration
 
