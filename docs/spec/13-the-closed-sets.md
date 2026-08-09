@@ -16,19 +16,56 @@ when — is undecided. It is not decided here.
 
 ## Repeatability
 
-**Open.**
+Three values, declared per Operation in a Manifest and never inferred:
+
+- `repeatable` — invoke it again. What the Operation does is unchanged by how many times it has already
+  run: an absolute-state `mutate`, most reads.
+- `skip-if-recorded` — skip while the Asset it would produce still stands. The test reads the head
+  version of the Record series `(Target, Definition, name)` identifies, not the existence of that
+  series, so a series whose head is a Tombstone runs again (ADR-0011).
+- Undeclared — **run-once**. The Operation runs where the Journal holds no evidence it already ran, and
+  Refuses where it does. This is the default, and it is the strict one: an effect nobody vouched for is
+  not repeated on a guess.
 
 ## Disposition
 
-**Open.**
+Six values, one per Step of a Run:
+
+- **ran** — the Step was invoked and its outcome came back.
+- **skipped as already recorded** — the Step's Operation declared `skip-if-recorded` and the Asset it
+  would produce still stands. The only value that is Repeatability evidence.
+- **skipped by condition** — the Step's `when:` did not hold. Says nothing about what the world holds,
+  which is why it is not the same value as the skip above.
+- **refused** — a guardrail declined the Step before any effect reached the world (§5).
+- **never reached** — the Run ended before the Step. A run-once Step in this state runs on a re-run.
+- **attempted, outcome unknown** — the call went out and no answer came back. It attaches the
+  uncertainty to the attempt rather than to the thing, so nothing downstream reads it as either
+  success or failure.
+
+Every Disposition also carries the Record identities the Step acted on and what `hyper` itself did to
+reach that outcome — a Pattern's attempts, pages, and poll iterations — which is a `hyper`-owned record
+no Provider supplies (ADR-0018).
 
 ## The outcome triple
 
-**Open.**
+Three terminal outcomes, exactly one per Run:
+
+- `completed` — every Step reached a terminal Disposition and none of them refused or failed. A Run
+  whose every Step skipped completed.
+- `refused` — a guardrail declined a Step before any effect reached the world, and the Run stopped
+  there (§5, ADR-0001).
+- `failed` — the world resisted, or the Run was stopped: an error from a Step, a deadline, an interrupt,
+  contention on the Store lock, or an open entry closed by a later Run.
+
+There is no fourth outcome and no partial one; a Run that halted midway is `failed`, with what it
+completed held by its Records and Dispositions rather than by its outcome.
 
 ## Exit codes
 
-**Open.**
+Members named so far, contributed by §6: `0`, a Run that completed — including one whose every Step
+skipped — and `130`, a Run stopped by an interrupt (ADR-0015). §6 also states that contention on the
+Store lock exits with a code distinct from every other `failed` Run, without fixing its number. The
+set is stated in full where §9 states the CLI.
 
 ## Capabilities
 
@@ -48,8 +85,10 @@ Members named so far, contributed by §4's static checks: `strict-yaml-violation
 `kind-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `capability-mismatch`, `identity-undeclared`, `target-class-mismatch`,
 `kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
-`bound-missing`, `host-not-granted`. Further members are named where §5, §7, and §11 state the checks
-that carry them.
+`bound-missing`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
+resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
+Journal already holds as *ran* or *attempted, outcome unknown*. Further members are named where §7 and
+§11 state the checks that carry them.
 
 ## The path grammar
 
