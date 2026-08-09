@@ -65,7 +65,8 @@ completed held by its Records and Dispositions rather than by its outcome.
 Members named so far, contributed by §6: `0`, a Run that completed — including one whose every Step
 skipped — and `130`, a Run stopped by an interrupt (ADR-0015). §7 fixes the contention code §6 named
 without numbering: `75`, a Run that lost the Store — to the lock, or to a push it could not rebase
-through in three attempts. The set is stated in full where §9 states the CLI.
+through in three attempts. §8's `outcome` row names `77`, a Run that refused. The set is stated in full
+where §9 states the CLI.
 
 ## Capabilities
 
@@ -168,7 +169,25 @@ host set (ADR-0024).
 
 ## `THE CODE MOVED` change classes
 
-**Open.**
+Eight facts about code, plus a catch-all. The Comparison's third table (§8) emits one row for each of
+these that differs between the baseline Run and the subject Run, and no row for one that does not:
+
+- **declared Kinds** — a Definition's claimed Kinds, and a Target declaration's accepted ones.
+- **selector** — a Step's `over:`, in any of its three forms. It belongs here on the same ground the
+  Bound does: a Bound going 10 → 500 rendered while a selector going from one server to every server
+  stays silent is truthful and still misleading.
+- **Target set** — a Procedure's declared envelope, and the Targets a Definition may bind.
+- **Bounds** — a Step's `bound:`, its appearance and its disappearance included.
+- **Cadence** — a Procedure's declared recurrence (§10).
+- **required Capabilities** — what a Manifest declares it needs.
+- **the Operation set** — the Operations a Manifest exposes, and the `destroy` Operations a Definition
+  names.
+- **the digests** — every member of the Provenance each Record version carries (§7).
+
+The catch-all terminates the table and is not optional: `N other lines changed · git diff <rev> <rev>`,
+counting every line of every reviewed artefact that moved and that no row above reports — a widened
+retention policy (§7) among them. The enumeration is what makes the table checkable; the catch-all is
+what makes omission impossible.
 
 ## Scalar types
 
