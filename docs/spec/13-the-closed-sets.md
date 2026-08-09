@@ -62,11 +62,23 @@ completed held by its Records and Dispositions rather than by its outcome.
 
 ## Exit codes
 
-Members named so far, contributed by §6: `0`, a Run that completed — including one whose every Step
-skipped — and `130`, a Run stopped by an interrupt (ADR-0015). §7 fixes the contention code §6 named
-without numbering: `75`, a Run that lost the Store — to the lock, or to a push it could not rebase
-through in three attempts. §8's `outcome` row names `77`, a Run that refused. The set is stated in full
-where §9 states the CLI.
+Seven members, one per way an invocation can end. No member ever spans two outcomes of the triple
+above, and the set is finer than that triple rather than coarser: four of the seven are `failed`.
+
+- `0` — the command did what it was asked. A Run that completed, including one whose every Step
+  skipped (§6).
+- `1` — a Run that failed because the world resisted, or a command that is not a Run reporting
+  problems it found.
+- `2` — a usage error. No Run began, and no member of the outcome triple applies.
+- `75` — a Run that lost the Store: to the lock (§6), or to a push it could not rebase through in
+  three attempts (§7). `failed`.
+- `77` — a guardrail declined before any effect reached the world. A Run that refused (§5), and the
+  code the version pin gate and an absent Store carry from any command that hits them (§9).
+- `130` — a Run stopped by an interrupt, having drained (§6, ADR-0015). `failed`.
+- `143` — a Run stopped by a termination signal, drained the same way (§9). `failed`.
+
+`75` and `77` are `sysexits`' `EX_TEMPFAIL` and `EX_NOPERM`, and the pairing carries the difference
+between them: `75` says retry me, and `77` says a verbatim retry will refuse identically (§9).
 
 ## Capabilities
 
@@ -89,10 +101,13 @@ Members named so far, contributed by §4's static checks: `strict-yaml-violation
 `bound-missing`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
 Journal already holds as *ran* or *attempted, outcome unknown*. §7's four are the Store's:
-`store-absent`, a Run finding no Store branch; `store-unsynced`, an effectful Run that could not sync
-before its first effect; `record-identity-collision`, a Record identity colliding case-insensitively
-with one already written; and `store-schema-unsupported`, a Store file whose schema version is above
-the reader's (ADR-0028). Further members are named where §11 states the checks that carry them.
+`store-absent`, a Run — or any other command that needs the Store (§9) — finding no Store branch;
+`store-unsynced`, an effectful Run that could not sync before its first effect;
+`record-identity-collision`, a Record identity colliding case-insensitively with one already written;
+and `store-schema-unsupported`, a Store file whose schema version is above the reader's (ADR-0028). §9
+contributes `credential-absent`, a credential a Target declaration names and the environment does not
+hold, checked before a Run's first Step. Further members are named where §11 states the checks that
+carry them.
 
 ## The path grammar
 
