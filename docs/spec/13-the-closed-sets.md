@@ -63,9 +63,9 @@ completed held by its Records and Dispositions rather than by its outcome.
 ## Exit codes
 
 Members named so far, contributed by §6: `0`, a Run that completed — including one whose every Step
-skipped — and `130`, a Run stopped by an interrupt (ADR-0015). §6 also states that contention on the
-Store lock exits with a code distinct from every other `failed` Run, without fixing its number. The
-set is stated in full where §9 states the CLI.
+skipped — and `130`, a Run stopped by an interrupt (ADR-0015). §7 fixes the contention code §6 named
+without numbering: `75`, a Run that lost the Store — to the lock, or to a push it could not rebase
+through in three attempts. The set is stated in full where §9 states the CLI.
 
 ## Capabilities
 
@@ -87,8 +87,11 @@ Members named so far, contributed by §4's static checks: `strict-yaml-violation
 `kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
 `bound-missing`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
-Journal already holds as *ran* or *attempted, outcome unknown*. Further members are named where §7 and
-§11 state the checks that carry them.
+Journal already holds as *ran* or *attempted, outcome unknown*. §7's four are the Store's:
+`store-absent`, a Run finding no Store branch; `store-unsynced`, an effectful Run that could not sync
+before its first effect; `record-identity-collision`, a Record identity colliding case-insensitively
+with one already written; and `store-schema-unsupported`, a Store file whose schema version is above
+the reader's (ADR-0028). Further members are named where §11 states the checks that carry them.
 
 ## The path grammar
 
@@ -100,6 +103,33 @@ whose meaning depends on data the reviewer cannot see while reviewing (ADR-0022)
 that a Manifest's declared Record identity exists to close. Iteration (`[*]` or any equivalent) is not
 in the grammar at all: it is declared once, in an Operation's Record cardinality, and implied by a
 cardinality of `series`.
+
+## The Store path grammar
+
+Every path the Store branch holds, and no other. Distinct from the path grammar above, which is the
+one a Manifest projects with and a Step references with; this one is filenames.
+
+| path | written |
+| --- | --- |
+| `STORE.md` | once, when the Store is created |
+| `records/<target>/<definition>/<name>/<run-id>-<nnnn>.json` | one per Record version |
+| `journal/<yyyy>/<mm>/<dd>/<run-id>/run.json` | at Run start |
+| `journal/<yyyy>/<mm>/<dd>/<run-id>/steps/<nnnn>.json` | one per Step reaching a Disposition |
+| `journal/<yyyy>/<mm>/<dd>/<run-id>/outcome.json` | when the Run ends, or by the Run that closes it |
+
+`<run-id>` is a UUIDv7, lowercase and hyphenated: time-ordered, and mintable by either environment
+alone, which a counter is not (ADR-0006). `<yyyy>/<mm>/<dd>` is the UTC date of the Run's start.
+`<nnnn>` is the Step's position in the Run's written order, nested invocations counted in that order,
+zero-padded to four digits and widening beyond four rather than wrapping; it names a Record version as
+well as a Step file, so two Steps of one Run writing one identity write two paths rather than one
+twice.
+
+`<target>`, `<definition>` and `<name>` are one path segment each, percent-encoded: every byte outside
+`A`–`Z`, `a`–`z`, `0`–`9`, `-`, `_` and `.` is written as `%` and two uppercase hexadecimal digits over
+its UTF-8 bytes, as is a leading `.`. Case is preserved rather than folded (§7). An encoded segment
+longer than 200 bytes is cut at 200 on an escape boundary and suffixed with `~` and the first 16
+hexadecimal digits of the SHA-256 of the whole encoded segment; `~` is outside the unreserved set
+above, so it never occurs in an encoding and the suffix is unambiguous.
 
 ## The predicate operators
 
