@@ -341,3 +341,347 @@ never been created — the Refusal is rendered, exits `77`, and writes nothing a
 that refuses there leaves no trace in the repository and is found in the Actions log. The alternative
 is creating the Store implicitly in order to record why it could not be found, which is the implicit
 creation §7 forbids arrived at by the back door. Carried forward to §13.
+
+## The MCP server
+
+The server is the same binary, started by the client over stdio: one process per client, dying with it.
+It is not the `serve` above wearing another name — nothing listens on a port and nothing outlives the
+invocation that started it — and every tool passes the version pin gate exactly as its command does.
+
+**Tools only: no resources and no prompts.** The read-only half of this surface is shaped like MCP
+resources and is deliberately not served as them, a resource being client-controlled and, in most
+clients, user-attached rather than agent-reachable — which would put Manifest discovery out of reach
+exactly where an agent needs it. Prompts are per-editor glue, which is the thing this tool departs
+from.
+
+Ergonomics is the whole of the difference between the two: where the CLI takes a flag this surface
+takes a typed argument, and where the CLI disambiguates a name against a Procedure this surface
+disambiguates it against every other server the client has loaded.
+
+## The tool set
+
+Thirteen tools, each named for the command above that it carries:
+
+| | |
+| --- | --- |
+| **Discovery** | `providers` · `provider` · `operation` |
+| **The repository** | `targets` |
+| **Authoring** | `check` · `review` |
+| **Execution** | `run` · `probe` |
+| **Inspection** | `runs` · `run_show` · `changes` · `records` |
+| **Lifecycle** | `project` |
+
+`run_show` is the one name that differs from its command. A client holds every server's tools in one
+flat namespace, where a bare `show` names nothing; the ambiguity the CLI resolved was a different one.
+The two commands outside the sixteen get no tool either: a client writes no completion script, and the
+version of the binary that would act is the version of the server the client started.
+
+Three of the sixteen commands are absent, and one line puts all three on the far side of it: **an agent
+may read the record and add to it, and may not create it, prune it, or bring anything new into the
+repository.**
+
+`install` is the single point at which third-party data enters the repository, and §11 makes what it
+writes a tracked file precisely so that it lands in a diff a human reads. The claim that a hostile
+Extension reaches nothing you did not grant (ADR-0004) survives an agent installing one; the review
+moment does not. An agent that can install can author against what it installed and run it in the same
+turn, which is the whole supply-chain sequence with no human between acquisition and effect. A required
+digest argument in place of the exclusion is theatre — the agent reads the digest from the registry it
+was already trusting.
+
+`store init` creates the record and `compact` removes from it permanently (§7). Neither is a derivation
+an agent could be asked to repair, and `compact` is the one command that would let an agent prune the
+account it is itself held to. A tool finding no Store therefore Refuses naming a command its caller
+cannot reach, which is correct: creating the record is the human's act, and an agent's part in it is to
+say that it has not happened.
+
+`project` is on the reachable side, and it is why the line falls where it does rather than around
+writing at all: a Cadence declared in a reviewed artefact and left unprojected is the drift §10 states
+a check for, and an agent must be able to repair what it caused. What `project` writes is derived from
+artefacts already reviewed and lands in a diff like everything else.
+
+## The return envelope
+
+Every tool returns one shape.
+
+```jsonc
+{
+  "content": [{ "type": "text", "text": "…" }],
+  "structuredContent": {
+    "outcome": "completed",   // §12's triple, on the execution tools only; absent elsewhere
+    "rows": [ … ],            // §8's rows, as an array
+    "truncated": null         // the truncation marker, or null
+  },
+  "isError": false
+}
+```
+
+**`rows` is §8's row set unchanged** — one object per table row, carrying the same `type`
+discriminator — served as an array rather than as a line stream. There is one renderer behind both
+forms, so the terminal and this surface cannot drift apart (ADR-0026). A header is a row with its own
+`type` and never a key beside `rows`.
+
+The terminal row is the one row §8 states that this surface does not emit: an array's end is already
+its own end-of-stream marker, so `outcome` moves into the structured content and `truncated` carries
+what a `result` row carried. Its shape names the same axis, count and remainder the CLI's marker does:
+
+```jsonc
+"truncated": { "axis": "time", "returned": 200, "dropped": 2840,
+               "hint": "narrow with `since` or `target`" }
+```
+
+**The `text` block is asymmetric, and the asymmetry is the point.**
+
+| case | `text` carries |
+| --- | --- |
+| any ordinary return | one summary line, outcome first |
+| `review` | the full rendered review surface — the gutter, `AUTHORITY`, `FLAGS` |
+| a Refusal | the full rendered Refusal — Step table, caret excerpt, `EDIT ONE OF`, retry sentence |
+
+Outcome first repairs what §8's row stream accepts knowingly: with rows the outcome arrives last, and
+the terminal compensates with an exit code, which this surface does not have. The two full renderings
+are the same trade §8 made for the same reason — with no bypass anywhere, the Refusal rendering is the
+entire remediation path (ADR-0001).
+
+**`outcome` is the discriminator, and `isError` is not.**
+
+| outcome | `isError` |
+| --- | --- |
+| `completed` | `false` |
+| `refused` | `true` |
+| `failed` | `true` |
+
+One bit cannot carry three states, so `isError` was never going to separate the triple; it means only
+*you did not get what you asked for*, which is true of a Refusal and of a failure alike. Returning a
+Refusal as a success would undo everything §8 spends making it unskimmable. Nothing in the structured
+content restates that bit, and no row restates the outcome.
+
+A tool that is not a Run carries no `outcome` key at all, and a guardrail declining one — the version
+pin gate, an absent Store — returns `isError: true` with the Refusal rendered in full, exactly where
+the command exits `77`.
+
+**A domain outcome is never a protocol error.** JSON-RPC errors are reserved for malformed calls — an
+unknown tool, an argument violating a schema, a fault in the server — and a Refusal is an answer to a
+well-formed call. Every usage error the CLI half states arrives here as one of those, which is what
+this surface has in place of exit code `2`.
+
+**Every Refusal's `text` block ends by stating that a verbatim retry will refuse identically**, naming
+the artefacts to edit. This is load-bearing rather than manners: `isError: true` conventionally invites
+a retry, and this surface has no exit code `77` with which to say otherwise (ADR-0001). The rendering
+is the only place the protocol leaves for saying it.
+
+## The thirteen tools
+
+Every argument is typed and closed exactly as the flag or the positional it carries is, and its name is
+that flag's with the hyphens turned to underscores. Two differ, and each says why where it appears. No
+tool takes an override argument of any kind, under any name.
+
+### Discovery
+
+Three tools rather than one taking optional arguments, for the reason the three commands are three, and
+here the protocol says it too: an `outputSchema` is declared once and for every call of the tool.
+
+```jsonc
+providers()
+// → rows: [{ type: "provider", name, origin: "builtin" | "extension",
+//            summary, operation_count, digest }]
+```
+
+```jsonc
+provider(name)
+// → rows: [{ type: "manifest", auth_scheme, capabilities_required: [ … ],
+//            digest, schema_version }]                       // the header row, emitted first
+//         [{ type: "operation", name, kind, opaque, summary }]   // kind: §12
+```
+
+```jsonc
+operation(provider, operation)
+// → rows: [{ type: "operation_detail",
+//            source,                     // the Manifest lines declaring this Operation, verbatim
+//            derived: {
+//              capabilities: [ … ],      // derived from the Manifest, never declared beside it
+//              bound_required,
+//              patterns_resolved: [ … ],
+//              record_cardinality, record_identity,
+//              repeatability,            // §12
+//              deadline_seconds, concurrency_limit } }]
+```
+
+`source` is the Manifest's own lines and not a re-rendering of them: a Manifest is written in the
+format the caller is expected to author Definitions in (§3), so returning it verbatim teaches that
+format at the moment the caller needs it.
+
+### The repository
+
+```jsonc
+targets()
+// → rows: [{ type: "target", name, endpoint,
+//            accepts_kinds: [ … ], grants_capabilities: [ … ],
+//            credential_env: [ "PROD_TOKEN" ],   // variable names, never values
+//            credentials_present }]
+```
+
+`credential_env` is exactly what an agent must write into a Target declaration while never seeing a
+value, which is the shape §3 fixed when it made a literal in a credential position a load error.
+
+### Authoring
+
+`check` and `review` are the two tools that reach nothing: no credential resolves, no network is
+touched, and nothing is invoked, so both answer with no credential present in the environment at all
+and neither can move the world however it is called. Together they are the whole author-and-validate
+loop, and they are the reason the surface is worth attaching to a repository whose Store is
+unreachable.
+
+```jsonc
+check(paths?)
+// args: paths — an array of repository-relative paths. Every artefact still loads; only the
+//               problems positioned in the ones named are reported
+// → rows: [{ type: "problem", file, line, column, field, error_code, message }]   // error_code: §12
+```
+
+```jsonc
+review(artefact)
+// text: the full rendered review surface
+// → rows: §8's gutter, authority and flag rows, unchanged
+```
+
+They stay two tools rather than one because they answer different questions at different moments —
+`check` answers pass or fail, `review` answers with a rendering — and merging them would make every
+validation pay for a render.
+
+### Execution
+
+The MCP surface executes, destructively included. Restricting it to authoring and reads would make who
+is calling an axis of authority, and no guardrail §5 states is a function of that: an unattended Run on
+a Cadence is already accepted there, and a call made by an agent with a human watching it is strictly
+safer than that. An agent that cannot run also cannot read back the Record it just caused, which is the
+loop this surface exists to close.
+
+```jsonc
+run({ procedure } | { definition, operation, target }, dry_run?, secret_sink?)
+// args: procedure    — the Procedure form, carrying no target
+//       definition, operation, target — the single-Operation form, target required
+//       dry_run      — boolean
+//       secret_sink  — the Secret sink: an absolute path, outside the repository working tree
+// → outcome: §12's triple
+// → rows: §8's step, asset, observation, refusal, remediation and provenance rows, unchanged
+```
+
+**There is no `inputs` argument, on either form.** A Procedure is fully bound by its artefact, and a
+value supplied at call time is Step behaviour appearing on no reviewed line — authority arriving after
+review, which is the shape ADR-0008 removed and the same shape as the `--force` that is absent
+everywhere else.
+
+`secret_sink` is the CLI's `--secret-out` under the name of the thing it supplies, a flag named for a
+direction having no direction to name in an argument object. It is chosen by the caller and never
+defaulted by `hyper`: a sink supplied automatically deletes the guardrail that makes its absence a
+Refusal, and makes `hyper` a place a secret lives (ADR-0007). Everything the CLI half states about the
+path holds whoever named it. Returning the secret in the tool result is not one of the sink's forms —
+it would put a generated credential into an agent's context and from there into whatever transcript
+that agent writes to, which is the failure the sink exists to prevent.
+
+```jsonc
+probe(provider, operation, inputs?)
+// args: inputs — one object keyed by input name, in place of the CLI's repeated flag, and typed
+//                at each position by the same schema (§3)
+// → rows: [{ type: "probe_result", provider, operation,
+//            projection: { … },   // what hyper derived, in the shape a Record would have held
+//            response: { … } }]   // the raw response beside it (ADR-0017)
+```
+
+A Probe is available here, `read` Kind against `local` only, and it **writes no Record and no Journal
+entry** (ADR-0009). Having no outcome triple, its return carries no `outcome` key. The reason this
+surface needs it is not agent convenience — writing a file is cheap for an agent — it is that §8's
+review model dies by volume: if every throwaway question becomes a reviewed artefact, the set of
+Definitions stops being something a human reads, and the oversight story goes with it. The Probe
+protects the review surface.
+
+### Inspection
+
+Four tools over the record, taking the typed, closed parameters their commands take and nothing else
+(ADR-0013).
+
+```jsonc
+runs(since?, procedure?, target?, outcome?, limit?)
+// → rows: [{ type: "run", id, started, trigger, outcome, procedure, targets, hyper_version }]
+```
+
+```jsonc
+run_show(run_id, expansion?)
+// → rows: [{ type: "disposition", step, state,   // state: §12
+//            records: [ … ],                     // the Record identities the Step acted on
+//            pattern: { attempts, pages, polls } }]
+//         §8's provenance row, unchanged
+//         [{ type: "expansion", step, selector, expanded_to, bound }]   // expansion: true only
+```
+
+```jsonc
+changes(procedure?, since?, between?, target?, record_kind?, limit?)
+// → rows: §8's window, asset, observation and code rows, unchanged
+```
+
+`record_kind` is the CLI's `--kind`, spelled out: in a flat argument object beside tools carrying an
+Operation's Kind, one name cannot hold two senses.
+
+```jsonc
+records(target?, definition?, name?, history?, limit?)
+// → rows: [{ type: "record", key: { target, definition, name }, version,
+//            record_kind: "observation" | "asset", tombstoned, orphaned,
+//            secret_fields: [ "api_key" ],   // the presence-only marker, per §7
+//            provenance: { … } }]
+```
+
+### Lifecycle
+
+```jsonc
+project()
+// → rows: [{ type: "workflow", path, procedure, cadence }]   // one per Procedure, all of them
+```
+
+`project` is not a Run and carries no `outcome` key, and it takes no arguments at all: it is repo-wide
+and all-or-nothing above, and there is nothing here for a per-Procedure argument to name.
+
+## Long Runs
+
+A `run` call is synchronous, and progress arrives as a notification at each Step boundary — the same
+boundary §7 writes a Journal entry at, and the same narration stderr carries. It is narration, so it
+carries no machine contract and no row of its own.
+
+An asynchronous handle — `run` returning an id the caller polls — is not offered. It invents a Run that
+outlives its caller with nothing watching it, which is a daemon with extra steps.
+
+A client that gives up needs no machinery of its own, because §6 already states what happens: the stdio
+server dies with the client, and the open Journal entry is closed `failed` by the next invocation with
+the Step in flight recorded *attempted, outcome unknown*. That is the truthful account of what happened,
+and it falls out of a decision already made.
+
+**A twenty-minute provision is therefore not practically runnable from this surface.** That is not a
+gap in it: this surface owns the author→validate→observe loop and short effectful Runs, and long
+unattended work is a Cadence on an executor (§10), where there is no interactive client to time out.
+Carried forward to §13.
+
+## `hyper` never speaks first
+
+The server sends nothing it was not asked for (ADR-0021). It has no logging channel, it initiates no
+message between calls, and the progress notifications above belong to the call that is in flight and
+stop when it does. There is no server-initiated request of any kind: `hyper` never asks the client's
+model for a completion, since a tool that decides anything by asking a model has moved authority off
+the reviewed artefact and onto a prompt; and it never asks the client's user a question, an elicitation
+being a prompt and no surface prompting (ADR-0015). A notification you want is a Step you author — a
+Definition against a Slack or PagerDuty Target, reviewed, Bounded and recorded like everything else —
+and it goes through the front door (ADR-0021).
+
+## What the MCP surface does not do
+
+There is no tool that authors a Definition, a Procedure, or a Target declaration, for the reason no
+command does: `hyper` writes what it derives and the agent writes what is reviewed, with its own file
+tools. `check` positioned by file and line is what makes that practical, since the next act after a
+failed check is an edit — the same act ADR-0001 forces on a human.
+
+There is no approval tool and no confirmation tool. Adding one would make the caller an authority axis,
+and it is the per-Run approval §5 states does not exist, reached from a second direction (ADR-0001,
+ADR-0015).
+
+**An agent can drive the whole tool and cannot widen its own authority.** No tool takes a bypass
+argument, every Refusal returns as an error carrying its own remediation, and the one place third-party
+data enters the repository is not reachable from here at all. What an agent can do is author an
+artefact and ask a human to read it, which is the same thing a human colleague can do.
