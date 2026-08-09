@@ -81,5 +81,6 @@ paths match what the API actually returns, that its declared Kind matches what a
 does. `hyper` has no oracle for that question and does not claim one — nothing cross-checks a declared
 Kind against what an Operation actually does at runtime (ADR-0025), and the cheapest evidence
 available, an unauthenticated Probe against the real response, only narrows the question rather than
-closing it (ADR-0017). This is not a gap `check` closes by growing; it is named here and carried
-forward as a limit in §13.
+closing it (ADR-0017). What a Run does when a projection path does not resolve against a real response
+is §6's, that being the only place the question can be put. This is not a gap `check` closes by
+growing; it is named here and carried forward as a limit in §13.

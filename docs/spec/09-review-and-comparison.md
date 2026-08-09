@@ -294,7 +294,10 @@ where a Manifest also projects the non-secret metadata that moves with it — a 
 The wire is visible only where no credential was used (ADR-0017). A Probe may surface the raw response
 beside the projection `hyper` derived from it; against a credentialled Target nothing does, on any
 surface, under any flag. What fills that gap is precision rather than volume: a projection that failed
-names the path that failed to project.
+names the path that failed to project (§6). That is the whole of what it carries — a failure names no
+check, so no `error_code` stands beside it (§12) — and it is positional in the sense ADR-0007 is
+positional rather than a scan of a body no surface may show. It is an error's rendering, so it goes to
+stderr in both modes like any other (§9) rather than into the row stream above.
 
 ## What these surfaces do not say
 

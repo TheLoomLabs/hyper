@@ -106,6 +106,29 @@ the safe direction, and no silence, which would be a lie in the other. Nothing r
 of that state, since a retry Pattern follows only a failure that provably preceded the request
 (ADR-0018).
 
+## When a projection does not resolve
+
+A response can arrive and still not be readable: the Manifest declares a projection (§3) and a path
+in it does not resolve against what came back. Nothing static decides this — no artefact states what
+an API returns (§4) — so it is decided where it can be, against the response in hand.
+
+Which path failed is what decides. A path a recorded field is read from resolving to nothing is
+absence: the field is not written on that version, which is the fact the `exists` and `absent`
+operators read (§12), and it is not silent — the bytes moved, so a version is minted and the field
+going quiet renders as a change like any other (§8). A path a Record's identity is read from is an
+error in the sense above, and so is the path an Operation of `series` cardinality reads its Records
+from: without the first `hyper` cannot say which Record it is holding, and without the second it
+cannot tell a collection that was empty from a path that was wrong — the *I recorded nothing* the
+absent wire would otherwise be needed to diagnose (ADR-0017). Either halts the Run.
+
+The Step's Disposition is *ran*: the call went out and the answer came back, and what failed is
+`hyper`'s reading of it rather than the call. It is never *attempted, outcome unknown* — an
+effectful Step that got this far holds a response saying the world was touched, and there is nothing
+ambiguous to attach — and it is Repeatability evidence like any other *ran*, the call having happened
+whether or not `hyper` could read the answer back. It carries no `error_code`, nothing having
+declined (§12); what it names instead is the path that failed to project, and the surface that goes
+out on is §8's.
+
 ## Halting
 
 A halted Run leaves what it did. Nothing is compensated, rewound, or removed from the record: a

@@ -30,8 +30,12 @@ used.
 
 - **A projection failure must say what failed, precisely.** With no wire to inspect, "the Manifest says
   the identity is `.data.items[].id` and I recorded nothing" is the authoring failure mode, so a
-  failure of that shape carries a closed `error_code` and the path that failed to project — positional,
-  as ADR-0007 is positional, rather than a scan.
+  failure of that shape names the path that failed to project — positional, as ADR-0007 is positional,
+  rather than a scan. *Amended:* this said the failure also carries a closed `error_code`, written
+  before the spec fixed what that set holds. An `error_code` is the identifier of a check that
+  declined before any effect reached the world, and a projection is read from a response that has
+  already arrived, so there is no check to name; what the argument here needs is the path, and the
+  path is what the Run halts with and the surface carries.
 - **Authoring against a public unauthenticated API is now the tightest loop on the map**, joining the
   static Manifest checks and `check`/`review`. Authoring against a credentialled API is exactly as
   hard as it was.
