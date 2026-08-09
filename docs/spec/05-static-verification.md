@@ -17,8 +17,8 @@ Every rejection below carries a closed `error_code`, named here and defined in f
 ## Grammar
 
 Loading a file is the first check, and failing it stops every check after. The rules are the grammar
-§3 already states in full — the strict YAML subset, the closed input-schema subset, the credential
-slot's mapping shape, the three hole positions closed in §12, the path and reference grammar — and this
+§3 states in full and the sets §12 closes — the strict YAML subset, the input-schema subset, the
+credential slot's mapping shape, the three hole positions, the path and reference grammar — and this
 chapter is where each rejection gets the name it is refused under, nothing more: a construct the YAML
 subset excludes is `strict-yaml-violation` (ADR-0023); a key the schema at that position does not
 define is `unknown-key`; a `kind:` disagreeing with its directory or filename, against §12's table, is

@@ -117,7 +117,7 @@ values (ADR-0026).
 
 Assets render `created`, `changed`, or `destroyed`; Observations render `appeared`, `changed`, or
 `vanished`. A Tombstone is a marker inside the Asset table rather than a class of its own. There is no
-rename class: identity is a Manifest-declared field of an upstream response, so a rename is an
+rename class: identity is a Manifest-declared field of an upstream response (§7), so a rename is an
 unfamiliar name appearing and a familiar one going quiet, and it renders honestly as both.
 
 Every row in all three tables carries its Target, its Definition, its name, and its change. Asset and
@@ -139,10 +139,8 @@ which is how the Dispositions read back distinguish it from a Run that did the w
 Pattern facts — a retry's attempts, a poll's iterations, a paginated read's pages — do not enter the
 three tables. They render on `runs` and only where they are not the trivial single call (§7).
 
-`THE CODE MOVED` reports over a closed enumeration of code facts — declared Kinds, selector, Target set,
-Bounds, Cadence, required Capabilities, the Operation set, and the digests — named here and defined in
-§12, and terminated by the mandatory catch-all row §12 states, counting every other line of every
-reviewed artefact that moved.
+`THE CODE MOVED` reports over the closed enumeration of code facts §12 defines, terminated by the
+mandatory catch-all row §12 states, counting every other line of every reviewed artefact that moved.
 
 ```
 $ hyper changes --since 2026-08-04T09:12:00Z

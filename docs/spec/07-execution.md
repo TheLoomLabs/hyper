@@ -40,11 +40,10 @@ rebuilt.
 
 ## Repeatability
 
-An Operation's Repeatability decides what a re-run does to a Step that already ran. It takes one of
-three values — `repeatable`, `skip-if-recorded`, or, undeclared, run-once — named here and defined
-in §12. It is declared in the Manifest and never inferred, and it is a property of the Operation
-rather than of the Step calling it: the Provider author knows whether invoking it twice is intended
-and the Definition author would be guessing.
+An Operation's Repeatability decides what a re-run does to a Step that already ran. Its three values
+are defined in §12. It is declared in the Manifest and never inferred, and it is a property of the
+Operation rather than of the Step calling it: the Provider author knows whether invoking it twice is
+intended and the Definition author would be guessing.
 
 A Step skipped under `skip-if-recorded` is one whose Asset still stands, which is a fact the head
 version of its Record series carries (§12). A series whose head is a Tombstone stands for nothing,
@@ -149,20 +148,18 @@ baseline: a Comparison reads back to the last non-dry Run (§8, ADR-0010).
 
 ## The outcome triple
 
-Every Run ends in exactly one of three outcomes — `completed`, `refused`, `failed` — named here and
-defined in §12. `refused` is §5's: a guardrail declined a Step before any effect reached the world.
-`failed` is the world resisting or the Run being stopped, which is where every halt above lands — an
-error, a deadline, an interrupt, lock contention, an entry closed by a later Run. `completed` is
-neither.
+Every Run ends in exactly one of the three outcomes §12 defines. `refused` is §5's: a guardrail
+declined a Step before any effect reached the world. `failed` is the world resisting or the Run being
+stopped, which is where every halt above lands — an error, a deadline, an interrupt, lock contention,
+an entry closed by a later Run. `completed` is neither.
 
 A Run that halted at the third Step of nine is `failed`, and what it did before it halted lives in
 its Records and its Dispositions rather than in its outcome.
 
 ## Disposition
 
-What each Step did in a Run is its Disposition, held by the Journal (§7) rather than by any Record:
-ran, skipped as already recorded, skipped by condition, refused, never reached, or attempted with
-outcome unknown. The six are named here and defined in §12.
+What each Step did in a Run is its Disposition, held by the Journal (§7) rather than by any Record
+and drawn from the six values §12 defines.
 
 The two skips are distinct because only one of them is Repeatability evidence. Skipped as already
 recorded is the fact a later Run's Repeatability test reads; skipped by condition ran no such test

@@ -24,11 +24,10 @@ tag) is refused before anything is read for meaning.
 
 ## Types
 
-An Operation's input schema is a closed subset of JSON Schema: `type`, `required`, `enum`, `const`,
-`properties`, and `items`, with `additionalProperties: false` forced and `$ref`, `allOf`, `oneOf`, and
-`if`/`then`/`else` all rejected. An Operation's output carries no schema at all — only the projection a
-Manifest declares, so cardinality, identity, and every recorded field are stated exactly once rather
-than in two representations that can disagree.
+An Operation's input schema is written in a subset of JSON Schema, closed and defined in §12. An
+Operation's output carries no schema at all — only the projection a Manifest declares, so cardinality,
+identity, and every recorded field are stated exactly once rather than in two representations that can
+disagree.
 
 The scalar vocabulary is closed and defined in §12: the common JSON Schema primitives plus two the
 domain forces, a `duration` and a `timestamp`. There is no `null` among them — a field's presence is a

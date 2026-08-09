@@ -116,10 +116,10 @@ is partial, and it says so on the page rather than in the code. The flag is not 
 
 **`--secret-out <path>`** names the Secret sink. A Step whose Operation declares a secret output
 Refuses when none was supplied, which is a fact about the invocation and never about the environment it
-runs in. The path is written `0600` and is refused where it resolves inside the repository working
-tree; `-` is not accepted, stdout being exclusively the answer and a secret written there landing in
-the same pipe a CI job logs. It is not a bypass and must not read like one: supplying it weakens no
-check, and withholding it produces a Refusal that renders like any other (§8).
+runs in (ADR-0007). The path is written `0600` and is refused where it resolves inside the repository
+working tree; `-` is not accepted, stdout being exclusively the answer and a secret written there
+landing in the same pipe a CI job logs. It is not a bypass and must not read like one: supplying it
+weakens no check, and withholding it produces a Refusal that renders like any other (§8).
 
 `probe <provider> <operation>` invokes a `read` Operation against `local` without a Definition. Inputs
 are supplied as repeated `--input <name>=<value>`, each typed by the Operation's declared input schema
@@ -256,21 +256,11 @@ than a surface of its own.
 
 ## Exit codes
 
-Seven members, defined in full in §12 and mapped here onto the outcome triple §6 states:
+Seven members, defined in full in §12, each carrying there the outcome of the triple it maps onto.
 
-| code | outcome |
-| --- | --- |
-| `0` | `completed` |
-| `1` | `failed` |
-| `2` | none — no Run began |
-| `75` | `failed` |
-| `77` | `refused` |
-| `130` | `failed` |
-| `143` | `failed` |
-
-**No exit code ever spans two outcomes.** The code space is finer than the triple — `1`, `75`, `130`
-and `143` are all `failed` — and it is never coarser, which is the whole point: a caller that reads
-`refused` as success has been told the wrong thing about what reached the world.
+**No exit code ever spans two outcomes.** The code space is finer than the triple and never coarser,
+which is the whole point: a caller that reads `refused` as success has been told the wrong thing about
+what reached the world.
 
 A caller that retries on `75` is right to, and one that retries on `77` loops forever: with no bypass
 anywhere (ADR-0001) a verbatim retry refuses identically, and the way past is an artefact edit. A shell

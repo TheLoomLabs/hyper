@@ -1,22 +1,35 @@
 # §12 — The closed sets
 
-Every closed set `hyper` defines lives here, defined once and in full. §3–§11
-name members of these sets and cite this chapter; none restates a set it can
-cite instead.
+Every closed set `hyper` defines lives here, defined once and in full. Every section that names a
+member of one cites this chapter; none restates a set it can cite instead.
 
-A set below is **closed** once writing the sections that draw on it stops
-adding members to it, and stays **open** until then.
+A set below is **closed** once the sections that draw on it stop adding members to it, and stays
+**open** until then. Every set below carries its marker, and none of them is open; the one set whose
+membership this specification does not state says so where it stands.
 
-The process by which a set in this chapter grows — who adds a member, and
-when — is undecided. It is not decided here.
+The process by which a set in this chapter grows — who adds a member, and when — is undecided. It is
+not decided here (ADR-0004).
+
+Two closed grammars are deliberately not here, each being the whole subject of the chapter that owns
+it: the YAML subset every artefact is written in (§3) and the cron grammar a Cadence is written in
+(§10). Both are stated once there and cited rather than restated everywhere else.
 
 ## Kind
 
-**Open.**
+**Closed.** Three values, declared per Operation in a Manifest and never inferred from the Operation's
+name or from any other property `hyper` could derive on its own (ADR-0025):
+
+- `read` — the Operation observes and changes nothing. It writes Observations.
+- `mutate` — the Operation changes something that already stands.
+- `destroy` — the Operation removes something.
+
+The order is by severity, and what turns on it is stated where it acts: what a Bound is worth on each
+(§4), what a selector may expand over (§5), what runs concurrently (§6). `read` and `mutate` are
+claimed at Kind level and `destroy` by named Operation, granularity following severity (§5).
 
 ## Repeatability
 
-Three values, declared per Operation in a Manifest and never inferred:
+**Closed.** Three values, declared per Operation in a Manifest and never inferred:
 
 - `repeatable` — invoke it again. What the Operation does is unchanged by how many times it has already
   run: an absolute-state `mutate`, most reads.
@@ -29,7 +42,7 @@ Three values, declared per Operation in a Manifest and never inferred:
 
 ## Disposition
 
-Six values, one per Step of a Run:
+**Closed.** Six values, one per Step of a Run:
 
 - **ran** — the Step was invoked and its outcome came back.
 - **skipped as already recorded** — the Step's Operation declared `skip-if-recorded` and the Asset it
@@ -48,7 +61,7 @@ no Provider supplies (ADR-0018).
 
 ## The outcome triple
 
-Three terminal outcomes, exactly one per Run:
+**Closed.** Three terminal outcomes, exactly one per Run:
 
 - `completed` — every Step reached a terminal Disposition and none of them refused or failed. A Run
   whose every Step skipped completed.
@@ -62,13 +75,14 @@ completed held by its Records and Dispositions rather than by its outcome.
 
 ## Exit codes
 
-Seven members, one per way an invocation can end. No member ever spans two outcomes of the triple
-above, and the set is finer than that triple rather than coarser: four of the seven are `failed`.
+**Closed.** Seven members, one per way an invocation can end, each carrying the outcome it maps onto.
+No member ever spans two outcomes of the triple above, and the set is finer than that triple rather
+than coarser: four of the seven are `failed`.
 
 - `0` — the command did what it was asked. A Run that completed, including one whose every Step
   skipped (§6).
 - `1` — a Run that failed because the world resisted, or a command that is not a Run reporting
-  problems it found.
+  problems it found. `failed`.
 - `2` — a usage error. No Run began, and no member of the outcome triple applies.
 - `75` — a Run that lost the Store: to the lock (§6), or to a push it could not rebase through in
   three attempts (§7). `failed`.
@@ -82,19 +96,46 @@ between them: `75` says retry me, and `77` says a verbatim retry will refuse ide
 
 ## Capabilities
 
-**Open.**
+**Closed.** Two members — the two effects `hyper` performs on a Manifest's behalf (ADR-0004):
+
+- `http` — a request to a host the bound Target grants, reaching that Target's enumerated host set and
+  never the network, `local` included (ADR-0024).
+- `shell` — a command run on the machine `hyper` runs on, and the Capability behind an `opaque`
+  Operation. It is the one reserved to built-ins, so an Extension declaring it is refused at load
+  (`capability-reserved`, §11).
+
+A Capability is declared by a Manifest and granted by a Target declaration, both of which the
+declared-equals-derived check compares against what `hyper` derives (`capability-mismatch`, §4).
+Writing the Store passes no grant and costs no Capability, the Store not being a Target (§7,
+ADR-0006), which is what keeps this the set of effects on the world.
+
+This set is what the ceiling §13 states costs (ADR-0004).
 
 ## Auth schemes
 
-**Open.**
+**Closed to `hyper`.** A Manifest names a scheme and supplies its parameters, a Target declaration
+names the environment variable each of that scheme's credential slots resolves from (§3), and no
+Manifest mints one — a Provider author can no more invent a scheme than invent an `error_code` (§9,
+ADR-0004). Closure is what lets a secret be suppressed by the position it occupies rather than by
+scanning a rendering for something that looks like one (§7, ADR-0007).
+
+Which schemes `hyper` implements is not stated here, and no section names one: §3 states how a scheme
+is chosen and parameterised, §9 what a Target declaration exposes of its slots, and §11 that federation
+would arrive as a scheme `hyper` owns rather than as a third-party action. The membership stands where
+the growth process above stands — undecided, and not decided here.
 
 ## Patterns
 
-**Open.**
+**Closed.** Three: **pagination**, **polling** to a terminal condition, and **retry**, which follows
+only a failure that provably preceded the request (ADR-0018). An Operation declares which of them it
+uses (§3), and what each one did on a given Step is carried by that Step's Disposition above.
 
 ## `error_code`
 
-Members named so far, contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
+**Closed.** Thirty-two members, each named where the check or the condition carrying it is stated, and
+none of them ever Provider-supplied (§9, ADR-0004).
+
+Sixteen are contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `capability-mismatch`, `identity-undeclared`, `target-class-mismatch`,
 `kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
@@ -119,19 +160,21 @@ a binary whose version differs from the Repository declaration's pin in either d
 
 ## The path grammar
 
-Two roots: a Manifest's projection reads from an Operation's response, and a Step's reference reads
-from a Record. From either root, the grammar is `$`, `.member`, and `["member"]`, and nothing else.
+**Closed.** Two roots: a Manifest's projection reads from an Operation's response, and a Step's
+reference reads from a Record. From either root, the grammar is `$`, `.member`, and `["member"]`, and
+nothing else.
+
 Recursive descent (`..`) is rejected on the same ground as a YAML alias or a JSON Schema `$ref`: a path
-whose meaning depends on data the reviewer cannot see while reviewing (ADR-0022). Array indexing
-(`[n]`) is rejected because an index into an upstream array is the identity-is-array-position hazard
-that a Manifest's declared Record identity exists to close. Iteration (`[*]` or any equivalent) is not
-in the grammar at all: it is declared once, in an Operation's Record cardinality, and implied by a
-cardinality of `series`.
+whose meaning depends on data the reviewer cannot see while reviewing (ADR-0022). Array indexing (`[n]`)
+is rejected because an index into an upstream array is the identity-is-array-position hazard that a
+Manifest's declared Record identity exists to close. Iteration (`[*]` or any equivalent) is not in the
+grammar at all: it is declared once, in an Operation's Record cardinality, and implied by a cardinality
+of `series`.
 
 ## The Store path grammar
 
-Every path the Store branch holds, and no other. Distinct from the path grammar above, which is the
-one a Manifest projects with and a Step references with; this one is filenames.
+**Closed.** Every path the Store branch holds, and no other. Distinct from the path grammar above,
+which is the one a Manifest projects with and a Step references with; this one is filenames.
 
 | path | written |
 | --- | --- |
@@ -157,16 +200,18 @@ above, so it never occurs in an encoding and the suffix is unambiguous.
 
 ## The predicate operators
 
-`equals`, `not_equals`, `in`, `exists`, `absent`, `starts_with`, `ends_with`, `greater_than`,
-`less_than`, `older_than`, `newer_than`. A predicate list is always AND; there is no disjunction
-(ADR-0022). Two scopes root the same operator set differently: a selector (`over:`) roots at the Record
-being filtered, and a condition (`when:`) roots at a named earlier Step's Record and so carries `step:`
-beside `field:`. There is no regular-expression operator — `starts_with` and `ends_with` are the
-bounded form of prefix and suffix matching, in place of the unbounded one (ADR-0022).
+**Closed.** Eleven operators: `equals`, `not_equals`, `in`, `exists`, `absent`, `starts_with`,
+`ends_with`, `greater_than`, `less_than`, `older_than`, `newer_than`.
+
+A predicate list is always AND; there is no disjunction (ADR-0022). Two scopes root the same operator
+set differently: a selector (`over:`) roots at the Record being filtered, and a condition (`when:`)
+roots at a named earlier Step's Record and so carries `step:` beside `field:`. There is no
+regular-expression operator — `starts_with` and `ends_with` are the bounded form of prefix and suffix
+matching, in place of the unbounded one (ADR-0022).
 
 ## The template-hole positions
 
-One hole syntax, three legal positions:
+**Closed.** One hole syntax, three legal positions:
 
 - A **Capability-relevant position** — a host, an Auth scheme's parameters, anything that determines
   what a request may reach — resolves only to a declared closed enumeration or to `from-target`, never
@@ -182,6 +227,8 @@ error.
 
 ## The `over:` forms
 
+**Closed.** Three forms — `assets:`, `observations:`, and `values:`.
+
 `assets:` and `observations:` expand over the Step's own Definition (ADR-0012) and Target's Record
 series; `observations:` is legal only on a `read` Step, since Expansion is scoped by Kind rather than
 by Record type (ADR-0027). `values:` is a literal enumerated list authored in the Procedure, occupying
@@ -192,8 +239,9 @@ host set (ADR-0024).
 
 ## `THE CODE MOVED` change classes
 
-Eight facts about code, plus a catch-all. The Comparison's third table (§8) emits one row for each of
-these that differs between the baseline Run and the subject Run, and no row for one that does not:
+**Closed.** Eight facts about code, plus a catch-all. The Comparison's third table (§8) emits one row
+for each of these that differs between the baseline Run and the subject Run, and no row for one that
+does not:
 
 - **declared Kinds** — a Definition's claimed Kinds, and a Target declaration's accepted ones.
 - **selector** — a Step's `over:`, in any of its three forms. It belongs here on the same ground the
@@ -212,19 +260,32 @@ counting every line of every reviewed artefact that moved and that no row above 
 retention policy (§7) among them. The enumeration is what makes the table checkable; the catch-all is
 what makes omission impossible.
 
+## The input-schema subset
+
+**Closed.** Six keywords are the whole of the JSON Schema an Operation's input schema is written in:
+`type`, `required`, `enum`, `const`, `properties`, and `items`. `additionalProperties: false` is forced
+at every level rather than authored, so an unknown key is refused wherever it appears (`unknown-key`,
+§4). A schema reaching outside this subset is `schema-unsupported`.
+
+`$ref` is rejected on the ground a YAML alias is, a schema whose meaning lives in a document the
+reviewer is not reading (ADR-0023); `allOf`, `oneOf`, and `if`/`then`/`else` are rejected because a
+schema that composes or branches is an expression language in a second costume (ADR-0022). `enum` and
+`const` are constraints on a type rather than types of their own, which is why they sit here and not in
+the set below. This subset covers an Operation's input; its output has no schema at all (§3).
+
 ## Scalar types
 
-`string`, `integer`, `number`, `boolean`, `object`, `array`, plus two the domain forces: `duration`
-(one integer and one unit from `s m h d`, no compounding — `14d`, never `1d12h`, so a value renders back
-byte-identical to what was authored; no weeks, months, or years, since a month is not a duration) and
-`timestamp` (RFC 3339, UTC, `Z` mandatory). `enum` and `const` are constraints on a type, not types of
-their own. There is no `null`: a field's presence is a fact stated by the `exists` / `absent` predicate
-operators, never by a nullable type.
+**Closed.** Eight types: `string`, `integer`, `number`, `boolean`, `object`, and `array`, plus two the
+domain forces: `duration` (one integer and one unit from `s m h d`, no compounding — `14d`, never
+`1d12h`, so a value renders back byte-identical to what was authored; no weeks, months, or years, since
+a month is not a duration) and `timestamp` (RFC 3339, UTC, `Z` mandatory). There is no `null`: a
+field's presence is a fact stated by the `exists` / `absent` predicate operators, never by a nullable
+type.
 
 ## The artefact `kind:` values
 
-Five values, each fixed to one directory, with `hyper.yaml` at the repository root the one exception,
-agreeing with its filename rather than a directory (ADR-0023):
+**Closed.** Five values, each fixed to one directory, with `hyper.yaml` at the repository root the one
+exception, agreeing with its filename rather than a directory (ADR-0023):
 
 | directory | `kind:` |
 | --- | --- |
