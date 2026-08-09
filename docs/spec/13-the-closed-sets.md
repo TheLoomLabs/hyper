@@ -106,8 +106,9 @@ Journal already holds as *ran* or *attempted, outcome unknown*. §7's four are t
 `record-identity-collision`, a Record identity colliding case-insensitively with one already written;
 and `store-schema-unsupported`, a Store file whose schema version is above the reader's (ADR-0028). §9
 contributes `credential-absent`, a credential a Target declaration names and the environment does not
-hold, checked before a Run's first Step. Further members are named where §11 states the checks that
-carry them.
+hold, checked before a Run's first Step. §10's two are the projection's: `cadence-malformed`, a Cadence
+outside the cron grammar §10 states, and `projection-stale`, a generated workflow that is not what
+`project` would write now. Further members are named where §11 states the checks that carry them.
 
 ## The path grammar
 
