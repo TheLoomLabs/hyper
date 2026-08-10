@@ -4,8 +4,8 @@ Every closed set `hyper` defines lives here, defined once and in full. Every sec
 member of one cites this chapter; none restates a set it can cite instead.
 
 A set below is **closed** once the sections that draw on it stop adding members to it, and stays
-**open** until then. Every set below carries its marker, and none of them is open; the one set whose
-membership this specification does not state says so where it stands.
+**open** until then. Every set below carries its marker, and none of them is open; the two whose
+membership this specification does not state say so where they stand.
 
 The process by which a set in this chapter grows — who adds a member, and when — is undecided. It is
 not decided here (ADR-0004).
@@ -20,8 +20,9 @@ it: the YAML subset every artefact is written in (§3) and the cron grammar a Ca
 name or from any other property `hyper` could derive on its own (ADR-0025):
 
 - `read` — the Operation observes and changes nothing. It writes Observations.
-- `mutate` — the Operation changes something that already stands.
-- `destroy` — the Operation removes something.
+- `mutate` — the Operation brings something into existence, or changes something that already stands.
+  It writes Assets, `hyper` being accountable for what it made (§2, ADR-0025).
+- `destroy` — the Operation removes something. It writes Tombstones (§7).
 
 The order is by severity, and what turns on it is stated where it acts: what a Bound is worth on each
 (§4), what a selector may expand over (§5), what runs concurrently (§6). `read` and `mutate` are
@@ -40,6 +41,18 @@ claimed at Kind level and `destroy` by named Operation, granularity following se
   Refuses where it does. This is the default, and it is the strict one: an effect nobody vouched for is
   not repeated on a guess.
 
+## Record cardinality
+
+**Closed.** Two values, declared per Operation in a Manifest beside the response field that is the
+Record's stable identity (§3):
+
+- `one` — the Operation's response projects a single Record.
+- `series` — the Operation's response projects many, out of the collection a declared path names.
+
+What turns on it is stated where it acts: what a later Step may reference (§3), where a projection's
+paths root and why the path grammar carries no iteration (below), and what a response half-projecting
+leaves behind (§6).
+
 ## Disposition
 
 **Closed.** Six values, one per Step of a Run:
@@ -55,9 +68,8 @@ claimed at Kind level and `destroy` by named Operation, granularity following se
   uncertainty to the attempt rather than to the thing, so nothing downstream reads it as either
   success or failure.
 
-Every Disposition also carries the Record identities the Step acted on and what `hyper` itself did to
-reach that outcome — a Pattern's attempts, pages, and poll iterations — which is a `hyper`-owned record
-no Provider supplies (ADR-0018).
+Every Disposition carries more than its value — the Record identities, the selector, and `hyper`'s own
+account of the work, which no Provider supplies (ADR-0018) — and §7 states what each of them holds.
 
 ## The outcome triple
 
@@ -173,6 +185,11 @@ the call went out, so nothing declined and there is no check to name (§6, ADR-0
 reference reads from a Record. From either root, the grammar is `$`, `.member`, and `["member"]`, and
 nothing else.
 
+An Operation of `series` cardinality carries one further root inside the first: the path naming the
+collection reads from the response, and the identity and field paths read from each member of that
+collection. That is the only position a member's field is nameable from at all, the two forms that
+would otherwise name one — `[n]` and `[*]` — being outside the grammar for the reasons below.
+
 Recursive descent (`..`) is rejected on the same ground as a YAML alias or a JSON Schema `$ref`: a path
 whose meaning depends on data the reviewer cannot see while reviewing (ADR-0022). Array indexing (`[n]`)
 is rejected because an index into an upstream array is the identity-is-array-position hazard that a
@@ -195,10 +212,10 @@ which is the one a Manifest projects with and a Step references with; this one i
 
 `<run-id>` is a UUIDv7, lowercase and hyphenated: time-ordered, and mintable by either environment
 alone, which a counter is not (ADR-0006). `<yyyy>/<mm>/<dd>` is the UTC date of the Run's start.
-`<nnnn>` is the Step's position in the Run's written order, nested invocations counted in that order,
-zero-padded to four digits and widening beyond four rather than wrapping; it names a Record version as
-well as a Step file, so two Steps of one Run writing one identity write two paths rather than one
-twice.
+`<nnnn>` is the Step's position in the Run's written order, the first Step `0001`, nested invocations
+counted in that order, zero-padded to four digits and widening beyond four rather than wrapping; it
+names a Record version as well as a Step file, so two Steps of one Run writing one identity write two
+paths rather than one twice.
 
 `<target>`, `<definition>` and `<name>` are one path segment each, percent-encoded: every byte outside
 `A`–`Z`, `a`–`z`, `0`–`9`, `-`, `_` and `.` is written as `%` and two uppercase hexadecimal digits over
@@ -214,7 +231,8 @@ above, so it never occurs in an encoding and the suffix is unambiguous.
 
 A predicate list is always AND; there is no disjunction (ADR-0022). Two scopes root the same operator
 set differently: a selector (`over:`) roots at the Record being filtered, and a condition (`when:`)
-roots at a named earlier Step's Record and so carries `step:` beside `field:`. There is no
+roots at a named earlier Step's Record and so carries `step:` beside `field:`. A `field:` is a path in
+the grammar above, written from that root without the root marker. There is no
 regular-expression operator — `starts_with` and `ends_with` are the bounded form of prefix and suffix
 matching, in place of the unbounded one (ADR-0022).
 
@@ -268,6 +286,13 @@ The catch-all terminates the table and is not optional: `N other lines changed �
 counting every line of every reviewed artefact that moved and that no row above reports — a widened
 retention policy (§7) among them. The enumeration is what makes the table checkable; the catch-all is
 what makes omission impossible.
+
+## The `FLAGS` vocabulary
+
+**Closed to `hyper`.** `FLAGS` is the one vocabulary on the one editorial surface a Definition review
+carries (§8); no Manifest mints a flag any more than it mints an `error_code`. Which names it draws
+on is not stated here, and stands where the growth process above stands — undecided, and not decided
+here. What binds every name whatever they turn out to be is the relation §8 states.
 
 ## The input-schema subset
 

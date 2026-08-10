@@ -33,8 +33,8 @@ A Manifest is data, so what it claims can be checked against what its own Operat
 nothing but the file itself (ADR-0004). The Capabilities a Manifest declares must equal, not merely
 contain, the Capabilities `hyper` derives from every Operation's schema and its own holes —
 over-declared or under, either direction is `capability-mismatch`. §3's identity-field requirement and
-Target-class type-check get their names here: an Operation of `series` cardinality declaring no
-identity field is `identity-undeclared`, and a Definition naming a Target outside its Provider's
+Target-class type-check get their names here: an Operation projecting a Record and declaring no
+identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
 
 ## The two keys

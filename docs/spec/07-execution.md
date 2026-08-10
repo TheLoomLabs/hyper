@@ -34,9 +34,11 @@ leaves behind for a later one to continue out of: re-running the Procedure is th
 What a re-run does to a Step that already ran is decided by the Repeatability below rather than by
 any record of where the last Run stopped.
 
-What a Step produces is written as the Step completes and before the next Step starts, so a crash
-loses at most the Step in flight and a fresh Run reads exactly the state a resumed Run would have
-rebuilt.
+What a Step produces is written as each call confirms, and all of it before the next Step starts, so
+a crash loses at most the Step in flight and a fresh Run reads exactly the state a resumed Run would
+have rebuilt. A serial effectful Expansion therefore leaves what it confirmed rather than nothing:
+three Tombstones where the fourth call never returned, which is the state the halting rule below
+states and the next Run reads.
 
 ## Repeatability
 
@@ -59,11 +61,16 @@ would be an edit to a reviewed artefact.
 
 ## Conditions
 
-A `when:` condition reads Records produced by earlier Steps of this Run, and nothing else: not the
-world, not another Definition's Records, and not another Run's. A fact from elsewhere is a `read`
-Step — it costs one line, it records what it read, and it occupies lines the gutter annotates beside
-the Step it decides (§3). Every fact that influenced a Run is therefore visible twice over, in the
-artefact and in the Run's own Records.
+A `when:` condition reads the Records earlier Steps of this Run acted on, and nothing else: not the
+world, not another Definition's Records, and not another Run's. A Step whose call returned what the
+head already held acted on its Record all the same and minted nothing (§7), so what a condition reads
+is that head rather than nothing — a Record going unchanged is not a Record going missing. A fact
+from elsewhere is a `read` Step — it costs one line, it records what it read, and it occupies lines
+the gutter annotates beside the Step it decides (§3). Every fact that influenced a Run is therefore
+visible twice over, in the artefact and in the Run's own Records.
+
+A condition is evaluated before the Step's Expansion resolves, so a Step it does not hold for expands
+over nothing, reaches no Target, and cannot Refuse on a Bound it never counted against.
 
 A Step whose condition does not hold is skipped by condition, which is a different Disposition from
 skipped as already recorded because only the latter is Repeatability evidence.
@@ -154,9 +161,9 @@ destruction only, one per Asset as each confirms.
 ## Signals
 
 The first interrupt drains: the Step in flight finishes, no further Step starts, and the Run closes
-its own Journal entry `failed` and exits 130 (ADR-0015). For a serial destroy that is a bounded
-wait, and it turns most cancellations into a stop that is recorded in full rather than into an
-ambiguity.
+its own Journal entry `failed` and exits 130 (ADR-0015). The drained Step's outcome came back, so its
+Disposition is *ran* like any other completed Step's. For a serial destroy that is a bounded wait,
+and it turns most cancellations into a stop that is recorded in full rather than into an ambiguity.
 
 A second interrupt kills the process, and what that leaves is an open Journal entry rather than no
 entry at all — the next effectful Run closes it `failed` with the in-flight Step marked *attempted,

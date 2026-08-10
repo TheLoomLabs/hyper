@@ -142,6 +142,8 @@ jobs:
           tar -xzf hyper.tar.gz
 
       - name: hyper run retire-preview-envs
+        env:
+          STAGING_TOKEN: ${{ secrets.STAGING_TOKEN }}
         run: |
           printf '```\n' >> "$GITHUB_STEP_SUMMARY"
           set +e
@@ -181,6 +183,15 @@ queues behind the first, and where a third piles up the oldest pending run is dr
 bound above already accepts. A Procedure whose every Step is `read` carries no group at all: it takes
 the shared lock and reaps nothing, and serialising it would starve the five-minute cadence behind the
 forty-minute provision (§6, ADR-0006).
+
+**The `env:` block is derived from the Targets the Procedure touches.** Every credential slot named
+by the Target declarations reachable through the Procedure, to any depth, appears on the `run` step
+and nowhere else in the file, each carrying an executor secret named exactly as the environment
+variable that Target declaration resolves the slot from (ADR-0007). The
+runtime binary resolves an environment variable exactly as it does on a laptop, so nothing about the
+executor enters the decision; adding a Target to a Procedure makes a new secret appear in the diff
+`project` writes rather than in YAML nobody reviewed; and an executor holding no secret of that name
+Refuses before the first Step (`credential-absent`, §12) rather than failing part-way through one.
 
 **The checkout leaves the token behind**, which is what `hyper` fetches and pushes the Store branch with
 — that sync is `hyper`'s own work rather than a step of the workflow (§7). `actions/checkout` is the

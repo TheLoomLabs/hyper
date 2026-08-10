@@ -68,6 +68,9 @@ than an approximate one. The cost of that — a Record that vanished and a Recor
 both write nothing — is paid in the Journal below rather than by adding state to the Record, and §8
 states what it buys.
 
+A field a version does not carry is absent from the file, and nothing stands in its place: no empty
+value, no marker, and no key.
+
 There are no binary Records, no streaming writes, and no appending inside a version. A Record is the
 projection its Manifest declared (§3), and a blob nobody reviews has no business on a branch whose
 whole point is that it can be read.
@@ -105,7 +108,9 @@ with no git plumbing and no tool.
 
 A Tombstone is an ordinary version of the series, carrying the fact that what it described was
 destroyed, the Asset's last known state, the Operation that destroyed it, and the Run that confirmed
-it. It is terminal for the Asset's life and not for the series: a further version above it makes the
+it. The series is the one the Expansion acted on, so a Tombstone is written under the Asset's own
+identity rather than under a projection of the destroying Operation's response, which need not carry
+one. It is terminal for the Asset's life and not for the series: a further version above it makes the
 Head alive again, which is what makes destroy-then-recreate behave as §6 states under
 `skip-if-recorded`.
 
@@ -140,8 +145,10 @@ the runner do not share a clock.
 ### What a Disposition holds
 
 A Step's Disposition — one of the six §6 names and §12 defines — is held here rather than by any Record,
-and each carries two things beyond its value: the Record identities the Step acted on, and what `hyper`
-itself did to reach the outcome. A third arises in one case only, and is stated below with it.
+and each carries three things beyond its value: the Record identities the Step acted on, the selector
+it resolved together with what that selector expanded to and the Bound it was counted against, and
+what `hyper` itself did to reach the outcome. A fourth arises in one case only, and is stated below
+with it.
 
 The identity set is written as a digest, and in full only where that digest differs from the same Step's
 digest in the previous Run of the Procedure. An unchanged listing of five hundred Records costs one
@@ -152,7 +159,12 @@ Record, and *attempted, outcome unknown* included, which is the Disposition that
 one whose identities matter most: the Assets a Run may or may not have destroyed are named there and
 nowhere else.
 
-The second is `hyper`'s own account of the work — a Pattern's attempts, its pages, its poll iterations —
+The second is the selector, held as it was authored beside what it resolved to, so that what a Step
+reached is readable back from the entry long after the Run and against the artefact revision that
+Run's Provenance names. It is what a Refusal's remediation points at (§8) and what `show --expansion`
+reads (§9); a Step carrying no selector (§3) resolved none and holds none.
+
+The third is `hyper`'s own account of the work — a Pattern's attempts, its pages, its poll iterations —
 supplied by no Provider (ADR-0018). It is what makes *attempted, outcome unknown* after five attempts a
 different fact on the page from the same Disposition after one.
 

@@ -43,10 +43,12 @@ A **path** names a value living elsewhere — a field of an Operation's response
 its projection, or a field of a Record, where a Step references one. Its grammar is closed and defined
 in §12. Where a path appears in a value position rather than a projection, it is embedded as a
 **reference** — a mapping, never a string: `{step: <id>, path: <path>}` names an earlier Step's Record,
-`{item: <path>}` names the Record a selector or predicate is itself ranging over, and there is no third
-form. A reference may appear only where the schema at that position expects a scalar, which is what
-makes "is this a literal or a reference" a type question rather than a parsing one — a whole object can
-therefore never be referenced. A reference naming an earlier Step whose declared cardinality is
+`{item: <path>}` names the Record the Step is itself ranging over — the one a selector or predicate is
+filtering, and, in the `args:` of an expanding Step, the one its Expansion is acting on, which is how
+an effectful Step addresses what it expanded to — and there is no third form. A reference may appear
+only where the schema at that position expects a scalar, which is what makes "is this a literal or a
+reference" a type question rather than a parsing one — a whole object can therefore never be
+referenced. A reference naming an earlier Step whose declared cardinality is
 `series` is a load error: pairing an expanding Step against a stored series is a join by identity
 between two Record series, and no such join is ever performed. The shape that is writable names one
 Record — a Step of cardinality `one` produces something, and a later Step references it directly.
@@ -56,9 +58,10 @@ The operator set is closed and defined in §12. A predicate list is always AND; 
 anywhere in it (ADR-0022).
 
 A **template hole** fills a scalar position inside an otherwise literal value, one hole syntax across
-every artefact. What a hole may resolve to is decided by the position it appears in, never by scanning
-the resolved value afterward for something dangerous. The legal positions are a closed set defined in
-§12.
+every artefact: `{name}`, naming what fills it and nothing more, and a value beginning with one is
+quoted (ADR-0023). What a hole may resolve to is decided by the position it appears in, never by
+scanning the resolved value afterward for something dangerous. The legal positions are a closed set
+defined in §12.
 
 ### The credential slot
 
@@ -73,29 +76,39 @@ authority arriving after review under another name (ADR-0008).
 Capability-relevant hole resolving against it is checked the same way, and a `values:` list of hosts is
 checked against the same enumeration (§12, the `over:` forms).
 
+Which host a request reaches follows from the grant's size rather than from a second declaration.
+Where the bound Target grants one host `hyper` fills it; where it grants several the Operation marks
+one of its inputs as the host, and the value that input carries is checked for membership of the
+grant like any other (ADR-0024). The marking is a property of an input rather than a further fact
+about the Operation.
+
 ## The five artefacts
 
 ### Provider
 
 `kind: provider`, in `providers/`. A Provider is a Manifest and nothing else. It declares the closed
-input schema and output projection for each Operation it exposes, and, per Operation, the eight facts
+input schema and output projection for each Operation it exposes, and, per Operation, the seven facts
 `hyper` would otherwise have to guess at: the Kind, whether it is `opaque`, its Repeatability, its
-deadline, its concurrency limit, the Capabilities it requires, the Patterns it uses, and its Record
-cardinality together with the response field that is the Record's stable identity. An Operation
-yielding a `series` cardinality with no declared identity field is a load error. A Manifest also
-declares which output fields are secret, the Auth scheme it authenticates with and that scheme's own
-declared parameters, and the class of Target its Definitions may bind — a static type-check rather than
-a set that could expand a Definition's reach. A Manifest alone carries an explicit schema-version field;
-the other four artefacts carry
-none, since the repository-wide version pin already fixes which binary reads them and a Manifest is the
-one artefact authored by someone outside that pin's reach (ADR-0023). An installed Manifest carries one
-further block, written by `hyper` rather than authored: the registry ref and digest `install` verified
-it against (§11).
+deadline, its concurrency limit, the Patterns it uses, and its Record cardinality (§12) together with
+the response field that is the Record's stable identity. A Record's name is the value that field
+holds, so an Operation whose response a Record is projected from and which declares no identity field
+produces a Record nothing can identify, and declaring none is a load error. A `destroy` Operation
+projects no Record of its own and declares neither, what it writes being a Tombstone (§7). A Manifest
+also declares the Capabilities it requires, once for the Provider and never per Operation, `hyper`
+deriving the per-Operation ones (§4); which output fields are secret; the Auth scheme it
+authenticates with and that scheme's own declared parameters; and the class of Target its Definitions
+may bind, a static type-check rather than a set that could expand a Definition's reach. A Manifest
+alone carries an explicit schema-version field; the other four artefacts carry none, since the
+repository-wide version pin already fixes which binary reads them and a Manifest is the one artefact
+authored by someone outside that pin's reach (ADR-0023). An installed Manifest carries one further
+block, written by `hyper` rather than authored: the registry ref and digest `install` verified it
+against (§11).
 
 ### Target declaration
 
 `kind: target-declaration`, in `targets/`. The reviewed half of a Target, holding no credentials: the
-Kinds it accepts, the Capabilities it grants, its endpoint or its enumerated host set, its class,
+Kinds it accepts, the Capabilities it grants, the host set it grants — one member where the Target is
+a single endpoint, and never a grant without an enumeration (ADR-0024) — its class,
 whether it opts into `opaque` plus `destroy`, and the environment variable name for each
 credential slot its Auth scheme requires. Every static check over a Target runs from this artefact
 alone, with no credential resolved and no network reached.
@@ -127,7 +140,10 @@ under the invoking Step's path with the invoked Procedure's transitive envelope.
 on any line, rendered verbatim in the gutter and never read by `hyper`; no directive syntax may ever
 exist inside one, since that would be a bypass wearing a comment.
 
-`over:` takes one of three forms, closed and defined in §12.
+`over:` takes one of three forms, closed and defined in §12, and a Step declaring none is invoked
+once. All three range over something already written down — Records in the Store, or identifiers
+authored in the Procedure — so a Step calling an Operation for the first thing it will ever record
+has nothing to range over and says so by omission.
 
 ### Repository declaration
 

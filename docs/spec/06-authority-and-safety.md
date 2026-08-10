@@ -43,7 +43,9 @@ before anything runs rather than left unchecked (`bound-missing`, §4).
 
 A selector's Expansion — the resolution of `over:` to the concrete Records a Step will act on — is
 scoped by the Step's own Kind: a `read` Step may expand over Observations as well as Assets, and an
-effectful Step may expand only over Assets (ADR-0027). Anything `hyper` did not create is therefore
+effectful Step may expand only over Assets (ADR-0027). A series whose head is a Tombstone stands for
+nothing and is expanded over by neither, so what one Run destroyed the next does not reach again and
+does not count against its Bound (§7). Anything `hyper` did not create is therefore
 reachable only by literal identifier — a `values:` list, occupying lines the gutter annotates and
 counted by the Bound like any other selector (§12) — never by a selector ranging over it: a Record
 `hyper` never created is not an Asset, and an effectful selector has nowhere else to reach.

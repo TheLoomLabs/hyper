@@ -37,7 +37,7 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Five victims stand at it, each a thing an author can want, describe precisely, and not write:
+Six victims stand at it, each a thing an author can want, describe precisely, and not write:
 
 - **OIDC federation.** `hyper` reads credentials and never acquires them (ADR-0007), so a federated
   cloud reached from CI needs a long-lived credential in the executor's secrets — worse than the
@@ -50,6 +50,10 @@ Five victims stand at it, each a thing an author can want, describe precisely, a
 - **A regular-expression match.** `starts_with` and `ends_with` are the bounded form of prefix and
   suffix matching and the whole of what exists (§12, ADR-0022).
 - **Arithmetic on a response field.** There is no expression language to compute one in (ADR-0022).
+- **A written value that depends on when the Run happens.** No artefact names the current instant, no
+  arithmetic computes over one, and no invocation supplies one (ADR-0022, ADR-0008), so a date a Step
+  writes is the literal its author wrote — and a Procedure on a Cadence writes that same literal at
+  every occurrence until somebody edits the artefact and puts it back through review.
 
 The process by which those sets grow — who adds a member, and when — is undecided, and §12 records it
 as undecided rather than answering it.

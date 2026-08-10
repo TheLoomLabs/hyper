@@ -104,7 +104,9 @@ authority: a Secret sink, a dry-run marker, and output formatting (§6, ADR-0008
 
 `run` renders nothing before executing (ADR-0015). What it writes is the Step table §8 states, each
 Step's Disposition and the count of Records it wrote, and, where a guardrail declined, §8's Refusal
-rendering in full. Under `--json` it emits §8's rows terminated by the `outcome` row.
+rendering in full. Under `--json` it emits those two renderings' rows and the Run's own `provenance`,
+terminated by the `outcome` row, and nothing else: what each Record did is the Comparison's rendering
+rather than the Run's, and `changes` is what emits it (§8).
 
 **`--dry-run`** is accepted on `run` and on no other command. It performs the reads it reaches and
 stops rather than simulating an effect, and it writes a Journal entry marked as a dry-run (§6). A
@@ -558,7 +560,7 @@ run({ procedure } | { definition, operation, target }, dry_run?, secret_sink?)
 //       dry_run      — boolean
 //       secret_sink  — the Secret sink: an absolute path, outside the repository working tree
 // → outcome: §12's triple
-// → rows: §8's step, asset, observation, refusal, remediation and provenance rows, unchanged
+// → rows: §8's step, refusal, remediation and provenance rows, unchanged
 ```
 
 **There is no `inputs` argument, on either form.** A Procedure is fully bound by its artefact, and a

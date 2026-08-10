@@ -28,7 +28,9 @@ previous revision, the review renders the range and the gutter marks every line 
 
 **`AUTHORITY`** is the one table, because it is assembled from a Definition and a Target declaration
 together and no gutter on this file could hold it: the claimed Kinds against the accepted Kinds, their
-intersection, and the `destroy` Operations the Definition names (§5).
+intersection, and the `destroy` Operations the Definition names (§5). Granularity following severity
+(§12), the claimed-Kinds column carries `destroy` where the Definition names any: it is derived at
+that one position rather than read.
 
 **`FLAGS`** is the one editorial surface. Every row cites a line the gutter already marked and
 introduces no claim of its own; a flag citing a line the gutter did not mark is a defect in the
@@ -154,7 +156,7 @@ $ hyper changes --since 2026-08-04T09:12:00Z
 
   retire-preview-envs
   BASELINE  01991c3a-7d40…  cron           Tue 4 Aug 09:12  completed  1m48s  rev a91f0c2
-  SUBJECT   01991ea6-b118…  igor@thinkpad  Wed 6 Aug 11:03  completed  2m31s  rev 4d7e118
+  SUBJECT   01991ea6-b118…  igor@thinkpad  Thu 6 Aug 11:03  completed  2m31s  rev 4d7e118
 
   YOU DID THIS   5 assets
   CHANGE     TARGET   DEFINITION       RECORD        VERSION  FIELDS

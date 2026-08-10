@@ -28,5 +28,5 @@ through `hyper review` — before the commit, not before the process.
   relocation of the safety net, not a gap in it, and it is worth stating plainly because the moment a
   human most wants a prompt is exactly the moment this decision denies them one.
 - **Ctrl-C is the only interactive control**, and it is handled as a signal rather than a question:
-  the Run drains, closes its own Journal entry `failed` with the in-flight Step *attempted, outcome
-  unknown*, and exits 130.
+  the Run drains — the Step in flight finishes and is recorded as having run — closes its own Journal
+  entry `failed`, and exits 130.
