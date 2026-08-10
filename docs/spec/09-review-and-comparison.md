@@ -129,6 +129,13 @@ carries (§7) rather than from the Records, which is what buys a disappearance a
 unchanged Record and a Record that stopped existing both write nothing. No Record gains state for it and
 nothing is reconciled.
 
+A partial set is read for what it holds and never for what it omits. Where a Step's Disposition carries
+the path a projection failed on (§6, §7), an identity missing from its set is one `hyper` did not read
+rather than one the world removed: it gets no row as subject, where it would otherwise render
+*vanished*, and none as baseline, where the same identity returning in the next Run would otherwise
+render *appeared*. The entry stands as a baseline like any other and what that Step did write renders
+like any other Run's; it is that one set's absences that say nothing.
+
 The three tables never join an Observation series to an Asset series. That join is the drift detection
 `hyper` has no engine for and never performs (ADR-0010).
 
@@ -297,7 +304,9 @@ surface, under any flag. What fills that gap is precision rather than volume: a 
 names the path that failed to project (§6). That is the whole of what it carries — a failure names no
 check, so no `error_code` stands beside it (§12) — and it is positional in the sense ADR-0007 is
 positional rather than a scan of a body no surface may show. It is an error's rendering, so it goes to
-stderr in both modes like any other (§9) rather than into the row stream above.
+stderr in both modes like any other (§9) rather than into the row stream above. That is the halting
+Run's surface for it; the Step's Disposition holds the same path in the Journal (§7), and reading it
+back later is `show`'s (§9) rather than an error's rendering at all.
 
 ## What these surfaces do not say
 

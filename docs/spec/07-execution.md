@@ -129,6 +129,21 @@ whether or not `hyper` could read the answer back. It carries no `error_code`, n
 declined (§12); what it names instead is the path that failed to project, and the surface that goes
 out on is §8's.
 
+An Operation of `series` cardinality projects many Records out of one response, so the failure can be
+one member's: the path the Operation reads its Records from resolves, nine members project, and the
+tenth's identity path does not. What projected is written, on a `read` Step and an effectful one
+alike; the tenth is not, there being no identity to write it under; and the Run halts as above,
+leaving what it did (ADR-0011). The drain rule above does not decide this — that rule is scoped to a
+Step's Expansion, and a `series` response is one call the Expansion resolved to.
+
+Nine Assets written are nine things `hyper` created and is accountable for, and discarded they are
+nine resources standing that nothing in the record reaches and nothing reports — the Orphaned Asset's
+hazard (§7) without the report that makes it survivable. What a half-projected response puts in doubt
+is not the Records but the claim that they are all of them, and that claim lives in the identity set
+the Step's Disposition carries rather than in any Record: §7 states what that set holds here, and §8
+what reads it. Nothing in it turns on Kind, one response projecting the same way whichever Kind read
+it.
+
 ## Halting
 
 A halted Run leaves what it did. Nothing is compensated, rewound, or removed from the record: a

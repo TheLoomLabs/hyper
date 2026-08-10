@@ -141,7 +141,7 @@ the runner do not share a clock.
 
 A Step's Disposition — one of the six §6 names and §12 defines — is held here rather than by any Record,
 and each carries two things beyond its value: the Record identities the Step acted on, and what `hyper`
-itself did to reach the outcome.
+itself did to reach the outcome. A third arises in one case only, and is stated below with it.
 
 The identity set is written as a digest, and in full only where that digest differs from the same Step's
 digest in the previous Run of the Procedure. An unchanged listing of five hundred Records costs one
@@ -155,6 +155,14 @@ nowhere else.
 The second is `hyper`'s own account of the work — a Pattern's attempts, its pages, its poll iterations —
 supplied by no Provider (ADR-0018). It is what makes *attempted, outcome unknown* after five attempts a
 different fact on the page from the same Disposition after one.
+
+A Step halted by a projection that did not resolve (§6) carries the identities it wrote and no others,
+and one thing more: the path that failed to project. The set is partial and the path is what says so.
+The digest is taken over what the set holds like any other and moves under the same rule, so it says
+nothing about partiality either way — two Runs failing on the same member hold the same nine identities
+and the digest does not move — and it is the path a reader reads partiality from. That path is held
+here and nowhere else: a rendering goes to a terminal that scrolls, and no surface shows the response
+it failed against (ADR-0017).
 
 ### A Refusal in the Journal
 

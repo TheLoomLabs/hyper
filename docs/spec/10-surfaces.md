@@ -142,10 +142,11 @@ bound, and the version of `hyper` that performed it. The Trigger is on every row
 that distinguishes a world that has not changed from one nobody has looked at (§7).
 
 `show <run-id>` writes one entry in full: each Step's Disposition with the Record identities it acted
-on and `hyper`'s own account of what it did to reach that outcome — a Pattern's attempts, its pages,
-its poll iterations — beside the entry's Provenance (§7). Under `--expansion` each Step also carries
-its selector, what that selector expanded to, and its Bound, which is what §8's Refusal footer points
-at.
+on, `hyper`'s own account of what it did to reach that outcome — a Pattern's attempts, its pages, its
+poll iterations — and, on a Step a projection failure halted, the path that failed to project beside
+the partial set it wrote (§6, §7), all beside the entry's Provenance. Under `--expansion` each Step
+also carries its selector, what that selector expanded to, and its Bound, which is what §8's Refusal
+footer points at.
 
 `changes [procedure]` renders §8's Comparison. Naming a Procedure selects it and omitting one compares
 across every Procedure at once, which is why the Procedure is positional here and a parameter on `runs`
@@ -603,7 +604,8 @@ runs(since?, procedure?, target?, outcome?, limit?)
 run_show(run_id, expansion?)
 // → rows: [{ type: "disposition", step, state,   // state: §12
 //            records: [ … ],                     // the Record identities the Step acted on
-//            pattern: { attempts, pages, polls } }]
+//            pattern: { attempts, pages, polls },
+//            failed_path }]                      // §6's projection failure only; records is partial
 //         §8's provenance row, unchanged
 //         [{ type: "expansion", step, selector, expanded_to, bound }]   // expansion: true only
 ```
