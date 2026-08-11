@@ -99,7 +99,8 @@ against the Run before it, and nothing in `hyper` renders a proposed change befo
 ### The window
 
 The baseline is the previous Run of the same Procedure, so a monitoring Run is never compared against a
-provisioning one. `since <t>` is sugar for *take the last Run before that instant and fold everything
+provisioning one. That window is total rather than partial: every Run is a Run of a Procedure
+(ADR-0036), so no Run reaches the world outside some Procedure's Comparison. `since <t>` is sugar for *take the last Run before that instant and fold everything
 after it into one rendering*; `between` names two Runs directly; a whole-Store mode compares across
 every Procedure at once. Those parameters — `since` or `between`, `target`, `kind`, `limit` — are typed
 and closed, and there is no predicate dialect over them: a caller wanting an arbitrary filter takes the

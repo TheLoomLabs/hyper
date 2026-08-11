@@ -181,7 +181,8 @@ environment it runs in.
 _Avoid_: Secret output, Vault write, Capture file
 
 **Run**:
-A single execution of an Operation or a Procedure, and the unit against which change is reviewed.
+A single execution of a Procedure, and the unit against which change is reviewed. There is no other
+kind: a single Operation is reached only through a Step, and a Probe executes one without being a Run.
 _Avoid_: Execution, Invocation, Job
 
 **Probe**:

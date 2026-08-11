@@ -236,6 +236,12 @@ hold any of them (§5, §9, ADR-0001). Who may change what `hyper` does is decid
 change to the reviewed artefacts, which is the repository's own review, and adding a second authority
 axis inside the tool would be a way past a Refusal that no artefact records.
 
+**No ad-hoc invocation.** There is no way to invoke one Operation directly: every Run is a Run of a
+Procedure, and a one-off act against a credentialled Target is an artefact you have not written yet
+(§9, ADR-0036). Nothing grows to cover it — a Probe reaches `local` and `read` alone and is not a Run
+(ADR-0009) — so the price is real and it is the ritual working: author, check, review, run. It is not a
+ceiling victim; nothing here is unwritable, only unwritten.
+
 **No continuous monitoring.** What a Cadence claims is periodic checking against a floor the executor
 sets, with best-effort delivery and no invented window (§10, ADR-0005). A sub-minute prober is a
 hosted service rather than a stateless binary an external clock invokes, and calling this monitoring

@@ -19,7 +19,7 @@ no other nesting, no aliases, and no hidden commands.
 | **Discovery** | `providers` · `provider <name>` · `operation <provider> <operation>` |
 | **The repository** | `targets` |
 | **Authoring** | `check [path...]` · `review <artefact>` |
-| **Execution** | `run <procedure>` \| `run <definition> <operation>` · `probe <provider> <operation>` |
+| **Execution** | `run <procedure>` · `probe <provider> <operation>` |
 | **Inspection** | `runs` · `show <run-id>` · `changes [procedure]` · `records` |
 | **Lifecycle** | `install <ref>` · `project` · `store init` · `compact` |
 
@@ -105,18 +105,25 @@ many flags it carried; only an artefact that would not load exits 1, and what it
 
 ## Execution
 
-`run` has two forms and the difference between them is authority, not sugar.
+`run <procedure>` runs the named Procedure, and it is the whole of what `run` does: every Run is a Run
+of a Procedure (ADR-0036). A single Operation invoked directly through a Definition is not a second
+form of this command — there is no such invocation, and handing `run` two positionals is a usage error.
+Where the one positional names an artefact that exists and is a Definition rather than a Procedure, that
+is a usage error too, the two living in different directories and the kind being known before anything
+loads (§3).
 
-`run <procedure>` runs the named Procedure. It takes no `--target`: a Procedure is fully bound and
-declares its own Target envelope (§5), so a Target supplied at invocation is either redundant with the
-artefact or it is authority arriving after review, which is what ADR-0008 removed. Supplying one is a
-usage error rather than a silently ignored flag.
+What is written instead is a Procedure of one Step, and §3's `publish` Step is already that shape: a
+`definition:`, an `operation:`, a `target:` and the `args:` the input schema requires, with no `over:`
+and no `bound:`. What the artefact costs is those lines; what it buys is the Record, the Comparison row,
+the gutter the review annotates, and a Bound where the Kind demands one.
 
-`run <definition> <operation> --target <target>` invokes a single Operation through a Definition.
-`--target` is required here — nothing else names the Target — and omitting it is a usage error.
+`run` takes no `--target`. A Procedure is fully bound and declares its own Target envelope (§5), so a
+Target supplied at invocation is either redundant with the artefact or it is authority arriving after
+review, which is what ADR-0008 removed. Supplying one is a usage error rather than a silently ignored
+flag.
 
-Neither form carries an argument value. What the invocation carries is the occasion and never
-authority: a Secret sink, a dry-run marker, and output formatting (§6, ADR-0008).
+The invocation carries no argument value at all. What it carries is the occasion and never authority: a
+Secret sink, a dry-run marker, and output formatting (§6, ADR-0008).
 
 `run` renders nothing before executing (ADR-0015). What it writes is the Step table §8 states, each
 Step's Disposition and the count of Records it wrote, and, where a guardrail declined, §8's Refusal
@@ -147,6 +154,12 @@ Provenance and no Disposition, and can never be scheduled, sequenced into a Proc
 Comparison baseline (ADR-0009). Having no outcome triple, it terminates its row stream with `result`
 and never with `outcome` (§8). It may surface the raw response beside the projection `hyper` derived
 from it, which no credentialled surface does (ADR-0017).
+
+A Probe's `--input` is the only place in `hyper` where a value arrives at invocation, and it is not the
+door ADR-0036 closed wearing another name. It chooses what is *looked at*: a Probe is not a Run, is
+`read` Kind against `local`, and writes no Record and no Journal entry, so nothing it carries can widen
+what a reviewed artefact permits, reach a credentialled Target, or leave evidence a later Run reads.
+An input on `run` would be none of those things.
 
 ## Inspection
 
@@ -570,19 +583,21 @@ safer than that. An agent that cannot run also cannot read back the Record it ju
 loop this surface exists to close.
 
 ```jsonc
-run({ procedure } | { definition, operation, target }, dry_run?, secret_sink?)
-// args: procedure    — the Procedure form, carrying no target
-//       definition, operation, target — the single-Operation form, target required
+run(procedure, dry_run?, secret_sink?)
+// args: procedure    — the Procedure to run, carrying no target
 //       dry_run      — boolean
 //       secret_sink  — the Secret sink: an absolute path, outside the repository working tree
 // → outcome: §12's triple
 // → rows: §8's step, refusal, remediation and provenance rows, unchanged
 ```
 
-**There is no `inputs` argument, on either form.** A Procedure is fully bound by its artefact, and a
-value supplied at call time is Step behaviour appearing on no reviewed line — authority arriving after
-review, which is the shape ADR-0008 removed and the same shape as the `--force` that is absent
-everywhere else.
+**`run` takes a Procedure and nothing else**, as the command does: every Run is a Run of a Procedure
+(ADR-0036), so there is no single-Operation arm of this tool and a call carrying a `definition` is an
+argument violating a schema — a protocol error, which is what this surface has in place of exit `2`.
+
+**There is no `inputs` argument.** A Procedure is fully bound by its artefact, and a value supplied at
+call time is Step behaviour appearing on no reviewed line — authority arriving after review, which is
+the shape ADR-0008 removed and the same shape as the `--force` that is absent everywhere else.
 
 `secret_sink` is the CLI's `--secret-out` under the name of the thing it supplies, a flag named for a
 direction having no direction to name in an argument object. It is chosen by the caller and never
