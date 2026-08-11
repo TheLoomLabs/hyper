@@ -37,7 +37,7 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Twelve victims stand at it, each a thing an author can want, describe precisely, and not write:
+Thirteen victims stand at it, each a thing an author can want, describe precisely, and not write:
 
 - **OIDC federation.** `hyper` reads credentials and never acquires them (ADR-0007), so a federated
   cloud reached from CI needs a long-lived credential in the executor's secrets — worse than the
@@ -67,10 +67,21 @@ Twelve victims stand at it, each a thing an author can want, describe precisely,
 - **A regular-expression match.** `starts_with` and `ends_with` are the bounded form of prefix and
   suffix matching and the whole of what exists (§12, ADR-0022).
 - **Arithmetic on a response field.** There is no expression language to compute one in (ADR-0022).
-- **A written value that depends on when the Run happens.** No artefact names the current instant, no
-  arithmetic computes over one, and no invocation supplies one (ADR-0022, ADR-0008), so a date a Step
-  writes is the literal its author wrote — and a Procedure on a Cadence writes that same literal at
-  every occurrence until somebody edits the artefact and puts it back through review.
+- **A field timestamped as an epoch integer, compared by time.** `older_than` and `newer_than` read a
+  value as a timestamp and an integer is a number, so a field holding `1754478199` Refuses rather than
+  comparing (§12, ADR-0035). Reading it as an epoch would mean choosing seconds or milliseconds with
+  nothing in any artefact saying which, and a heuristic on magnitude is `hyper` guessing about the world
+  on the surface that decides what a `destroy` reaches. There is no arithmetic to convert with either
+  (ADR-0022). A Manifest can project such a field and every surface renders it; no predicate can compare
+  it. Unlike the rest of this list the cause is a value rather than a missing primitive, and what would
+  buy it back is a format declared on the projection — which is an output schema, refused where the
+  projection is stated (§3).
+- **A written value that depends on when the Run happens.** No artefact names the current instant in a
+  value position, no arithmetic computes over one, and no invocation supplies one (ADR-0022, ADR-0008),
+  so a date a Step writes is the literal its author wrote — and a Procedure on a Cadence writes that
+  same literal at every occurrence until somebody edits the artefact and puts it back through review. A
+  predicate does name the instant, relatively, in a filter position, and the Run fixes it once for all
+  of them (ADR-0034); the two are different positions and only the first is behind this wall.
 - **A request body that is not JSON.** A `body:` is a mapping serialised as JSON and nothing else (§3),
   so a form-encoded POST, an XML payload, or a raw upload has no route but waiting for one to ship.
 - **An API paginated by a URL it hands back.** Pagination reads a cursor or counts pages (§12); a

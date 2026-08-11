@@ -189,7 +189,7 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Thirty-seven members, each the identifier of a check that declined, named where that check is
+**Closed.** Thirty-eight members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
@@ -203,11 +203,16 @@ Twenty-one are contributed by §4's static checks alone: `strict-yaml-violation`
 `kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
 `bound-missing`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
-Journal already holds as *ran* or *attempted, outcome unknown*. `bound-exceeded` is the one member two
-sections state, §4 firing it where the Expansion's count is authored and therefore known offline (a
-`values:` list longer than the Bound) and §6 firing it everywhere else. It is one code because it is one
-check: what names a Refusal is the check that declined, never the moment it ran, and a reader is never
-holding one without knowing whether they asked `check` or a Run. §7's four are the Store's:
+Journal already holds as *ran* or *attempted, outcome unknown*.
+
+Two members are stated by §4 and §6 both. `bound-exceeded` is one, §4 firing it where the Expansion's
+count is authored and therefore known offline (a `values:` list longer than the Bound) and §6 firing it
+everywhere else. `predicate-type-mismatch` is the other, an operator handed a type it does not take:
+§4 fires it where the fault is authored — a `timestamp` under `greater_than`, `exists: false`, an
+`in:` that is empty, of one member or of mixed types, an empty `starts_with:`, a predicate against a
+declared-secret field — and §6 fires it against a stored value at Expansion (ADR-0035). Each is one code because it is one check:
+what names a Refusal is the check that declined, never the moment it ran, and a reader is never holding
+one without knowing whether they asked `check` or a Run. §7's four are the Store's:
 `store-absent`, a Run — or any other command that needs the Store (§9) — finding no Store branch;
 `store-unsynced`, an effectful Run that could not sync before its first effect;
 `record-identity-collision`, a Record identity colliding case-insensitively with one already written;
@@ -280,15 +285,104 @@ above, so it never occurs in an encoding and the suffix is unambiguous.
 
 ## The predicate operators
 
-**Closed.** Eleven operators: `equals`, `not_equals`, `in`, `exists`, `absent`, `starts_with`,
-`ends_with`, `greater_than`, `less_than`, `older_than`, `newer_than`.
+**Closed.** Eleven operators, each taking the operand types below and no others:
 
-A predicate list is always AND; there is no disjunction (ADR-0022). Two scopes root the same operator
-set differently: a selector (`over:`) roots at the Record being filtered, and a condition (`when:`)
-roots at a named earlier Step's Record and so carries `step:` beside `field:`. A `field:` is a path in
-the grammar above, written from that root without the root marker. There is no
-regular-expression operator — `starts_with` and `ends_with` are the bounded form of prefix and suffix
-matching, in place of the unbounded one (ADR-0022).
+| operator | operand | holds where |
+| --- | --- | --- |
+| `equals` | `string`, `integer`/`number`, `boolean`, `duration`, `timestamp` | the value is that value |
+| `not_equals` | as `equals` | the value is not that value |
+| `in` | a list of two or more literals, all one type | the value equals a member |
+| `exists` | `true` | the version carries the field |
+| `absent` | `true` | the version does not carry the field |
+| `starts_with` | a non-empty `string` | the value has that prefix |
+| `ends_with` | a non-empty `string` | the value has that suffix |
+| `greater_than` | `integer`/`number`, `duration` | the value is strictly greater |
+| `less_than` | `integer`/`number`, `duration` | the value is strictly less |
+| `older_than` | `duration`, `timestamp` | the value is strictly before the instant it names |
+| `newer_than` | `duration`, `timestamp` | the value is strictly after the instant it names |
+
+A `duration` operand under `older_than` or `newer_than` names the instant that far before the one below;
+a `timestamp` operand names itself. Neither operator takes a `duration`-valued field, an interval having
+no age; `greater_than` is what compares two lengths.
+
+A predicate list is always AND; there is no disjunction (ADR-0022). `in` is not a reopening of it: an
+`any_of` disjoins whole predicates and so puts two disjoint populations under one Bound, where `in`
+disjoins the values of one field over one population, every alternative on the line the gutter
+annotates. There is no regular-expression operator — `starts_with` and `ends_with` are the bounded form
+of prefix and suffix matching, in place of the unbounded one (ADR-0022). There is no `>=`: the four
+ordered operators are strict, and the pairs are how negation is written. **Negation lives in an
+operator's name and never in its operand**, which is why `exists` and `absent` are two members rather
+than one taking a boolean, and why `exists: false` is refused: it is a second spelling of `absent:
+true` producing an identical filter, and it is the spelling where one character in a value inverts a
+`destroy` selector while the operator a reviewer reads does not move.
+
+### The three roots
+
+A selector (`over:`) roots at the Record being filtered; a condition (`when:`) roots at a named earlier
+Step's Record and carries `step:` beside `field:`; a polling Pattern's `until:` roots at the response
+in hand (§3).
+
+At the two Record roots a `field:` is **one declared field name** — a key of the Manifest's `fields:`
+mapping (§3) — and nothing else: no descent, no brackets, no path. There is nothing there for a path to
+traverse, a Record's field names being flat and authored, and naming one is what makes the check below
+total. A projected value that is an object is therefore unfilterable, which is paid in the right place:
+the Provider author writes `region: $.config.region` once in the Manifest, reviewed, rather than every
+selector spelling the descent out. At the response root a `field:` **is** a path in the grammar above,
+written without the root marker, a response having paths and no declared names. Which of the two it is
+follows from the position, as every other legality question in this format does (§3).
+
+A `field:` naming what no Operation of the Provider projects is `reference-unresolvable` (§4), the same
+code and the same check a reference gets. It is a load error rather than a predicate that never holds
+because `absent` over an undeclared field is true for every version in the series (ADR-0035). The
+`over:` form `values:` carries no predicate list at all: its members are bare scalars with no declared
+fields to name, so there is nothing there to filter on (§7, ADR-0033).
+
+A selector reads the **head** version of each series and no other (§5). *Any version* would have a
+`destroy` reach a thing for what it used to be, and would make one artefact's reach grow with the Store
+every month.
+
+### What the comparisons mean
+
+Numbers are one domain: `integer` and `number` are two scalar types where an input schema constrains
+what a caller supplies, and one comparison where a value has already come back, so `equals: 1` holds
+against `1.0`. Durations compare by normalised length, so `10m` is greater than `300s` — the
+no-compounding rule above is about a value rendering back byte-identical to what was authored, which is
+a fact about writing rather than about ordering. Strings compare **byte-exact over UTF-8**,
+case-sensitive, with no normalisation, on the ground §7 folds no case in a Record identity: the rule is
+`hyper`'s rather than the locale's, and it is the same *the bytes moved* test the canonical encoding
+already runs.
+
+Time is `older_than` and `newer_than` entirely, and both take either a `duration`, read relative to the
+instant below, or an absolute `timestamp`. `greater_than` against a timestamp is refused rather than
+allowed as a synonym: it is a second spelling of a byte-identical comparison, and it is the spelling
+that reads backwards, *greater* standing in for *later*. A projected value is read as any RFC 3339
+timestamp, an offset included, and normalised to UTC; the `Z` above binds a value an author writes,
+where two artefacts could otherwise disagree about what a local time meant, and there is no author
+involved when an API hands one back. An epoch integer is a number rather than a timestamp and no
+operator reads it as one — §13 states the cost.
+
+**Every predicate in an invocation is evaluated against one instant, read once at its start**
+(ADR-0034). For a Run it is the `started_at` on `run.json` (§7), used verbatim, so nothing is stored to
+hold it; for a Probe it is the Probe's own start, recorded nowhere as a Probe records nothing
+(ADR-0009). One instant covers every Step, every nested Procedure and all three roots, so nothing a
+Pattern or a slow API does during a Run can move what a later Step reaches.
+
+### What a predicate cannot decide
+
+A projected field has no declared type (§3), so a predicate can be handed a value it cannot compare.
+**It Refuses; it never treats the value as not matching** (ADR-0035). A predicate list does not
+short-circuit — every conjunct is evaluated against every candidate — and nothing coerces. Refused with
+them are the predicates whose truth cannot depend on the value: an empty `in:`, an empty `starts_with:`
+or `ends_with:`, and a predicate against a field the Manifest declares secret, that field being written
+as the constant `"<secret>"` (§7). Refused beside those are the operand faults that are not comparisons
+at all: an `in:` of mixed types, `exists: false`, and a `timestamp` operand under `greater_than` or
+`less_than`. A one-member `in:` is refused too, being a second spelling of `equals` — one filter, two
+ways to write it, which would render as a change in `THE CODE MOVED` with nothing moved.
+
+The code is `predicate-type-mismatch`, stated by §4 where the fault is authored and knowable offline
+and by §6 where it is a stored value at Expansion. A polling `until:` contributes no Refusal: it reads
+a response after the call went out, so what applies there is §6's *when a projection does not resolve*
+— the Run halts, no `error_code` is carried, and what is named is the field and what was found in it.
 
 ## The template-hole positions
 

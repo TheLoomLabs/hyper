@@ -108,6 +108,25 @@ fit however the Run goes, and refusing it is refusing a certainty rather than a 
 code §6 carries because it is the same check; the run-time one is untouched and still guards `assets:`
 and `observations:`, which no file can count.
 
+## Predicates
+
+A `field:` at a Record root names one key of the Manifest's `fields:` mapping (§3), so `check` compares
+every selector's and every condition's against the Provider's declared field set: one naming nothing
+projected is `reference-unresolvable`, the code a reference already carries for the same check. It has
+to be a load error rather than a predicate that never holds, because `absent` over an undeclared field
+is true for every version in the series — one typo turning a filtered `destroy` into an unfiltered one
+with only the Bound in front of it.
+
+`check` also refuses the operand faults that are authored and need no Store: an operator handed a type
+it does not take — a `timestamp` under `greater_than` or `less_than`, an `in:` whose members are not all
+one type, `exists: false`, an `in:` of one member, which is `equals` spelled twice — and a predicate
+whose truth cannot depend on the value, which is an empty `in:`, an empty `starts_with:` or `ends_with:`,
+and a predicate against a field the Manifest declares secret, that field reaching the Store as a
+constant (§7). All are `predicate-type-mismatch`,
+the code §6 also carries for a stored value of the wrong type — the same check, and §12 states which
+half fires where (ADR-0035). The always-holds cases are the ones worth the code: a `starts_with: ""` is
+a `destroy` selector that reaches the whole series and reads like a filter.
+
 ## The host list
 
 §12 already states two comparisons of a host set against a Target's grant — an Operation's `host:`

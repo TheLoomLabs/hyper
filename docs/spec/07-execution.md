@@ -79,11 +79,26 @@ over nothing, reaches no Target, and cannot Refuse on a Bound it never counted a
 A Step whose condition does not hold is skipped by condition, which is a different Disposition from
 skipped as already recorded because only the latter is Repeatability evidence.
 
+Where the Step a condition names wrote no Record in this Run — it was skipped by either Disposition, or
+never reached — the condition does not hold and the Step is skipped by condition in its turn. It does
+not fall through to the Store: reading the head there would be the condition quietly reading another
+Run's Record, which is the one thing the rule above states it may not do. And it does not Refuse: an
+earlier optional Step being skipped is an ordinary occurrence, and Refusing on it would make the
+Procedure un-runnable with no exit but an edit to a reviewed artefact (ADR-0001). A skip propagates,
+which is what a reader of the artefact would predict.
+
 ## Expansion and concurrency
 
 A Step's Expansion (§5) resolves before the Step runs, in a deterministic order fixed by Record
 name. *Which three of the five* therefore has an answer, and a re-run attempts them in the same
 order.
+
+Because it resolves first, a predicate handed a value it cannot compare Refuses here
+(`predicate-type-mismatch`, §12) before any effect reaches the world, and a predicate list does not
+short-circuit — every conjunct is evaluated against every candidate, so whether a Run Refuses does not
+depend on the order an author happened to write two conjuncts in (ADR-0035). The two temporal operators
+read against the instant on this Run's `run.json`, fixed at its start and shared by every Step and
+every nested Procedure, so nothing a Pattern does moves what a later Step reaches (ADR-0034).
 
 Concurrency is a function of Kind and is fixed by `hyper`: a `read` Step's Expansion runs
 concurrently, and a `mutate` or `destroy` Expansion runs strictly serially. There is no authored
@@ -139,6 +154,12 @@ ambiguous to attach — and it is Repeatability evidence like any other *ran*, t
 whether or not `hyper` could read the answer back. It carries no `error_code`, nothing having
 declined (§12); what it names instead is the path that failed to project, and the surface that goes
 out on is §8's.
+
+A polling Pattern's `until:` fails the same way and is read here rather than in §5. Its predicate roots
+at a response (§3), so a value it cannot compare is found after the call went out and there is no
+Refusal available: the Run halts as above, carries no `error_code`, and names the field and what was
+found in it. That is why two of the three predicate roots contribute a Refusal and this one contributes
+a halt (ADR-0035).
 
 An Operation of `series` cardinality projects many Records out of one response, so the failure can be
 one member's: the path the Operation reads its Records from resolves, nine members project, and the

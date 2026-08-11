@@ -89,11 +89,20 @@ Manifest-declared, so a reference naming one no Operation of that Provider proje
 projection rule below safe to state.
 
 A **predicate** filters a set of Records, in a Step's selector (`over:`), its condition (`when:`), or a
-polling Pattern's terminal condition. The operator set is closed and defined in §12. Each entry carries
-a `field:` and exactly one operator; two operators sharing an entry would be an AND that occupies one
-line where the list already gives each conjunct its own, which is what the gutter annotates and what the
-Comparison renders a selector change from. A predicate list is always AND; there is no disjunction
-anywhere in it (ADR-0022).
+polling Pattern's terminal condition. The operator set is closed and defined in §12, with the operand
+types each takes, what the comparisons mean, and the one instant the two temporal operators read
+against. Each entry carries a `field:` and exactly one operator; two operators sharing an entry would be
+an AND that occupies one line where the list already gives each conjunct its own, which is what the
+gutter annotates and what the Comparison renders a selector change from. A predicate list is always AND;
+there is no disjunction anywhere in it (ADR-0022).
+
+A `field:` is one of two things, decided by the root it is written under. At the two Record roots — a
+selector and a condition — it names one key of the Manifest's `fields:` mapping and nothing else: a
+Record's field names are flat and authored, so there is no path there to write. At a polling Pattern's
+`until:` it is a path in the grammar above, written without the root marker, a response having paths and
+no declared names. A `field:` naming what no Operation of the Provider projects is
+`reference-unresolvable` (§4) on the rule a reference already follows, and a predicate that cannot
+decide Refuses rather than quietly not matching (§12, ADR-0035).
 
 A **template hole** fills a scalar position inside an otherwise literal value, one hole syntax across
 every artefact: `{name}`, naming what fills it and nothing more, and a value beginning with one is

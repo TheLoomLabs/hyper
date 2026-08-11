@@ -43,9 +43,16 @@ before anything runs rather than left unchecked (`bound-missing`, §4).
 
 A selector's Expansion — the resolution of `over:` to the concrete Records a Step will act on — is
 scoped by the Step's own Kind: a `read` Step may expand over Observations as well as Assets, and an
-effectful Step may expand only over Assets (ADR-0027). A series whose head is a Tombstone stands for
-nothing and is expanded over by neither, so what one Run destroyed the next does not reach again and
-does not count against its Bound (§7). Anything `hyper` did not create is therefore
+effectful Step may expand only over Assets (ADR-0027). A predicate reads the **head** version of each
+series and no other: *any version* would have a `destroy` reach a thing for what it used to be, and
+would make one artefact reach further every month the Store grows. A series whose head is a Tombstone
+stands for nothing and is expanded over by neither, so what one Run destroyed the next does not reach
+again and does not count against its Bound (§7) — which is that same rule applied to the one version
+type that stands for nothing.
+
+An Expansion is where a predicate meets a value, so it is where a value of the wrong type is found. It
+Refuses (`predicate-type-mismatch`, §12) rather than excluding the Record quietly, which it can do
+because an Expansion resolves before the Step's call goes out (§6, ADR-0035). Anything `hyper` did not create is therefore
 reachable only by literal identifier — a `values:` list, occupying lines the gutter annotates and
 counted by the Bound like any other selector (§12) — never by a selector ranging over it: a Record
 `hyper` never created is not an Asset, and an effectful selector has nowhere else to reach.
