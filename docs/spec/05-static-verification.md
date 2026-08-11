@@ -97,17 +97,29 @@ A `destroy` Step declares the maximum number of Records it may affect. An absent
 Step means unbounded, and unbounded is refused before anything runs: `bound-missing`. A `mutate`
 Step's Bound is optional; its absence is not a check's business — it is rendered, unbounded, in the
 blast-radius summary, which belongs to §8. A `read` Step carries no Bound at all, having nothing for
-one to guard. Whether an Expansion's actual count exceeds a declared Bound is not decidable from the
-artefacts alone and belongs to §6.
+one to guard.
+
+Whether an Expansion's actual count exceeds a declared Bound is not decidable from the artefacts alone
+except in one case, and there it is decided here: an `over:` `values:` list is authored in the
+Procedure, so its length is read off the file, and a list longer than the Step's Bound is
+`bound-exceeded` before anything runs. The authored length is an upper bound on what the Expansion can
+reach — the Store only ever removes members from it (§5) — so a list of seven under `bound: 5` cannot
+fit however the Run goes, and refusing it is refusing a certainty rather than a guess. It is the same
+code §6 carries because it is the same check; the run-time one is untouched and still guards `assets:`
+and `observations:`, which no file can count.
 
 ## The host list
 
 §12 already states two comparisons of a host set against a Target's grant — an Operation's `host:`
 template expanded to its candidate set, and an `over:` `values:` list. Both share one name: a member
-absent from the grant, from either origin, is `host-not-granted` (ADR-0024, ADR-0029). What the
-intersection of a candidate set and a grant then decides at Run time is §3's, and it is the one part of
-the host rule no static check performs: where the intersection holds several hosts, the value a
-`host-input:` carries is checked for membership when it arrives.
+absent from the grant, from either origin, is `host-not-granted` (ADR-0024, ADR-0029). Which `values:`
+lists are host lists is not declared: a list is one where the Step wires `{item: $}` into the
+Operation's `host-input:` and not otherwise (§3), so what `check` compares against the grant is read off
+the wiring rather than off an author's word for it. What the intersection of a candidate set and a grant
+then decides at Run time is §3's, and it is the one part of the host rule no static check performs:
+where the intersection holds several hosts, the value a `host-input:` carries is checked for membership
+when it arrives. A `values:` list wired there is the case where that run-time check has nothing left to
+find, every value it will ever carry having been compared against the grant offline.
 
 ## What `check` cannot know
 

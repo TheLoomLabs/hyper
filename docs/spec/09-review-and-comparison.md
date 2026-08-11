@@ -121,7 +121,13 @@ actor rather than by field, and Asset against Observation is two tables rather t
 values (ADR-0026).
 
 Assets render `created`, `changed`, or `destroyed`; Observations render `appeared`, `changed`, or
-`vanished`. A Tombstone is a marker inside the Asset table rather than a class of its own. There is no
+`vanished`. A Tombstone is a marker inside the Asset table rather than a class of its own. A series
+whose first version is a Tombstone (§7) renders `destroyed` and never `created`, though the baseline
+holds no version of it and the subject does: what the subject holds is a destruction, and reading
+*absent, then present* as a creation would report the opposite of what happened. It needs no marker to
+be told apart from the destruction of an Asset `hyper` built — an ordinary `destroyed` row carries the
+last known state's fields and this one has none, so *destroyed, and `hyper` never saw what it was* reads
+off the empty column rather than out of a second rendering of the same fact. There is no
 rename class: identity is a Manifest-declared field of an upstream response (§7), so a rename is an
 unfamiliar name appearing and a familiar one going quiet, and it renders honestly as both.
 
@@ -287,7 +293,7 @@ $ hyper run retire-preview-envs --json
 {"type":"step","index":1,"id":"probe","kind":"read","disposition":"ran","records":12}
 {"type":"step","index":2,"id":"label","kind":"mutate","disposition":"ran","records":8}
 {"type":"step","index":3,"id":"retire","kind":"destroy","disposition":"refused","records":0}
-{"type":"refusal","error_code":"bound-exceeded","phase":"expansion","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"artefact":"procedures/retire-preview-envs.yaml","line":30}
+{"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"artefact":"procedures/retire-preview-envs.yaml","line":30}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":30,"field":"steps[2].bound","from":5,"to":23}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":29,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
 {"type":"provenance","definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":null,"repo_revision":"88bc402","hyper_version":"1.4.0"}

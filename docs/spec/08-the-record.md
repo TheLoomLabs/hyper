@@ -190,6 +190,47 @@ rather than under a projection of the destroying Operation's response, which nee
 terminal for the Asset's life and not for the series: a further version above it makes the Head alive
 again, which is what makes destroy-then-recreate behave as §6 states under `skip-if-recorded`.
 
+Where the Expansion was an `over:` `values:` list, a member may name no series at all — that being what
+the form exists for — and the Tombstone opens one under that member as the Record `name` (ADR-0033).
+There is no branch on whether a series was already there: where the literal matches one, the Tombstone
+is an ordinary further version of it, and the Store cannot afterwards tell a resource `hyper` built from
+one it only ever ended, which is correct because nothing distinguishes them. Such a Tombstone is the
+series' first version and it carries **no `fields`** — there is no previous Head to copy forward, and
+the key's absence there means `hyper` destroyed this and never observed what it was. A Tombstone is the
+one version whose `fields` can be missing for no other reason, so the absence needs no marker beside it.
+
+```json
+{
+  "definition": "preview-dns",
+  "name": "5b2d84f16c0a39e7d5182bfa604c7e93",
+  "operation": "delete_dns_record",
+  "provenance": {
+    "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1",
+    "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
+  },
+  "record_type": "asset",
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+  "schema_version": 1,
+  "step": 2,
+  "target": "cloudflare-prod",
+  "tombstone": true,
+  "written_at": "2026-08-06T11:05:41.302Z"
+}
+```
+
+It is the shortest file the Store holds, and every key in it is one an ordinary version carries. The
+`name` came from the Procedure rather than from a response, `record_type` is `asset` because `hyper`'s
+effect reached the thing, and the only key an ordinary Tombstone has that this one lacks is `fields`.
+
+This is the one Record `name` in `hyper` whose origin is an author rather than a Manifest-declared field
+of an upstream response. Where the two disagree — the author writing a spelling the `identity:` path
+would not have projected — a series opens under the spelling, the Tombstone lands in it, and a real
+Asset series for the same resource stays standing and reads alive. Nothing catches this: it would take
+knowing what the API returns, which is the question §4 states it has no oracle for, and it is carried to
+§13 as the limit it is rather than defended by a check that cannot be written.
+
 ## The Journal
 
 A Journal entry is a directory, one per Run, under a date partition (§12). `run.json` is written at Run
@@ -388,6 +429,12 @@ The Assets a Run may or may not have destroyed are named in `expanded_to` and no
 arithmetic a reader does is *expanded to five, concluded about three, two unaccounted for*, and `hyper`
 does not say which of the two was in flight: §6 attaches the uncertainty to the attempt rather than to
 the thing, and naming one would undo that.
+
+A `values:` selector is held as authored like any other, which gives that entry a second arithmetic no
+predicate can offer: the declared list is a list of names, so a member present in `declared` and absent
+from `expanded_to` is one the Store already held a Tombstone for (§5). Three authored, two expanded to,
+one already gone — readable off the entry without a checkout, and the reason the declared form is kept
+beside what it resolved to rather than replaced by it.
 
 The third is `hyper`'s own account of the work — a Pattern's attempts, its pages, its poll iterations —
 supplied by no Provider (ADR-0018). It is what makes *attempted, outcome unknown* after five attempts a

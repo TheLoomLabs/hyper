@@ -196,14 +196,18 @@ No failure carries one. A Refusal is `hyper` declining and has a check to name; 
 resisting and has none, and the ways it can resist are not a set anything could close over. Two
 failures are told apart by the exit code above rather than here.
 
-Twenty-one are contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
+Twenty-one are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `reference-unresolvable`, `capability-mismatch`, `manifest-inconsistent`,
 `auth-header-reserved`, `identity-undeclared`, `target-class-mismatch`, `definition-kinds-mixed`,
 `kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
 `bound-missing`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
-Journal already holds as *ran* or *attempted, outcome unknown*. §7's four are the Store's:
+Journal already holds as *ran* or *attempted, outcome unknown*. `bound-exceeded` is the one member two
+sections state, §4 firing it where the Expansion's count is authored and therefore known offline (a
+`values:` list longer than the Bound) and §6 firing it everywhere else. It is one code because it is one
+check: what names a Refusal is the check that declined, never the moment it ran, and a reader is never
+holding one without knowing whether they asked `check` or a Run. §7's four are the Store's:
 `store-absent`, a Run — or any other command that needs the Store (§9) — finding no Store branch;
 `store-unsynced`, an effectful Run that could not sync before its first effect;
 `record-identity-collision`, a Record identity colliding case-insensitively with one already written;
@@ -319,11 +323,20 @@ it, and the position went with it: a scheme decorates a request and never perfor
 
 `assets:` and `observations:` expand over the Step's own Definition (ADR-0012) and Target's Record
 series; `observations:` is legal only on a `read` Step, since Expansion is scoped by Kind rather than
-by Record type (ADR-0027). `values:` is a literal enumerated list authored in the Procedure, occupying
-lines the gutter annotates and counted by the Bound like any other selector — the syntax for reaching
-something `hyper` did not create by literal identifier before it can be changed. Where a `values:`
-list's members are hosts, `check` verifies offline that it is a subset of the bound Target's granted
-host set (ADR-0024).
+by Record type (ADR-0027). `values:` is a literal enumerated list of bare scalars authored in the
+Procedure, occupying lines the gutter annotates and counted by the Bound like any other selector — the
+syntax for reaching something `hyper` did not create by literal identifier before it can be changed or
+ended. It is legal on all three Kinds: the Kind rule scopes which Record types a selector may range
+over, and `values:` ranges over no Record type at all, so there is nothing there for it to restrict.
+
+A `values:` member is a host where the Step wires it into the Operation's `host-input:` and an
+identifier where it fills any other input — decided by position, like every other question this format
+asks of a value (§3). Where they are hosts, `check` verifies offline that the list is a subset of the
+bound Target's granted host set (ADR-0024).
+
+Where a `destroy` Step's `values:` member names no series, the Tombstone it writes opens one under that
+member as the Record name (§7, ADR-0033). It is the one Record name in the system whose origin is an
+author rather than an upstream response, and §13 states the limit that follows.
 
 ## `THE CODE MOVED` change classes
 

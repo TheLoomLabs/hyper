@@ -95,14 +95,25 @@ that hour when the clocks move.
 
 ## What the record does not reach
 
-**There is no adoption.** An Asset is a Record of something `hyper` created, and having been created
-by `hyper` is the whole test (§7, ADR-0025). Nothing observed, imported, or named by hand becomes
-one, because promotion is reconciliation and the domain model declined it. A resource created by
-another tool is therefore reachable only by literal identifier, one `values:` entry at a time, for as
-long as it stands — an effectful selector has nowhere else to reach (§5, ADR-0027). Moving existing
-infrastructure under `hyper` means recreating it through a Step, or carrying an enumerated list
-forever; the same holds for recovering an Orphaned Asset, where restoring the deleted Definition is
-the other way back (§7, ADR-0012).
+**There is no adoption.** An Asset is a Record of something `hyper`'s own effect reached, and that
+effect is the whole test (§7, ADR-0025, ADR-0032). Nothing observed becomes one, because promotion is
+reconciliation and the domain model declined it: an effect reaching a thing is a fact about what
+happened, where adoption is a claim about the past. A resource created by another tool is therefore
+reachable only by literal identifier, one `values:` entry at a time, for as long as it stands — an
+effectful selector has nowhere else to reach (§5, ADR-0027) — and naming it does not make it an Asset;
+acting on it does. Moving existing infrastructure under `hyper` means recreating it through a Step, or
+carrying an enumerated list forever; the same holds for recovering an Orphaned Asset, where restoring
+the deleted Definition is the other way back (§7, ADR-0012).
+
+**A literal identifier is a Record name nothing can check.** Every other Record name is a
+Manifest-declared field of an upstream response; a `values:` member is authored, and where a `destroy`
+over one opens the series it ends, the author's spelling becomes the name (§7, ADR-0033). Where that
+spelling is not what the Manifest's `identity:` path would have projected — an API that deletes by name
+while its identity is an internal id — the Tombstone lands in a series that describes nothing, and a
+real Asset series for the same resource stays standing and reads alive. `check` would need to know what
+the API returns to catch it, which is the oracle §4 states it does not have. It is the same under-reach
+as an Asset a selector misses, arriving through a literal rather than a predicate, and it is bounded the
+same way: by the review of the artefact that names it.
 
 **An Asset a selector misses is abandoned silently.** The Bound catches a selector that reaches too
 far and nothing catches one that reaches too little: an Asset whose field holds something other than

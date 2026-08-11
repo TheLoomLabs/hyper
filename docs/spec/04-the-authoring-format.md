@@ -145,7 +145,8 @@ undeclared default rather than a value to write. Record cardinality has no key a
 `record:` carrying `over:`, and `one` is a `record:` without it, since a `series` projection cannot omit
 the collection path and a `one` projection has nothing to put there. A `destroy` Operation carries no
 `record:` and declares no identity, what it writes being a Tombstone under the series its Expansion
-acted on (§7).
+acted on — or, where that Expansion was a literal naming no series, under a series the Tombstone opens
+(§7, ADR-0033).
 
 ```yaml
 kind: provider
@@ -312,6 +313,18 @@ once. All three range over something already written down — Records in the Sto
 authored in the Procedure — so a Step calling an Operation for the first thing it will ever record
 has nothing to range over and says so by omission.
 
+A `values:` member is a bare scalar and `{item: $}` is the whole of it, `$` with nothing after it being
+what the path grammar already allows. A member is not a mapping: a mapping in a scalar position means a
+reference in this format, and a compound identity needs none — the shared half of it is an argument and
+only the varying half is a population, which is what `retire-preview-dns` below shows with a literal
+`zone_id:` beside a `record_id:` that moves. Whether a member is a host or an identifier is decided by
+the position the Step wires it into: `{item: $}` in the Operation's `host-input:` makes the list a list
+of hosts, checked against the Target's grant like any other candidate set (§4, ADR-0024), and `{item:
+$}` in any other input makes it a list of identifiers, which reach nothing on their own. Position
+decides it for the reason position decides a hole's legality and a credential slot's: an author
+declaring it instead would be stating a fact `hyper` reads off the wiring, and a wrong declaration would
+disarm the one offline reach check a `values:` list has.
+
 ```yaml
 kind: procedure
 procedure: retire-preview-dns
@@ -342,6 +355,27 @@ steps:
       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
       record_id: {item: $.id}
     bound: 5
+```
+
+The same Step written against records another tool created reaches them by literal identifier instead.
+Each member is one Record name: the Step destroys three things `hyper` never built, and writes three
+Tombstones, each opening the series it ends (§7, ADR-0033). `check` reads the list's length against the
+Bound here rather than leaving it to the Expansion, the count being authored (§4).
+
+```yaml
+  - id: retire-legacy
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    over:
+      values:
+        - 5b2d84f16c0a39e7d5182bfa604c7e93
+        - 8f1a2c4d6e8b0a2c4e6f8a0b2c4d6e8f
+        - c3d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $}
+    bound: 3
 ```
 
 ### Repository declaration

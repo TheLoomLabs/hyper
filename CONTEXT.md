@@ -158,8 +158,8 @@ _Avoid_: Reading, Sample, Fact, Resource
 
 **Asset**:
 A Record of something `hyper`'s own effect reached and is therefore accountable for. That effect is the
-whole test — usually because `hyper` created the thing, and equally where it changed one it did not — and
-a thing merely observed is never an Asset.
+whole test — usually because `hyper` created the thing, equally where it changed one it did not, and
+equally where it ended one it never saw — and a thing merely observed is never an Asset.
 _Avoid_: Resource, Holding, Managed resource
 
 **Orphaned Asset**:
@@ -170,7 +170,8 @@ _Avoid_: Dangling resource, Leaked resource, Abandoned resource
 **Tombstone**:
 The version of an Asset recording that what it described was destroyed, and what its last known state
 was. Terminal for the Asset's life rather than for the series: recreating under the same identity
-writes a further version above it.
+writes a further version above it. It may be a series' first version, where a destruction reached
+something `hyper` had no record of, and then it carries no last known state at all.
 _Avoid_: Deletion marker, Soft delete
 
 **Secret sink**:
