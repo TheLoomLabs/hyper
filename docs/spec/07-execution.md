@@ -1,7 +1,11 @@
 # §6 — Execution
 
 A Run begins with `check` re-run in full with nothing skipped (§4) and with the credentials of every
-Target it may bind resolved once (ADR-0007); no Step starts until both have happened. This chapter
+Target it may bind resolved once (ADR-0007); no Step starts until both have happened. What is resolved
+is the slots the Run's bindings require rather than every slot each Target declaration carries: presence
+is checked over the (Definition, Target) pairs the Procedure makes, exactly as slot coverage is (§4), so
+a Target serving two Providers does not oblige a Run to hold a credential no Step of it could send
+(`credential-absent`, §12). This chapter
 states what happens after that: the order Steps go in, what re-running one means, what a condition
 may read, what runs concurrently, what a failure does to the rest of the Run, and the three outcomes
 all of it ends in.

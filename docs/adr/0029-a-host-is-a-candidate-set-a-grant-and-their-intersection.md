@@ -48,6 +48,10 @@ model already described.
   The wide reading of "anything that determines what a request may reach" would take in `path:`, which
   forbids `{zone_id}` and makes a parameterised REST API unwritable. A grant enumerates hosts and
   nothing finer, so nothing below the host can widen what the grant already allows.
+  _Narrowed by ADR-0031 to exactly one, `host:`._ An Auth scheme's parameters were on this list while a
+  scheme might name a host of its own — a token endpoint to exchange against. ADR-0031 removed that
+  possibility rather than constraining it: a scheme decorates a request and never performs one, so
+  nothing in `auth:` reaches anywhere, and its parameters admit no hole at all.
 - **`host-input:` is a sibling key, not a hole.** It names which of the Operation's inputs carries the
   host, and naming a property the input schema does not define is a Manifest contradicting itself,
   refused at load.

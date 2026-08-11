@@ -124,8 +124,9 @@ stated with the request below.
 `kind: provider`, in `providers/`. A Provider is a Manifest and nothing else. Its top level carries its
 name, an explicit `schema-version:`, the `class:` of Target its Definitions may bind, the
 `capabilities:` it requires — once for the Provider and never per Operation, `hyper` deriving the
-per-Operation ones (§4) — the `auth:` scheme it authenticates with, any `enumerations:` its
-Capability-relevant holes draw on, and `operations:`, a mapping keyed by Operation name.
+per-Operation ones (§4) — the `auth:` scheme it authenticates with, if it authenticates at all, any
+`enumerations:` its Capability-relevant holes draw on, and `operations:`, a mapping keyed by Operation
+name.
 
 A Manifest alone carries an explicit schema-version field; the other four artefacts carry none, since
 the repository-wide version pin already fixes which binary reads them and a Manifest is the one artefact
@@ -153,7 +154,7 @@ schema-version: 1
 class: cloudflare
 capabilities: [http]
 auth:
-  bearer: {}
+  header: {name: Authorization, prefix: "Bearer "}
 operations:
   create_dns_record:
     kind: mutate
@@ -498,15 +499,41 @@ argument §12 makes for keeping a closed set readable in one place.
 
 ## Auth
 
+The set is closed at two, `header:` and `basic:`, stated in full in §12. An Auth scheme is a header and
+a placement and never a protocol (ADR-0031): it decorates a request `hyper` was already making, and
+nothing in it fetches, exchanges, refreshes, or signs.
+
 A Manifest names its scheme as a key: `auth:` carries one key, the scheme's name, over that scheme's
-parameters. A scheme taking none carries an empty mapping — `auth: {bearer: {}}` — rather than a bare
+parameters. A scheme taking none carries an empty mapping — `auth: {basic: {}}` — rather than a bare
 scalar, since a key whose value is sometimes a scalar and sometimes a mapping is the ambiguity
 schema-directed typing exists to remove and there is no `null` to write instead.
+
+`auth:` is optional. A Provider omitting it sends no credential, which is what an uptime check against a
+public host is, and every surface rendering a Provider's auth renders that absence as `none` — an
+undeclared default rather than a value to write, on the reading `repeatability:` already has (§12). A
+Provider declaring only the `shell` Capability and carrying an `auth:` block is a Manifest disagreeing
+with itself, since auth is a property of reaching a host: `manifest-inconsistent` (§4).
 
 The scheme owns the position in the request that carries the secret; a Manifest never chooses it. That is
 what closure buys (§12): `hyper` suppresses a credential by the position it occupies rather than by
 scanning a rendering for something that looks like one (ADR-0007), which is only true while the position
-is `hyper`'s. A `headers:` entry naming a position its scheme owns is `manifest-inconsistent` (§4).
+is `hyper`'s. A `headers:` entry naming a position its scheme owns is `manifest-inconsistent` (§4), and
+the comparison is case-insensitive, as an HTTP header name is.
+
+Naming a header is not choosing a position. The position class is the scheme's — a request header, for
+both members — and what a parameter supplies is which header inside that class, which leaves suppression
+exactly as mechanical as it was: `hyper` wrote the header and knows it by name. What it may not name is a
+header `hyper` computes for itself. There are five — `Host`, `Content-Length`, `Content-Type`,
+`Transfer-Encoding`, `Connection` — and a scheme naming one is refused at load as
+`auth-header-reserved` (§4). `Host` is the reason the check is not merely tidiness: `hyper` derives it
+from `host:`, which is the value the Target's grant was checked against, so a scheme setting it would
+dial a granted host while claiming another.
+
+A scheme's parameters carry literals and admit no template hole of any kind, which makes them the one
+position in the format where a hole is illegal outright rather than restricted to a source
+(`hole-illegal`, §4). A hole here resolving to an Operation input would let a Step's arguments choose
+the header a credential lands in, which is the Manifest-chooses-placement door reopened from the far
+side.
 
 A scheme's credential slots are the scheme's, and neither a Manifest nor a Target declaration invents
 one. A Target declaration's `auth:` is a mapping of slot name to credential slot, and it names no scheme:
@@ -514,7 +541,25 @@ a Target declaration is written without knowing which Provider will bind it, and
 one runs from that artefact alone (§4). Coverage is checked per binding instead — for each
 (Definition, Target) pair, the Target's mapping covers the slots the Provider's scheme requires, and a
 gap is `manifest-inconsistent` (§4). A Target may carry more slots than any one Provider needs, which is
-what lets one Target serve two.
+what lets one Target serve two: a declaration carrying `token`, `username` and `password` serves a
+`header:` Provider and a `basic:` Provider at once. It cannot hold two *different* secrets for one
+scheme, and that is the model asserting itself rather than a limit — a Target is the unit of both blast
+radius and credentials, so two credentials are two Targets.
 
-Which schemes exist is not stated here or anywhere: the set is closed to `hyper` and its membership is
-undecided (§12).
+Everything downstream of the slots reads the binding rather than the declaration. The presence check
+before a Run's first Step (§6) and the `env:` block a projection derives (§10) both resolve over the
+(Definition, Target) pairs a Procedure actually makes, so a slot a declaration carries and this Procedure
+never binds is neither required to be present nor written into a runner's environment.
+
+```yaml
+# in a Manifest — the scheme and its parameters
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+
+# in the Target declaration that binds it — the scheme's slot, and where it resolves from
+auth:
+  token: {env: CLOUDFLARE_API_TOKEN}
+```
+
+A Manifest reaching a public host writes no `auth:` at all, and the Target declaration it binds carries
+none either — which is what `local` is (§4, ADR-0024).

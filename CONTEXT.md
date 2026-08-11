@@ -59,9 +59,10 @@ _Avoid_: Strategy, Policy, Middleware, Hook
 **Auth scheme**:
 A way of authenticating a request, implemented by `hyper` and chosen by name in a Manifest. The
 Manifest supplies its parameters and the Target its credentials, so Provider authors never handle a
-secret and cannot invent a scheme. Because the set is closed, `hyper` knows which positions of a
-request carry the secret and never renders them.
-_Avoid_: Auth method, Credential type, Signer
+secret and cannot invent a scheme or a slot. A scheme decorates a request and never performs one, and
+what it writes is always a request header — so `hyper` knows the position the secret occupies and never
+renders it. A Provider naming no scheme sends no credential.
+_Avoid_: Auth method, Credential type, Signer, Protocol
 
 **Extension**:
 A Provider authored and distributed by someone other than `hyper` itself. Being a Manifest, it

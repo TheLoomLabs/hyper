@@ -37,11 +37,28 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Eight victims stand at it, each a thing an author can want, describe precisely, and not write:
+Twelve victims stand at it, each a thing an author can want, describe precisely, and not write:
 
 - **OIDC federation.** `hyper` reads credentials and never acquires them (ADR-0007), so a federated
   cloud reached from CI needs a long-lived credential in the executor's secrets — worse than the
   ecosystem norm, and stated as such where it lands (§11).
+- **Request signing, and with it every hyperscaler.** An Auth scheme is a placement and never a
+  computation over the request being placed into (ADR-0031), so AWS SigV4 and its relatives are
+  unwritable. This is the largest thing behind the wall: AWS needs signing, and GCP and Azure need the
+  token exchange below, so no hyperscaler API is reachable at all. Nothing about it is cheap to route
+  around — a signature is not a header a human can put in an environment variable.
+- **A token `hyper` fetches.** OAuth2 client credentials, token exchange, and refresh are all a scheme
+  performing a request of its own (ADR-0031): a call no Operation declared, no Bound counted, and no
+  Disposition recorded, reaching a host named nowhere a reviewer reads. What is authored instead is a
+  token obtained out of band into an environment variable, on ADR-0007's shape.
+- **A client certificate.** mTLS is a property of the connection rather than a position in the request,
+  so it cannot join a set defined by request positions (ADR-0031) — and its private key has no home
+  either, `hyper` having no filesystem Capability (§12).
+- **An API whose secret lives in the URL.** A credential occupies a request header and nothing else
+  (ADR-0031), which is what makes *no secret ever appears in a URL* mechanically true rather than a
+  convention. Slack's incoming webhooks are exactly that shape, the whole path being the credential.
+  The workaround is usually a token-authenticated API beside the webhook, which is the better artefact
+  anyway; where there is none, there is none.
 - **Load-shaped retry.** Retry follows only a failure that provably preceded the request (ADR-0018),
   so an API that fails under load, with 5xx, on an effectful call, and genuinely wants retrying, has
   no route but waiting for one to ship.
@@ -63,6 +80,13 @@ Eight victims stand at it, each a thing an author can want, describe precisely, 
 
 The process by which those sets grow — who adds a member, and when — is undecided, and §12 records it
 as undecided rather than answering it.
+
+One further cost of the Auth schemes is a rendering loss rather than an unwritable Provider, and it
+belongs beside that list rather than in it. A credential slot holds one opaque string, so where a
+vendor bundles an identifier into it — Proxmox issues `root@pam!hyper=<uuid>`, of which only the UUID
+is secret — the identifying half is suppressed with the secret half and no surface reports which token
+a Run used. Splitting it would need a Manifest composing two slots into one value, which is the
+Manifest choosing the placement that ADR-0031 gives to the scheme.
 
 The closed grammars charge in the same currency without extending that list. A Cadence is UTC-only
 cron, with no field, no flag, and no file that could name a zone (§10, ADR-0005, ADR-0014), so *3am

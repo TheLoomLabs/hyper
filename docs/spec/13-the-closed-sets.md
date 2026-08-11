@@ -151,16 +151,32 @@ This set is what the ceiling §13 states costs (ADR-0004).
 
 ## Auth schemes
 
-**Closed to `hyper`.** A Manifest names a scheme and supplies its parameters, a Target declaration
-names the environment variable each of that scheme's credential slots resolves from (§3), and no
-Manifest mints one — a Provider author can no more invent a scheme than invent an `error_code` (§9,
-ADR-0004). Closure is what lets a secret be suppressed by the position it occupies rather than by
-scanning a rendering for something that looks like one (§7, ADR-0007).
+**Closed.** Two members, both of them a request header:
 
-Which schemes `hyper` implements is not stated here, and no section names one: §3 states how a scheme
-is chosen and parameterised, §9 what a Target declaration exposes of its slots, and §11 that federation
-would arrive as a scheme `hyper` owns rather than as a third-party action. The membership stands where
-the growth process above stands — undecided, and not decided here.
+- **`header:`** — parameters `name:`, the header, and `prefix:`, optional and absent meaning empty,
+  concatenated verbatim in front of the credential. One slot, `token`. It covers a bearer token
+  (`Authorization` / `"Bearer "`), an API key in any header (`X-Api-Key` / empty), and a vendor's
+  compound token (`Authorization` / `"PVEAPIToken="`), which are one placement rather than three schemes.
+- **`basic:`** — no parameters, and two slots, `username` and `password`, composed into
+  `Authorization: Basic <base64>`. It is not a `header:` with a prefix, because that would leave a human
+  base64-encoding credentials by hand into an environment variable that no longer holds what the vendor
+  issued.
+
+A Manifest names a scheme and supplies its parameters, a Target declaration names the environment
+variable each of that scheme's credential slots resolves from (§3), and no Manifest mints a scheme or a
+slot — a Provider author can no more invent either than invent an `error_code` (§9, ADR-0004). Closure
+is what lets a secret be suppressed by the position it occupies rather than by scanning a rendering for
+something that looks like one (§7, ADR-0007). A scheme naming a header `hyper` computes is refused
+(`auth-header-reserved`, §4), and a scheme's parameters carry literals and admit no hole (§3).
+
+`auth:` is optional and its absence means no credential is sent, rendered as `none` wherever a
+Provider's auth renders (§3, §9). Absence is not a third member: a scheme is a way of authenticating a
+request, and not authenticating one is not a way of doing it.
+
+**An Auth scheme is a header and a placement, never a protocol** (ADR-0031), which is what fixes the
+membership at two rather than leaving it to accumulate. Request signing, OAuth2 client credentials, and
+a client certificate are each refused by that sentence rather than beside it, and each stands at the
+wall §13 states costs for.
 
 ## Patterns
 
@@ -173,17 +189,17 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Thirty-five members, each the identifier of a check that declined, named where that check is
+**Closed.** Thirty-six members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
 resisting and has none, and the ways it can resist are not a set anything could close over. Two
 failures are told apart by the exit code above rather than here.
 
-Nineteen are contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
+Twenty are contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `reference-unresolvable`, `capability-mismatch`, `manifest-inconsistent`,
-`identity-undeclared`, `target-class-mismatch`,
+`auth-header-reserved`, `identity-undeclared`, `target-class-mismatch`,
 `kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
 `bound-missing`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
@@ -277,17 +293,25 @@ matching, in place of the unbounded one (ADR-0022).
 - A **Capability-relevant position** resolves only to a declared closed enumeration or to `from-target`,
   never to an Operation input and never to a bare wildcard. `hyper` expands the cross-product of every
   such hole against its enumeration at load and compares the derived finite set against the Target's
-  grant (ADR-0024, ADR-0029). There are exactly two: an Operation's `host:` and an Auth scheme's
-  parameters. A request's `path:`, `query:`, `headers:` and `body:` are not among them — a grant
+  grant (ADR-0024, ADR-0029). There is exactly one: an Operation's `host:`. A request's `path:`,
+  `query:`, `headers:` and `body:` are not among them — a grant
   enumerates hosts and nothing finer, so no hole in one of those can widen reach past what the Target
   already granted (§3). The enumeration a hole names is declared in a Manifest's `enumerations:` and
   never in an Operation's input schema, whose `enum` constrains a value a caller supplies.
 - Every other position resolves only to an Operation input.
-- A position inside `auth:` resolves only to a declared credential slot, and a credential-slot hole is
-  legal nowhere else. The slots are the Auth scheme's own, so no Manifest mints one (§3).
+- Inside `auth:` no hole is legal at all. A Manifest writes an Auth scheme's parameters as literals, and
+  the credential itself is never written there in any form: the scheme owns the position it occupies, so
+  there is nothing for a hole to stand in for (§3, ADR-0031). This is the one position where a hole is
+  refused outright rather than restricted to a source.
 
 A hole resolving to none of these, or one filled from the wrong source for its position, is a load
 error.
+
+An Auth scheme's parameters were a Capability-relevant position while a scheme might name a host of its
+own — a token endpoint to exchange against. ADR-0031 removed that possibility rather than constraining
+it, and the position went with it: a scheme decorates a request and never performs one, so nothing in
+`auth:` reaches anywhere. A credential slot survives as a value shape in a Target declaration
+(`credential-slot-malformed`, §4) rather than as a hole position anywhere.
 
 ## The `over:` forms
 
@@ -303,7 +327,7 @@ host set (ADR-0024).
 
 ## `THE CODE MOVED` change classes
 
-**Closed.** Eight facts about code, plus a catch-all. The Comparison's third table (§8) emits one row
+**Closed.** Nine facts about code, plus a catch-all. The Comparison's third table (§8) emits one row
 for each of these that differs between the baseline Run and the subject Run, and no row for one that
 does not:
 
@@ -318,6 +342,15 @@ does not:
 - **Bounds** — a Step's `bound:`, its appearance and its disappearance included.
 - **Cadence** — a Procedure's declared recurrence (§10).
 - **required Capabilities** — what a Manifest declares it needs.
+- **the credential source** — the environment variable each of a Target declaration's credential slots
+  resolves from. Names only, never values: §6's whole reason for naming variables explicitly rather than
+  deriving them is that `env: STAGING_TOKEN` → `env: PROD_TOKEN` is a visible one-line edit, and without
+  a row here that edit reaches the Comparison only as one line in the catch-all count. A Target
+  declaration is in no Record's Provenance, so `the digests` below does not carry it. The secret behind
+  an unchanged name rotating is a world fact `hyper` deliberately cannot see (§7, ADR-0007), which is
+  why this class is about the name and stops there. The fact belongs to a Target rather than to a
+  Definition, as the repository revision belongs to neither; where that leaves it in the table's columns
+  is a row rule rather than a membership question.
 - **the Operation set** — the Operations a Manifest exposes, and the `destroy` Operations a Definition
   names.
 - **the digests** — every member of the Provenance each Record version carries (§7).

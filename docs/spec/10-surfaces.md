@@ -51,6 +51,16 @@ Kind, whether it is `opaque`, and a summary — beside the Manifest's own facts:
 Capabilities it requires, its digest, and its schema version. Kind is on every row at this level
 because it is what answers the two-key question (§5) before a single input schema has been read.
 
+The Auth scheme renders as the header it composes, with the credential's position marked:
+`Authorization: Bearer <secret>` for a `header:` scheme, `Authorization: Basic <secret>` for `basic:`,
+and `none` for a Provider carrying no `auth:` at all (§3). `basic:` takes one marker for its two slots
+because what reaches the wire is one derived string, and which two variables filled it is a Target fact
+`targets` below carries. The composition is rendered rather than the parameters because a `prefix:` is
+concatenated verbatim, so the load-bearing trailing space in `"Bearer "` is invisible in the source and
+a Provider that omits it reads here as `Authorization: Bearer<secret>` — the failure is made legible
+instead of guessed at by a check. Nothing here resolves a credential or reaches a network, and the
+marker is §7's one constant rather than a second one.
+
 `operation <provider> <operation>` writes the Manifest lines declaring that Operation, verbatim, and
 beside them the facts the source does not carry in that form: the Capabilities `hyper` derives from it,
 whether a Bound is mandatory, the Patterns it resolves to, its Record cardinality and declared identity
@@ -62,9 +72,15 @@ facts beside it, because making the caller re-derive what `hyper` already comput
 
 `targets` writes one row per Target declaration: its name, its endpoint, the Kinds it accepts, the
 Capabilities it grants, the environment variables its credentials resolve from — names only, never a
-value (§3, ADR-0007) — and whether each of those variables is present. Presence is computed when the
-command runs and is the same check a Run performs before its first Step (§6); the value behind a
-present name is never read here, and never rendered anywhere.
+value (§3, ADR-0007) — and whether each of those variables is present. Each variable is paired with the
+slot it fills, `token=CLOUDFLARE_API_TOKEN`, rather than listed bare: a declaration may carry slots for
+more than one scheme, and a list of names alone does not say which fills what. Presence is computed when
+the command runs; the value behind a present name is never read here, and never rendered anywhere.
+
+Presence is reported for every slot the declaration carries, which is wider than what a Run checks. A
+Run resolves the slots its bindings require (§6), and this command has no Procedure in hand to narrow
+by — so the row answers *what does this Target have in place*, and an absence here is not by itself a
+Run that will Refuse.
 
 ## Authoring
 
@@ -273,8 +289,8 @@ A caller that retries on `75` is right to, and one that retries on `77` loops fo
 anywhere (ADR-0001) a verbatim retry refuses identically, and the way past is an artefact edit. A shell
 script has the same reflex as an agent, and now the same signal.
 
-The mapping is what keeps the two credential failures apart. Presence is checked where §6 resolves
-every bound Target's credentials, before the first Step: one a Target declaration names and the
+The mapping is what keeps the two credential failures apart. Presence is checked where §6 resolves the
+credentials the Run's bindings require, before the first Step: one a binding requires and the
 environment does not hold is a Refusal and exits `77` (`credential-absent`, §12), while one that is
 present and the endpoint rejects is the world resisting and exits `1`. Nothing about where the process
 runs enters either decision (ADR-0007).

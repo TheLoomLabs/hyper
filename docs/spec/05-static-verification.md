@@ -25,7 +25,8 @@ define is `unknown-key`; a `kind:` disagreeing with its directory or filename, a
 `kind-mismatch`; an artefact's name disagreeing with its file's basename is `name-mismatch` (§3); an
 input schema outside the closed subset is `schema-unsupported`; a malformed or
 misplaced credential slot is `credential-slot-malformed`; a hole resolving outside its position's legal
-source is `hole-illegal`; a reference naming an earlier Step of `series` cardinality is
+source is `hole-illegal`, which covers a hole written inside an Auth scheme's parameters, the one
+position with no legal source at all (§3); a reference naming an earlier Step of `series` cardinality is
 `series-reference`; and a reference naming a field no Operation of that Provider projects is
 `reference-unresolvable` (§3).
 
@@ -43,14 +44,28 @@ Target-class type-check get their names here: an Operation projecting a Record a
 identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
 
-Four further checks are one fact wearing four shapes — a Manifest whose own declarations disagree with
+Five further checks are one fact wearing five shapes — a Manifest whose own declarations disagree with
 each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an Operation
 whose `record:` carries no collection path, a `host-input:` naming a property the Operation's input
-schema does not define, a `headers:` entry taking the request position its Auth scheme owns, and a
+schema does not define, a `headers:` entry taking the request position its Auth scheme owns, a Provider
+declaring only the `shell` Capability while carrying an `auth:` block, and a
 Target declaration's credential slots not covering the scheme's slots for a binding a Definition makes
 (§3). The last is checked per (Definition, Target) pair rather than on the Target declaration alone,
 which is the one place a Target's own artefact is not sufficient — a Target declaration is written
 without knowing which Provider will bind it, and the scheme is the Provider's.
+
+That last check is also what makes `local` credential-free. A Provider carrying an `auth:` block and
+bound to `local` fails coverage, because `local`'s declaration covers no slots — so ADR-0024's
+*reserved because it holds no credentials rather than because it reaches everything* is a consequence
+of the ordinary check rather than a reservation anything special-cases.
+
+A separate check refuses a Manifest naming something reserved rather than disagreeing with itself. An
+Auth scheme may not name a header `hyper` computes — `Host`, `Content-Length`, `Content-Type`,
+`Transfer-Encoding`, `Connection` — and one that does is `auth-header-reserved`, compared
+case-insensitively as an HTTP header name is. It is its own code on `capability-reserved`'s shape (§11):
+what is refused is drawing on a name the tool holds, not an internal contradiction. `Host` is what makes
+it a guardrail rather than hygiene, being the one header whose value decides which service a granted
+host answers as (§3).
 
 ## The two keys
 

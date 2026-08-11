@@ -38,8 +38,10 @@ model) true rather than aspirational.
   key returned once at creation — cannot be recovered from the record. You rotate rather than
   recover. `skip-if-recorded` is unaffected, because the Record exists; only the value is gone.
 - **Credential positions are suppressed positionally, never scrubbed.** Because Auth schemes are a
-  closed set `hyper` implements, `hyper` knows exactly which header, query parameter, or body position
-  it filled, and never renders those in an error, a Journal entry, or the NDJSON stream. A
+  closed set `hyper` implements, `hyper` knows exactly which position it filled, and never renders
+  those in an error, a Journal entry, or the NDJSON stream. _ADR-0031 narrowed that to one position
+  class:_ a credential occupies a request header and nothing else, which is what makes *no secret ever
+  appears in a URL* mechanically true rather than a convention. A
   scrubber that pattern-matched for secrets would be an advisory check, which is the category
   ADR-0004 exists to eliminate. This only holds because a Provider cannot invent a scheme.
 - **A literal in a credential position is a load-time error.** Positional and mechanical, in the same
@@ -47,8 +49,10 @@ model) true rather than aspirational.
   impossible in the credential slot and does nothing about one pasted into an unrelated field; that
   remains a pre-commit hook's job, not `hyper`'s.
 - **The CI secret surface is generated, not hand-written.** The workflow `hyper` projects for a
-  Procedure derives its `env:` block from the Target declarations of the Targets that Procedure
-  transitively touches, and the Actions secret and the environment variable share one name. Adding a
+  Procedure derives its `env:` block from the slots the bindings that Procedure transitively makes
+  require — the (Definition, Target) pairs rather than the declarations, so a slot a Target carries for
+  a scheme this Procedure never uses stays out of the runner — and the Actions secret and the
+  environment variable share one name. Adding a
   Target to a Procedure therefore makes a new secret appear in the Comparison rather than in YAML nobody
   reviewed.
 - **`hyper` reads credentials and does not acquire them.** OIDC federation is not implemented. If a

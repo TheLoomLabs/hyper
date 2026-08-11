@@ -184,10 +184,13 @@ bound above already accepts. A Procedure whose every Step is `read` carries no g
 the shared lock and reaps nothing, and serialising it would starve the five-minute cadence behind the
 forty-minute provision (§6, ADR-0006).
 
-**The `env:` block is derived from the Targets the Procedure touches.** Every credential slot named
-by the Target declarations reachable through the Procedure, to any depth, appears on the `run` step
+**The `env:` block is derived from the bindings the Procedure makes.** Every credential slot required by
+a (Definition, Target) pair reachable through the Procedure, to any depth, appears on the `run` step
 and nowhere else in the file, each carrying an executor secret named exactly as the environment
-variable that Target declaration resolves the slot from (ADR-0007). The
+variable that Target declaration resolves the slot from (ADR-0007). It is the bindings rather than the
+declarations because a Target may carry slots for a scheme this Procedure never uses (§3), and writing
+those into the job would put a secret in the runner that no Step could reach — the same narrowing §6
+makes for the presence check, for the same reason. The
 runtime binary resolves an environment variable exactly as it does on a laptop, so nothing about the
 executor enters the decision; adding a Target to a Procedure makes a new secret appear in the diff
 `project` writes rather than in YAML nobody reviewed; and an executor holding no secret of that name
