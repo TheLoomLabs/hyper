@@ -250,6 +250,11 @@ so a `destroy` claim names Operations rather than a Kind — and the `targets:` 
 literally rather than by class or tag, since a Target class only ever rejects a mismatch and never
 expands a Definition's reach.
 
+`read` may not appear in `kinds:` beside `mutate`, nor beside a `destroy:` claim naming any Operation: a
+Definition observes or it effects (ADR-0032). `mutate` beside `destroy:` stays legal and is the ordinary
+case, a Tombstone landing in the series the `mutate` created (§7). What a Definition may claim is
+therefore `read` alone, or `mutate`, or `destroy:` Operations, or those two together.
+
 `destroy` is not a member of `kinds:`. The two keys are what let the review's `AUTHORITY` table derive
 the claimed Kind at that one position rather than read it (§8). A Definition carries no argument value
 of its own: the gutter renders what reaches the world from the file being read, and a value living on
@@ -260,8 +265,20 @@ values belong to the Step.
 kind: definition
 definition: preview-dns
 provider: cloudflare-dns
-kinds: [read, mutate]
+kinds: [mutate]
 destroy: [delete_dns_record]
+targets: [cloudflare-prod]
+```
+
+Reading what that Definition creates is a second Definition, against the same Provider and the same
+Target. The Definition is the segment of a Record's identity that keeps the two series apart, so the
+Observations one writes and the Assets the other owns never meet.
+
+```yaml
+kind: definition
+definition: preview-dns-observed
+provider: cloudflare-dns
+kinds: [read]
 targets: [cloudflare-prod]
 ```
 

@@ -189,17 +189,17 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Thirty-six members, each the identifier of a check that declined, named where that check is
+**Closed.** Thirty-seven members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
 resisting and has none, and the ways it can resist are not a set anything could close over. Two
 failures are told apart by the exit code above rather than here.
 
-Twenty are contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
+Twenty-one are contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `reference-unresolvable`, `capability-mismatch`, `manifest-inconsistent`,
-`auth-header-reserved`, `identity-undeclared`, `target-class-mismatch`,
+`auth-header-reserved`, `identity-undeclared`, `target-class-mismatch`, `definition-kinds-mixed`,
 `kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
 `bound-missing`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the

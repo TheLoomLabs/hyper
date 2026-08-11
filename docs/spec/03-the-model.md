@@ -22,8 +22,12 @@ credentials, and it is bound by the same rule as any other — it declares by na
 so no Target reaches without limit (ADR-0024).
 
 What a Step produces is a Record, and every Record is an Observation or an Asset — two Record types,
-never a status field on one (ADR-0025). `hyper` is accountable for an Asset, since it created it, and
-for nothing an Observation merely describes; neither ever becomes the other. A Record's identity —
+never a status field on one (ADR-0025). `hyper` is accountable for an Asset, its own effect having
+reached what that Asset describes, and for nothing an Observation merely describes; neither ever becomes
+the other. The type belongs to the Record rather than to any one version of it, and every version
+restates it. A Definition therefore observes or effects and never both, a Definition claiming `read`
+beside `mutate` or a `destroy` Operation being one that would write both types into one series
+(ADR-0032). A Record's identity —
 `(Target, Definition, name)` — excludes the Run that wrote it, so a Definition invoked twice against
 the same Target writes a further version into one series rather than starting a new one (ADR-0025); the
 Run itself survives only as Provenance, carried by every version: the Definition revision, Manifest

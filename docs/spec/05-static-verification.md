@@ -69,6 +69,11 @@ host answers as (§3).
 
 ## The two keys
 
+A Definition's own claim is checked before it is compared with any grant. `read` in `kinds:` beside
+`mutate`, or beside a `destroy:` claim naming any Operation, is `definition-kinds-mixed` (§3, ADR-0032).
+It reads one file and needs no Target, which makes it the one Kind rule below that refuses a claim
+before anything has been asked about what would grant it.
+
 A Step runs only where its Definition's claimed Kind and its bound Target's accepted Kinds intersect —
 both authored, neither derived, so a claim of "never destroys" is a fact the reviewer can trust rather
 than the Manifest's word for it. A Step whose claim and grant do not intersect is `kind-not-granted`. A

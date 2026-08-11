@@ -74,7 +74,8 @@ _Avoid_: Plugin, Package, Module
 
 **Definition**:
 A named, authority-scoped use of a Provider: which Kinds it claims and which Targets it may act on. It
-carries no argument values — those belong to the Step, where they are read beside the Bound. The
+observes or it effects, never both, since the Records it writes take their type from the Kinds it claims.
+It carries no argument values — those belong to the Step, where they are read beside the Bound. The
 durable artefact an agent authors and a human reviews; nothing is invoked except through one.
 _Avoid_: Model, Instance, Config, Binding, Profile
 
@@ -156,8 +157,9 @@ describes, and never reconciles it against an Asset.
 _Avoid_: Reading, Sample, Fact, Resource
 
 **Asset**:
-A Record of something `hyper` created and is therefore accountable for. Having been created by
-`hyper` is the whole test — a thing merely observed is never an Asset.
+A Record of something `hyper`'s own effect reached and is therefore accountable for. That effect is the
+whole test — usually because `hyper` created the thing, and equally where it changed one it did not — and
+a thing merely observed is never an Asset.
 _Avoid_: Resource, Holding, Managed resource
 
 **Orphaned Asset**:
