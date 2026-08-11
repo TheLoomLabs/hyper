@@ -39,6 +39,15 @@ regardless of where `hyper` runs (ADR-0007).
 A `destroy` Step's Bound is mandatory: an absent Bound means unbounded, and unbounded is refused
 before anything runs rather than left unchecked (`bound-missing`, §4).
 
+An `opaque` `destroy` Step is the one Step that carries no Bound, and writing one there is refused
+(`bound-illegal`, §4). This is not the rule above softened. A Bound counts the Records an Expansion
+resolved to, and an opaque Step expands over nothing and names no population, so the only value it could
+carry is `1` — which would stand in the gutter and in `FLAGS` reading *at most one thing will be
+destroyed* while `rm -rf /` is magnitude one. Truthful and still misleading is the worse failure on the
+most severe Step the tool runs. What stands in the Bound's place is what the section above already
+requires and nothing else: two independent opt-ins, and a Definition that named the Operation. Unbounded
+is the accurate word for it, and §13 uses that word.
+
 ## Expansion
 
 A selector's Expansion — the resolution of `over:` to the concrete Records a Step will act on — is

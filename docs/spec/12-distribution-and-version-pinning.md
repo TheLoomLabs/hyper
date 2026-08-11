@@ -159,6 +159,38 @@ is a tracked file in `providers/`. That is the origin `providers` reports (§9),
 the difference — a Manifest's powers do not depend on who wrote it, only on what it declares and what a
 Target grants (§5).
 
+### What ships built in
+
+One Provider ships inside the binary, `shell`, and §12 states it in full. What fixes the set is a
+criterion rather than a list: **`hyper` ships a Provider only where the Capability it needs is one
+nobody else may declare** (ADR-0039). `shell` is that Capability and the only one, so the roster grows
+only where the reserved set does. Nothing ships for convenience — no vendor Manifest and no starter
+Manifest — because a Provider `hyper` embeds for convenience is one its consumers could have written
+themselves, and embedding it ties their correctness to a release cycle, takes a name out of the
+namespace permanently, and puts `hyper` in the position of vouching for a description of somebody
+else's API.
+
+A built-in's Manifest is ordinary YAML in the binary's own source, embedded verbatim: `operation` writes
+those lines back unchanged (§9), and `manifest_digest` covers exactly those bytes (§7). It carries
+`schema-version:` like every other Manifest — the field's justification is about who may write a
+Manifest rather than about which ones carry it, and a row shape branching on origin would be worse than
+a field that is trivially satisfied. It carries no `origin:` block and therefore makes no digest claim
+against a registry, which is what a locally authored Provider does too (§7). There is no trusted path
+in: the embedded bytes go through the same loader and the same checks §4 states, and a built-in that
+fails one is a defect in the binary rather than a Refusal an author can do anything about.
+
+**A built-in is forkable in form and not in power.** Its source is readable, and copying it into
+`providers/` is an ordinary edit to a tracked file — but the copy must be renamed, an Extension being
+unable to shadow a built-in name, and once renamed it may not declare `shell`.
+
+A `shell` Operation runs its command as a child of the process `hyper` runs in, and what that child
+inherits is the invoking environment with **every variable any Target declaration names as a credential
+slot removed** — every one in the repository, not only those this Run resolved, so the set is decided
+offline and does not turn on which Steps a Run reached. `hyper` knows those names by position (§3),
+which is the same knowledge that lets it suppress a credential rather than scan for one (ADR-0007), used
+here to keep the credentials it resolved out of a process it cannot describe. Everything else in the
+environment is the command's, and `hyper` neither reads it nor records it; §13 states what that costs.
+
 ### `install`
 
 `install <ref>` resolves the ref against a registry, fetches the Manifest, verifies the bytes against

@@ -162,6 +162,11 @@ between them: `75` says retry me, and `77` says a verbatim retry will refuse ide
   Operation. It is the one reserved to built-ins, so an Extension declaring it is refused at load
   (`capability-reserved`, §11).
 
+**Opacity is a property of the Capability rather than of the Operation.** `http` describes what it does
+— a method, a host, a path, a body, every one of them in the artefact — and `shell` cannot describe
+anything. An Operation is `opaque` exactly where its Capability is, which is why no artefact declares it
+(§3) and every surface still renders it (§9).
+
 A Capability is declared by a Manifest and granted by a Target declaration, both of which the
 declared-equals-derived check compares against what `hyper` derives (`capability-mismatch`, §4). It is
 also the key an Operation's request is written under, so what `hyper` derives per Operation is read
@@ -170,6 +175,41 @@ Writing the Store passes no grant and costs no Capability, the Store not being a
 ADR-0006), which is what keeps this the set of effects on the world.
 
 This set is what the ceiling §13 states costs (ADR-0004).
+
+## The built-in Providers
+
+**Closed.** One member, `shell`, fixed by a criterion rather than by a list: **`hyper` ships a Provider
+only where the Capability it needs is one nobody else may declare** (ADR-0039, §11). The set doubles as
+the list of names no Extension may take (`provider-name-collision`, §11), and it grows only where the
+reserved half of the set above grows.
+
+`shell` declares `capabilities: [shell]` and no Auth scheme, a credential being a property of reaching a
+host and a command reaching none (§3). Its `class:` is `local`, so a shell Step binds `local` and
+nothing else: a command runs on the machine `hyper` runs on, there is one of those, and a Step naming
+somewhere else would be `hyper`'s own Manifest claiming a place it does not reach.
+
+Six Operations, which is Kind crossed with the Repeatability values each Kind may declare above:
+
+| Operation | Kind | Repeatability |
+| --- | --- | --- |
+| `read` | `read` | `repeatable` |
+| `mutate` | `mutate` | `repeatable` |
+| `mutate_once` | `mutate` | run-once, by omission |
+| `mutate_skip_if_recorded` | `mutate` | `skip-if-recorded` |
+| `destroy` | `destroy` | `repeatable` |
+| `destroy_once` | `destroy` | run-once, by omission |
+
+There are six rather than one because a Manifest declares the facts the Provider author knows and the
+Definition author would be guessing at (§6) — and here the Provider author is `hyper`, which knows
+nothing whatever about the command. No artefact downstream may override a declared fact (§13), so every
+declaration an author needs to vary becomes an Operation of its own, exactly as the Kind already does.
+The Operation's name is therefore the claim, and it renders where a claim renders: in the gutter beside
+the Step, and in `AUTHORITY`'s `DESTROY OPS` column (§8).
+
+Two declarations are the same on all six. `patterns:` is empty: pagination and polling have no meaning
+against a command, and retry follows only a failure that provably preceded a request (ADR-0018), which a
+command has no equivalent of. `deadline:` is one hour, a deadline bounding `hyper`'s patience rather
+than blast radius; nothing downstream may raise it and §13 states what that costs.
 
 ## Auth schemes
 
@@ -211,19 +251,19 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Thirty-nine members, each the identifier of a check that declined, named where that check is
+**Closed.** Forty members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
 resisting and has none, and the ways it can resist are not a set anything could close over. Two
 failures are told apart by the exit code above rather than here.
 
-Twenty-one are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
+Twenty-two are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `reference-unresolvable`, `capability-mismatch`, `manifest-inconsistent`,
 `auth-header-reserved`, `identity-undeclared`, `target-class-mismatch`, `definition-kinds-mixed`,
 `kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
-`bound-missing`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
+`bound-missing`, `bound-illegal`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
 Journal already holds as *ran* or *attempted, outcome unknown*.
 
@@ -259,9 +299,34 @@ A Manifest's projection of a response is a different thing wearing the same word
 codes above, and it contributes no member: a path failing to resolve against a response is read after
 the call went out, so nothing declined and there is no check to name (§6, ADR-0017).
 
+## The response object
+
+**Closed.** Five members. A Manifest's projection and a polling Pattern's `until:` read from this object
+and never from the bytes a server returned (ADR-0040, §3). It is the `http` Capability's; `shell`
+describes nothing and answers with nothing this shape would fit.
+
+- `host` — the host the request reached, which is the one host the candidate set and the grant
+  intersected to (ADR-0029). It is a fact about the call rather than the answer, and it is here because
+  an Operation whose answer carries no identity of its own has nowhere else to project a Record identity
+  from.
+- `status` — the HTTP status, an integer.
+- `headers` — a mapping of header name to value, names lowercased: a header name is case-insensitive on
+  the wire and a path is exact, so the lowering is what makes one path mean one thing.
+- `body` — the parsed JSON body, **absent** where the response carried none or carried something else,
+  and its absence is not an error. A site that is down answers with no body at all, and an uptime check
+  is pointed at hosts that answer in HTML.
+- `tls` — present where the scheme was HTTPS, carrying `not_after`, `days_left`, `subject`, and
+  `issuer`. `days_left` is a member because no artefact could compute one: there is no arithmetic in the
+  format (ADR-0022), and what it counts from is the instant the Run fixed (ADR-0034).
+
+There is no duration or latency member. A Record versions only on change (§7), so a timing field would
+mint a version on every Run that projected it and fill the record with evidence that `hyper` ran rather
+than that anything moved; a duration is computed inside one Journal entry, which is where this one
+already lives (§7). There are no raw bytes either, on the ground ADR-0017 settled for rendering.
+
 ## The path grammar
 
-**Closed.** Two roots: a Manifest's projection reads from an Operation's response, and a Step's
+**Closed.** Two roots: a Manifest's projection reads from the response object above, and a Step's
 reference reads from a Record. From either root, the grammar is `$`, `.member`, and `["member"]`, and
 nothing else.
 
@@ -344,13 +409,13 @@ true` producing an identical filter, and it is the spelling where one character 
 
 A selector (`over:`) roots at the Record being filtered; a condition (`when:`) roots at a named earlier
 Step's Record and carries `step:` beside `field:`; a polling Pattern's `until:` roots at the response
-in hand (§3).
+object in hand (§3, and the object above).
 
 At the two Record roots a `field:` is **one declared field name** — a key of the Manifest's `fields:`
 mapping (§3) — and nothing else: no descent, no brackets, no path. There is nothing there for a path to
 traverse, a Record's field names being flat and authored, and naming one is what makes the check below
 total. A projected value that is an object is therefore unfilterable, which is paid in the right place:
-the Provider author writes `region: $.config.region` once in the Manifest, reviewed, rather than every
+the Provider author writes `region: $.body.config.region` once in the Manifest, reviewed, rather than every
 selector spelling the descent out. At the response root a `field:` **is** a path in the grammar above,
 written without the root marker, a response having paths and no declared names. Which of the two it is
 follows from the position, as every other legality question in this format does (§3).

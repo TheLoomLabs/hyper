@@ -69,9 +69,10 @@ There is no interpolation syntax, no operator, no function, no arithmetic, no re
 no boolean algebra anywhere in the format (ADR-0022). Three closed forms carry everything the five
 artefacts need to say instead: a path, a predicate, and a template hole.
 
-A **path** names a value living elsewhere — a field of an Operation's response, where a Manifest states
-its projection, or a field of a Record, where a Step references one. Its grammar is closed and defined
-in §12. Where a path appears in a value position rather than a projection, it is embedded as a
+A **path** names a value living elsewhere — a field of the response object `hyper` builds from an
+Operation's call (§12, ADR-0040), where a Manifest states its projection, or a field of a Record, where
+a Step references one. Its grammar is closed and defined in §12. Where a path appears in a value
+position rather than a projection, it is embedded as a
 **reference** — a mapping, never a string: `{step: <id>, path: <path>}` names an earlier Step's Record,
 `{item: <path>}` names the Record the Step is itself ranging over — the one a selector or predicate is
 filtering, and, in the `args:` of an expanding Step, the one its Expansion is acting on, which is how
@@ -144,12 +145,16 @@ block, written by `hyper` rather than authored: `origin:`, holding the registry 
 `install` verified it against (§11). A Manifest carrying none is a locally authored Provider.
 
 Each Operation declares, on flat keys, the facts `hyper` would otherwise have to guess at: its `kind:`,
-whether it is `opaque:`, its `repeatability:`, its `deadline:`, its `concurrency:` limit, the `patterns:`
-it uses, its `input:` schema, its request, and its `record:` projection. None of them is nested under a
-grouping key: the Kind is the most review-relevant fact in the file and an indent is what would put it
-behind something else.
+its `repeatability:`, its `deadline:`, its `concurrency:` limit, the `patterns:` it uses, its `input:`
+schema, its request, and its `record:` projection. None of them is nested under a grouping key: the Kind
+is the most review-relevant fact in the file and an indent is what would put it behind something else.
 
-Two of the seven are stated by omission. `repeatability:` omitted is the default the Operation's own
+Whether an Operation is `opaque` is not among them, being nothing `hyper` has to guess at: opacity is a
+property of the Capability an Operation's request uses (§12), so the request's own key already carries
+it and a second spelling could disagree with the first. Every surface still renders it (§9); no artefact
+writes it.
+
+Two of the six are stated by omission. `repeatability:` omitted is the default the Operation's own
 Kind fixes — run-once where it effects, `repeatable` on a `read` — which §12 states in full, and
 neither is a value to write. Record cardinality has no key at all — `series` is a `record:` carrying
 `over:`, and `one` is a `record:` without it, since a `series` projection cannot omit the collection
@@ -185,11 +190,11 @@ operations:
         type: {type: string, enum: [A, AAAA, CNAME]}
         content: {type: string}
     record:
-      identity: $.result.id
+      identity: $.body.result.id
       fields:
-        id: $.result.id
-        name: $.result.name
-        created_on: $.result.created_on
+        id: $.body.result.id
+        name: $.body.result.name
+        created_on: $.body.result.created_on
   list_dns_records:
     kind: read
     repeatability: repeatable
@@ -207,10 +212,10 @@ operations:
         zone_id: {type: string}
     patterns:
       pagination:
-        cursor: {from: $.result_info.cursor, into: {query: cursor}}
+        cursor: {from: $.body.result_info.cursor, into: {query: cursor}}
       retry: {attempts: 3}
     record:
-      over: $.result
+      over: $.body.result
       identity: $.id
       fields: {id: $.id, name: $.name, created_on: $.created_on}
   delete_dns_record:
@@ -228,6 +233,45 @@ operations:
         zone_id: {type: string}
         record_id: {type: string}
 ```
+
+The other Provider this specification renders is `uptime`, whose Definition §8 reviews and whose
+Observations §8 compares. It is an ordinary locally authored Manifest rather than anything `hyper` ships
+(§11, ADR-0039): no credential, one Operation, and a projection that reads the response object and never
+touches a body. Read beside the one above it is the whole of the difference between a check and an API
+call.
+
+```yaml
+kind: provider
+provider: uptime
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  check_http:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+      host-input: host
+    input:
+      type: object
+      required: [host]
+      properties:
+        host: {type: string}
+    record:
+      identity: $.host
+      fields:
+        host: $.host
+        status: $.status
+        days_left: $.tls.days_left
+```
+
+`repeatability:` is omitted because a `read` has one legal value (§12), `auth:` because a public host
+takes no credential, and `host-input:` is present because `{from-target}` expands to every host `local`
+grants and a Step names which of them this Run is checking. `days_left` is absent from a version written
+against a plain-HTTP host, a field's presence being a predicate fact rather than a type (§12).
 
 ### Target declaration
 
@@ -498,7 +542,8 @@ A next-page URL read from a `Link` header or a response field is not a form. Rea
 what ADR-0024 closed, and a URL a response hands back is exactly that — the population may come from
 data and the reach only from an artefact.
 
-**Polling** carries an `interval:` and an `until:` predicate list whose `field:` roots at the response.
+**Polling** carries an `interval:` and an `until:` predicate list whose `field:` roots at the response
+object §12 states, the same root a projection reads from.
 It reuses the operator set §12 closes, rooted at a third scope, rather than growing a matcher of its own
 — §12 already documents one operator set rooting differently by scope. It carries no attempt count and no
 timeout of its own: the Operation's `deadline:` bounds the whole call, polls included, and a second bound
@@ -522,6 +567,30 @@ patterns:
 ```
 
 ## The projection
+
+### What a response is
+
+A response is not the bytes a server sent back: it is an object `hyper` assembles from the call it made,
+and every path in a Manifest roots at that object rather than at the body (ADR-0040). Five members,
+closed and stated in §12 — `host`, `status`, `headers`, `body`, and `tls`. A body field is therefore
+`$.body.result.id`, and a projection reading nothing but `$.status` is a complete one.
+
+`host` is the host the request reached — the one member of the object that is a fact about the call
+rather than about the answer. It is there because a Record's identity is projected from the response and
+an Operation whose answer carries no identity of its own has nowhere else to find one: an uptime check
+over the hosts a Target grants writes one series per host, and the host is what tells them apart. It is
+not a second spelling of the request's `host:`, which is a template; this is the single host the
+intersection resolved to, which is also the only value a grant was ever checked against (ADR-0029).
+
+`body` is the parsed JSON body and is **absent** rather than an error where the response carries none or
+carries something else: a site that is down answers `503` with no body at all, and an uptime check is
+pointed at hosts that answer in HTML, so the other reading makes the workload §0 opens with unrecordable.
+The cost of that lands in §13 — an API that answers in XML can be called and cannot be projected. `tls`
+is present where the scheme was HTTPS, and it carries a remaining-days figure beside the expiry because
+no artefact could compute one, arithmetic being refused (ADR-0022), and because what it counts from is
+the instant the Run fixed (ADR-0034) rather than anything a Manifest can name.
+
+### `record:`
 
 `record:` is where a Manifest states what an Operation's response becomes. It carries `identity:`, a path
 to the response field that is the Record's stable identity; `fields:`, a mapping of recorded field name

@@ -43,14 +43,16 @@ nobody present to read the Refusal.
 _Avoid_: Idempotency, Retry policy, Rerun mode
 
 **Opaque**:
-A trait on an Operation whose effects `hyper` cannot describe, such as an arbitrary shell command.
-Orthogonal to Kind, so an Opaque Operation still declares whether it destroys.
+A property of a Capability whose effects `hyper` cannot describe, such as running a command, carried
+by every Operation whose request uses it and declared beside none of them. Orthogonal to Kind, so an
+Opaque Operation still declares whether it destroys.
 _Avoid_: Shell, Untyped, Raw, Escape hatch
 
 **Capability**:
 One effect `hyper` can perform on a Manifest's behalf, drawn from a closed set that only `hyper`
 defines. A Manifest declares the Capabilities it requires and a Target declaration grants them; an
-Operation reaches only what both name.
+Operation reaches only what both name. One is Opaque and reserved to Providers `hyper` ships, so what
+an Operation cannot describe and who may write one are one fact.
 _Avoid_: Permission, Grant, Scope
 
 **Pattern**:

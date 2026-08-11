@@ -37,7 +37,7 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Thirteen victims stand at it, each a thing an author can want, describe precisely, and not write:
+Fifteen victims stand at it, each a thing an author can want, describe precisely, and not write:
 
 - **OIDC federation.** `hyper` reads credentials and never acquires them (ADR-0007), so a federated
   cloud reached from CI needs a long-lived credential in the executor's secrets — worse than the
@@ -84,6 +84,15 @@ Thirteen victims stand at it, each a thing an author can want, describe precisel
   of them (ADR-0034); the two are different positions and only the first is behind this wall.
 - **A request body that is not JSON.** A `body:` is a mapping serialised as JSON and nothing else (§3),
   so a form-encoded POST, an XML payload, or a raw upload has no route but waiting for one to ship.
+- **An API that answers in anything but JSON.** The response object's `body` is a parsed JSON body and
+  is absent where the answer is XML, HTML, or bytes (§12, ADR-0040) — so such an API is callable and its
+  answer is unprojectable, and everything an Operation records of it comes from the status, the headers,
+  and the certificate. The absence is deliberate rather than a gap: it is what lets a check against a
+  web page work at all.
+- **A command that outlives the built-in's deadline.** The `shell` Provider declares one hour on every
+  Operation and no artefact downstream may raise it (§12, and the override rule below), so a migration
+  that takes four hours is unwritable as a Step. `hyper` is the Provider author here, and a deadline it
+  guessed too low is corrected by a release rather than by an edit.
 - **An API paginated by a URL it hands back.** Pagination reads a cursor or counts pages (§12); a
   `Link` header or a `next` field is reach arriving from data, which no rule in the model permits
   (ADR-0024, ADR-0029). An API offering only that form is unwritable, and unlike the rest of this list
@@ -160,6 +169,23 @@ each one, so a runaway selector is caught and a single correctly-Bounded call ag
 important row in the system is not (§5). What stands there instead is entirely static and entirely
 before the Run: the two keys, the named-Operation requirement on `destroy`, and the review of the
 Definition that claimed it.
+
+**`shell` is the one Capability whose reach no grant bounds.** An `http` Operation reaches the hosts its
+Target granted and nothing else, checked before the Run and enforced at the call (§4, §12). A command
+reaches whatever the machine reaches: any host, any file, anything already in the environment. The
+Target it binds is `local`, and `local`'s host grant governs its `http` Operations and governs nothing
+about a command (§12, ADR-0024). What bounds a shell Step is the words a reviewer read in the Procedure,
+plus the two opt-ins an `opaque` `destroy` needs, and nothing else in the system — which is why the
+Capability is granted to no Extension, and why *a third party can never ship a Provider that runs
+commands on your machine* is the honest form of that guarantee rather than *nobody can*. The blast
+radius of such a Step is stated with the accurate word: unbounded, carrying no Bound at all (§5).
+
+**A command sees the environment `hyper` was invoked with.** What `hyper` removes from the child is
+exactly the variables a Target declaration names as a credential slot, which it knows positionally
+(§11). Everything else passes through, `hyper` neither reading nor recording it, so a credential the
+repository does not name is reachable by any command and appears on no surface. The rule cuts the other
+way too: a command needing a credential that *is* named cannot have it, and what is authored instead is
+a second variable holding a second secret, which is one more thing outside the record.
 
 **The Comparison prevents nothing.** It is an accountability instrument, never a guardrail, and it
 reports what changed rather than what is wrong (§8, ADR-0010). It says *this differs from when we

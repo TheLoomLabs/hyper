@@ -54,7 +54,7 @@ not mint, §3 having already said what a `destroy` writes and under whose name.
   surface the tool has, from one that did what it says.
 - **Let a `mutate` omit `record:`.** Rejected above. The tempting case is an API returning `204 No
   Content`, and the answer there is that the Provider author declares what the Operation affected from
-  what it was given — an Operation `hyper` cannot describe the effects of is what `opaque:` is for, and
+  what it was given — an Operation `hyper` cannot describe the effects of is what `opaque` is for, and
   it still owes a Record.
 - **Keep run-once as the default on `read` too.** Rejected. Run-once's own justification is *an effect
   nobody vouched for is not repeated on a guess*, and a `read` performs no effect, so the sentence is

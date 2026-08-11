@@ -99,7 +99,10 @@ at Run start and belongs to §5.
 ## The Bound
 
 A `destroy` Step declares the maximum number of Records it may affect. An absent Bound on a `destroy`
-Step means unbounded, and unbounded is refused before anything runs: `bound-missing`. A `mutate`
+Step means unbounded, and unbounded is refused before anything runs: `bound-missing`. An `opaque`
+`destroy` Step is where that rule stops and the opposite one starts: it carries no Bound, and one
+written there is `bound-illegal`. There is no population for it to count and the only value it could
+carry is `1`, which would render as a promise the Step cannot make (§5). A `mutate`
 Step's Bound is optional; its absence is not a check's business — it is rendered, unbounded, in the
 blast-radius summary, which belongs to §8. A `read` Step carries no Bound at all, having nothing for
 one to guard.
