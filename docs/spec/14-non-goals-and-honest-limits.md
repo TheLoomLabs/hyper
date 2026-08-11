@@ -99,6 +99,23 @@ is secret — the identifying half is suppressed with the secret half and no sur
 a Run used. Splitting it would need a Manifest composing two slots into one value, which is the
 Manifest choosing the placement that ADR-0031 gives to the scheme.
 
+A second cost sits beside that list rather than in it, and it is not a thing `hyper` has failed to
+ship. **A Manifest's declared facts are the Provider author's, and no artefact downstream may override
+one.** A Definition claims Kinds and a Step supplies arguments and a Bound; neither may restate what
+the Manifest said about the Operation itself — its Kind, its Repeatability, its deadline, its
+concurrency limit — because those are the facts §6 gives the Provider author precisely on the ground
+that the Definition author would be guessing at them, and an override arriving at the Step is
+authority arriving after review (ADR-0008).
+
+Repeatability is where that costs something visible. A Manifest omitting `repeatability:` on an
+effectful Operation declares run-once, so that Operation cannot appear in a Procedure carrying a
+Cadence at all (§4, ADR-0038) — and where the Manifest was installed rather than authored here, it is
+verified by digest (§11), so editing it locally breaks the verification instead of fixing the Provider.
+The correction belongs to whoever wrote the Manifest, and there is no local route to it. What `hyper`
+gives back is the timing: `cadence-run-once` names the Operation and the file at `check`, offline,
+before anything is projected or run, rather than at the second occurrence some night after the first
+one worked.
+
 The closed grammars charge in the same currency without extending that list. A Cadence is UTC-only
 cron, with no field, no flag, and no file that could name a zone (§10, ADR-0005, ADR-0014), so *3am
 my time* is unexpressible: what is authored instead is the UTC hour that means it today, and it stays

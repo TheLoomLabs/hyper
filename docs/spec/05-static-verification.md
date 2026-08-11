@@ -44,17 +44,22 @@ Target-class type-check get their names here: an Operation projecting a Record a
 identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
 
-Five further checks are one fact wearing five shapes — a Manifest whose own declarations disagree with
+Eight further checks are one fact wearing eight shapes — a Manifest whose own declarations disagree with
 each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an Operation
 whose `record:` carries no collection path, a `host-input:` naming a property the Operation's input
 schema does not define, a `headers:` entry taking the request position its Auth scheme owns, a Provider
-declaring only the `shell` Capability while carrying an `auth:` block, and a
+declaring only the `shell` Capability while carrying an `auth:` block, a
 Target declaration's credential slots not covering the scheme's slots for a binding a Definition makes
-(§3). The last is checked per (Definition, Target) pair rather than on the Target declaration alone,
+(§3), a `read` or `mutate` Operation carrying no `record:`, a `destroy` Operation carrying one, and
+`skip-if-recorded` declared on an Operation that is not a `mutate` (ADR-0037). The last three are the
+Kind disagreeing with what the Operation projects or with what its Repeatability would have to read,
+and they earn no code of their own because they point a reader at one file, one Operation, and two
+adjacent keys — which is the discrimination `name-mismatch` was split out to preserve and this does not
+lose. The fifth is checked per (Definition, Target) pair rather than on the Target declaration alone,
 which is the one place a Target's own artefact is not sufficient — a Target declaration is written
 without knowing which Provider will bind it, and the scheme is the Provider's.
 
-That last check is also what makes `local` credential-free. A Provider carrying an `auth:` block and
+That slot-coverage check is also what makes `local` credential-free. A Provider carrying an `auth:` block and
 bound to `local` fails coverage, because `local`'s declaration covers no slots — so ADR-0024's
 *reserved because it holds no credentials rather than because it reaches everything* is a consequence
 of the ordinary check rather than a reservation anything special-cases.
@@ -139,6 +144,25 @@ then decides at Run time is §3's, and it is the one part of the host rule no st
 where the intersection holds several hosts, the value a `host-input:` carries is checked for membership
 when it arrives. A `values:` list wired there is the case where that run-time check has nothing left to
 find, every value it will ever carry having been compared against the grant offline.
+
+## The Cadence
+
+A Procedure declaring a Cadence may reach no run-once Step, at any depth: `cadence-run-once`
+(ADR-0038). Run-once Refuses where the Journal already holds the Step as *ran*, and a Refusal is
+terminal for the Run (§5), so the second occurrence and every one after it stops at that Step and the
+Procedure's remaining Steps never run. A Cadence over a run-once Step therefore declares a recurrence
+with a lifespan of one occurrence, which is not a thing an author can have meant.
+
+The walk is the transitive one `envelope-exceeded` already makes — every Procedure reachable from the
+one declaring the Cadence, to any depth — because §10 makes *any shared body factored into a nested
+one* the way two recurrences are authored, so the run-once Step will typically sit in the nested
+Procedure rather than in the one carrying the clock.
+
+`check` is the pre-flight of every Run, so what this refuses is the combination and not merely its
+recurrence: such a Procedure does not run a first time either. That is the point rather than a side
+effect — the alternative is a Procedure that works once, and a repository that looks correct until the
+clock comes round. What is authored instead is two Procedures: the run-once Steps in one that is run
+by hand, and the recurring Steps in one that carries the Cadence.
 
 ## What `check` cannot know
 

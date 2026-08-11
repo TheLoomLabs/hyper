@@ -41,13 +41,35 @@ claimed at Kind level and `destroy` by named Operation, granularity following se
 **Closed.** Three values, declared per Operation in a Manifest and never inferred:
 
 - `repeatable` — invoke it again. What the Operation does is unchanged by how many times it has already
-  run: an absolute-state `mutate`, most reads.
+  run: an absolute-state `mutate`, every read.
 - `skip-if-recorded` — skip while the Asset it would produce still stands. The test reads the head
   version of the Record series `(Target, Definition, name)` identifies, not the existence of that
   series, so a series whose head is a Tombstone runs again (ADR-0011).
 - Undeclared — **run-once**. The Operation runs where the Journal holds no evidence it already ran, and
-  Refuses where it does. This is the default, and it is the strict one: an effect nobody vouched for is
-  not repeated on a guess.
+  Refuses where it does. This is the effectful default, and it is the strict one: an effect nobody
+  vouched for is not repeated on a guess.
+
+**Which values a Kind may declare is fixed by what that Kind projects** (ADR-0037), since two of the
+three read a projection to decide:
+
+| Kind | `repeatable` | `skip-if-recorded` | run-once | undeclared means |
+| --- | --- | --- | --- | --- |
+| `read` | yes | no | — | `repeatable` |
+| `mutate` | yes | yes | yes | run-once |
+| `destroy` | yes | no | yes | run-once |
+
+`skip-if-recorded` is a `mutate`-only value because `mutate` is the only Kind that projects the Asset
+its test reads. A `destroy` projects nothing (§3), and the head its test would find is the live Asset
+the Step exists to remove, so the value reads exactly backwards there — while the reading that
+preserves the intent, *skip what is already gone*, is what §5's Expansion already performs on every
+selector and every `values:` member. A `read` projects an Observation, which no `destroy` may ever
+Tombstone (ADR-0032), so its head stands from the first Run forever: the value would read the world
+once and skip every occurrence after, reporting `completed` each time.
+
+Run-once has no spelling, so a `read`'s only expressible Repeatability is `repeatable`, whether written
+or omitted. The strict default is not withheld from `read` as an exception but because its own reason —
+*an effect nobody vouched for* — names something a `read` does not do; it is the shape §4 already uses
+for a Bound, which a `read` Step carries none of, having nothing for one to guard.
 
 ## Record cardinality
 
@@ -189,7 +211,7 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Thirty-eight members, each the identifier of a check that declined, named where that check is
+**Closed.** Thirty-nine members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
@@ -218,9 +240,11 @@ one without knowing whether they asked `check` or a Run. §7's four are the Stor
 `record-identity-collision`, a Record identity colliding case-insensitively with one already written;
 and `store-schema-unsupported`, a Store file whose schema version is above the reader's (ADR-0028). §9
 contributes `credential-absent`, a credential a Target declaration names and the environment does not
-hold, checked before a Run's first Step. §10's two are the Cadence projection's: `cadence-malformed`,
-a Cadence outside the cron grammar §10 states, and `projection-stale`, a generated workflow that is
-not what `project` would write now. §11's seven are distribution's. Three are the pin's:
+hold, checked before a Run's first Step. §10's three are the Cadence's: `cadence-malformed`,
+a Cadence outside the cron grammar §10 states; `projection-stale`, a generated workflow that is
+not what `project` would write now; and `cadence-run-once`, a Procedure declaring a Cadence that
+reaches a run-once Step at any depth (§4, ADR-0038) — a recurrence whose second occurrence Refuses,
+which is why it is refused before the first. §11's seven are distribution's. Three are the pin's:
 `version-pin-mismatch`, a binary whose version differs from the Repository declaration's pin in either
 direction;
 `version-pin-absent`, a command that needs the pin and finds none; and `release-artefact-absent`,

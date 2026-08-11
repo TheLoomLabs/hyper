@@ -54,6 +54,16 @@ A missed window is never made up. There is no catch-up, no backlog, and no queue
 occurrences: re-invocation is decided by Repeatability against the Journal's evidence and never by a
 clock (§6, ADR-0005).
 
+Because that evidence is what decides, a Cadence and a **run-once** Step are refused together
+(`cadence-run-once`, §4, ADR-0038). Run-once Refuses where the Journal already holds the Step as *ran*,
+and a Refusal is terminal, so every occurrence after the first would stop there and carry the rest of
+the Procedure down with it: the clock would be attached to a body with a lifespan of one occurrence.
+The check walks every Procedure reachable from the one declaring the Cadence, to any depth, because the
+paragraph above makes a nested Procedure the ordinary home of a shared body — which is exactly where a
+run-once Step hides from the artefact carrying the clock. What is authored instead is the split that
+rule already describes: the run-once Steps in a Procedure run by hand, the recurring ones in the
+Procedure that keeps the Cadence.
+
 The floor is the executor's — five minutes on Actions — and delivery is best-effort.
 
 A Cadence is also the declaration the last Journal entry is read against, which is what makes staleness

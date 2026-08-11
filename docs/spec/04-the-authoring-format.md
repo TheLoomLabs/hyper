@@ -149,13 +149,14 @@ it uses, its `input:` schema, its request, and its `record:` projection. None of
 grouping key: the Kind is the most review-relevant fact in the file and an indent is what would put it
 behind something else.
 
-Two of the seven are stated by omission. `repeatability:` omitted is run-once, which §12 fixes as the
-undeclared default rather than a value to write. Record cardinality has no key at all — `series` is a
-`record:` carrying `over:`, and `one` is a `record:` without it, since a `series` projection cannot omit
-the collection path and a `one` projection has nothing to put there. A `destroy` Operation carries no
-`record:` and declares no identity, what it writes being a Tombstone under the series its Expansion
-acted on — or, where that Expansion was a literal naming no series, under a series the Tombstone opens
-(§7, ADR-0033).
+Two of the seven are stated by omission. `repeatability:` omitted is the default the Operation's own
+Kind fixes — run-once where it effects, `repeatable` on a `read` — which §12 states in full, and
+neither is a value to write. Record cardinality has no key at all — `series` is a `record:` carrying
+`over:`, and `one` is a `record:` without it, since a `series` projection cannot omit the collection
+path and a `one` projection has nothing to put there. A `destroy` Operation carries no `record:` and
+declares no identity, what it writes being a Tombstone under the series its Expansion acted on — or,
+where that Expansion was a literal naming no series, under a series the Tombstone opens (§7,
+ADR-0033).
 
 ```yaml
 kind: provider
@@ -526,6 +527,13 @@ patterns:
 to the response field that is the Record's stable identity; `fields:`, a mapping of recorded field name
 to path, which is the whole of a Record's projected content; and, for an Operation of `series`
 cardinality, `over:`, the path naming the collection the Records are projected out of.
+
+`record:` is **mandatory on a `read` and on a `mutate` and forbidden on a `destroy`**, either way round
+`manifest-inconsistent` (§4). A `mutate` projecting nothing performs an effect `hyper` is accountable
+for and puts no row in `YOU DID THIS` (§8), which is the one thing an effectful path may not do — the
+argument ADR-0033 makes for a Tombstone, one Kind over. A `destroy` declaring a projection would be
+declaring an identity for a Record it does not mint. What an Operation projects is therefore fixed by
+its Kind, which is what lets §12 state which Repeatability values each Kind may declare (ADR-0037).
 
 A Record's name is the value the identity field holds, so an Operation projecting a Record and declaring
 no identity produces one nothing can identify, and declaring none is `identity-undeclared` (§4).

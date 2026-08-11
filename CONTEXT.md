@@ -35,7 +35,11 @@ _Avoid_: Type, Verb, Category
 **Repeatability**:
 An Operation's declared behaviour when a Procedure is run again: `repeatable` (invoke it again),
 `skip-if-recorded` (skip while the Asset it would produce still stands), or, when undeclared,
-run-once. Declared in the Manifest, never inferred.
+run-once on an effectful Operation and `repeatable` on a `read`. Declared in the Manifest, never
+inferred, and never overridden downstream. Which values an Operation may declare follows its Kind,
+two of the three deciding by reading a projection: `skip-if-recorded` is `mutate`-only, and run-once
+cannot be written at all. A run-once Step is refused under a Cadence, its second occurrence having
+nobody present to read the Refusal.
 _Avoid_: Idempotency, Retry policy, Rerun mode
 
 **Opaque**:

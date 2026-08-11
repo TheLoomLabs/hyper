@@ -47,9 +47,12 @@ states and the next Run reads.
 ## Repeatability
 
 An Operation's Repeatability decides what a re-run does to a Step that already ran. Its three values
-are defined in §12. It is declared in the Manifest and never inferred, and it is a property of the
-Operation rather than of the Step calling it: the Provider author knows whether invoking it twice is
-intended and the Definition author would be guessing.
+are defined in §12, along with which of them each Kind may declare — two of the three read a
+projection, so what an Operation projects fixes which of them mean anything on it (ADR-0037). It is
+declared in the Manifest and never inferred, and it is a property of the Operation rather than of the
+Step calling it: the Provider author knows whether invoking it twice is intended and the Definition
+author would be guessing. Nothing downstream may override it, which is what leaves a Manifest omitting
+it on an effectful Operation a thing only its own author can correct (§13).
 
 A Step skipped under `skip-if-recorded` is one whose Asset still stands, which is a fact the head
 version of its Record series carries (§12). A series whose head is a Tombstone stands for nothing,
@@ -62,6 +65,11 @@ where one does, it Refuses (`run-once-recorded`, §12). A Step the Journal only 
 *never reached* therefore runs on a re-run — without which one run-once Step would make a whole
 Procedure permanently un-re-runnable after any halt, and with no bypass (ADR-0001) the only exit
 would be an edit to a reviewed artefact.
+
+That exit is why a run-once Step and a Cadence cannot be authored together: nobody is present to make
+the edit, and the Refusal is terminal, so the Procedure's remaining Steps stop with it at every
+occurrence after the first. `check` refuses the combination before either runs (`cadence-run-once`,
+§4, ADR-0038), which leaves run-once meaning what it says on a Procedure a person invokes.
 
 ## Conditions
 
