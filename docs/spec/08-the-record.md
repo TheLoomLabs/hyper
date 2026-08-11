@@ -1,9 +1,9 @@
 # §7 — The record
 
 Everything a Run leaves behind is written to one place, in the open, and read back by every later Run
-and by every rendering §8 states. This chapter states where that place is, how a file gets into it,
-what each file holds, how the current version of a Record is found with nothing pointing at it, what a
-Journal entry carries, and what may be removed from it later.
+and by every rendering §8 states. This chapter states where that place is, how a file gets into it, the
+encoding every file is written in and every key each one carries, how the current version of a Record
+is found with nothing pointing at it, and what may be removed from it later.
 
 ## The Store
 
@@ -55,12 +55,81 @@ Which paths exist, what each segment holds, and how an identity hostile to a fil
 one are a closed grammar — the Store path grammar, named here and defined in §12, and distinct from the
 value paths §3 states.
 
+## Canonical JSON
+
+Every JSON file in the Store is written in one encoding, and the encoding is stated in full because it
+is not presentation: a version is minted only where the bytes moved, the identity digest below is taken
+over these bytes, and a file name breaks a Head tie under them. An unstated separator is a fact two
+writers can disagree about.
+
+UTF-8, LF line endings, and a trailing LF. Two-space indent. Keys sorted by Unicode code point. `": "`
+after a key; a comma immediately after a value, then the line ending; no trailing whitespace. Numbers
+as the shortest decimal that round-trips. An array writes one element per line at the same indent, so a
+set that gains a member gains a line and a git diff of it names what moved rather than reporting that
+one long line changed. An empty mapping and an empty array are written inline, `{}` and `[]`.
+
+Escaping is the minimum JSON requires, and a character outside ASCII is written as itself in UTF-8
+rather than as an escape — so a Record whose name carries an umlaut is legible in a browser and hashes
+as what it reads as. The trailing LF is written for the same reason the rest of this is: a file without
+one puts `\ No newline at end of file` into every diff of a branch whose whole purpose is being read as
+one.
+
+A timestamp is RFC 3339, UTC, `Z` mandatory, with milliseconds always to three digits. The width is
+fixed, so lexicographic order over a timestamp is chronological order, and the window in which two Runs
+writing one series inside the same second fall through to the file-name tie-break is a thousandth of
+what whole seconds would leave.
+
+A key whose value would be an empty mapping or an empty list is absent rather than written empty. Two
+places are exceptions and say so where they stand, both for the same reason: absence there already
+carries a different meaning.
+
 ## Records
 
-A Record version is one file, holding that version's projected content and its metadata together, in
-canonical JSON: UTF-8, LF line endings, two-space indent, keys sorted by Unicode code point, no
-trailing whitespace, and numbers as the shortest decimal that round-trips. One artefact that is
-diffable and canonical at once.
+A Record version is one file, holding that version's projected content and its metadata together. One
+artefact that is diffable and canonical at once.
+
+The projected content nests under `fields`, the key the Manifest's projection is written under (§3),
+rather than sitting beside the metadata. A projected field's name is a Provider author's to choose, and
+flat would need a reserved list of metadata names for it to steer around — a list that grows, and one
+that cannot grow safely here: a name added to it at schema version 2 collides with a field already
+written into a version 1 file, and no file in the Store is ever rewritten (ADR-0011). Nested, the two
+namespaces are disjoint forever and there is no check to state or forget.
+
+Beside `fields` a version carries `schema_version`; its own identity as `target`, `definition` and
+`name`, unencoded and in full; `record_type`, `observation` or `asset`; the `run_id`, `step` and
+`operation` that wrote it; `written_at`; and its `provenance`. A version written by a Step reached
+through a nested Procedure invocation carries that Step's `path` as well, as the Step file does below.
+The identity is restated rather than read back out of the path because the path is
+lossy — the Store path grammar truncates an over-long segment and suffixes a hash (§12) — and because
+ADR-0011 requires the working tree to describe itself.
+
+```json
+{
+  "definition": "preview-dns",
+  "fields": {
+    "created_on": "2026-08-06T11:03:19Z",
+    "id": "372e67954025e0ba6aaa6d586b9e0b59",
+    "name": "preview-42.example.com"
+  },
+  "name": "372e67954025e0ba6aaa6d586b9e0b59",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1",
+    "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
+  },
+  "record_type": "asset",
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2026-08-06T11:03:19.914Z"
+}
+```
+
+The Record's `name` is the value its identity path resolved to, so it recurs inside `fields` wherever a
+Manifest reads both from one path — which §3 states is the ordinary case and not two facts disagreeing.
 
 A version is written only where the bytes moved. An Operation returning what the head version already
 holds mints nothing, and the canonical encoding is what makes *the bytes moved* an exact test rather
@@ -75,11 +144,13 @@ There are no binary Records, no streaming writes, and no appending inside a vers
 projection its Manifest declared (§3), and a blob nobody reviews has no business on a branch whose
 whole point is that it can be read.
 
-A field a Manifest declares secret is written as a presence-only marker in the position the value would
-occupy — no digest, no length, no sibling list of what was suppressed — so no secret reaches the Store
-at all (ADR-0007). The marker is a constant, which is what keeps the byte comparison above honest: a
-rotated secret writes identical bytes and correctly mints no version. What renders from that, and the
-one place a raw response is visible, are §8's.
+A field a Manifest declares secret is written as the string `"<secret>"` in the position the value
+would occupy — no digest, no length, no sibling list of what was suppressed — so no secret reaches the
+Store at all (ADR-0007). The marker is a constant, which is what keeps the byte comparison above
+honest: a rotated secret writes identical bytes and correctly mints no version. It is the same constant
+every rendering §8 produces uses, so there is one thing to recognise rather than two. A projected value
+that happens to read the same is not a case `hyper` disambiguates: `secret:` is declared in a reviewed
+Manifest (§3), which is authoritative over what a reader would otherwise infer from a value.
 
 ### Identity on a filesystem
 
@@ -106,28 +177,153 @@ mintable by either writer alone and never a counter: a Run id is a UUIDv7 (§12)
 The version that is current is visible to anyone reading the branch, in a fresh checkout or a browser,
 with no git plumbing and no tool.
 
-A Tombstone is an ordinary version of the series, carrying the fact that what it described was
-destroyed, the Asset's last known state, the Operation that destroyed it, and the Run that confirmed
-it. The series is the one the Expansion acted on, so a Tombstone is written under the Asset's own
-identity rather than under a projection of the destroying Operation's response, which need not carry
-one. It is terminal for the Asset's life and not for the series: a further version above it makes the
-Head alive again, which is what makes destroy-then-recreate behave as §6 states under
-`skip-if-recorded`.
+A Tombstone is an ordinary version of the series, and the four things it carries are three ordinary
+keys and one marker: `tombstone: true` for the destruction (ADR-0011), the previous Head's `fields`
+copied forward for the Asset's last known state, and the `operation`, `run_id` and `step` every version
+carries anyway for what destroyed it and what confirmed it. Its `written_at` is when destruction was
+confirmed, and §8 renders it as that rather than reading a fifth key. The `fields` were projected by
+some earlier Operation and the `operation` names the one that destroyed it, which is the one place in
+the Store those two keys describe different calls.
+
+The series is the one the Expansion acted on, so a Tombstone is written under the Asset's own identity
+rather than under a projection of the destroying Operation's response, which need not carry one. It is
+terminal for the Asset's life and not for the series: a further version above it makes the Head alive
+again, which is what makes destroy-then-recreate behave as §6 states under `skip-if-recorded`.
 
 ## The Journal
 
 A Journal entry is a directory, one per Run, under a date partition (§12). `run.json` is written at Run
-start and carries the Run id, the Procedure, the Trigger, whether the Run is a dry-run, and the Run's
-Provenance — so a Run that wrote no Record still says which code performed it. A file per Step is
-written as that Step reaches its Disposition. `outcome.json` is written when the Run ends and carries
-the outcome triple §6 states.
+start, a file per Step is written as that Step reaches its Disposition, and `outcome.json` is written
+when the Run ends.
+
+`run.json` carries `schema_version`, the `run_id`, the `procedure`, the `trigger`, `started_at`,
+`dry_run`, and the Run's `provenance` — so a Run that wrote no Record still says which code performed
+it.
+
+```json
+{
+  "dry_run": false,
+  "procedure": "retire-preview-dns",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
+  },
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+  "schema_version": 1,
+  "started_at": "2026-08-06T11:03:18.204Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+```
+
+`dry_run` is written on every entry, `false` included, and is the one marker in the Store that does not
+follow the absence rule above. Four independent readers filter rehearsals out — run-once Repeatability
+(§6), the identity digest below, and the Comparison as baseline and as subject (§8) — and a reader that
+takes absence for `false` refuses every run-once Step in the Procedure it rehearsed, permanently, with
+nothing but an artefact edit left (ADR-0001). The exception is bought by what getting it wrong costs,
+not by the shape of the field.
+
+### The Step file
+
+A Step file carries `schema_version`, the `step` position, the Step's authored `id`, its `definition`,
+`operation`, `target` and `kind`, its `disposition`, `started_at` and `ended_at`, its `provenance`, and
+the three things a Disposition holds below. A Step reached through a nested Procedure invocation
+carries `path` as well — the invocation chain, `retire.probe` — beside its own `id`; a top-level Step
+carries none.
+
+```json
+{
+  "definition": "preview-dns",
+  "disposition": "ran",
+  "ended_at": "2026-08-06T11:05:44.117Z",
+  "id": "retire",
+  "identities": {
+    "digest": "sha256:6f1c8d0a4b93e527f10c6ba8d34e79521f0badc6e84397b210f5cd6e0a4b7f38",
+    "members": [
+      "372e67954025e0ba6aaa6d586b9e0b59",
+      "9a4c1f0d3b7e5286c1d09f4a7b3e6152",
+      "c07b3e91d4a2f5860b3c19e75d2a4f83"
+    ]
+  },
+  "kind": "destroy",
+  "operation": "delete_dns_record",
+  "provenance": {
+    "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
+    "manifest_digest": "sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1"
+  },
+  "schema_version": 1,
+  "selector": {
+    "bound": 5,
+    "declared": {
+      "assets": [
+        {"field": "name", "starts_with": "preview-"},
+        {"field": "created_on", "older_than": "14d"}
+      ]
+    },
+    "expanded_to": [
+      "372e67954025e0ba6aaa6d586b9e0b59",
+      "9a4c1f0d3b7e5286c1d09f4a7b3e6152",
+      "c07b3e91d4a2f5860b3c19e75d2a4f83"
+    ]
+  },
+  "started_at": "2026-08-06T11:05:41.902Z",
+  "step": 2,
+  "target": "cloudflare-prod"
+}
+```
+
+`kind` is held here rather than read back from the Manifest because it is the Kind that was in force
+when the Step ran, which is the fact §8's third table exists to report as moving — and a Journal whose
+Dispositions cannot be read without fetching three artefacts at the revision that Run names is evidence
+with a dependency. It is the argument that puts the selector in the file as authored, applied to the
+one other fact in the same position.
+
+A Step that is a nested Procedure invocation writes no file of its own. An invocation is not a Step,
+none of the six Dispositions describes one, and its own Steps each write a file carrying `path`.
+
+`outcome.json` carries `schema_version`, the `outcome` §6's triple fixes, `ended_at`, and `closed_by_run`
+where another Run closed the entry.
+
+```json
+{
+  "ended_at": "2026-08-06T11:05:49.331Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+```
+
+No exit code is written. `1`, `75`, `130` and `143` are a mapping the CLI applies to `failed` (§12), and
+the Store does not restate a rendering. The cost is real and worth naming: a Run that lost the Store
+lock and a Run stopped by an interrupt are told apart by their Step files — the first has none — rather
+than by a field.
 
 ### The open entry
 
 An open entry is one with no `outcome.json`, and that absence is the whole representation — there is no
 state field to leave stale and no growing file to rewrite. The Run may be in flight or its process may
-be gone, and `hyper` never guesses which. Closing one is §6's rule and stays append-only here: the Run
-that closes another's entry creates `outcome.json` and edits nothing the dead Run wrote (ADR-0011).
+be gone, and `hyper` never guesses which.
+
+A Step that was never reached writes no file either, and within a *closed* entry that absence is its
+whole representation in the same way. Six Dispositions, five borne by a file and one read from a
+silence. A forty-Step Procedure that halted at Step 3 would otherwise write thirty-seven files saying
+that nothing happened.
+
+Closing one is §6's rule and stays append-only here: the Run that closes another's entry creates two
+paths and edits nothing the dead Run wrote (ADR-0011). It writes the in-flight Step's file first, at
+the next `<nnnn>`, `attempted-outcome-unknown` and carrying `closed_by_run`, and then `outcome.json`.
+Without that file §6's rule has nowhere to land and the crashed Step reads as never reached, which
+re-runs an effect nobody vouched for. Which Step it was is not a guess: `run.json` names the Procedure
+and the revision to load it at, and the highest `<nnnn>` present is the last one that finished.
+
+That file carries what the reaper knows and omits what it cannot establish. Always `schema_version`,
+`step`, `disposition` and `closed_by_run`; the Step's `id` and its code facts where the dead Run's
+revision resolves them, and absent where it does not, which is every Run that recorded `repo_dirty`.
+Never `started_at` — the reaper does not know when the Step began, and filling it would be `hyper`
+asserting something about a Run it did not perform, on the surface built to hold what happened.
 
 The last Step file's `ended_at` is when the Run went quiet, and it is the only evidence a Run that never
 came back leaves. It is read as a timestamp and never as a verdict.
@@ -142,34 +338,69 @@ Durations derive at render, and only within one entry. Timestamps from two entri
 subtracted, and no rendering presents a cross-entry interval as a measurement, because the laptop and
 the runner do not share a clock.
 
+A reaped entry therefore renders no duration at all. Its `ended_at` is the closing Run's instant on the
+closing Run's clock, so subtracting the dead Run's `started_at` from it is the cross-entry subtraction
+this rule forbids, wearing one entry's directory. `closed_by_run` being present is what says so; there
+is no second flag.
+
 ### What a Disposition holds
 
 A Step's Disposition — one of the six §6 names and §12 defines — is held here rather than by any Record,
-and each carries three things beyond its value: the Record identities the Step acted on, the selector
-it resolved together with what that selector expanded to and the Bound it was counted against, and
-what `hyper` itself did to reach the outcome. A fourth arises in one case only, and is stated below
-with it.
+and each carries up to three things beyond its value: the identities the Step reached a recorded
+conclusion about, the selector it resolved together with what that selector expanded to and the Bound
+it was counted against, and what `hyper` itself did to reach the outcome. A fourth arises in one case
+only, and is stated below with it.
 
-The identity set is written as a digest, and in full only where that digest differs from the same Step's
-digest in the previous Run of the Procedure. An unchanged listing of five hundred Records costs one
-line; a changed one costs the set, and the set it changed from is findable as the last Run whose digest
-moved. Every Disposition carries it — a `read` Step's like any other, which is what lets §8 tell a
-Record that vanished from one that did not change with no reconciliation and no new state on any
-Record, and *attempted, outcome unknown* included, which is the Disposition that knows least and the
-one whose identities matter most: the Assets a Run may or may not have destroyed are named there and
-nowhere else.
+**The identity set is what the Step concluded about**, not what it wrote and not what it saw: what it
+projected from a response under `read` and `mutate`, and what it confirmed destroyed under `destroy`,
+which projects nothing and declares no identity (§3). A Record that came back unchanged mints no file
+and is in the set; that is the case the whole mechanism exists for, and it is why *what it wrote* is
+the wrong reading (ADR-0030).
 
-The second is the selector, held as it was authored beside what it resolved to, so that what a Step
-reached is readable back from the entry long after the Run and against the artefact revision that
-Run's Provenance names. It is what a Refusal's remediation points at (§8) and what `show --expansion`
-reads (§9); a Step carrying no selector (§3) resolved none and holds none.
+It is written as `identities`, a `digest` and — only where that digest differs from the same Step's
+digest in the previous Run of the Procedure — the sorted `members` in full. An unchanged listing of five
+hundred Records costs one line; a changed one costs the set, and the set it changed from is findable as
+the last Run whose digest moved. `members` is written whenever the digest moved, an empty list
+included: this is one of the two exceptions to the empty-value rule above, and it earns it, since
+absence there already means *the digest did not move* and a reader would otherwise decode *we looked
+and saw nothing* from recognising the digest of `[]` as a constant.
+
+The digest is `sha256:` over the canonical JSON encoding of the sorted array, trailing LF included — so
+where a set is written in full a reader recomputes its digest with `sha256sum` over those exact bytes
+and nothing else. Sorting is by Unicode code point, the rule canonical JSON already uses for keys
+rather than a second ordering, which also makes the digest a fact about the set rather than about the
+order a response happened to arrive in.
+
+Four Dispositions carry a set and two do not. *ran* carries one. *skipped as already recorded* carries
+one — the skip test read a head version, which is a conclusion about that identity. *attempted, outcome
+unknown* carries the conclusions it did reach and not the ones it did not: a destroy that confirmed
+three of five holds three. *refused* carries none, nothing having been concluded about anything; *skipped
+by condition* and *never reached* carry none, and the second writes no file to carry it in.
+
+The second is the selector, held as authored beside what it resolved to, so that what a Step reached is
+readable back from the entry long after the Run without a checkout at the revision that Run's
+Provenance names. It is what a Refusal's remediation points at (§8) and what `show --expansion` reads
+(§9); a Step carrying no selector (§3) resolved none and holds none. `expanded_to` is written whenever
+a selector exists, an empty list included — the other exception, for the reason the first one is: an
+Expansion that resolved to nothing is not a Step with no selector.
+
+The Assets a Run may or may not have destroyed are named in `expanded_to` and nowhere else. The
+arithmetic a reader does is *expanded to five, concluded about three, two unaccounted for*, and `hyper`
+does not say which of the two was in flight: §6 attaches the uncertainty to the attempt rather than to
+the thing, and naming one would undo that.
 
 The third is `hyper`'s own account of the work — a Pattern's attempts, its pages, its poll iterations —
 supplied by no Provider (ADR-0018). It is what makes *attempted, outcome unknown* after five attempts a
-different fact on the page from the same Disposition after one.
+different fact on the page from the same Disposition after one. It is written where a Pattern did more
+than the trivial single call and absent otherwise, which is the rule §8 renders it under stated once
+rather than twice — except on *attempted, outcome unknown*, where it is written whenever a Pattern was
+declared at all. How many times `hyper` may have touched the world is the fact that Disposition exists
+to carry, and *one attempt* and *no retry declared* are the same silence everywhere else and must not be
+here.
 
-A Step halted by a projection that did not resolve (§6) carries the identities it wrote and no others,
-and one thing more: the path that failed to project. The set is partial and the path is what says so.
+A Step halted by a projection that did not resolve (§6) carries the identities it concluded about and no
+others, and one thing more, under `projection_failed_path`: the path that failed to project. The set is
+partial and the path is what says so.
 The digest is taken over what the set holds like any other and moves under the same rule, so it says
 nothing about partiality either way — two Runs failing on the same member hold the same nine identities
 and the digest does not move — and it is the path a reader reads partiality from. That path is held
@@ -180,15 +411,36 @@ it failed against (ADR-0017).
 
 A Refusal writes no Record — nothing happened to the world — so the Journal is the only place it is
 held, and it is held in full: the Step file carries the check that declined it under its `error_code`
-(§12), the Step, the Target it would have bound, and what was declared against what was found (§5),
-beside the entry's own Provenance. An attempt whose outcome never came back is held there as fully and
-for the same reason, less the `error_code`: nothing declined it, so there is no check to name (§9).
+(§12), the Step, the Target it would have bound, and what was `declared` against what was `observed`
+(§5), beside the `artefact` and `line` the remediation points at. An attempt whose outcome never came
+back is held there as fully and for the same reason, less the `error_code`: nothing declined it, so
+there is no check to name (§9).
+
+The file and the line are written rather than derived from the Step's own revision. The Journal is
+evidence, and evidence that needs a checkout at the right revision to be legible is evidence with a
+dependency; the source at that revision is not in the Store at all, so nothing is being said twice. No
+phase is written beside them either: each member of the closed `error_code` set names one check and a
+check happens at one phase, so §8's `phase` derives from the code and is not a set of its own to drift
+from the one it shadows.
 
 ### The Trigger
 
 A Run's Trigger names what caused the Run and which executor it happened on, and it carries which
-occasion on that executor: on Actions the run id, the attempt number, and the job URL; on a laptop the
-hostname. It is a string written into the Store rather than egress, and it is what links an entry to the
+occasion on that executor. It is a mapping rather than a string: four facts whose shape differs by
+executor do not pack into one without a grammar and a parser, and a job URL carries every separator
+such a packing would use.
+
+`cause` is `cron` or `manual` and `executor` is `github-actions` or `local`, both closed sets §12
+holds. `actor` is written on both — the Actions actor, or the operating system user — and `host` on
+`local` only. On Actions the occasion is the executor's own `run_id`, its `run_attempt`, and the
+`job_url`. §8's header renders `cron` from `cause` and `igor@thinkpad` from `actor` and `host`, so
+both forms come from stored facts with nothing invented at render.
+
+`hyper` reads the executor's environment to fill the Trigger and branches on nothing it finds. The
+environment is not an authority axis (§5): recording which executor ran is not that act, behaving
+differently on one is, and no rule anywhere in this specification reads these two fields.
+
+It is written into the Store rather than sent anywhere (ADR-0021), and it is what links an entry to the
 narration that produced it — without it a Run id and the job that emitted it are unrelatable.
 
 ### Dry-run entries
@@ -203,10 +455,48 @@ through and nothing but an artefact edit left (ADR-0001): the review aid would d
 ## Provenance
 
 Every Record version carries Provenance, and carries it in full rather than by reference to the Run that
-wrote it: the Definition revision, the Manifest digest, the Extension digest, the repository revision,
-and the version of `hyper` that performed the write — which, Providers being data, is the only code that
-ran (ADR-0004). A version file saying only *see Run `abc`* would be unreadable in a browser and in a
-diff, which is exactly where this field set is read.
+wrote it: `definition_revision`, `manifest_digest`, `origin_digest`, `repo_revision`, and
+`hyper_version` — which, Providers being data, is the only code that ran (ADR-0004). A version file
+saying only *see Run `abc`* would be unreadable in a browser and in a diff, which is exactly where this
+field set is read.
+
+`definition_revision` is the git blob id of the Definition file: content-addressed, computable offline
+from the working tree, unmoved by a rebase, and equal exactly where the content is. `repo_revision` is
+the commit at `HEAD`. Both are written whole and rendered abbreviated (§8).
+
+`manifest_digest` is SHA-256 over the Manifest's exact bytes — the file in `providers/` for an installed
+or locally authored Provider, the embedded bytes for a built-in, which has no blob in the repository at
+all. Over the bytes rather than a canonical form of what they parse to, because a second digest of one
+Manifest is a second representation that can disagree with the one `install` verified, and because a
+reader checks bytes with `sha256sum` and a canonical form with nothing but `hyper`. Reformatting a
+Manifest moves it and moves every later Record's Provenance with it, which renders as a code change
+(§8) — correct rather than noisy: the reviewed artefact moved.
+
+`origin_digest` is the registry digest `install` verified, the same value §3's installed Manifest carries
+in its `origin:` block. It is absent for a built-in Provider and for a locally authored one, neither
+having an upstream to have come from. It is not `manifest_digest` under another name even where both
+are present: that one covers the file as it stands, this one covers the published bytes, which are the
+file without the block naming them (§11) — the file in the repository against the file that arrived.
+
+`hyper` names the algorithm where `hyper` chose it. `manifest_digest`, `origin_digest` and the identity
+digest carry `sha256:` inline; the two revisions are bare, the algorithm being the repository's rather
+than a choice, and a reader verifies them with `git hash-object`. `hyper_version` is always a release
+string: the pin gate refuses any binary whose version differs from the repository's in either direction
+(§11), so a binary built from source either reports a released version that matches or never reaches
+the Store, and there is no development form to write.
+
+A sixth member is written where it applies: `repo_dirty: true`, where any reviewed artefact the Run read
+differs from `HEAD` or is untracked. That is exactly the file set §8's catch-all row counts the moved
+lines of, so the marker and the count agree on what code is by construction. It follows the ordinary
+absence rule rather than `dry_run`'s exception: one renderer reads it, and reading it wrong costs a `git
+diff` command that does not reproduce rather than a Procedure that refuses forever.
+
+Provenance splits by scope across the three files. A Record version carries all of it. `run.json` carries
+the members that are Run-wide — `hyper_version`, `repo_revision`, and `repo_dirty` where it applies —
+which is what makes a Run that wrote no Record still say which code performed it. A Step file carries the
+members that are the Step's — `definition_revision`, `manifest_digest`, `origin_digest` — where each has
+exactly one value, a Step naming one Definition, one Operation and one Provider. Nothing at Run level
+names a Definition, so a Procedure whose Steps span several has nothing to disambiguate.
 
 ## Retention and Compaction
 
@@ -245,6 +535,13 @@ not perform.
 Every file in the Store carries its own schema version, an integer, and the branch carries none.
 `hyper` reads any file at or below the version it knows, and Refuses on one written above it
 (`store-schema-unsupported`, §12) rather than guessing at a shape it does not recognise (ADR-0028).
+
+There are four integers, not one — a Record version's, `run.json`'s, a Step file's and `outcome.json`'s
+— each independent and each starting at `1`, matching the explicit version a Manifest carries (§3).
+`STORE.md` carries none, being prose written once. One integer across the Store would move a Record
+version's number when a Step file's shape moved, and an older binary would then Refuse a Record file it
+could read perfectly; ADR-0028's rule is that the integer moves only when a file's shape moves, and four
+ceilings for the reader is what that sentence costs to be literally true.
 Append-only makes migration in place impossible, so the reader accretes format handling and the Store
 accretes nothing: a schema change adds new files rather than editing old ones.
 

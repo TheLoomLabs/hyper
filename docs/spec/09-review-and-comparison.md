@@ -290,7 +290,7 @@ $ hyper run retire-preview-envs --json
 {"type":"refusal","error_code":"bound-exceeded","phase":"expansion","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"artefact":"procedures/retire-preview-envs.yaml","line":30}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":30,"field":"steps[2].bound","from":5,"to":23}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":29,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
-{"type":"provenance","definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","extension_digest":null,"repo_revision":"88bc402"}
+{"type":"provenance","definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":null,"repo_revision":"88bc402","hyper_version":"1.4.0"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded"}
 ```
 

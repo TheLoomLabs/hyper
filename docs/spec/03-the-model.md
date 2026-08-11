@@ -27,7 +27,7 @@ for nothing an Observation merely describes; neither ever becomes the other. A R
 `(Target, Definition, name)` — excludes the Run that wrote it, so a Definition invoked twice against
 the same Target writes a further version into one series rather than starting a new one (ADR-0025); the
 Run itself survives only as Provenance, carried by every version: the Definition revision, Manifest
-digest, Extension digest, repository revision, and the version of `hyper` that wrote it.
+digest, origin digest, repository revision, and the version of `hyper` that wrote it.
 
 A Run is a single execution of an Operation or a Procedure. A Probe is not one: it is a `read`
 Operation invoked against `local` without a Definition, and having written no Record it has no

@@ -14,6 +14,14 @@ Two closed grammars are deliberately not here, each being the whole subject of t
 it: the YAML subset every artefact is written in (§3) and the cron grammar a Cadence is written in
 (§10). Both are stated once there and cited rather than restated everywhere else.
 
+## How a member is spelled
+
+A member of a set below is written in kebab-case wherever it goes on the wire — into a Store file, into
+a row of the stream §8 states, into an artefact — and the keys around it are written in snake_case:
+`"disposition": "skipped-by-condition"`, `"error_code": "bound-exceeded"`. The split is stated because
+it is already in force everywhere and is otherwise a coincidence a reader has to notice. No member is
+abbreviated on the wire; a set whose members are shortened for the file is a second set of names.
+
 ## Kind
 
 **Closed.** Three values, declared per Operation in a Manifest and never inferred from the Operation's
@@ -55,21 +63,37 @@ leaves behind (§6).
 
 ## Disposition
 
-**Closed.** Six values, one per Step of a Run:
+**Closed.** Six values, one per Step of a Run, each with its wire spelling beside it:
 
-- **ran** — the Step was invoked and its outcome came back.
-- **skipped as already recorded** — the Step's Operation declared `skip-if-recorded` and the Asset it
-  would produce still stands. The only value that is Repeatability evidence.
-- **skipped by condition** — the Step's `when:` did not hold. Says nothing about what the world holds,
-  which is why it is not the same value as the skip above.
-- **refused** — a guardrail declined the Step before any effect reached the world (§5).
-- **never reached** — the Run ended before the Step. A run-once Step in this state runs on a re-run.
-- **attempted, outcome unknown** — the call went out and no answer came back. It attaches the
-  uncertainty to the attempt rather than to the thing, so nothing downstream reads it as either
-  success or failure.
+- **ran** — `ran`. The Step was invoked and its outcome came back.
+- **skipped as already recorded** — `skipped-as-already-recorded`. The Step's Operation declared
+  `skip-if-recorded` and the Asset it would produce still stands. The only value that is Repeatability
+  evidence.
+- **skipped by condition** — `skipped-by-condition`. The Step's `when:` did not hold. Says nothing about
+  what the world holds, which is why it is not the same value as the skip above.
+- **refused** — `refused`. A guardrail declined the Step before any effect reached the world (§5).
+- **never reached** — `never-reached`. The Run ended before the Step. A run-once Step in this state runs
+  on a re-run.
+- **attempted, outcome unknown** — `attempted-outcome-unknown`. The call went out and no answer came
+  back. It attaches the uncertainty to the attempt rather than to the thing, so nothing downstream reads
+  it as either success or failure.
 
-Every Disposition carries more than its value — the Record identities, the selector, and `hyper`'s own
-account of the work, which no Provider supplies (ADR-0018) — and §7 states what each of them holds.
+Every Disposition carries more than its value — the identities it concluded about, the selector, and
+`hyper`'s own account of the work, which no Provider supplies (ADR-0018, ADR-0030) — and §7 states what
+each of them holds and which values carry which. Five of the six are borne by a Step file; **never
+reached** is read from the absence of one inside a closed entry (§7).
+
+## The Trigger's cause and its executor
+
+**Closed.** Two sets of two, carried by every Journal entry's Trigger (§7).
+
+- `cause` — `cron`, a Cadence the executor's clock fired (§10), or `manual`, a person. A dispatched
+  workflow run is `manual` on the Actions executor, which is why these are two fields and not one.
+- `executor` — `github-actions` or `local`.
+
+`hyper` fills both by reading the environment it finds itself in, and no rule in this specification
+reads either one back. Recording where a Run happened is a fact about the occasion; deciding anything
+from it would be the authority axis §5 does not have.
 
 ## The outcome triple
 
@@ -176,8 +200,9 @@ not what `project` would write now. §11's seven are distribution's. Three are t
 direction;
 `version-pin-absent`, a command that needs the pin and finds none; and `release-artefact-absent`,
 `project` unable to resolve a published artefact for its own version. Four are the Extension's:
-`extension-digest-mismatch`, fetched bytes or an installed Manifest that no longer match the digest
-`install` verified; `provider-name-collision`, a Manifest taking a built-in Provider's name;
+`origin-digest-mismatch`, fetched bytes or an installed Manifest that no longer match the digest
+`install` verified — the check and the Provenance field it guards name one fact (§7);
+`provider-name-collision`, a Manifest taking a built-in Provider's name;
 `capability-reserved`, a Manifest in `providers/` declaring a Capability reserved to built-ins; and
 `manifest-schema-unsupported`, a Manifest whose schema version is above the reader's (ADR-0028).
 
@@ -220,10 +245,11 @@ which is the one a Manifest projects with and a Step references with; this one i
 
 `<run-id>` is a UUIDv7, lowercase and hyphenated: time-ordered, and mintable by either environment
 alone, which a counter is not (ADR-0006). `<yyyy>/<mm>/<dd>` is the UTC date of the Run's start.
-`<nnnn>` is the Step's position in the Run's written order, the first Step `0001`, nested invocations
-counted in that order, zero-padded to four digits and widening beyond four rather than wrapping; it
-names a Record version as well as a Step file, so two Steps of one Run writing one identity write two
-paths rather than one twice.
+`<nnnn>` is the Step's position in the Run's written order, the first Step `0001`, a nested Procedure's
+Steps counted in that order — the invocation itself being no Step and writing no file (§7) —
+zero-padded to four digits and widening beyond four rather than wrapping; it names a Record version as
+well as a Step file, so two Steps of one Run writing one identity write two paths rather than one
+twice.
 
 `<target>`, `<definition>` and `<name>` are one path segment each, percent-encoded: every byte outside
 `A`–`Z`, `a`–`z`, `0`–`9`, `-`, `_` and `.` is written as `%` and two uppercase hexadecimal digits over

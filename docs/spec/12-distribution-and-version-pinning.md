@@ -163,7 +163,7 @@ Target grants (§5).
 
 `install <ref>` resolves the ref against a registry, fetches the Manifest, verifies the bytes against
 the digest published for that ref, and writes the file into `providers/`. Bytes that do not match are
-`extension-digest-mismatch` (§12) and nothing is written.
+`origin-digest-mismatch` (§12) and nothing is written.
 
 Registry as source, repository as record. The registry is where an Extension is discovered and
 fetched; what executes is the file in the tree, reviewed in the same commit as the Definition that uses
@@ -173,7 +173,7 @@ a run-time fetch would be shared mutable state between review and execution.
 `install` records the ref it resolved and the digest it verified in the Manifest's own origin block,
 which the Manifest schema defines and only `hyper` writes — the rule that lets `project` write the pin
 (§3). The digest covers the published bytes, which are the file without the block naming them, since a
-digest cannot cover itself. `check` recomputes it and reports `extension-digest-mismatch` where it no
+digest cannot cover itself. `check` recomputes it and reports `origin-digest-mismatch` where it no
 longer holds (§4), which is what makes the fetch's verification repeatable offline, by anyone reading
 the repository, long after the machine that performed it is gone.
 

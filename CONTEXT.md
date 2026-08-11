@@ -226,7 +226,7 @@ _Avoid_: GC, Pruning, Vacuum, Cleanup, Retention
 
 **Provenance**:
 The record, carried by every Record version, of which code produced it: Definition revision, Manifest
-digest, Extension digest, repository revision, and the version of `hyper` that performed it — which,
+digest, origin digest, repository revision, and the version of `hyper` that performed it — which,
 Providers being data, is the only code that ran.
 _Avoid_: Audit, History, Lineage
 
