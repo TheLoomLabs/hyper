@@ -22,10 +22,16 @@ credential slot's mapping shape, the three hole positions, the path and referenc
 chapter is where each rejection gets the name it is refused under, nothing more: a construct the YAML
 subset excludes is `strict-yaml-violation` (ADR-0023); a key the schema at that position does not
 define is `unknown-key`; a `kind:` disagreeing with its directory or filename, against §12's table, is
-`kind-mismatch`; an input schema outside the closed subset is `schema-unsupported`; a malformed or
+`kind-mismatch`; an artefact's name disagreeing with its file's basename is `name-mismatch` (§3); an
+input schema outside the closed subset is `schema-unsupported`; a malformed or
 misplaced credential slot is `credential-slot-malformed`; a hole resolving outside its position's legal
 source is `hole-illegal`; a reference naming an earlier Step of `series` cardinality is
-`series-reference`.
+`series-reference`; and a reference naming a field no Operation of that Provider projects is
+`reference-unresolvable` (§3).
+
+`name-mismatch` is its own member rather than a widening of `kind-mismatch`. The two carry different
+disagreements over four artefacts, and one code standing for both would leave a reader of the rendering
+unable to tell which of two files to edit.
 
 ## The Manifest's oracle
 
@@ -36,6 +42,15 @@ over-declared or under, either direction is `capability-mismatch`. §3's identit
 Target-class type-check get their names here: an Operation projecting a Record and declaring no
 identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
+
+Four further checks are one fact wearing four shapes — a Manifest whose own declarations disagree with
+each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an Operation
+whose `record:` carries no collection path, a `host-input:` naming a property the Operation's input
+schema does not define, a `headers:` entry taking the request position its Auth scheme owns, and a
+Target declaration's credential slots not covering the scheme's slots for a binding a Definition makes
+(§3). The last is checked per (Definition, Target) pair rather than on the Target declaration alone,
+which is the one place a Target's own artefact is not sufficient — a Target declaration is written
+without knowing which Provider will bind it, and the scheme is the Provider's.
 
 ## The two keys
 
@@ -67,10 +82,12 @@ artefacts alone and belongs to §6.
 
 ## The host list
 
-§12 already states two comparisons of a host set against a Target's grant — a Capability-relevant
-hole's enumerated cross-product against the Target's granted host set for that Capability, and an
-`over:` `values:` list against the Target's granted host set. Both share one name: a member absent from
-the grant, from either origin, is `host-not-granted` (ADR-0024).
+§12 already states two comparisons of a host set against a Target's grant — an Operation's `host:`
+template expanded to its candidate set, and an `over:` `values:` list. Both share one name: a member
+absent from the grant, from either origin, is `host-not-granted` (ADR-0024, ADR-0029). What the
+intersection of a candidate set and a grant then decides at Run time is §3's, and it is the one part of
+the host rule no static check performs: where the intersection holds several hosts, the value a
+`host-input:` carries is checked for membership when it arrives.
 
 ## What `check` cannot know
 

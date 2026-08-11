@@ -37,7 +37,7 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Six victims stand at it, each a thing an author can want, describe precisely, and not write:
+Eight victims stand at it, each a thing an author can want, describe precisely, and not write:
 
 - **OIDC federation.** `hyper` reads credentials and never acquires them (ADR-0007), so a federated
   cloud reached from CI needs a long-lived credential in the executor's secrets — worse than the
@@ -54,6 +54,12 @@ Six victims stand at it, each a thing an author can want, describe precisely, an
   arithmetic computes over one, and no invocation supplies one (ADR-0022, ADR-0008), so a date a Step
   writes is the literal its author wrote — and a Procedure on a Cadence writes that same literal at
   every occurrence until somebody edits the artefact and puts it back through review.
+- **A request body that is not JSON.** A `body:` is a mapping serialised as JSON and nothing else (§3),
+  so a form-encoded POST, an XML payload, or a raw upload has no route but waiting for one to ship.
+- **An API paginated by a URL it hands back.** Pagination reads a cursor or counts pages (§12); a
+  `Link` header or a `next` field is reach arriving from data, which no rule in the model permits
+  (ADR-0024, ADR-0029). An API offering only that form is unwritable, and unlike the rest of this list
+  it is unwritable on purpose rather than for want of a primitive.
 
 The process by which those sets grow — who adds a member, and when — is undecided, and §12 records it
 as undecided rather than answering it.

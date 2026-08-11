@@ -117,7 +117,9 @@ between them: `75` says retry me, and `77` says a verbatim retry will refuse ide
   (`capability-reserved`, §11).
 
 A Capability is declared by a Manifest and granted by a Target declaration, both of which the
-declared-equals-derived check compares against what `hyper` derives (`capability-mismatch`, §4).
+declared-equals-derived check compares against what `hyper` derives (`capability-mismatch`, §4). It is
+also the key an Operation's request is written under, so what `hyper` derives per Operation is read
+rather than inferred, and an Operation uses exactly one (§3).
 Writing the Store passes no grant and costs no Capability, the Store not being a Target (§7,
 ADR-0006), which is what keeps this the set of effects on the world.
 
@@ -140,20 +142,24 @@ the growth process above stands — undecided, and not decided here.
 
 **Closed.** Three: **pagination**, **polling** to a terminal condition, and **retry**, which follows
 only a failure that provably preceded the request (ADR-0018). An Operation declares which of them it
-uses (§3), and what each one did on a given Step is carried by that Step's Disposition above.
+uses and parameterises each one there (§3), and what each one did on a given Step is carried by that
+Step's Disposition above. Pagination's two forms are closed with it — a cursor read from a response, or
+a page number `hyper` increments — and a next-page URL read from a response is neither, reach arriving
+from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Thirty-two members, each the identifier of a check that declined, named where that check is
+**Closed.** Thirty-five members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
 resisting and has none, and the ways it can resist are not a set anything could close over. Two
 failures are told apart by the exit code above rather than here.
 
-Sixteen are contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
-`kind-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
-`series-reference`, `capability-mismatch`, `identity-undeclared`, `target-class-mismatch`,
+Nineteen are contributed by §4's static checks: `strict-yaml-violation`, `unknown-key`,
+`kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
+`series-reference`, `reference-unresolvable`, `capability-mismatch`, `manifest-inconsistent`,
+`identity-undeclared`, `target-class-mismatch`,
 `kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
 `bound-missing`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
@@ -188,7 +194,9 @@ nothing else.
 An Operation of `series` cardinality carries one further root inside the first: the path naming the
 collection reads from the response, and the identity and field paths read from each member of that
 collection. That is the only position a member's field is nameable from at all, the two forms that
-would otherwise name one — `[n]` and `[*]` — being outside the grammar for the reasons below.
+would otherwise name one — `[n]` and `[*]` — being outside the grammar for the reasons below. Both roots
+are written `$` and the position decides which one it is, on the rule that decides every other legality
+question in this format; a second marker would be a fourth production in a grammar that has three (§3).
 
 Recursive descent (`..`) is rejected on the same ground as a YAML alias or a JSON Schema `$ref`: a path
 whose meaning depends on data the reviewer cannot see while reviewing (ADR-0022). Array indexing (`[n]`)
@@ -240,14 +248,17 @@ matching, in place of the unbounded one (ADR-0022).
 
 **Closed.** One hole syntax, three legal positions:
 
-- A **Capability-relevant position** — a host, an Auth scheme's parameters, anything that determines
-  what a request may reach — resolves only to a declared closed enumeration or to `from-target`, never
-  to an Operation input and never to a bare wildcard. `hyper` expands the cross-product of every such
-  hole against its enumeration at load and compares the derived finite set against the Target's grant
-  (ADR-0024).
+- A **Capability-relevant position** resolves only to a declared closed enumeration or to `from-target`,
+  never to an Operation input and never to a bare wildcard. `hyper` expands the cross-product of every
+  such hole against its enumeration at load and compares the derived finite set against the Target's
+  grant (ADR-0024, ADR-0029). There are exactly two: an Operation's `host:` and an Auth scheme's
+  parameters. A request's `path:`, `query:`, `headers:` and `body:` are not among them — a grant
+  enumerates hosts and nothing finer, so no hole in one of those can widen reach past what the Target
+  already granted (§3). The enumeration a hole names is declared in a Manifest's `enumerations:` and
+  never in an Operation's input schema, whose `enum` constrains a value a caller supplies.
 - Every other position resolves only to an Operation input.
 - A position inside `auth:` resolves only to a declared credential slot, and a credential-slot hole is
-  legal nowhere else.
+  legal nowhere else. The slots are the Auth scheme's own, so no Manifest mints one (§3).
 
 A hole resolving to none of these, or one filled from the wrong source for its position, is a load
 error.
@@ -274,7 +285,10 @@ does not:
 - **selector** — a Step's `over:`, in any of its three forms. It belongs here on the same ground the
   Bound does: a Bound going 10 → 500 rendered while a selector going from one server to every server
   stays silent is truthful and still misleading.
-- **Target set** — a Procedure's declared envelope, and the Targets a Definition may bind.
+- **Target set** — a Procedure's declared envelope, the Targets a Definition may bind, and the `target:`
+  a Step binds. The last belongs here for the reason the selector does: a Step moving from staging to
+  production inside an envelope that already declared both changes everything about what the Run
+  touches, and the envelope row would not move.
 - **Bounds** — a Step's `bound:`, its appearance and its disappearance included.
 - **Cadence** — a Procedure's declared recurrence (§10).
 - **required Capabilities** — what a Manifest declares it needs.

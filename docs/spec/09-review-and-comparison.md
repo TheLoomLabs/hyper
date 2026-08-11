@@ -50,6 +50,7 @@ $ hyper review procedures/retire-preview-envs.yaml
   read     local    │     - id: probe
                     │       definition: uptime
                     │       operation: check_http
+                    │       target: local
                     │       over:
                     │         observations:
                     │           - field: name
@@ -58,6 +59,7 @@ $ hyper review procedures/retire-preview-envs.yaml
   mutate!  staging  │     - id: label
                     │       definition: hetzner-staging
                     │       operation: set_server_labels
+                    │       target: staging
                     │       over:
                     │         assets:
                     │           - field: labels.role
@@ -66,6 +68,7 @@ $ hyper review procedures/retire-preview-envs.yaml
   DESTROY  staging  │     - id: retire
                     │       definition: hetzner-staging
                     │       operation: delete_server
+                    │       target: staging
                     │       over:
                     │         assets:
                     │           - field: labels.role
@@ -81,9 +84,9 @@ $ hyper review procedures/retire-preview-envs.yaml
   hetzner-staging  staging  read mutate destroy  read mutate destroy  r m d      delete_server
 
   FLAGS   index into the gutter above — no flag states anything the gutter does not
-  UNBOUNDED  line 13  step label    mutate with no declared bound
-  DESTROY    line 21  step retire   delete_server, bound 5
-  WIDENED    line 30  step retire   bound 3 → 5 since a91f0c2
+  UNBOUNDED  line 14  step label    mutate with no declared bound
+  DESTROY    line 23  step retire   delete_server, bound 5
+  WIDENED    line 33  step retire   bound 3 → 5 since a91f0c2
   ENVELOPE   line 3   ok            no step reaches a target outside [local, staging]
 ```
 
