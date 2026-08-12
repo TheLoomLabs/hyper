@@ -118,12 +118,13 @@ depend on the order an author happened to write two conjuncts in (ADR-0035). The
 read against the instant on this Run's `run.json`, fixed at its start and shared by every Step and
 every nested Procedure, so nothing a Pattern does moves what a later Step reaches (ADR-0034).
 
-Concurrency is a function of Kind and is fixed by `hyper`: a `read` Step's Expansion runs
+Concurrency is a function of Kind and is fixed by `hyper`: a `read` Step's Expansion may run
 concurrently, and a `mutate` or `destroy` Expansion runs strictly serially. There is no authored
 knob, no flag, and no environment override anywhere in it. How much of a concurrent Expansion runs
-at once is the Operation's Manifest-declared concurrency limit (§3), since the Provider author is
-the one who knows where the API refuses. Serial destruction is what makes *three of five, then halt*
-a determinate fact a reviewer can read rather than a race.
+at once is the Operation's Manifest-declared `concurrency:` limit (§3), since the Provider author is
+the one who knows where the API refuses — and a Manifest declaring none declares 1, so a `read` whose
+Provider author said nothing runs its Expansion serially as well (ADR-0045). Serial destruction is what
+makes *three of five, then halt* a determinate fact a reviewer can read rather than a race.
 
 The order above is the order members are **dispatched** in, and it binds every Expansion: a serial
 `mutate` or `destroy` runs in it outright, and a concurrent `read` starts its members in it, which is
@@ -132,8 +133,24 @@ calls *complete* in is not defined, and nothing derives from it — no Record, n
 rendering. That is why the identity set §7 writes is sorted and `expanded_to` beside it is not: one is
 a fact about a set, the other the account of a sequence.
 
-All concurrency lives inside one Step's Expansion; two Steps never overlap (ADR-0002). An
-Expansion's count is also where a Bound becomes decidable: an effectful Step whose Expansion
+All concurrency lives inside one Step's Expansion; two Steps never overlap (ADR-0002). The limit
+therefore bounds the members of one `read` Step's Expansion that are in flight at once, and nothing
+else. It does not reach a Pattern either: pagination, polling and retry are serial by construction (§3),
+so a member is one call at a time from the moment it is dispatched until its last page, and *members in
+flight* and *requests in flight* are one number rather than two that would have to agree. And where a
+Step carries no `over:` there is no selector to resolve: the Step makes one call, which is a set of one
+and inside any limit that has ever been written. A declared limit is a fact about the Operation, live
+wherever a Step expands it, in the way a Kind is a fact about the Operation whether or not any Step
+invokes it — nothing visible in a Manifest could tell an Operation that will be expanded over from one
+that will not, expanding being the Step author's choice and not the Provider author's.
+
+What declaring nothing costs is legible, and it is paid by the one person positioned to fix it: a `read`
+over five hundred granted hosts whose Manifest omits the limit makes five hundred calls one after
+another, each bounded by that Operation's deadline and by no whole-Run deadline. What buys the
+concurrency back is one key in the Manifest, written by the author who measured the API — not a flag,
+and not a number `hyper` chose on their behalf.
+
+An Expansion's count is also where a Bound becomes decidable: an effectful Step whose Expansion
 resolves to more Records than its declared Bound Refuses before the first call (`bound-exceeded`,
 §12), which is the runtime half of the check §4 states statically.
 

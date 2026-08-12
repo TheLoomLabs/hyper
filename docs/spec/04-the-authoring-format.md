@@ -162,9 +162,22 @@ property of the Capability an Operation's request uses (§12), so the request's 
 it and a second spelling could disagree with the first. Every surface still renders it (§9); no artefact
 writes it.
 
-Two of the six are stated by omission. `repeatability:` omitted is the default the Operation's own
+`concurrency:` is a `read`'s and no other Kind's. An effectful Expansion runs strictly serially with no
+authored knob anywhere in it (§6), so a limit declared on a `mutate` or a `destroy` would govern nothing
+from the moment it was written — which the Manifest decides on its own, with no Step in hand — and it is
+refused as `manifest-inconsistent` (§4), the code that already refuses a `pagination` Pattern outside an
+`over:` and a `record:` on a `destroy`.
+
+Three of them are stated by omission. `repeatability:` omitted is the default the Operation's own
 Kind fixes — run-once where it effects, `repeatable` on a `read` — which §12 states in full, and
-neither is a value to write. Record cardinality has no key at all — `series` is a `record:` carrying
+neither is a value to write. `concurrency:` omitted is **1**, and a `read` whose Manifest says nothing
+runs its Expansion serially: how many requests an API tolerates at once is something only the Provider
+author has measured, and every other number `hyper` could put there is a guess about a system nobody
+described (ADR-0045). An explicit `concurrency: 1` is legal and means exactly what the omission means —
+a limit is a number rather than an enumeration, so 1 is an ordinary member of its value space and not a
+second spelling of silence, and an author who has established that an API refuses concurrency may say so
+instead of leaving it to be read as an oversight. Record cardinality has no key at all — `series` is a
+`record:` carrying
 `over:`, and `one` is a `record:` without it, since a `series` projection cannot omit the collection
 path and a `one` projection has nothing to put there. A `destroy` Operation carries no `record:` and
 declares no identity, what it writes being a Tombstone under the series its Expansion acted on — or,
@@ -572,6 +585,14 @@ operations:
 
 A Pattern is behaviour `hyper` performs around a call, which a Manifest parameterises and does not
 implement. The three are closed (§12) and each is a key under an Operation's `patterns:` mapping.
+
+All three are serial, and by construction rather than by a rule imposed on them: pagination's two forms
+both terminate when the collection comes back empty, so there is no page after this one until this one
+has answered; polling waits an `interval:` between calls; and a retry follows a failure. No Pattern
+therefore has any concurrency to govern, and an Operation's `concurrency:` limit reaches none of them
+(§6). That the serialism is constructional rather than declared is what makes it durable: a Pattern is
+`hyper`'s own code, so a policy could be widened by a release and touch the world more times than the
+artefact says with nothing appearing in a diff (ADR-0018), where a construction has nothing to widen.
 
 **Pagination** takes one of two forms and no others. `cursor:` reads a token from a response path and
 writes it into a named request position on the next call; `page:` writes an integer `hyper` increments,

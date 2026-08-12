@@ -44,15 +44,17 @@ Target-class type-check get their names here: an Operation projecting a Record a
 identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
 
-Eight further checks are one fact wearing eight shapes — a Manifest whose own declarations disagree with
+Nine further checks are one fact wearing nine shapes — a Manifest whose own declarations disagree with
 each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an Operation
 whose `record:` carries no collection path, a `host-input:` naming a property the Operation's input
 schema does not define, a `headers:` entry taking the request position its Auth scheme owns, a Provider
 declaring only the `shell` Capability while carrying an `auth:` block, a
 Target declaration's credential slots not covering the scheme's slots for a binding a Definition makes
-(§3), a `read` or `mutate` Operation carrying no `record:`, a `destroy` Operation carrying one, and
-`skip-if-recorded` declared on an Operation that is not a `mutate` (ADR-0037). The last three are the
-Kind disagreeing with what the Operation projects or with what its Repeatability would have to read,
+(§3), a `read` or `mutate` Operation carrying no `record:`, a `destroy` Operation carrying one,
+`skip-if-recorded` declared on an Operation that is not a `mutate` (ADR-0037), and a `concurrency:`
+limit declared on an Operation that is not a `read` (ADR-0045). The last four are the
+Kind disagreeing with what the Operation projects, with what its Repeatability would have to read, or
+with what its Expansion could ever do,
 and they earn no code of their own because they point a reader at one file, one Operation, and two
 adjacent keys — which is the discrimination `name-mismatch` was split out to preserve and this does not
 lose. The fifth is checked per (Definition, Target) pair rather than on the Target declaration alone,

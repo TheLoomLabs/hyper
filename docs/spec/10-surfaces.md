@@ -68,6 +68,12 @@ field, its Repeatability, its deadline, and its concurrency limit. The source ve
 Manifest is written in the format the caller is expected to author Definitions in (§3); the derived
 facts beside it, because making the caller re-derive what `hyper` already computed is waste.
 
+The concurrency limit reported there is the effective one and is always present: 1 for a `read` whose
+Manifest omits the key, and 1 for every `mutate` and `destroy`, whose Expansion is serial and which may
+not declare the key at all (§3, §6). A caller asking *how many at once* gets a number for every
+Operation, and the rule about what may be **authored** stays where authoring rules live rather than
+being inferred from a field that came back empty.
+
 ## The repository
 
 `targets` writes one row per Target declaration: its name, its endpoint, the Kinds it accepts, the
@@ -538,7 +544,8 @@ operation(provider, operation)
 //              patterns_resolved: [ … ],
 //              record_cardinality, record_identity,
 //              repeatability,            // §12
-//              deadline_seconds, concurrency_limit } }]
+//              deadline_seconds,
+//              concurrency_limit } }]    // effective: 1 where absent, and on every effectful Operation
 ```
 
 `source` is the Manifest's own lines and not a re-rendering of them: a Manifest is written in the

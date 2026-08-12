@@ -33,7 +33,8 @@ name or from any other property `hyper` could derive on its own (ADR-0025):
 - `destroy` — the Operation removes something. It writes Tombstones (§7).
 
 The order is by severity, and what turns on it is stated where it acts: what a Bound is worth on each
-(§4), what a selector may expand over (§5), what runs concurrently (§6). `read` and `mutate` are
+(§4), what a selector may expand over (§5), what runs concurrently and which Operations may declare a
+`concurrency:` limit at all (§6, §3). `read` and `mutate` are
 claimed at Kind level and `destroy` by named Operation, granularity following severity (§5).
 
 ## Repeatability
@@ -214,6 +215,11 @@ against a command, and retry follows only a failure that provably preceded a req
 command has no equivalent of. `deadline:` is one hour, a deadline bounding `hyper`'s patience rather
 than blast radius; nothing downstream may raise it and §13 states what that costs.
 
+A third declaration belongs to `read` alone, that being the one of the six that may carry it (§3):
+`concurrency:` is omitted, so a `read` Expansion over commands runs them one after another. It is the
+same sentence as the two above — `hyper` knows nothing whatever about the command, and how many of them
+a machine will tolerate at once is exactly the sort of thing it would be guessing at (ADR-0045).
+
 ## Auth schemes
 
 **Closed.** Two members, both of them a request header:
@@ -248,7 +254,9 @@ wall §13 states costs for.
 **Closed.** Three: **pagination**, **polling** to a terminal condition, and **retry**, which follows
 only a failure that provably preceded the request (ADR-0018). An Operation declares which of them it
 uses and parameterises each one there (§3), and what each one did on a given Step is carried by that
-Step's Disposition above. Pagination's two forms are closed with it — a cursor read from a response, or
+Step's Disposition above. All three are serial by construction — each learns whether there is another
+call to make only from the answer to the one before it — so an Operation's `concurrency:` limit governs
+its Expansion and never a Pattern (§3, §6, ADR-0045). Pagination's two forms are closed with it — a cursor read from a response, or
 a page number `hyper` increments — and a next-page URL read from a response is neither, reach arriving
 from data being what ADR-0024 closed.
 
