@@ -164,7 +164,9 @@ case-insensitive and a runner's not, so the rule is `hyper`'s rather than the fi
 Record whose identity collides case-insensitively with one already in the Store is a Refusal
 (`record-identity-collision`, §12), decided by reading the Store, identically on both platforms, and
 never by attempting the write and seeing what happens. The remedy for a genuine `Foo` beside a `foo` is
-a Manifest identity change, which is a code change and therefore reviewed.
+a Manifest identity change, which is a code change and therefore reviewed. The one collision that is
+authored rather than projected — two members of one `values:` list that are one identity under this
+fold — is the same check and the same code, fired at load with no Store in hand (§3).
 
 ## The Head
 
@@ -409,8 +411,10 @@ and saw nothing* from recognising the digest of `[]` as a constant.
 The digest is `sha256:` over the canonical JSON encoding of the sorted array, trailing LF included — so
 where a set is written in full a reader recomputes its digest with `sha256sum` over those exact bytes
 and nothing else. Sorting is by Unicode code point, the rule canonical JSON already uses for keys
-rather than a second ordering, which also makes the digest a fact about the set rather than about the
-order a response happened to arrive in.
+rather than a second ordering — the same rule §6 orders an Expansion by, over the same names — which
+also makes the digest a fact about the set rather than about the order a response happened to arrive
+in. It is deliberately not the sequence: what the Step did in what order is `expanded_to` below, and
+the two lists differ in order wherever a `values:` list is the selector.
 
 Four Dispositions carry a set and two do not. *ran* carries one. *skipped as already recorded* carries
 one — the skip test read a head version, which is a conclusion about that identity. *attempted, outcome
@@ -423,7 +427,9 @@ readable back from the entry long after the Run without a checkout at the revisi
 Provenance names. It is what a Refusal's remediation points at (§8) and what `show --expansion` reads
 (§9); a Step carrying no selector (§3) resolved none and holds none. `expanded_to` is written whenever
 a selector exists, an empty list included — the other exception, for the reason the first one is: an
-Expansion that resolved to nothing is not a Step with no selector.
+Expansion that resolved to nothing is not a Step with no selector. It is written in Expansion order
+(§6) and not sorted: on a serial `destroy` it is the only place the halt point is legible, and *which
+three of the five* is read off it by position.
 
 The Assets a Run may or may not have destroyed are named in `expanded_to` and nowhere else. The
 arithmetic a reader does is *expanded to five, concluded about three, two unaccounted for*, and `hyper`

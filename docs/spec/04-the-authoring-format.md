@@ -410,6 +410,18 @@ decides it for the reason position decides a hole's legality and a credential sl
 declaring it instead would be stating a fact `hyper` reads off the wiring, and a wrong declaration would
 disarm the one offline reach check a `values:` list has.
 
+A member repeated in one list is a load error, two members differing only in case being the same fault
+under the fold the Store already applies. It carries the Store's own code, `record-identity-collision`
+(§12), because it is the Store's own check — two things that are one identity — found one Run earlier,
+against an artefact instead of against a branch. The list is walked as
+authored (§6), so a repeat is not a set carrying a redundant element but a second call on one identity —
+under a `destroy`, one going out against a thing this same Run entombed, since the drop rule reads heads
+once at Expansion (§5) and never between two members of one list. It would also make the entry §7 writes
+lie: `expanded_to` holds the sequence and the identity set holds a set, so three expanded to and two
+concluded about would read as *one unaccounted for*, the phrase reserved for a call that may have
+reached the world. Refusing it at load keeps the authored length the count §4 checks against `bound:`,
+with no distinct-member caveat anywhere.
+
 ```yaml
 kind: procedure
 procedure: retire-preview-dns

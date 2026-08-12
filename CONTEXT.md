@@ -142,7 +142,8 @@ _Avoid_: Default, None, Empty
 The resolution of a Step's selector to the concrete Records it will act on, scoped to the Step's own
 Definition and Target, and by Kind: a `read` Step may expand over Observations, an effectful one only
 over Assets. Anything `hyper` did not create must therefore be named by literal identifier, which is a
-selector form of its own.
+selector form of its own. It is ordered as it resolves — by the artefact where the selector is a literal
+list, otherwise by the Record name — so *which three of the five* is a fact and not a race.
 _Avoid_: Resolution, Matching, Fan-out, Globbing
 
 ### The record

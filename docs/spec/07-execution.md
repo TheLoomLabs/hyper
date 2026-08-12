@@ -97,9 +97,19 @@ which is what a reader of the artefact would predict.
 
 ## Expansion and concurrency
 
-A Step's Expansion (§5) resolves before the Step runs, in a deterministic order fixed by Record
-name. *Which three of the five* therefore has an answer, and a re-run attempts them in the same
-order.
+A Step's Expansion (§5) resolves before the Step runs, in a deterministic order. *Which three of the
+five* therefore has an answer, and a re-run attempts them in the same order.
+
+The order is the one a reviewer can predict from what is in front of them, which makes it two rules
+rather than one. Where the selector is an `over:` `values:` list, the artefact states the order and
+that is the order: the list top-first, as authored, the members the Store dropped (§5) leaving the
+survivors in the sequence the page has them in. Where it is `assets:` or `observations:` there is no
+page to read an order off, so the Record `name` supplies one, sorted **by Unicode code point** — the
+name the Store holds, never the percent-encoded path segment §12 builds from it to reach a file
+(ADR-0044), and the same rule §7 sorts an identity set under rather than a second ordering. The sort
+is total and needs no tie-break, one Expansion being one Target and one Definition, and two names
+colliding case-insensitively being a Refusal the Store raises before a second series can exist
+(`record-identity-collision`, §12).
 
 Because it resolves first, a predicate handed a value it cannot compare Refuses here
 (`predicate-type-mismatch`, §12) before any effect reaches the world, and a predicate list does not
@@ -114,6 +124,13 @@ knob, no flag, and no environment override anywhere in it. How much of a concurr
 at once is the Operation's Manifest-declared concurrency limit (§3), since the Provider author is
 the one who knows where the API refuses. Serial destruction is what makes *three of five, then halt*
 a determinate fact a reviewer can read rather than a race.
+
+The order above is the order members are **dispatched** in, and it binds every Expansion: a serial
+`mutate` or `destroy` runs in it outright, and a concurrent `read` starts its members in it, which is
+what fixes the first ten of five hundred under a limit of ten. The order a concurrent Expansion's
+calls *complete* in is not defined, and nothing derives from it — no Record, no Disposition, no
+rendering. That is why the identity set §7 writes is sorted and `expanded_to` beside it is not: one is
+a fact about a set, the other the account of a sequence.
 
 All concurrency lives inside one Step's Expansion; two Steps never overlap (ADR-0002). An
 Expansion's count is also where a Bound becomes decidable: an effectful Step whose Expansion

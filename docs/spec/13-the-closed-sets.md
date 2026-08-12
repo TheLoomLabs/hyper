@@ -281,7 +281,10 @@ what names a Refusal is the check that declined, never the moment it ran, and a 
 one without knowing whether they asked `check` or a Run. §7's four are the Store's:
 `store-absent`, a Run — or any other command that needs the Store (§9) — finding no Store branch;
 `store-unsynced`, an effectful Run that could not sync before its first effect;
-`record-identity-collision`, a Record identity colliding case-insensitively with one already written;
+`record-identity-collision`, a Record identity colliding case-insensitively with one already written —
+and, on the same shared-code rule as the two above but across a different pair, §3 firing it at load
+where two members of one `values:` list are one identity under that same fold (§3), which is the one
+place the collision is authored and therefore catchable with no Store at all;
 and `store-schema-unsupported`, a Store file whose schema version is above the reader's (ADR-0028). §9
 contributes `credential-absent`, a credential a Target declaration names and the environment does not
 hold, checked before a Run's first Step. §10's three are the Cadence's: `cadence-malformed`,
@@ -375,6 +378,10 @@ its UTF-8 bytes, as is a leading `.`. Case is preserved rather than folded (§7)
 longer than 200 bytes is cut at 200 on an escape boundary and suffixed with `~` and the first 16
 hexadecimal digits of the SHA-256 of the whole encoded segment; `~` is outside the unreserved set
 above, so it never occurs in an encoding and the suffix is unambiguous.
+
+The encoding names a file and orders nothing. An Expansion is ordered by the Record `name` itself (§6,
+ADR-0044), which a listing of one of these directories is not: escaping drags every escaped character
+to the left of every unreserved one, so `Über-vm` sorts after `zone-a` by name and before it by path.
 
 ## The predicate operators
 
