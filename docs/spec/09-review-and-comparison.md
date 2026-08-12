@@ -2,7 +2,8 @@
 
 Two surfaces carry the half of the thesis that says nothing changes unseen: a Definition review, before
 anything runs, and a Comparison, after. This chapter states both, together with the Refusal rendering
-that is the whole path back from a declined Step, and the row stream all three emit under `--json`.
+that is the whole path back from a declined Step, the line every Run ends with, and the row stream all
+of them emit under `--json`.
 The renderings below are what `hyper` produces rather than an illustration of it; the commands that
 produce them and the exit codes they carry are §9's.
 
@@ -206,6 +207,10 @@ selector is speculatively re-expanded so its count is on the page — a read `hy
 perform, worth it because the alternative is a reviewer widening a destroy Bound for want of the other
 number.
 
+Under those three sits the terminal line every Run ends with, in the form the next section states: on
+this path it carries the remediation pointer, `show --expansion` being where the whole expansion is read
+back rather than the count the caret gives.
+
 ```
 $ hyper run retire-preview-envs
 
@@ -231,8 +236,51 @@ $ hyper run retire-preview-envs
   procedures/retire-preview-envs.yaml  29    steps[2].over   14d   30d   expands to 4
 
   steps 1-2 ran and their 20 records are written. step 3 wrote nothing.
-  run 01991ea6-b118…   ·   hyper show 01991ea6-b118… --expansion   for all 23
+
+  refused · exit 77 · hyper show 01991ea6-b118-7c93-8d41-6b2f7ae05c19 --expansion   for all 23
 ```
+
+## The terminal line
+
+Every Run's rendering ends with one line naming what happened, the exit code §9 fixes, and the entry
+that holds it — on the completed path exactly as on the refused one. It is the human counterpart of the
+`outcome` row below, and it exists because that row does: one renderer produces both forms (ADR-0026),
+so what the row carries the line carries — a fact the stream states and the page does not is the two
+surfaces disagreeing about what happened rather than differing in shape.
+
+```
+  completed · exit 0 · run 01991ea6-b118-7c93-8d41-6b2f7ae05c19
+  completed · dry-run · exit 0 · run 019921f4-3c07-70b2-a15e-2d9c4e83b661
+```
+
+A rehearsal carries the marker its entry carries (§7). A `--dry-run` that reached the end completed and
+exited 0 like any other Run, so without it the line a Run that reached the world writes and the line a
+rehearsal writes are the same bytes, on the one path where the difference is the whole point. It is
+`dry_run`'s rule arriving on a surface: the reader that takes its absence for `false` is the reader that
+pays.
+
+The exit code is on the page rather than left to the shell, because the shell is not always there to
+read it. The job summary §10 states is these same renderings relocated, and what lands there is stdout
+and nothing else: a red job says a Run did not complete and never which of the four `failed` codes it
+exited with, which is the whole reason that space is finer than the triple (§9).
+
+A Refusal's line absorbs the remediation pointer rather than restating the id beneath it — the form
+above, where the `show` command stands where a completed Run names its id — because a Refusal is the one
+outcome with a next command to name, its rendering being the entire path back (ADR-0001). A completed
+Run names none. What to look at next is the Comparison, and saying so here would editorialise on a
+surface that reports, `FLAGS` above being the one place that does (ADR-0026).
+
+**The Run id renders whole.** Every other id on every other human surface is abbreviated for the eye —
+the Comparison's header, a `runs` row, a Provenance revision (§7) — and this is the one an operator
+retypes, so it renders as the argument the next command takes rather than as a fact to recognise
+(ADR-0047). What that leaves standing is stated rather than discovered: an id read out of a table cannot
+be retyped, and what supplies one whole is `--json`, which abbreviates nothing.
+
+Where no entry was written the id is absent, and its absence is the fact. Two paths decline before a Run
+is identified at all — the version pin gate and the bootstrap `store-absent`, which renders, exits `77`,
+and writes nothing (§9) — and on both the line says what happened and names nothing to look up, there
+being nothing to look up. Every other Refusal has an id by the time it declines, `run.json` being written
+at Run start (§7).
 
 ## The row stream
 
@@ -242,10 +290,20 @@ every table above is one object, a Comparison's header is one object, and nothin
 A long Run streams.
 
 The last row is always the terminal row, and its absence means the stream was cut off. There are two,
-and the type is itself the discriminator: a Run emits `outcome`, carrying the outcome and the exit code
-(§9), plus the `error_code` of the check that declined it where the outcome is `refused` — a `completed`
-or a `failed` Run carries none at all, a failure having no check to name (§12). Everything else emits
-`result`, carrying the truncation marker. Both are always emitted, `failed` and `refused` included.
+and the type is itself the discriminator: a Run emits `outcome`, carrying the outcome, the exit code
+(§9), and the `run_id` of the entry it wrote, plus the `error_code` of the check that declined it where
+the outcome is `refused` — a `completed` or a `failed` Run carries none at all, a failure having no
+check to name (§12). Everything else emits `result`, carrying the truncation marker. Both are always
+emitted, `failed` and `refused` included.
+
+`run_id` is written whole and is absent exactly where the line above names nothing: the two paths that
+decline before a Run is identified. The row is emitted there regardless — `run` terminates with
+`outcome` on every path it takes, a terminal type that flipped to `result` according to how early the
+tool declined being one fact arriving under two contracts. `dry_run` rides beside them and is written
+always, `false` included, which is §7's one exception to the absence rule holding on the wire for the
+reason it holds in the Store: what a reader that takes its absence for `false` gets wrong is
+unrecoverable. The line renders the marker only where it is true, an eye reading a line rather than
+scanning it for an absent key.
 
 Consumers filter rows rather than queries. There is no expression language over the stream and none
 behind it (ADR-0013): `hyper changes --json | jq 'select(.type=="asset")'` is the shape of every
@@ -301,7 +359,7 @@ $ hyper run retire-preview-envs --json
 {"type":"provenance","step":1,"definition_revision":"c3a17b0","manifest_digest":"sha256:2b7e…"}
 {"type":"provenance","step":2,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
 {"type":"provenance","step":3,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
-{"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded"}
+{"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded","dry_run":false,"run_id":"01991ea6-b118-7c93-8d41-6b2f7ae05c19"}
 ```
 
 Provenance splits on the wire exactly as it splits in the Store (§7): one `provenance` row carrying the

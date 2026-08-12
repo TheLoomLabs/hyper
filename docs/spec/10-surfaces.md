@@ -133,10 +133,11 @@ Secret sink, a dry-run marker, and output formatting (§6, ADR-0008).
 
 `run` renders nothing before executing (ADR-0015). What it writes is the Step table §8 states, each
 Step's Disposition and the count of Records it wrote, and, where a guardrail declined, §8's Refusal
-rendering in full. Under `--json` it emits those two renderings' rows and the Run's `provenance` in both
-its scopes — the Run-wide row and one row per Step file written (§7, §8) — terminated by the `outcome`
-row, and nothing else: what each Record did is the Comparison's rendering rather than the Run's, and
-`changes` is what emits it (§8).
+rendering in full; last is §8's terminal line, naming the outcome, the exit code, and — whole — the
+entry the Run wrote. Under `--json` it emits those two renderings' rows and the Run's `provenance` in
+both its scopes — the Run-wide row and one row per Step file written (§7, §8) — terminated by the
+`outcome` row carrying those same facts, and nothing else: what each Record did is the Comparison's
+rendering rather than the Run's, and `changes` is what emits it (§8).
 
 **`--dry-run`** is accepted on `run` and on no other command. It performs the reads it reaches and
 stops rather than simulating an effect, and it writes a Journal entry marked as a dry-run (§6). A
@@ -186,11 +187,12 @@ Journal entry: the Run id, when it started, its Trigger, its outcome, its Proced
 bound, and the version of `hyper` that performed it. The Trigger is on every row, being the only thing
 that distinguishes a world that has not changed from one nobody has looked at (§7).
 
-`show <run-id>` writes one entry in full: each Step's Disposition with the Record identities it acted
-on, `hyper`'s own account of what it did to reach that outcome — a Pattern's attempts, its pages, its
-poll iterations — and, on a Step a projection failure halted, the path that failed to project beside
-the partial set it wrote (§6, §7), each beside that Step's own Provenance and all of it beside the Run's
-(§7). Under `--expansion` each Step
+`show <run-id>` takes a Run id whole — nothing anywhere resolves a partial one (ADR-0047) — and writes
+one entry in full: each Step's Disposition with the Record identities it acted on, `hyper`'s own account
+of what it did to reach that outcome — a Pattern's attempts, its pages, its poll iterations — and, on a
+Step a projection failure halted, the path that failed to project beside the partial set it wrote
+(§6, §7), each beside that Step's own Provenance and all of it beside the Run's (§7). Under
+`--expansion` each Step
 also carries its selector, what that selector expanded to, and its Bound, which is what §8's Refusal
 footer points at.
 
@@ -277,7 +279,8 @@ hand, which the single-renderer rule already rejected (§8); and `--server` and 
 **stdout is the answer, and nothing else ever goes there.** The human tables or the row stream, in
 whichever mode was asked for, and no diagnostic of any kind. `hyper changes --json | jq` is therefore
 safe by construction, and the classic CI hazard of a warning interleaved into parsed output cannot
-arise.
+arise. §8's terminal line is the answer's last line and goes there like the rest of it, which is what
+puts the Run id on the job summary (§10).
 
 **stderr is the narration.** Progress, warnings, and the human rendering of an error, always, in both
 modes.
@@ -287,9 +290,19 @@ silent twenty minutes is indistinguishable from a hang. It is narration, so it c
 contract and has no `--json` variant: a consumer wanting Step-level structure reads the Journal, which
 §7 writes per Step as that Step reaches its Disposition.
 
+**A Run names itself on stderr before its first Step**, as the first line of that narration and in both
+modes. The id is available there — `run.json` is written at Run start (§7) — and the terminal line is
+not always reached: a process killed outright renders nothing and leaves the open entry §7 states, which
+is the one Run whose identity its own output would otherwise never carry, and the one §7 says `hyper`
+never guesses about. It is narration like the rest, so it carries no machine contract, has no `--json`
+variant, and never reaches the job summary, which takes stdout alone. The id therefore renders twice on
+an interactive Run that finishes, and that repetition is what the Run that does not finish costs.
+
 **The last row is always the terminal row**, and its absence means the stream was cut off. There are
 two, `outcome` for a Run and `result` for everything else, and §8 states both. A Probe is on the
-`result` side, having no outcome triple to report (ADR-0009).
+`result` side, having no outcome triple to report (ADR-0009). `run` is on the `outcome` side on every
+path it takes, the two that decline before a Run is identified included: what is missing there is the
+row's `run_id` and never the row (§8).
 
 **`error_code` names a check, and a failure carries none.** Every member of the set §12 states is the
 identifier of a check that declined, stated where §12 attributes it, so the code mints no vocabulary of
@@ -379,7 +392,8 @@ prompt is exactly the moment this decision denies them one. Carried forward to �
 Refusal as held in the Journal with its Provenance, and that holds wherever the Store is reachable and
 the Run has been identified. Where it is not — the bootstrap case, a repository whose Store branch has
 never been created — the Refusal is rendered, exits `77`, and writes nothing at all, so a scheduled Run
-that refuses there leaves no trace in the repository and is found in the Actions log. The alternative
+that refuses there leaves no trace in the repository and is found in the Actions log. Its terminal line
+and its `outcome` row name no entry for the same reason (§8), there being none to name. The alternative
 is creating the Store implicitly in order to record why it could not be found, which is the implicit
 creation §7 forbids arrived at by the back door. Carried forward to §13.
 
@@ -449,6 +463,8 @@ Every tool returns one shape.
   "content": [{ "type": "text", "text": "…" }],
   "structuredContent": {
     "outcome": "completed",   // §12's triple, on the execution tools only; absent elsewhere
+    "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",  // whole; absent where no entry was written
+    "dry_run": false,         // beside it, `false` included, wherever `outcome` is present
     "rows": [ … ],            // §8's rows, as an array
     "truncated": null         // the truncation marker, or null
   },
@@ -463,7 +479,10 @@ forms, so the terminal and this surface cannot drift apart (ADR-0026). A header 
 
 The terminal row is the one row §8 states that this surface does not emit: an array's end is already
 its own end-of-stream marker, so `outcome` moves into the structured content and `truncated` carries
-what a `result` row carried. Its shape names the same axis, count and remainder the CLI's marker does:
+what a `result` row carried. `run_id` and `dry_run` move with it — the terminal fact is one fact and
+does not arrive in two places — and the id is absent on the two paths that decline before a Run is
+identified, exactly as the row's is (§8). Its shape names the same axis, count and remainder the CLI's
+marker does:
 
 ```jsonc
 "truncated": { "axis": "time", "returned": 200, "dropped": 2840,
@@ -479,7 +498,10 @@ what a `result` row carried. Its shape names the same axis, count and remainder 
 | a Refusal | the full rendered Refusal — Step table, caret excerpt, `EDIT ONE OF`, retry sentence |
 
 Outcome first repairs what §8's row stream accepts knowingly: with rows the outcome arrives last, and
-the terminal compensates with an exit code, which this surface does not have. The two full renderings
+the terminal compensates with an exit code, which this surface does not have. On `run` that line names
+the Run id after the outcome, §8's terminal line arriving here as a sentence: a client has no exit code
+to read and no scrollback to search, so an entry the envelope does not name is one an agent can reach
+only by asking which Run was the last, on a Store two environments write. The two full renderings
 are the same trade §8 made for the same reason — with no bypass anywhere, the Refusal rendering is the
 entire remediation path (ADR-0001).
 
