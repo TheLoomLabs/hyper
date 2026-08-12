@@ -303,7 +303,9 @@ which is why it is refused before the first. §11's seven are distribution's. Th
 `version-pin-mismatch`, a binary whose version differs from the Repository declaration's pin in either
 direction;
 `version-pin-absent`, a command that needs the pin and finds none; and `release-artefact-absent`,
-`project` unable to resolve a published artefact for its own version. Four are the Extension's:
+`project` unable to resolve a published artefact for its own version — no release under the tag, no
+checksums file beside it, or no line in that file for the artefact the compiled-in template names
+(§11). Four are the Extension's:
 `origin-digest-mismatch`, fetched bytes or an installed Manifest that no longer match the digest
 `install` verified — the check and the Provenance field it guards name one fact (§7);
 `provider-name-collision`, a Manifest taking a built-in Provider's name;

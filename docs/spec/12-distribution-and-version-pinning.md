@@ -57,9 +57,13 @@ fetch and never the binary already on the machine.
 
 `project` resolves the published checksum for the version it is recording, writes it into the
 Repository declaration beside the pin (§3), and the projection copies it into each generated workflow
-beside the version and the URL (§10). The digest a runner checks against is therefore derived from the
-reviewed declaration rather than resolved again per workflow, and a hand-edited digest in a generated
-file fails the projection check §10 states like any other hand-edit.
+beside the version and the URL (§10). What it reads is the checksums file published under the release
+tag, and the line in it naming the artefact the template below resolves to — a few hundred bytes rather
+than the artefact itself, both being the same mutable source read in the same instant, so hashing bytes
+nothing on this machine will ever execute buys nothing over reading the checksum beside them. The
+digest a runner checks against is therefore derived from the reviewed declaration rather than resolved
+again per workflow, and a hand-edited digest in a generated file fails the projection check §10 states
+like any other hand-edit.
 
 Resolving that checksum is the only thing the pin ever reaches the network for, and it happens
 attended, at review time, landing in a diff — trust on first use, named rather than glossed. Freezing
@@ -67,13 +71,18 @@ the checksum is what converts a release tag, which is a mutable pointer, into an
 fact (ADR-0020). Re-projection resolves nothing: only a version change fetches.
 
 `project` Refuses where it cannot resolve a published artefact for its own version
-(`release-artefact-absent`, §12, §9). An unreleased binary therefore runs and checks and cannot
-project, which is the same statement as: every pin in every repository names a version somebody can
-download.
+(`release-artefact-absent`, §12, §9). Three shapes reach that one code: no release under the tag, no
+checksums file beside it, and no line in that file for the artefact the template names. An unreleased
+binary therefore runs and checks and cannot project, which is the same statement as: every pin in every
+repository names a version somebody can download.
 
 Only the platform the workflow's `runs-on` names is ever fetched, so one digest is recorded rather than
-a table of them (§10). Which platform artefacts a release publishes is a release-process fact and not a
-property of the tool.
+a table of them (§10) — `runs-on` and the artefact's platform being one compiled-in fact rather than
+two. What a release publishes *beyond* those two files is the release process's business and no
+property of the tool; what it publishes *them* as is not, since the binary names both by a template it
+holds and cannot be argued out of. A disagreement between the two is what
+`release-artefact-absent` reports, attended, on a laptop, at review time — rather than as a fetch that
+404s on a runner at three in the morning.
 
 ## How the binary arrives
 
@@ -95,11 +104,74 @@ supply-chain problem back inside the artefact whose reviewability is the claim (
 would put a toolchain on the runner, and a container image would reintroduce the runtime the binary
 does without.
 
+**`actions/checkout` is the one action the projection names, and its exemption is stated rather than
+assumed.** What a setup action would do is decide which bytes execute as `hyper`; `checkout` does not —
+the digest in the reviewed file decides that, and it is checked against bytes fetched from a literal URL
+by a step whose script lives in the workflow rather than in the tree. The action is pinned by commit
+SHA, which is a stricter pin than `hyper` gives itself: `runs-on: ubuntu-24.04` names an image GitHub
+rebuilds continuously, and that image supplies the `bash`, `curl`, `tar` and `sha256sum` the install
+step runs. Refusing a SHA-pinned first-party action while trusting a rolling image would be straining at
+a gnat. **The trust boundary is the runner**, drawn there because the executor is trusted to execute at
+all, and what stands inside it is the refusal to let anything but a digest choose the binary
+(ADR-0046).
+
+**The Store's credential is the checkout's, and the projection declares it.** `persist-credentials:
+true` is written into the generated file rather than left to the action's default: it is what leaves an
+authenticated remote behind for `hyper` to fetch and push the Store branch with (§10, §7), and a
+byte-exact generated file resting silently on a default that belongs to somebody else's release cycle is
+the same defect as an unstated constant, one layer down. What it buys is worth naming: `hyper` never
+holds the Store's credential at all. It inherits a configured remote and pushes through it, which is
+ADR-0007's claim in its sharpest form anywhere in the system — there is no slot, no resolution, and
+nothing to suppress in a rendering, because the token never reaches the process.
+
 **`hyper` reads credentials and never acquires them, so OIDC federation is not implemented**
 (ADR-0007). A federated cloud reached from CI therefore needs a long-lived credential in the
 executor's secrets, which is worse than the ecosystem norm and is the accepted price of not building
 speculatively. If a Target ever needs federation it arrives as an Auth scheme `hyper` owns, never as a
 third-party action inside a workflow `hyper` generated. Carried forward to §13.
+
+## The projection's constants
+
+The workflow §10 states carries facts no artefact declares and nothing in the repository derives: which
+runner it names, which action it checks out with, and where the bytes it fetches live. They are
+**compiled into the binary**. There is no file to put them in (ADR-0014), the Repository declaration
+admits only facts that govern every Run and belong to no Procedure, Definition, or Target (ADR-0020),
+and regeneration reaches no network — so the binary is the only thing left that could hold them, and it
+does (ADR-0046).
+
+Four, and this is the whole set:
+
+- **The runner** — `runs-on: ubuntu-24.04`.
+- **The checkout** — `actions/checkout@<commit>`, a commit and never a tag, a tag being a mutable
+  pointer for exactly the reason a release tag is.
+- **The release artefact** —
+  `https://github.com/TheLoomLabs/hyper/releases/download/v<version>/hyper-<version>-x86_64-linux.tar.gz`,
+  what the runner fetches.
+- **The checksums file** — `checksums.txt` under the same tag, what `project` reads once, attended, to
+  freeze the digest.
+
+The version is the only variable, and the platform is not one: it appears in the artefact's path and in
+its filename, and everything else is literal. Both URLs are stated here because the projection check is
+byte-exact (§10) — a template shown in an example and stated nowhere is a thing every reader has to
+guess at identically for the check to mean anything.
+
+The generated file's *shape* is the binary's throughout — that is what generate-and-verify means — and
+its content divides in two. Everything the file says about this repository derives from something
+somebody wrote and reviewed: the recurrence, the job and workflow names, the `env:` block, the
+concurrency group, the version and the digest (§10). These four are what it says about the world
+outside both the binary and the repository — one runner, one third party's action, two URLs — and
+**they are therefore the complete list of what a `hyper` release can change in a repository that edited
+nothing.**
+
+A constant moves only when the binary moves, and a binary that differs is a version that differs — so
+no constant can go stale on its own. The file already carries the version in four places, and the
+repair is the ritual ADR-0020 fixes: install, `project`, read the diff. A third-party action's pin
+arriving in a diff a human had to read anyway is a supply-chain fact arriving free, which is the whole
+of what this costs on an ordinary upgrade.
+
+What it costs on an extraordinary one is real and is stated in §13: a checkout commit that needs to
+move for a reason of its own — a vulnerability in the action, an image GitHub retires — moves only in a
+`hyper` release, and a hand-edit to the generated file is caught by `projection-stale` like any other.
 
 ## Skew
 

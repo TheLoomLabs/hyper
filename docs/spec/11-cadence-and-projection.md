@@ -142,6 +142,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: true
 
       - name: install hyper 0.4.1
         run: |
@@ -207,13 +209,18 @@ executor enters the decision; adding a Target to a Procedure makes a new secret 
 Refuses before the first Step (`credential-absent`, §12) rather than failing part-way through one.
 
 **The checkout leaves the token behind**, which is what `hyper` fetches and pushes the Store branch with
-— that sync is `hyper`'s own work rather than a step of the workflow (§7). `actions/checkout` is the
-one action the projection names, pinned by commit SHA, and `runs-on` names one pinned platform.
+— that sync is `hyper`'s own work rather than a step of the workflow (§7). `persist-credentials: true`
+is written out rather than left to the action's default, a byte-exact file being no place to rest
+silently on a default somebody else may change (§11). `actions/checkout` is the one action the
+projection names, pinned by commit SHA, and `runs-on` names one pinned platform: both are compiled into
+the binary rather than authored anywhere, and §11 states that whole set and what follows from it
+(ADR-0046).
 
 **The install step carries the version, the URL, and the digest** of the artefact for the platform
 `runs-on` names — the pin and its verification in one reviewed file, with nothing resolved at run time
-(§11, ADR-0020). The binary the runner fetches compares itself against the same pin before it reads a
-second file (§9), so a workflow left behind by an older projection Refuses rather than acting.
+(§11, ADR-0020). The URL is a template the binary holds, with the version its only variable. The binary
+the runner fetches compares itself against the same pin before it reads a second file (§9), so a
+workflow left behind by an older projection Refuses rather than acting.
 
 **Two `hyper` invocations, and no branching.** `run` first, then `changes` under `if: always()`. One
 invocation would put the Step narration on the summary page and leave the Comparison — half of what
@@ -238,6 +245,11 @@ against a fresh regeneration, so it catches every way the two can part: a Cadenc
 projected, a hand-edit to a generated file, a generated file deleted, one left behind by a Procedure
 that no longer declares a Cadence, and a hand-edited version pin — which is therefore caught twice,
 here and by the fetched binary's own pin gate (ADR-0020).
+
+Byte-exactness costs nothing extra for the constants §11 states. One of those moves only when the
+binary does, a binary that differs is a version that differs, and the file already carries the version
+in four places — so the check fires on no occasion the pin was not firing on anyway, and what a
+compiled-in constant changes is what the diff says rather than how often there is one (ADR-0046).
 
 It is one of `check`'s rules and runs with the rest of them, standalone and in the pre-flight of every
 Run alike (§4, §9); it is stated here because it compares a reviewed artefact against a file derived

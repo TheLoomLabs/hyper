@@ -37,7 +37,7 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Fifteen victims stand at it, each a thing an author can want, describe precisely, and not write:
+Sixteen victims stand at it, each a thing an author can want, describe precisely, and not write:
 
 - **OIDC federation.** `hyper` reads credentials and never acquires them (ADR-0007), so a federated
   cloud reached from CI needs a long-lived credential in the executor's secrets — worse than the
@@ -93,6 +93,14 @@ Fifteen victims stand at it, each a thing an author can want, describe precisely
   Operation and no artefact downstream may raise it (§12, and the override rule below), so a migration
   that takes four hours is unwritable as a Step. `hyper` is the Provider author here, and a deadline it
   guessed too low is corrected by a release rather than by an edit.
+- **A pinned third party that needs to move.** The runner image and the `actions/checkout` commit the
+  projection names are compiled into the binary (§11, ADR-0046), and a generated file is byte-exact
+  against what `project` would write now (§10), so a hand-edit is caught rather than kept. When that
+  action carries a vulnerability, or GitHub retires that image, every repository waits for a `hyper`
+  release and has no route to repair in the meantime. Unlike the rest of this list what cannot be
+  written is a line in a *generated* file rather than an artefact or a Provider, and what is waited on
+  is a *third party's* clock rather than `hyper`'s — the wait begins whether or not `hyper` has
+  anything of its own to ship.
 - **An API paginated by a URL it hands back.** Pagination reads a cursor or counts pages (§12); a
   `Link` header or a `next` field is reach arriving from data, which no rule in the model permits
   (ADR-0024, ADR-0029). An API offering only that form is unwritable, and unlike the rest of this list
@@ -292,6 +300,16 @@ Procedure, and a one-off act against a credentialled Target is an artefact you h
 (§9, ADR-0036). Nothing grows to cover it — a Probe reaches `local` and `read` alone and is not a Run
 (ADR-0009) — so the price is real and it is the ritual working: author, check, review, run. It is not a
 ceiling victim; nothing here is unwritable, only unwritten.
+
+**No executor axis.** `hyper` projects onto one runner, GitHub-hosted x86-64 Linux, and there is no
+`runs-on` setting, no platform field, and no flag (§11, ADR-0046). A repository whose runners are
+self-hosted, ARM, or pinned to an older image cannot be projected onto them. What stands in for a
+Cadence there is `hyper run` invoked by whatever clock that executor already has — a Run in every
+respect except the one this costs: it reads its own environment and records `local` and `manual` (§12),
+so the Journal says a person ran it on a laptop, and the Cadence's *last ran* is read against entries
+that never name the clock that fired. The alternative was a field that lets two repositories run two
+binaries against one Store, which is the skew the pin exists to prevent arriving through packaging
+rather than through policy.
 
 **No continuous monitoring.** What a Cadence claims is periodic checking against a floor the executor
 sets, with best-effort delivery and no invented window (§10, ADR-0005). A sub-minute prober is a
