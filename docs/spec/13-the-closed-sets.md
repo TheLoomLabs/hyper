@@ -553,7 +553,7 @@ does not:
   is a row rule rather than a membership question.
 - **the Operation set** — the Operations a Manifest exposes, and the `destroy` Operations a Definition
   names.
-- **the digests** — every member of the Provenance each Record version carries (§7).
+- **the digests** — every member of the Provenance, the full set a Record version carries (§7).
 
 The catch-all terminates the table and is not optional: `N other lines changed · git diff <rev> <rev>`,
 counting every line of every reviewed artefact that moved and that no row above reports — a widened

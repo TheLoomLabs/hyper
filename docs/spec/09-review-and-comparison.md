@@ -264,7 +264,7 @@ $ hyper review procedures/retire-preview-envs.yaml --json
 {"type":"gutter","line":21,"marker":"DESTROY staging"}
 {"type":"gutter","line":30,"marker":"changed since a91f0c2"}
 {"type":"authority","definition":"uptime","target":"local","definition_kinds":["read"],"target_kinds":["read"],"effective":["read"],"destroy_operations":[]}
-{"type":"authority","definition":"hetzner-staging","target":"staging","definition_kinds":["read","mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["read","mutate","destroy"],"destroy_operations":["delete_server"]}
+{"type":"authority","definition":"hetzner-staging","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["delete_server"]}
 {"type":"flag","flag":"UNBOUNDED","cites_line":13,"step":"label"}
 {"type":"flag","flag":"DESTROY","cites_line":21,"step":"retire"}
 {"type":"flag","flag":"WIDENED","cites_line":30,"step":"retire"}
@@ -297,9 +297,18 @@ $ hyper run retire-preview-envs --json
 {"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"artefact":"procedures/retire-preview-envs.yaml","line":30}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":30,"field":"steps[2].bound","from":5,"to":23}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":29,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
-{"type":"provenance","definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":null,"repo_revision":"88bc402","hyper_version":"1.4.0"}
+{"type":"provenance","repo_revision":"88bc402","hyper_version":"1.4.0"}
+{"type":"provenance","step":1,"definition_revision":"c3a17b0","manifest_digest":"sha256:2b7e…"}
+{"type":"provenance","step":2,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
+{"type":"provenance","step":3,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded"}
 ```
+
+Provenance splits on the wire exactly as it splits in the Store (§7): one `provenance` row carrying the
+Run-wide members and one per Step file written, distinguished by `step` the way §7 distinguishes the two
+files themselves. A member with no value at a level is absent rather than `null` — `origin_digest` above
+on the Step whose Provider is locally authored — which is §7's absence rule and not a rendering of its
+own. There is no row for a Step that was never reached, that Disposition writing no file to render.
 
 ## Redaction and the wire
 

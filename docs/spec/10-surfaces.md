@@ -127,9 +127,10 @@ Secret sink, a dry-run marker, and output formatting (§6, ADR-0008).
 
 `run` renders nothing before executing (ADR-0015). What it writes is the Step table §8 states, each
 Step's Disposition and the count of Records it wrote, and, where a guardrail declined, §8's Refusal
-rendering in full. Under `--json` it emits those two renderings' rows and the Run's own `provenance`,
-terminated by the `outcome` row, and nothing else: what each Record did is the Comparison's rendering
-rather than the Run's, and `changes` is what emits it (§8).
+rendering in full. Under `--json` it emits those two renderings' rows and the Run's `provenance` in both
+its scopes — the Run-wide row and one row per Step file written (§7, §8) — terminated by the `outcome`
+row, and nothing else: what each Record did is the Comparison's rendering rather than the Run's, and
+`changes` is what emits it (§8).
 
 **`--dry-run`** is accepted on `run` and on no other command. It performs the reads it reaches and
 stops rather than simulating an effect, and it writes a Journal entry marked as a dry-run (§6). A
@@ -182,7 +183,8 @@ that distinguishes a world that has not changed from one nobody has looked at (�
 `show <run-id>` writes one entry in full: each Step's Disposition with the Record identities it acted
 on, `hyper`'s own account of what it did to reach that outcome — a Pattern's attempts, its pages, its
 poll iterations — and, on a Step a projection failure halted, the path that failed to project beside
-the partial set it wrote (§6, §7), all beside the entry's Provenance. Under `--expansion` each Step
+the partial set it wrote (§6, §7), each beside that Step's own Provenance and all of it beside the Run's
+(§7). Under `--expansion` each Step
 also carries its selector, what that selector expanded to, and its Bound, which is what §8's Refusal
 footer points at.
 
@@ -596,6 +598,7 @@ run(procedure, dry_run?, secret_sink?)
 //       secret_sink  — the Secret sink: an absolute path, outside the repository working tree
 // → outcome: §12's triple
 // → rows: §8's step, refusal, remediation and provenance rows, unchanged
+//         provenance in both scopes: the Run-wide row, then one per Step file written
 ```
 
 **`run` takes a Procedure and nothing else**, as the command does: every Run is a Run of a Procedure
@@ -646,7 +649,7 @@ run_show(run_id, expansion?)
 //            records: [ … ],                     // the Record identities the Step acted on
 //            pattern: { attempts, pages, polls },
 //            failed_path }]                      // §6's projection failure only; records is partial
-//         §8's provenance row, unchanged
+//         §8's provenance rows, unchanged: the Run-wide row, then one per Step file written
 //         [{ type: "expansion", step, selector, expanded_to, bound }]   // expansion: true only
 ```
 

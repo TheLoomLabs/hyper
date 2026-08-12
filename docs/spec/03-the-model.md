@@ -33,7 +33,7 @@ the same Target writes a further version into one series rather than starting a 
 Run itself survives only as Provenance, carried by every version: the Definition revision, Manifest
 digest, origin digest, repository revision, and the version of `hyper` that wrote it.
 
-A Run is a single execution of an Operation or a Procedure. A Probe is not one: it is a `read`
+A Run is a single execution of a Procedure, and there is no other kind (ADR-0036). A Probe is not one: it is a `read`
 Operation invoked against `local` without a Definition, and having written no Record it has no
 Provenance, no Disposition, and no Trigger — it cannot be scheduled, sequenced into a Procedure, or
 serve as a Comparison baseline (ADR-0009).

@@ -538,12 +538,22 @@ lines of, so the marker and the count agree on what code is by construction. It 
 absence rule rather than `dry_run`'s exception: one renderer reads it, and reading it wrong costs a `git
 diff` command that does not reproduce rather than a Procedure that refuses forever.
 
-Provenance splits by scope across the three files. A Record version carries all of it. `run.json` carries
-the members that are Run-wide — `hyper_version`, `repo_revision`, and `repo_dirty` where it applies —
-which is what makes a Run that wrote no Record still say which code performed it. A Step file carries the
-members that are the Step's — `definition_revision`, `manifest_digest`, `origin_digest` — where each has
-exactly one value, a Step naming one Definition, one Operation and one Provider. Nothing at Run level
-names a Definition, so a Procedure whose Steps span several has nothing to disambiguate.
+Provenance splits by scope across the three files, a member being written at the level where it has
+exactly one value and omitted from every level where it has none (ADR-0043). A Record version carries all
+of it. `run.json` carries the members that are Run-wide — `hyper_version`, `repo_revision`, and
+`repo_dirty` where it applies — which is what makes a Run that wrote no Record still say which code
+performed it. A Step file carries the members that are the Step's — `definition_revision`,
+`manifest_digest`, `origin_digest` — a Step naming one Definition, one Operation and one Provider.
+Nothing at Run level names a Definition, so a Procedure whose Steps span several has nothing to
+disambiguate.
+
+That rule says where a member *may* be written and not where it is restated, and what decides the
+second is where the reader stands: a file restates what a reader cannot find in the same directory. A
+Step file sits beside `run.json` and reads the Run-wide members one file over, so it carries none of
+them; a Record version sits under a Record path with no entry beside it, and carries the whole of
+Provenance for the reason this section opens with. The instinct to make every file self-describing is
+the wrong one here — it would put `hyper_version` on a Step file and leave one Journal entry holding two
+copies of it, which is the second representation the split exists to avoid.
 
 ## Retention and Compaction
 
