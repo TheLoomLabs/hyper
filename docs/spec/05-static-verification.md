@@ -59,10 +59,21 @@ lose. The fifth is checked per (Definition, Target) pair rather than on the Targ
 which is the one place a Target's own artefact is not sufficient — a Target declaration is written
 without knowing which Provider will bind it, and the scheme is the Provider's.
 
-That slot-coverage check is also what makes `local` credential-free. A Provider carrying an `auth:` block and
-bound to `local` fails coverage, because `local`'s declaration covers no slots — so ADR-0024's
-*reserved because it holds no credentials rather than because it reaches everything* is a consequence
-of the ordinary check rather than a reservation anything special-cases.
+A Capability an Operation's request names and the bound Target's declaration does not grant is
+`capability-not-granted`, checked per (Definition, Target) pair for the reason slot coverage is: a Target
+declaration is written without knowing which Provider will bind it. It is what makes `capabilities:` on a
+Target a grant rather than a description of one, and it is where a repository omitting `shell` from every
+class-local declaration stops every command it could have run, offline and in one line.
+
+One check reads a Target declaration against itself. `hosts:` present where `capabilities:` does not
+grant `http`, or absent where it does, is `target-inconsistent` — `manifest-inconsistent`'s shape one
+artefact-class over, and it points a reader at one file and two adjacent keys for the same reason.
+
+`local` is credential-free because a declaration named `local` carries no `auth:` block, refused as
+`local-reserved` together with one whose `class:` is not `local` (§3, ADR-0041). The reservation is what
+holds that rather than slot coverage: coverage compares what an author wrote against the scheme a Provider
+declared, and the author of this artefact could write a scheme's slots into it. A Probe therefore resolves
+no credential, which is the ground ADR-0017 stands on.
 
 A separate check refuses a Manifest naming something reserved rather than disagreeing with itself. An
 Auth scheme may not name a header `hyper` computes — `Host`, `Content-Length`, `Content-Type`,

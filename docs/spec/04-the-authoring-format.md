@@ -120,9 +120,17 @@ authority arriving after review under another name (ADR-0008).
 
 ### `local` and the host grant
 
-`local`'s Target declaration enumerates the hosts it grants like any other Target's (ADR-0024): a
+`local` is a Target declaration the repository authors, in `targets/` beside every other, and `hyper`
+ships none (ADR-0041). It enumerates the hosts it grants like any other Target's (ADR-0024): a
 Capability-relevant hole resolving against it is checked the same way, and a `values:` list of hosts is
 checked against the same enumeration (§12, the `over:` forms).
+
+What the name reserves is the Target a Probe binds (§9), and nothing else about the file. A declaration
+named `local` declares `class: local` and carries no `auth:` block, and one doing either is
+`local-reserved` (§4) — the second being what leaves a Probe no credential to resolve. More than one
+declaration claims `class: local` where a repository has reason to: a class only ever rejects a
+mismatch, so two of them are two names for the machine `hyper` runs on, each with its own grant, its own
+accepted Kinds, its own credential slots, and its own `opaque-destroy:`.
 
 Which host a request reaches is decided by a candidate set, a grant, and their intersection (ADR-0029),
 stated with the request below.
@@ -286,6 +294,10 @@ resolved and no network reached.
 one of them reaches no host at all (§12), so a per-Capability mapping would be a key over the only list
 it could ever hold.
 
+It is present exactly where `capabilities:` grants `http` and absent where it does not, either
+disagreement being `target-inconsistent` (§4): a grant of `http` over no host reaches nothing, and a list
+of hosts beside a Capability that reaches none grants nothing to anything.
+
 ```yaml
 kind: target-declaration
 target: cloudflare-prod
@@ -296,6 +308,25 @@ hosts: [api.cloudflare.com]
 auth:
   token: {env: CLOUDFLARE_API_TOKEN}
 ```
+
+The other Target this specification renders is `local` — the Target the Definition §8 reviews binds, and
+the one the Observations §8 compares are written against. It is the smallest artefact here: the class its
+Providers name, two public hosts, `read` and nothing further, no credential slot to cover, and no
+`opaque-destroy:` because nothing bound to it is opaque. A repository that reaches no host without
+credentials and runs no command carries no such file at all (ADR-0041).
+
+```yaml
+kind: target-declaration
+target: local
+class: local
+kinds: [read]
+capabilities: [http]
+hosts: [status.hyper.dev, cert.hyper.dev]
+```
+
+Read beside the one above it, the whole of what the reserved name changes is the `auth:` block that is
+absent because it may not be written. `shell` is absent from `capabilities:` for the ordinary reason any
+Capability is: nothing bound to this Target needs it (§4).
 
 ### Definition
 

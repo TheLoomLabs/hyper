@@ -132,9 +132,10 @@ them, never in the repository and never at rest inside `hyper`.
 _Avoid_: Vault, Secret store, Keychain
 
 **Local**:
-The reserved Target meaning this machine, reserved because it holds no credentials rather than because
-it reaches everything. Like any Target it declares the hosts it grants, so there is no
-unconstrained-reach Target.
+The Target meaning this machine, whose declaration the repository authors like any other's — declaring
+the hosts it grants, so there is no unconstrained-reach Target. Its name is reserved rather than its
+file: it is the Target a Probe binds, it carries no credential slot, and other declarations may name its
+class, each a further name for the same machine with its own grant.
 _Avoid_: Default, None, Empty
 
 **Expansion**:
@@ -194,7 +195,8 @@ _Avoid_: Execution, Invocation, Job
 **Probe**:
 A `read` Operation invoked against `local` without a Definition, writing no Record and no Journal
 entry. It is a lookup rather than a Run, so it has no Trigger, no Provenance and no Disposition, and
-it can never be scheduled, sequenced into a Procedure, or used as a Comparison baseline.
+it can never be scheduled, sequenced into a Procedure, or used as a Comparison baseline. Its reach is
+the one thing it does not escape: the host it asks for is the Target's to grant, as a Step's is.
 _Avoid_: Query, Check, Ad-hoc run, One-shot
 
 **Trigger**:

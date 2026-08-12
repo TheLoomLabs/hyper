@@ -161,6 +161,13 @@ door ADR-0036 closed wearing another name. It chooses what is *looked at*: a Pro
 what a reviewed artefact permits, reach a credentialled Target, or leave evidence a later Run reads.
 An input on `run` would be none of those things.
 
+What holds the first of those is the grant. A Probe's host is checked against the `hosts:` the Target
+named `local` declares, exactly as a Step's is, and one outside that set is `host-not-granted` (§4,
+ADR-0042): the reach comes from an artefact even where no artefact named the Operation. A repository
+declaring no `local` grants no host, so a Probe there reaches nothing and declines the same way — an
+absent declaration being a grant of nothing rather than a fault of its own — and the Refusal renders the
+artefact to author (§8).
+
 ## Inspection
 
 Four commands over the record, taking typed, closed parameters and nothing else. There is no predicate

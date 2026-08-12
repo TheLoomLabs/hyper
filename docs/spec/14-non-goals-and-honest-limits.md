@@ -173,8 +173,8 @@ Definition that claimed it.
 **`shell` is the one Capability whose reach no grant bounds.** An `http` Operation reaches the hosts its
 Target granted and nothing else, checked before the Run and enforced at the call (§4, §12). A command
 reaches whatever the machine reaches: any host, any file, anything already in the environment. The
-Target it binds is `local`, and `local`'s host grant governs its `http` Operations and governs nothing
-about a command (§12, ADR-0024). What bounds a shell Step is the words a reviewer read in the Procedure,
+Target it binds is class-local, and such a Target's host grant governs its `http` Operations and governs
+nothing about a command (§12, ADR-0024). What bounds a shell Step is the words a reviewer read in the Procedure,
 plus the two opt-ins an `opaque` `destroy` needs, and nothing else in the system — which is why the
 Capability is granted to no Extension, and why *a third party can never ship a Provider that runs
 commands on your machine* is the honest form of that guarantee rather than *nobody can*. The blast
@@ -186,6 +186,14 @@ exactly the variables a Target declaration names as a credential slot, which it 
 repository does not name is reachable by any command and appears on no surface. The rule cuts the other
 way too: a command needing a credential that *is* named cannot have it, and what is authored instead is
 a second variable holding a second secret, which is one more thing outside the record.
+
+**Bound to `local` itself, that removal is empty.** A declaration named `local` carries no `auth:` block
+at all (§3, ADR-0041), so it names no credential slot and there is nothing positional for `hyper` to
+take out of the child — the whole environment passes to a command run against the one Target a
+repository is likeliest to bind. What buys the removal back is a second class-local declaration naming
+the slots, which is the same plurality the `opaque-destroy:` opt-in uses to stop being one switch over
+every command in the repository. Both are reviewed artefacts an author writes or does not, and neither
+is a default.
 
 **The Comparison prevents nothing.** It is an accountability instrument, never a guardrail, and it
 reports what changed rather than what is wrong (§8, ADR-0010). It says *this differs from when we

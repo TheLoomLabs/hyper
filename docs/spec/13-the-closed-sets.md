@@ -167,8 +167,9 @@ between them: `75` says retry me, and `77` says a verbatim retry will refuse ide
 anything. An Operation is `opaque` exactly where its Capability is, which is why no artefact declares it
 (§3) and every surface still renders it (§9).
 
-A Capability is declared by a Manifest and granted by a Target declaration, both of which the
-declared-equals-derived check compares against what `hyper` derives (`capability-mismatch`, §4). It is
+A Capability is declared by a Manifest, which the declared-equals-derived check compares against what
+`hyper` derives (`capability-mismatch`, §4), and granted by a Target declaration, which the bound
+Manifest's requirement is checked against per binding (`capability-not-granted`, §4). It is
 also the key an Operation's request is written under, so what `hyper` derives per Operation is read
 rather than inferred, and an Operation uses exactly one (§3).
 Writing the Store passes no grant and costs no Capability, the Store not being a Target (§7,
@@ -184,9 +185,11 @@ the list of names no Extension may take (`provider-name-collision`, §11), and i
 reserved half of the set above grows.
 
 `shell` declares `capabilities: [shell]` and no Auth scheme, a credential being a property of reaching a
-host and a command reaching none (§3). Its `class:` is `local`, so a shell Step binds `local` and
-nothing else: a command runs on the machine `hyper` runs on, there is one of those, and a Step naming
-somewhere else would be `hyper`'s own Manifest claiming a place it does not reach.
+host and a command reaching none (§3). Its `class:` is `local`, so a shell Step binds a class-local
+Target and nothing else: a command runs on the machine `hyper` runs on, and a Step naming a Target that
+describes somewhere else would be `hyper`'s own Manifest claiming a place it does not reach. How many
+such Targets a repository declares is the repository's (§3, ADR-0041) — each is a name for that one
+machine, carrying its own accepted Kinds, its own credential slots and its own `opaque-destroy:`.
 
 Six Operations, which is Kind crossed with the Repeatability values each Kind may declare above:
 
@@ -251,19 +254,20 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Forty members, each the identifier of a check that declined, named where that check is
+**Closed.** Forty-three members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
 resisting and has none, and the ways it can resist are not a set anything could close over. Two
 failures are told apart by the exit code above rather than here.
 
-Twenty-two are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
+Twenty-five are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `reference-unresolvable`, `capability-mismatch`, `manifest-inconsistent`,
-`auth-header-reserved`, `identity-undeclared`, `target-class-mismatch`, `definition-kinds-mixed`,
-`kind-not-granted`, `operation-not-claimed`, `envelope-exceeded`, `opaque-destroy-not-granted`,
-`bound-missing`, `bound-illegal`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
+`target-inconsistent`, `auth-header-reserved`, `local-reserved`, `identity-undeclared`,
+`target-class-mismatch`, `definition-kinds-mixed`,
+`kind-not-granted`, `capability-not-granted`, `operation-not-claimed`, `envelope-exceeded`,
+`opaque-destroy-not-granted`, `bound-missing`, `bound-illegal`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
 Journal already holds as *ran* or *attempted, outcome unknown*.
 
