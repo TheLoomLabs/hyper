@@ -30,14 +30,22 @@ A Cadence is a five-field POSIX cron expression, UTC only (ADR-0005). The fields
 and in one order — minute (`0`–`59`), hour (`0`–`23`), day of month (`1`–`31`), month (`1`–`12`), day
 of week (`0`–`6`, Sunday `0`).
 
-Each field is `*`, a number, a comma-separated list, a range `a-b`, or a step over either — `*/n` or
-`a-b/n`. Nothing else is in the grammar. A sixth seconds field, an `@hourly`-style nickname, a month or
+Each field is one of four **item** forms — `*`, a number, a range `a-b`, or a step over either, `*/n` or
+`a-b/n` — or a comma-separated **list** of them. A list's members are items and not merely numbers, so
+`9-11,14-16/2` is a field like any other: the restriction POSIX does not make is one this grammar has no
+reason to invent, and it is the form the corpus teaches an AI author to write (§3). A field's items may
+overlap, repeat, and arrive in any order; what a field means is the set of values its items select
+together.
+
+Nothing else is in the grammar. A sixth seconds field, an `@hourly`-style nickname, a month or
 day *name*, `?`, `L`, `W`, `#`, and any timezone or offset are all rejected at load
 (`cadence-malformed`, §12). A name is rejected on the ground the nickname is: it is a second spelling
 of a Cadence the numeric form already states.
 
 Where the day-of-month and day-of-week fields are both restricted, POSIX matches a day satisfying
-*either*, and the gloss below says so in words.
+*either*, and the gloss below says so in words. Restricted means *not `*`*, and it is the spelling that
+decides rather than the values: `0-6` selects every day of the week and is still a restriction, so
+`0 0 1 * 0-6` unions to every day of the month. The gloss says that too, in the same words.
 
 There is nowhere to name another timezone — no field, no flag, and no file (ADR-0014). *3am my time* is
 therefore unexpressible, which is stated here as the cost it is and carried forward to §13.
@@ -78,12 +86,137 @@ alone. Wherever a Cadence renders, the gloss renders with it (ADR-0005, ADR-0021
 03:00 UTC every Monday   ·   ≈4.3 runs/month   ·   last ran 41 days ago
 ```
 
-The **phrase** states the times of day, the days, and the months the expression selects, always naming
-UTC, and states the day-of-month/day-of-week union in words where both fields are restricted.
+The **phrase** states the times of day, the days, and the months the expression selects. The **rate**
+states how often that comes to, in runs per month. Both are derived from the five fields and from
+nothing else — no clock is read, no calendar of record is consulted, and neither summarises (ADR-0066).
+Each is stated in full below.
 
-The **rate** derives by counting the expression's matches over a calendar year and dividing by twelve.
-It is the number that matters beside a Procedure that destroys, which is why it is rendered rather than
-left to be inferred from the phrase.
+### The phrase
+
+The phrase is a **total function of the five fields**: every expression the grammar above admits gets
+one, and an expression that glosses awkwardly gets an awkward phrase rather than a fallback to
+something shorter. There is no phrasebook of recognised shapes, because a phrasebook stops being total
+exactly where the expression is hardest to read, which is where the gloss was needed. Nothing is ever
+truncated, on either of the surfaces that render two phrases in a table cell: a truncated gloss drops,
+and §8's truncation marker names *an axis dropped*, which has no meaning inside a phrase.
+
+It is composed of three clauses in fixed order — the **time**, the **day**, the **month** — so the eye
+lands in the same place on every rendering. An unrestricted field renders nothing, with one exception
+stated below. `UTC` attaches once, at the first clause carrying a clock or a calendar value; `* * * * *`
+is the only expression in the grammar that carries neither and therefore names no timezone. Naming one
+there would qualify a statement that is true in every timezone, which is a word added.
+
+**Each field renders in the form it was written in.** The phrase preserves the expression's own
+structure rather than recomputing a canonical one, which bounds its length by the expression's own
+length and lets a reader map every clause back to the field that produced it — which is what makes
+ADR-0063's *a reader who disagrees with a gloss can check it* mechanically true rather than merely
+plausible.
+
+| the field | the phrase |
+| --- | --- |
+| `*` | *every* |
+| a number | the value |
+| a list | its members, ascending, duplicates collapsed |
+| `a-b` | *from a to b* |
+| `*/n` | *every n* on the minute and hour fields where `n` divides 60 or 24; its members everywhere else |
+| `a-b/n` | its members, always |
+
+Order and repetition are the only things normalised, because cron attaches no meaning to either: a
+field is the set of values its items select, so rendering `5,1,3` ascending drops nothing a reader could
+map back. The **form** is never normalised. `0-59` stays a range and glosses as one, awkwardly, rather
+than collapsing into *every minute* — somebody wrote a range where `*` was meant, and that is a fact
+about the artefact on the surface built to show facts about the artefact. A form selecting exactly one
+value is repaired **grammatically** and no further: `*/1` renders *every minute*, `1-1` renders `:01`.
+
+**A step is not an interval, and the phrase says *every n* only where it is exactly true** (ADR-0066).
+`*/7` on minutes selects 0, 7, 14, 21, 28, 35, 42, 49 and 56, and then waits **four** minutes — so
+*every 7 minutes* is a false sentence rather than a second notation, and it would be the first thing a
+gloss ever introduced. Interval language is therefore admitted on the minute and hour fields alone,
+where the span is fixed and its minimum is zero, so the grid reads unambiguously off the phrase. It is
+never admitted on day of month, whose span varies with the month — `*/10` is the 1st, 11th, 21st and
+31st, and most months have no 31st. It is never admitted on month or day of week either, and there by
+the same rule paying off rather than by exception: *every 3 months* does not say **which** three, where
+naming January, April, July and October is complete and shorter both.
+
+**The time clause merges the minute and hour fields into clock times only where the merge does not
+lengthen it** — that is, where the minute selects one value and the hour enumerates, a single value or a
+list. `0 3 * * 1` is `03:00 UTC every Monday` and `0 9,17 * * *` is `09:00 and 17:00 UTC every day`; the
+merged form has one member per hour and the hour clause had that many already. A range, a step or `*` on
+the hour keeps the two fields in separate clauses — `0 9-17 * * *` is `at :00 past every hour from 09:00
+to 17:00 UTC` — and so does a minute field selecting more than one value. Merging further would take the
+cross product, and `*/5 9-17 * * *` is 108 clock times, which is the one way a structure-preserving
+phrase could still explode.
+
+**The day clause is the one unrestricted field that speaks.** Where both day fields are `*` it renders
+*every day*, but only where the time clause names clock times; where the time clause already recurs
+within the day, the recurrence is stated and *every day* would restate it. So `0 3 * * *` is `03:00 UTC
+every day` and `*/15 * * * *` is `every 15 minutes`. Without that exception the commonest expression in
+the grammar would render `03:00 UTC` and read as something that happens once. A day-of-month clause says
+*of the month* only where the month clause is silent, the months it names doing that work otherwise.
+
+**Where both day fields are restricted the clause is a disjunction, and it is written `or`**, with both
+sides in full: `0 0 1 * 1` is `00:00 UTC on the 1st of the month or any Monday`. Never a comma and never
+*and* — *and* states the intersection, which is the wrong answer and the one that reads like the right
+one. This is the single most misread thing in cron, and it is the reason the phrase spends the words:
+that expression fires twelve times a year **plus** fifty-two, which the rate beside it then says out
+loud.
+
+**The vocabulary is full English names and ordinals** — `Monday`, `January`, `the 1st`, `the 22nd` —
+fixed, with no locale and nothing to configure (ADR-0014). They are exactly the words the grammar above
+refuses to read on input, and that is the point rather than a tension: a name is a second spelling of a
+number an artefact must not be written in, and a gloss is the reading that number has. Abbreviating them
+would also make the phrase look like something that could be pasted back in.
+
+```
+0 3 * * 1          03:00 UTC every Monday
+0 0 1 * *          00:00 UTC on the 1st of the month
+0 0 * * *          00:00 UTC every day
+*/5 * * * *        every 5 minutes
+*/7 * * * *        at :00, :07, :14, :21, :28, :35, :42, :49 and :56 past every hour
+0-59 * * * *       every minute from :00 to :59 past every hour
+0 9,17 * * 1-5     09:00 and 17:00 UTC every day from Monday to Friday
+0 9-17 * * *       at :00 past every hour from 09:00 to 17:00 UTC, every day
+0 0 1 * 1          00:00 UTC on the 1st of the month or any Monday
+0 0 1 */3 *        00:00 UTC on the 1st in January, April, July and October
+0 0 29 2 *         00:00 UTC on the 29th of February
+```
+
+### The rate
+
+The rate is the expression's matches over one full **Gregorian cycle**, divided by 4,800. The cycle is
+400 years: 146,097 days, 4,800 months, and exactly 20,871 weeks — so it repeats the leap pattern and
+the weekday alignment together, and every one of both appears in it in its true proportion.
+
+That is what makes the denominator **derived rather than named** (ADR-0066). A calendar year is the
+reading the arithmetic invites and it has no defensible value: a leap year and a common year disagree,
+and so do two common years starting on different weekdays, so `0 3 * * 1` is 4.33 or 4.42 depending on
+which one somebody picked. Counting over *this* year is worse than picking one, because the number then
+changes on 1 January with no edit anywhere, and a laptop and a runner reading the same artefact across
+that boundary would render different rates for the same Cadence. Over the cycle there is nothing to
+pick and no clock to read: `0 3 * * 1` is 20,871 ÷ 4,800 = 4.348, forever and in both environments.
+
+It renders to **two significant figures**, with the unit fixed at runs per month on every surface — a
+unit that varied with the value would destroy the comparison the rate exists for. Two figures is what
+the range needs: one decimal place would render the rarest expression the grammar admits, `0 0 29 2 *`
+at 0.0202, as `0.0 runs/month` beside a Procedure that does run, which is a gloss dropping the fact it
+was rendered to carry.
+
+The `≈` renders where the number was rounded and is **absent where it is exact**. `0 0 1 * *` is
+`1 run/month`, exactly, and saying so is free; `0 0 * * *` is `≈30 runs/month`. The singular is used at
+exactly 1 and nowhere else.
+
+**The wire carries the number the page renders**, rounded once — on the `artefact` row's `rate` and on a
+`code` row's `from_rate` and `to_rate` alike (§8). Carrying the unrounded value beside the rendered one
+would be two representations of one derived fact that can disagree, which is the refusal this
+specification makes for stored durations (§7), for output schemas (§3) and for a Head marker (§7); and
+it buys nothing, two significant figures being far more than the judgement the rate is read for needs.
+
+The rate is the number that matters beside a Procedure that destroys, which is why it is rendered rather
+than left to be inferred from the phrase. It is also what makes ADR-0005's argument legible on the
+screen: `0 0 1 * *` → `*/5 * * * *` renders `1 run/month` against `≈8800 runs/month`, and the ≈8,800×
+is read off two numbers rather than reconstructed from ten cron fields.
+
+### Beside them
 
 Beside them renders the **last Journal entry** — the most recent Run of that Procedure, dry-run entries
 filtered out like every other reading of Journal evidence (§7). It is a fact placed next to the gloss
@@ -114,6 +247,12 @@ write-only wherever it is read, so the rule is total rather than a property of t
 The last Journal entry renders on the first of those and on none of the others. It is a fact about what
 stands now, and the three below are about a value moving between two revisions or about a file just
 written — a surface with no artefact-under-review has no side to hang it on.
+
+**How the three parts are arranged is the surface's, and what they are is not.** On a header they share
+one line, separated by `·`, the expression already being on the `cadence:` line below. In a table cell
+the expression, the phrase and the rate **stack**, the gloss under the cron it glosses, and the cell
+wraps rather than shortening anything (§8). The rate never becomes a row or a column of its own: it
+cannot move while the Cadence stands still, so a row for it would be one fact rendered twice.
 
 **A review's absent entry is one absence, not two.** The range and *last ran* read the same entry under
 the same filter, so §8 names it once, on the range's line, and the gloss line carries the phrase and the

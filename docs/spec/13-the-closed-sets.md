@@ -11,8 +11,9 @@ The process by which a set in this chapter grows — who adds a member, and when
 not decided here (ADR-0004).
 
 Two closed grammars are deliberately not here, each being the whole subject of the chapter that owns
-it: the YAML subset every artefact is written in (§3) and the cron grammar a Cadence is written in
-(§10). Both are stated once there and cited rather than restated everywhere else.
+it: the YAML subset every artefact is written in (§3) and the cron grammar a Cadence is written in —
+together with the gloss derived from it, whose vocabulary is a reading of that grammar and belongs
+beside it (§10). Both are stated once there and cited rather than restated everywhere else.
 
 ## How a member is spelled
 

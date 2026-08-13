@@ -190,6 +190,15 @@ side of the edit and cron for the other, on the screen the mandatory gloss was w
 here is the gloss and not the Journal fact beside it in the header: the entry is one, and a row about
 two revisions has no side to hang it on.
 
+The row keeps the one-line head every other flag has and carries the two glosses beneath it, the arrow
+marking which side each belongs to. It wraps like the Comparison cell above and shortens nothing:
+
+```
+  CHANGED  line 8  cadence  0 0 1 * * → */5 * * * *
+                            00:00 UTC on the 1st of the month · 1 run/month
+                          → every 5 minutes · ≈8800 runs/month
+```
+
 Rows render in **line order**, with a file-level row last (ADR-0054). A review whose artefact draws no
 flag renders the block with an explicit empty state rather than omitting it — an absent block would be
 ambiguous between *nothing to flag* and *the renderer had nothing to say*, which is the ambiguity the
@@ -485,10 +494,26 @@ the one cell in the table that has it.
 **The `cadence` row's two expressions are glossed**, each under the cron it glosses in its own cell, on
 §10's rule that no surface renders a Cadence as the expression alone (ADR-0005, ADR-0063). Cron is
 write-only for humans and agents alike wherever it is read, and this row is the one place the whole
-tool renders a Cadence *moving* — ADR-0005's own `0 0 1 * *` → `*/5 * * * *`, whose 8,600× is legible
+tool renders a Cadence *moving* — ADR-0005's own `0 0 1 * *` → `*/5 * * * *`, whose ≈8,800× is legible
 in the two rates and in nothing else on the page. What renders is the phrase and the rate; there is no
 Journal fact beside them here, the header above already naming both Runs and this row being about two
 revisions rather than about what stands now.
+
+**The cell stacks the expression, the phrase and the rate, and wraps rather than shortening any of
+them** (§10). A phrase is a total function of the five fields with no short form and no truncation, so
+the column widens and the row runs to as many lines as the two expressions need:
+
+```
+  SUBJECT                        FACT     FROM                     TO
+  procedure retire-preview-envs  cadence  0 0 1 * *                */5 * * * *
+                                          00:00 UTC on the 1st     every 5 minutes
+                                            of the month           ≈8800 runs/month
+                                          1 run/month
+```
+
+The rate gets no row and no column of its own. A class emits one row per `(subject, fact)` pair and the
+rate is not a fact that can move while the Cadence stands still, so a row for it would be the same fact
+rendered twice — and a column would be one every other row in the table left blank.
 
 Rows render sorted by `(SUBJECT, FACT)` on Unicode code point, with the `—` subject after every named
 one and the catch-all last of all. `—` means *this fact belongs to no artefact you can open*, so it
@@ -862,6 +887,12 @@ the parts and the string would be the failure `gutter` names. §12 states the `f
 reviewing agent reads to decide whether to escalate; a rate it must re-parse out of a phrase is that
 agent doing the renderer's arithmetic backwards.
 
+**`rate` is the number the page renders**, rounded to the two significant figures §10 states rather than
+carried at full precision beside a rounded rendering — which would be the same fact in two
+representations that can disagree, and the `≈` on the page is what says it was rounded. It is a JSON
+number and never a band or a word: a rate whose only form is prose puts the escalating agent back where
+this row exists to take it out of.
+
 **The baseline's absence is named on the wire as it is on the page.** `baseline` is written where there
 is one; where there is not, `baseline_absent` carries which of the two §12 names it is, since a key
 merely missing would collapse the distinction the header renders two sentences for. `last_run` is absent
@@ -929,8 +960,9 @@ and the `window` object carries `repo_dirty: true` on the side that recorded it 
 header draws, one fact in the two notations exactly as `changed` and `~` are above.
 
 A `code` row whose fact is `cadence` carries `from_phrase` and `to_phrase` beside its two expressions,
-and `from_rate` and `to_rate` as numbers — the parts and never the composed cell, which is the
-`artefact` row's rule above and the rule a `flag` row's glossed before-and-after follows too.
+and `from_rate` and `to_rate` as numbers rounded exactly as `rate` is — the parts and never the composed
+cell, which is the `artefact` row's rule above and the rule a `flag` row's glossed before-and-after
+follows too.
 
 ```
 $ hyper run retire-preview-envs --json

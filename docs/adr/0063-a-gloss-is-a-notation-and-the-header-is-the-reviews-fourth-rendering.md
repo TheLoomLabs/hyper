@@ -52,7 +52,7 @@ the other half of the problem standing.
   surface beside every other one.
 - **Raw cron in `FLAGS`, glossed only in the header.** Rejected because it fails ADR-0005 on ADR-0005's
   own example. Reviewing `0 0 1 * *` → `*/5 * * * *`, the header glosses the working tree's value and
-  the baseline stays cron, so the 8,600× is exactly what the reviewer cannot read.
+  the baseline stays cron, so the ≈8,800× is exactly what the reviewer cannot read.
 
 ## Consequences
 

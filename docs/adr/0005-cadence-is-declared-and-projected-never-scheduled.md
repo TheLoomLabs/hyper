@@ -7,7 +7,7 @@ Actions supplies the clock; `hyper` supplies the declaration and the projection 
 
 We chose this because cadence is a blast-radius multiplier, and it was the last authority-adjacent
 fact living outside the review surface. Changing `0 0 1 * *` to `*/5 * * * *` on a Procedure
-containing a `destroy` Step multiplies its effect on the world by roughly 8,600 — and if the schedule
+containing a `destroy` Step multiplies its effect on the world by roughly 8,800 — and if the schedule
 lives in a hand-written workflow file, that change is reviewed nowhere, by the same agent that wrote
 the Procedure. ADR-0001 and the safety model put authority in the artefact; the oversight model made
 the artefact the review surface. A cron line in `.github/workflows` escaped both.
@@ -37,7 +37,10 @@ the artefact the review surface. A cron line in `.github/workflows` escaped both
   (`≈4.3 runs/month`). The frequency is the number that matters beside a Procedure that destroys.
   *Extended by ADR-0063:* it renders in the review's **header** with the last Journal entry beside it,
   and the rule is total — every surface rendering a Cadence glosses it, the `changed` flag on a
-  `cadence:` line included, which is where the 8,600× above is actually read.
+  `cadence:` line included, which is where the ≈8,800× above is actually read. *Stated in full by
+  ADR-0066:* the phrase renders each field in the form it was written in and says *every n* only where
+  the step divides the field's span, and the frequency's denominator is the 400-year Gregorian cycle
+  rather than a calendar year — which is where the ≈8,800× above stops being an estimate.
 - **A missed window is never made up.** Cadence is a lower bound on staleness, not a promise of
   coverage. An Observation is a fact read at a point in time and a past window is unreadable; for
   effectful Steps, catch-up would mean the clock deciding to repeat an effect, which Repeatability
