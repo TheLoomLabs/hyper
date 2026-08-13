@@ -158,7 +158,9 @@ alike, rather than the command failing (§8, §10). A `FLAGS` row
 is a fact about the artefact rather than a problem with it, so a review that rendered exits 0 however
 many flags it carried; only an artefact that would not load exits 1, and what it writes then is
 `check`'s row. *Would not load* means found and faulty: an artefact that is not there at all has no row
-to write and is the usage error above, exit `2` (ADR-0060).
+to write and is the usage error above, exit `2` (ADR-0060). An artefact that loads and **names** one
+that is not there is neither — it renders, marks `unresolved` where a derivation is missing, and exits
+0, the fault being `check`'s to report and this surface's to annotate (§8, ADR-0064).
 
 ## Execution
 

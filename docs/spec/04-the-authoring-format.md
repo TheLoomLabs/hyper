@@ -52,6 +52,15 @@ about what is being read, and an authored name alone lets a file be renamed whil
 segment of every path in the Store stays where it was (§12). A disagreement is `name-mismatch` (§4). A
 built-in Provider ships inside the binary and has no file, so it authors its name outright (§11).
 
+A name one artefact writes for another resolves against that artefact's own `name:` — byte-exact over
+UTF-8, case-sensitive, never against a filename and never settled by whether an `open` succeeded. It is
+the rule ADR-0060 states for a name a user types, applied to a name an author wrote, so *resolves to
+nothing* means one thing across both and means it identically on a laptop and on a runner. An artefact
+whose own file will not parse is present all the same: it declares a name, its own fault is reported
+once on its own line, and every artefact naming it correctly is untouched. Failing to resolve is a
+check rather than a failure to load — `artefact-absent` where the namespace is the repository's
+artefacts and `reference-unresolvable` where it is what an artefact declares (§4, ADR-0064).
+
 ## Types
 
 An Operation's input schema is written in a subset of JSON Schema, closed and defined in §12. An
@@ -84,10 +93,11 @@ referenced. A reference naming an earlier Step whose declared cardinality is
 between two Record series, and no such join is ever performed. The shape that is writable names one
 Record — a Step of cardinality `one` produces something, and a later Step references it directly.
 
-A reference names a field the Record it points at actually carries. The field set of a Record series is
-Manifest-declared, so a reference naming one no Operation of that Provider projects is
-`reference-unresolvable` (§4) rather than a Run that fails partway through — which is what makes the
-projection rule below safe to state.
+A reference resolves in both halves, and one code carries both. Its `step:` names an `id:` the same
+Procedure declares earlier; its path names a field the Record it points at actually carries, the field
+set of a Record series being Manifest-declared. Either naming nothing is `reference-unresolvable` (§4)
+rather than a Run that fails partway through — which is what makes the projection rule below safe to
+state.
 
 A **predicate** filters a set of Records, in a Step's selector (`over:`), its condition (`when:`), or a
 polling Pattern's terminal condition. The operator set is closed and defined in §12, with the operand
@@ -355,6 +365,13 @@ so a `destroy` claim names Operations rather than a Kind — and the `targets:` 
 literally rather than by class or tag, since a Target class only ever rejects a mismatch and never
 expands a Definition's reach.
 
+Both name things that must be there. A `provider:` resolves against the built-in Providers and
+`providers/` together (§11), and a `targets:` member against `targets/`; either naming nothing is
+`artefact-absent` (§4). A `destroy:` member names an Operation of that Provider, and one naming nothing
+it declares is `reference-unresolvable` — the Manifest's own namespace rather than the repository's, and
+a different fault from `operation-not-claimed`, which is a Step reaching an Operation that exists and
+this Definition did not claim (§4).
+
 `read` may not appear in `kinds:` beside `mutate`, nor beside a `destroy:` claim naming any Operation: a
 Definition observes or it effects (ADR-0032). `mutate` beside `destroy:` stays legal and is the ordinary
 case, a Tombstone landing in the series the `mutate` created (§7). What a Definition may claim is
@@ -406,7 +423,15 @@ on the line it was written on and never read by `hyper`; it is source rather tha
 enters the review's gutter, which carries only what `hyper` derived (§8). No directive syntax may ever
 exist inside one, since that would be a bypass wearing a comment.
 
-`target:` is written on every Step and is checked for membership of its Definition's `targets:` list. It
+A Step's `definition:` resolves against `definitions/` and a nested invocation's `procedure:` against
+`procedures/`, either naming nothing being `artefact-absent`; its `operation:` names an Operation the
+Definition's Provider declares, and one naming nothing is `reference-unresolvable` (§4).
+
+`target:` is written on every Step and is checked for membership of its Definition's `targets:` list —
+which is the whole of what it is checked against, the members of that list being where a Target's
+existence is already a question. A Step binding one the Definition does not claim is
+`target-not-claimed` (§4), on the shape `operation-not-claimed` already has: a Definition claims
+Operations and it claims Targets, and a Step naming outside either claim reads the same way. It
 is not derived from a Definition naming one Target: the gutter annotates what is in the file being read
 and a table is what carries a fact assembled from elsewhere (ADR-0026), so a Target rendered beside a
 Step whose source does not name it inverts the one rule the review surface is built on. Nor is it

@@ -54,6 +54,26 @@ Manifest fact, exactly as a Kind is, and the gutter carries it for the reason it
 `hyper` cannot describe is not readable from the Step's own lines. A nested Procedure invocation
 renders under the invoking Step's path with the transitive envelope §3 states.
 
+**Where a name the gutter must follow resolves to nothing, the marker is `unresolved`.** A review does
+not run `check` (§9) and does not decline, so a Step whose `definition:`, `operation:` or bound
+Provider is not there renders like any other line with the mark its derivation would have carried:
+there is no Kind to read, no opacity, and no envelope check, and a cell left blank would say `read`
+by omission on the one screen that may not (ADR-0026, ADR-0064). One name and not four — the gutter
+marks and does not classify, exactly as the change column marks a touched line without saying how —
+and which name failed, and the path `hyper` looked for, is `FLAGS`' text below (§12). A nested
+invocation whose `procedure:` is not there carries it for its transitive envelope, which is the same
+absence one level up.
+
+**Three of the five artefacts have no name to follow, and a Definition has one that reaches nothing on
+this screen.** A Target declaration, a Manifest and a Repository declaration name no artefact at all. A
+Definition names its Provider — and nothing rendered here is derived from a Manifest: the gutter marks
+the Kinds it claims, the Targets it may bind and the `destroy` Operations it names, all of them authored
+in the file being read, and `AUTHORITY` below is assembled from this artefact and a Target declaration.
+So a Definition whose `provider:` is not there renders complete and unmarked, and the surface with
+something to say about it is `check`, whose next act is an edit. That is the gutter's supply rule
+holding rather than the review missing something: this screen annotates what `hyper` derived from these
+lines, and nothing it derived is missing.
+
 **Nothing an author wrote enters the gutter.** A comment renders verbatim in place, inside the line it
 was written on, exactly as every other byte of the artefact does, and is read for nothing else (§3). It
 is source rather than annotation: the gutter carries what `hyper` derived about a line, and a column
@@ -133,6 +153,15 @@ that one position rather than read. It is the one *table*, and not the one surfa
 file: the header above reads the Journal for its range and its gloss. What makes a fact a table is
 being assembled from more than one artefact, and a table is heavier than a header line for a reason —
 `AUTHORITY` has two artefacts' columns to align and the header has one artefact's value to state.
+
+**A row renders for every Target the Definition claims, and an absent declaration empties two of its
+cells rather than the row.** Where a `targets:` member names nothing, the accepted-Kinds column and the
+intersection have no supply and carry `unresolved`; the claimed Kinds and the named `destroy`
+Operations are this artefact's own and render as they always do. Dropping the row would be omission on
+the one table for the reason the gutter may not omit — a Definition claiming three Targets and rendering
+two rows says the third was never claimed (ADR-0026). The fact therefore renders twice, as the
+`targets:` line's gutter mark and as this row's empty half, which is the doubling the header already
+accepts between the range and the gloss: the gutter says *this line*, and the table says *this pairing*.
 
 **`FLAGS`** is the one editorial surface, and it is an index rather than a voice: it ranks nothing,
 claims nothing, and points. Every row cites a line the gutter already marked and introduces no claim of

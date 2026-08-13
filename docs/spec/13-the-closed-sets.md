@@ -368,7 +368,7 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Forty-five members, each the identifier of a check that declined, named where that check is
+**Closed.** Forty-seven members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
@@ -376,18 +376,27 @@ resisting and has none, and the ways it can resist are not a set anything could 
 failures are told apart by the exit code above rather than here.
 
 **Most of the set declines before Step 1.** A Run re-runs `check` in full at its start (§6), so all
-twenty-eight of §4's static codes reach a Run that way, beside the credential pass, the Cadence's and
+thirty of §4's static codes reach a Run that way, beside the credential pass, the Cadence's and
 the Store's. Where one does, it is held on `outcome.json` and never on a Step file, `step` being an
 artefact coordinate rather than an execution fact (§7, ADR-0061). Only `bound-exceeded`,
 `run-once-recorded`, `record-identity-collision` and §6's `predicate-type-mismatch` require a Step to
 have been reached at all.
 
-Twenty-eight are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
+Thirty are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
-`series-reference`, `reference-unresolvable`, `capability-mismatch`, `manifest-inconsistent`,
+`series-reference`, `artefact-absent`, a name an artefact writes for one of this repository's artefacts
+resolving to nothing — a Definition's `provider:` or `targets:` member, a Step's `definition:`, a nested
+invocation's `procedure:` — which is a check with a file and a line rather than a failure to load
+(§4, ADR-0064); `reference-unresolvable`, the same fault where the namespace is what an artefact
+declares rather than what the repository holds — a Step's `operation:`, a Definition's `destroy:`
+member, a `field:` at either Record root, and the `step:` half of a reference (§3);
+`capability-mismatch`, `manifest-inconsistent`,
 `target-inconsistent`, `auth-header-reserved`, `local-reserved`, `identity-undeclared`,
 `target-class-mismatch`, `definition-kinds-mixed`,
-`kind-not-granted`, `capability-not-granted`, `operation-not-claimed`, `envelope-exceeded`,
+`kind-not-granted`, `capability-not-granted`, `operation-not-claimed`, `target-not-claimed`, a Step
+binding a Target its Definition does not claim, which is `operation-not-claimed`'s shape one key over
+and its own member because a reader handed that code on a `target:` line would edit `destroy:` (§4);
+`envelope-exceeded`,
 `opaque-destroy-not-granted`, `bound-missing`, `bound-illegal`, `host-not-granted`,
 `command-malformed`, a shell Step's `command:` that is empty or names its executable by reference
 (§3, ADR-0051), `opaque-destroy-unscoped`, an `opaque` `destroy` Step carrying no `over:` selector
@@ -759,14 +768,16 @@ what makes omission impossible.
 
 ## The `FLAGS` vocabulary
 
-**Closed to `hyper`.** Seven names; no Manifest mints a flag any more than it mints an `error_code`
+**Closed to `hyper`.** Eight names; no Manifest mints a flag any more than it mints an `error_code`
 (ADR-0004). `FLAGS` is the one surface in the whole tool permitted to say *look here*, and what binds
 every name is the relation §8 states: a flag cites a line the gutter already marked, and introduces no
 claim of its own.
 
 **The set is a rule before it is a list.** Every marker class the gutter carries indexes here, and the
-seven names below are what that rule yields today: a marker class arriving in §8 brings its flag
+eight names below are what that rule yields today: a marker class arriving in §8 brings its flag
 without this enumeration moving, exactly as a Provenance member joining brings a `THE CODE MOVED` row.
+`unresolved` is the first name to arrive that way, and it is evidence the rule works rather than a
+decision to grow the set — §8 gained a marker class and this listing followed it (ADR-0064).
 The names are written out anyway, so the set stays checkable against a rendering — an intensional rule
 nobody can enumerate is a set that has stopped being closed.
 
@@ -776,8 +787,8 @@ place, and a name for one would be the editorial claim ADR-0026 removed.
 
 ### The standing names
 
-Four, each reading on every artefact whose gutter marks the fact. They are facts rather than artefact
-kinds, which is why there are four rather than four per artefact:
+Five, each reading on every artefact whose gutter marks the fact. They are facts rather than artefact
+kinds, which is why there are five rather than five per artefact:
 
 - **`destroy`** — `destroy` authority is claimed, granted, or exercised on the cited line. It reads on
   a Step whose Operation declares that Kind, on a Definition's claimed Kinds, on a Target declaration's
@@ -795,6 +806,13 @@ kinds, which is why there are four rather than four per artefact:
   Procedure-only likewise, and the one name whose all-clear form renders (below). A review does not run
   `check` (§9), so an artefact carrying `envelope-exceeded` renders like any other and this flag has two
   states rather than one.
+- **`unresolved`** — a name on the cited line resolves to nothing, so the gutter had no derivation to
+  mark there (§8). Its row names which name failed and the path `hyper` looked for, the gutter marking
+  and not classifying exactly as it does for a change. Procedure-only, and for a reason that is not
+  `unbounded`'s: a Definition names a Provider too, and nothing on a Definition's screen is derived
+  from a Manifest, so an absent one costs that rendering nothing (§8). It renders only where the fact
+  holds, `envelope` remaining the one name with an all-clear form — and like `envelope` it indexes a
+  fault without becoming one, a review not running `check` and exiting 0 however many flags it carried.
 
 ### The change names
 

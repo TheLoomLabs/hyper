@@ -41,6 +41,45 @@ reader handed that code would go looking for a hole.
 disagreements over four artefacts, and one code standing for both would leave a reader of the rendering
 unable to tell which of two files to edit.
 
+## Resolution
+
+Every name an artefact writes for something outside itself resolves, and the namespace it resolves
+against decides which code refuses it. Matching is §3's, which is ADR-0060's: byte-exact over UTF-8,
+case-sensitive, against the named artefact's own `name:`. An artefact whose own file will not parse is
+present for this check — it declares a name, and the fault in it is reported once, on its own line
+(ADR-0064).
+
+**Four positions name an artefact of this repository**: a Definition's `provider:`, resolving against
+the built-in Providers and `providers/` together (§11); a Definition's `targets:` members, against
+`targets/`; a Step's `definition:`, against `definitions/`; and a nested invocation's `procedure:`,
+against `procedures/`. One naming nothing is `artefact-absent`, and the row carries the file and line
+the name was written on and the path it looked for — the two edits it points at being *fix the name* and
+*write that file*. An Extension the repository never installed lands here, at `check`, with no network
+reached: a `provider:` naming what `providers/` does not hold is this code and not `install`'s (§11,
+ADR-0060).
+
+**Four more name a member of an artefact**: a Step's `operation:` and a Definition's `destroy:` members,
+each against the Operations the bound Provider declares; a `field:` at either Record root, against that
+Provider's `fields:` mapping; and the `step:` half of a reference, against the `id:`s its own Procedure
+declares earlier. One naming nothing is `reference-unresolvable`, which is what that code has always
+meant — §3 already carries it for a bare `field:`, which is no reference in the format's sense, so the
+scope is the namespace rather than the syntax. The split from `artefact-absent` is the split
+`name-mismatch` was taken out of `kind-mismatch` for: which file the next act touches. A missing
+artefact is one the reader may have to write; a missing member is a key inside an artefact that already
+exists, and where that artefact is a built-in or somebody else's Extension it is not theirs to write at
+all.
+
+A Step's `target:` is in neither list. It resolves against its Definition's `targets:` list and nothing
+wider (§3), so a Target's existence is asked once, where the Definition claims it, rather than again at
+every Step that binds it — one absent `targets/prod.yaml` bound by six Steps is one row and not seven.
+
+`local` is where both halves of this rule meet, and they answer differently on purpose. Where nobody
+named the Target — a Probe, whose `local` comes from `hyper` — an absent declaration is a grant of
+nothing and the request declines `host-not-granted` (§9, ADR-0042). Where an author wrote
+`targets: [local]`, it is a name that resolved to nothing and it is `artefact-absent` like any other.
+That is not two rules about `local` but one rule about who wrote the name, which is the line ADR-0060
+already drew between a name the user typed and a name an author wrote.
+
 ## The Manifest's oracle
 
 A Manifest is data, so what it claims can be checked against what its own Operations require, with
@@ -108,10 +147,18 @@ than the Manifest's word for it. A Step whose claim and grant do not intersect i
 granularity follows severity, so `read` and `mutate` check at Kind level and `destroy` checks by name —
 and an unnamed Operation is `operation-not-claimed`.
 
-A Procedure's declared Target and Kind envelope must contain everything reachable through every
-Procedure it invokes, to any depth. An invoked Procedure's transitive envelope reaching outside its
-caller's declared one is `envelope-exceeded`, checked before the first Step of either runs —
-composition cannot widen blast radius by accident.
+A Definition claims Targets the same way it claims Operations, and a Step binding one it does not claim
+is `target-not-claimed`. It is its own member rather than a widening of `operation-not-claimed` on that
+code's own test: a reader handed *operation not claimed* on a `target:` line goes looking at `destroy:`,
+which is the wrong edit. What the two share is the artefact pair and the remedy's shape — widen the
+Definition's claim, in a reviewed edit, or bind something it already claims.
+
+A Procedure's declared Target and Kind envelope must contain everything reachable from it: every Step's
+own Kind and bound Target, and everything reachable through every Procedure it invokes, to any depth.
+A Step outside its own Procedure's declared envelope, or an invoked Procedure's transitive envelope
+reaching outside its caller's declared one, is `envelope-exceeded`, checked before the first Step of
+either runs — composition cannot widen blast radius by accident, and neither can a Step written past
+the envelope its own file declares (§12).
 
 An `opaque` `destroy` Operation may run against a Target only where that Target's declaration has
 opted in; a Definition claiming one against a Target that has not is `opaque-destroy-not-granted`. This
