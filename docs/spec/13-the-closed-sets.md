@@ -700,20 +700,30 @@ does not:
   declaration is in no Record's Provenance, so `the digests` below does not carry it. The secret behind
   an unchanged name rotating is a world fact `hyper` deliberately cannot see (§7, ADR-0007), which is
   why this class is about the name and stops there. The fact belongs to a Target rather than to a
-  Definition, as the repository revision belongs to neither; where that leaves it in the table's columns
-  is a row rule rather than a membership question.
+  Definition, as the repository revision belongs to neither, and §8's `SUBJECT` column is where that
+  lands: a kind-qualified name, `target staging`, one row per subject.
 - **the Operation set** — the Operations a Manifest exposes, and the `destroy` Operations a Definition
   names.
 - **the digests** — every member of the Provenance, the full set a Record version carries (§7). Stated
   intensionally on purpose: a member joining that field set brings a row here without this enumeration
   moving, which is how the Procedure revision arrived (ADR-0048) and why there are still nine. A class
-  reading *every member except one* would be the enumeration ceasing to be checkable. The Procedure
-  revision's subject is a Procedure, as the credential source's is a Target; where that leaves it in the
-  table's columns is a row rule rather than a membership question, exactly as above.
+  reading *every member except one* would be the enumeration ceasing to be checkable. Each member takes
+  its own subject in §8's column, the Procedure revision's being a Procedure, `hyper_version`'s the
+  Repository declaration whose pin it cannot differ from (§11), and `repo_revision`'s no artefact at
+  all — the one row in the table that renders `—`.
+
+A class emits **one row per `(subject, fact)` pair** rather than one row: a class is a kind of fact, so
+a Definition's declared Kinds and its Target declaration's accepted ones moving in one window is two
+rows under one name here. §8's `SUBJECT` column carries a kind-qualified name — `target staging`,
+`procedure retire-preview-envs` — and fixes each class's subject.
 
 The catch-all terminates the table and is not optional: `N other lines changed · git diff <rev> <rev>`,
 counting every line of every reviewed artefact that moved and that no row above reports — a widened
-retention policy (§7) among them. The enumeration is what makes the table checkable; the catch-all is
+retention policy (§7) among them. `N` is in **`git diff` lines** as git counts them, a modified line
+being two, because the row names the command and any other unit makes the row disagree with its own
+evidence; the file set is the reviewed five and nothing else, the generated workflow among the
+exclusions (§8). The command is suppressed where either side recorded `repo_dirty`, that being the one
+case it cannot reproduce (§7, §8). The enumeration is what makes the table checkable; the catch-all is
 what makes omission impossible.
 
 ## The `FLAGS` vocabulary

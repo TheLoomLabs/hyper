@@ -393,10 +393,12 @@ Durations derive at render, and only within one entry. Timestamps from two entri
 subtracted, and no rendering presents a cross-entry interval as a measurement, because the laptop and
 the runner do not share a clock.
 
-A reaped entry therefore renders no duration at all. Its `ended_at` is the closing Run's instant on the
-closing Run's clock, so subtracting the dead Run's `started_at` from it is the cross-entry subtraction
-this rule forbids, wearing one entry's directory. `closed_by_run` being present is what says so; there
-is no second flag.
+A reaped entry therefore renders no duration at all, and §8's header names that absence in the cell.
+Its `ended_at` is the closing Run's instant on the closing Run's clock, so subtracting the dead Run's
+`started_at` from it is the cross-entry subtraction this rule forbids, wearing one entry's directory.
+`closed_by_run` being present is what says so; there is no second flag. The same reasoning is why a
+Comparison takes its window's ends from the last Step file's `ended_at` on such an entry rather than
+from this one (§8) — a cutoff on the closing Run's clock reaches every Run in between.
 
 ### What a Disposition holds
 
@@ -617,7 +619,8 @@ A sixth member is written where it applies: `repo_dirty: true`, where any review
 differs from `HEAD` or is untracked. That is exactly the file set §8's catch-all row counts the moved
 lines of, so the marker and the count agree on what code is by construction. It follows the ordinary
 absence rule rather than `dry_run`'s exception: one renderer reads it, and reading it wrong costs a `git
-diff` command that does not reproduce rather than a Procedure that refuses forever.
+diff` command that does not reproduce rather than a Procedure that refuses forever. What the renderer
+that reads it right does — suffix every revision that entry supplies and suppress the command — is §8's.
 
 Provenance splits by scope across the three files, a member being written at the level where it has
 exactly one value and omitted from every level where it has none (ADR-0043). A Record version carries all

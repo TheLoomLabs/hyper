@@ -193,25 +193,68 @@ rows and applies it themselves (ADR-0013).
 
 An outcome does not disqualify a baseline, a refused Run's completed Steps having reached the world
 like any other's. A dry-run entry is disqualified as baseline and as subject alike (§7), and a Probe
-writes no Journal entry and can never be either (ADR-0009). Where no baseline exists the header says so
-as a named state — *no baseline — first Run of `<Procedure>`* — with every Record rendering as created
-or appeared.
+writes no Journal entry and can never be either (ADR-0009). **An open entry is neither** — one with no
+`outcome.json` (§7), whose Run may be in flight or may be gone, and which `hyper` never guesses about.
+It is not disqualified the way a rehearsal is; it is not yet an entry a window can name, the header
+below rendering an outcome it does not have. Where no baseline exists the header says so as a named
+state — *no baseline — first Run of `<Procedure>`* — with every Record rendering as created or appeared.
+
+**Each side of the window is an instant, and it is that entry's own last one** — `outcome.json`'s
+`ended_at` where the Run wrote it, and the last Step file's where a reaper closed the entry (§7). That
+second is the instant §7 already names as "when the Run went quiet", read as a timestamp and never as a
+verdict, and it is used here for the reason a duration may not use `outcome.json`'s: a reaped entry's
+`ended_at` is the *closing* Run's instant on the closing Run's clock, so a Run reaped a week later would
+otherwise sweep every intervening Run's versions into its side of the window.
 
 The header names both Runs, each with its id, its Trigger, when it started, its outcome, how long it
 took, and the `procedure_revision` it recorded (§7). A duration derives within one Journal entry; two
-entries' timestamps are never subtracted (§7). The revision is named in full as a Procedure's — an
-unqualified `rev` sitting one table above a row reading `repository revision` is two facts inviting one
-reading — and it renders on both lines whether or not it moved, the header orienting a reader where the
-table below reports only what changed.
+entries' timestamps are never subtracted (§7). **A reaped entry's duration cell renders the word
+`reaped`.** No duration exists to render there and `closed_by_run` is what says so (§7); a column whose
+every other cell is a duration and this one names why there is none is the same discipline as the two
+named absences above, applied to one cell. A bare dash there reads as a renderer that broke, and the
+outcome cell beside it says `failed` on plenty of Runs whose duration derives perfectly well.
+
+The revision is named in full as a Procedure's — an unqualified `rev` sitting one table above a row
+reading `repository revision` is two facts inviting one reading — and it renders on both lines whether
+or not it moved, the header orienting a reader where the table below reports only what changed. **A
+revision supplied by an entry that recorded `repo_dirty` renders with a `+` suffix**, `a91f0c2+`, on
+this line and everywhere else this chapter renders a revision that entry supplied. The bytes that Run
+read are not the bytes at that revision and are nowhere in git (§7); the marker is what stops the header
+asserting otherwise, and what it costs the table below is stated with the catch-all.
 
 ### Three tables
 
 One table per actor, Assets first: `YOU DID THIS`, `THE WORLD MOVED`, `THE CODE MOVED`. The split is by
 actor rather than by field, and Asset against Observation is two tables rather than one column with two
-values (ADR-0026).
+values (ADR-0026). **All three render on every Comparison, header and count, whether or not they hold a
+row.** An absent block is ambiguous between *nothing to report* and *the renderer had nothing to say*,
+which is the ambiguity the two named absences above already refuse to leave standing, and three
+zero-row tables under a `TOTALS` of zeros is how a Run whose every Step skipped reads.
+
+**A row is a Record identity, and there is one per identity per table** (ADR-0058). Its change name is
+read from what the baseline end held against what the subject end holds, and never from the versions
+between them: a Record a single Run both changed and destroyed is one `destroyed` row spanning both,
+not two rows. What stands at each end is §7's Head derivation with that entry's instant above as a
+cutoff — the version a reader would have called the Head had they looked then.
+
+**Which identities are eligible comes from the identity sets, not from the Store** (ADR-0058). A row
+exists for an identity some Step of the subject Run or of the baseline Run concluded about (§7), which
+is what keeps another Procedure's work out of this Procedure's tables — the same evidence that already
+decides *vanished*, *appeared* and *nothing moved* below, deciding eligibility outright. The endpoints
+are then read without asking whose Run wrote them: a Record this Step concluded about, which another
+Procedure moved in between, renders `changed` and the gap shows in `ORDINAL`. This surface says *this
+differs from when we last looked* and nothing else, and reading `run_id` to name a row would make it
+report authorship across Procedures, which is the join the window rule exists to prevent.
 
 Assets render `created`, `changed`, or `destroyed`; Observations render `appeared`, `changed`, or
-`vanished`. A Tombstone is a marker inside the Asset table rather than a class of its own. A series
+`vanished`. The three in each table are exclusive. **Where `appeared` and `changed` are both true —
+an identity absent from the baseline Run's set, present in the subject's, whose series holds an older
+version that has since moved — `appeared` wins.** The Disposition-derived name beats the Record-derived
+name wherever both fire, which is one precedence rule rather than a per-pair one and never arises in
+the Asset table, `created` and `destroyed` both being Record facts. `changed` there would assert that
+the baseline Run had this in view and saw something else, which is the one thing that is false.
+
+A Tombstone is a marker inside the Asset table rather than a class of its own. A series
 whose first version is a Tombstone (§7) renders `destroyed` and never `created`, though the baseline
 holds no version of it and the subject does: what the subject holds is a destruction, and reading
 *absent, then present* as a creation would report the opposite of what happened. It needs no marker to
@@ -222,8 +265,45 @@ rename class: identity is a Manifest-declared field of an upstream response (§7
 unfamiliar name appearing and a familiar one going quiet, and it renders honestly as both.
 
 Every row in all three tables carries its Target, its Definition, its name, and its change. Asset and
-Observation rows add the fields that moved: a scalar leaf renders `path: old → new`, truncated with a
-marker where it is long, and anything nested or large renders `path: changed`.
+Observation rows add a `FIELDS` cell, and what it holds follows the change name.
+
+- **`changed`** renders the fields that moved, `path: old → new` each.
+- **`created`** and **`appeared`** render every projected field of the one version, `path: value`, with
+  no arrow — there is no other side, and the cell is describing what the thing is rather than how it
+  differs.
+- **`destroyed`** renders `† confirmed <time>` and then the last known fields. Those come off the
+  Tombstone itself, which copied the previous Head's `fields` forward (§7), so a Record changed and then
+  destroyed in one window shows the state it was in when it ended. A series whose first version is a
+  Tombstone has no `fields` to copy and renders the marker alone, which is the empty column the section
+  above reads *`hyper` never saw what it was* off.
+- **`vanished`** renders the baseline end's fields, with no marker. It is the Observation table's mirror
+  of `destroyed`: a row saying a thing stopped being there while declining to say what it was leaves its
+  reader no other page to go to, the Store holding no version minted for a disappearance.
+
+Fields render **sorted by Unicode code point**, which is the Store's own canonical encoding read out
+rather than a second ordering, and there is **no cap on how many render**. A wide cell is a Manifest
+author's projection choice rendered honestly, and capping it is `hyper` guessing at a number in the way
+ADR-0045 declined.
+
+**A value renders whole or renders `changed`** (ADR-0059). A scalar over 120 characters, one carrying a
+newline, and anything nested are one class with one rendering: `path: changed` on a `changed` row, and
+the bare `path` on a one-sided one, where `changed` would be false and the field's name is the whole of
+what the page can honestly carry. There is no truncated form. Two values agreeing for their first
+hundred characters and diverging after would render as identical bytes on a row asserting they differ,
+and the newline test is absolute rather than a length in disguise, because `shell` projects `stdout` and
+`stderr` as unparsed text with no cap between a chatty command and the Store (ADR-0052). The budget is a
+stated constant and not the terminal's width: colour and width are the only differences between an
+interactive rendering and a piped one, and a width-derived budget makes the two disagree about content.
+`--json` carries every value whole regardless — the elision is this column's geometry and not a fact
+either surface states.
+
+**Rows render sorted by `(Target, Definition, name)`, each by Unicode code point** — the columns read
+left to right. It is the ordering rule §7 sorts an identity set's `members` by and §6 orders an
+Expansion by, reused rather than reinvented, so two renderings of one window are byte-identical and
+diffable. Grouping by change name is refused on ADR-0054's argument: a rendering that puts the
+destructions first ranks its own rows, which is the one thing only `FLAGS` may do, and it makes the eye
+read the `CHANGE` column twice. Ordering by `written_at` is refused because the laptop and the runner do
+not share a clock (§7).
 
 ### The ordinal
 
@@ -250,10 +330,15 @@ Nothing marks a gap and nothing counts what a window hides. Both would be sound 
 Compaction never removing an Asset version, and unsound in the Observation table beside it, which is two
 guarantees under one column head.
 
-The left side is `–` where the subject holds a version and the baseline holds none. On a `created` or an
-`appeared` row that repeats what `CHANGE` already says; it earns its place on the `destroyed` row of a
-series whose first version is a Tombstone (§7, ADR-0033), where `– → 1` reads as *`hyper` ended a thing it
-never built* in the column the eye is already in.
+**`–` means this side has nothing for this row to name.** On an Asset row that is a side holding no
+version: it repeats what `CHANGE` already says on a `created` row, and earns its place on the
+`destroyed` row of a series whose first version is a Tombstone (§7, ADR-0033), where `– → 1` reads as
+*`hyper` ended a thing it never built* in the column the eye is already in. On an `appeared` or a
+`vanished` row what the side lacks is a **view** rather than a version, so they render `– → n` and
+`n → –`: an identity that left this Procedure's sight and returned unchanged has a version standing on
+both sides, and a disappearance mints none at all, and in each case printing the standing ordinal on the
+side the Procedure could not see puts two numbers on a row and invites a reader to difference them
+across exactly the boundary the row exists to report.
 
 *Vanished*, *appeared*, and *nothing moved* are derived from the identity sets each Step's Disposition
 carries (§7) rather than from the Records, which is what buys a disappearance a row at all — an
@@ -267,6 +352,13 @@ rather than one the world removed: it gets no row as subject, where it would oth
 render *appeared*. The entry stands as a baseline like any other and what that Step did write renders
 like any other Run's; it is that one set's absences that say nothing.
 
+A Step whose Disposition carries **no set at all** is that rule at its limit and is read the same way:
+it contributes no identity to its side and removes none from the other. That is the reaper's
+*attempted, outcome unknown* (§7), which carries `step`, `disposition`, `closed_by_run`, the `id` and
+the code facts and no `identities` — a different animal from the same Disposition written by the Run
+itself, which carries the conclusions it did reach. Nothing renders *vanished* on its account and an
+identity returning next Run renders no *appeared* on its account either.
+
 The three tables never join an Observation series to an Asset series. That join is the drift detection
 `hyper` has no engine for and never performs (ADR-0010).
 
@@ -279,14 +371,74 @@ three tables. They render on `runs` and only where they are not the trivial sing
 
 `THE CODE MOVED` reports over the closed enumeration of code facts §12 defines, terminated by the
 mandatory catch-all row §12 states, counting every other line of every reviewed artefact that moved.
+Its header count is the classed rows and never the catch-all, which is why the table can read `0 facts`
+and still carry a row.
 
 The `procedure revision` row is `the digests` class emitting one of its members rather than a tenth
 class: that class is *every member of the Provenance* (§12), so a member joining the field set brings
 its row with it, and a class defined as every member with one carved out is an enumeration that has
 stopped being checkable. It and the `bound` row are not one fact rendered twice — an edit that moves no
 classed fact at all still moves the revision, and that row is the one saying a reviewed artefact is not
-the one that ran last. Its subject is a Procedure, as the credential source's is a Target and the
-repository revision's is neither; where that leaves the table's first column is a row rule.
+the one that ran last.
+
+**The first column is `SUBJECT`, and it carries a kind-qualified name** — `procedure
+retire-preview-envs`, `target staging`, `definition hetzner-staging`, `manifest hetzner`, `repository
+hyper.yaml`. A header reading `DEFINITION` misdescribes every row whose fact belongs to something else,
+which is the defect the gutter's own header was fixed for above, and a bare name is ambiguous across
+kinds; §12 fixes each `kind:` to one directory, so the kind and the name together are a whole path in
+one short cell. **A class emits one row per `(subject, fact)` pair**, always — a class is a kind of fact
+and not a row, so a Definition's declared Kinds and its Target's accepted ones moving in one window is
+two rows under one class name. Of the nine, the selector, the Bounds, the Cadence and a Step's `target:`
+are a **Procedure**'s; the required Capabilities and the exposed Operation set are a **Manifest**'s; the
+credential source is a **Target**'s; a Definition's claimed Kinds, its bindable Targets and its named
+`destroy` Operations are a **Definition**'s. On `the digests` each member takes its own —
+`procedure_revision` the Procedure, `definition_revision` the Definition, `manifest_digest` and
+`origin_digest` the Manifest, `hyper_version` the **Repository declaration**, since the pin gate refuses
+any binary whose version differs from the repository's in either direction (§11) and that member moving
+*is* the pin moving. `repo_revision` alone belongs to no artefact and renders `—`, which is therefore
+the one cell in the table that has it.
+
+Rows render sorted by `(SUBJECT, FACT)` on Unicode code point, with the `—` subject after every named
+one and the catch-all last of all. `—` means *this fact belongs to no artefact you can open*, so it
+sorts away from the rows that do, and §12 already fixes the catch-all as terminating the table.
+
+**The catch-all counts `git diff` lines** — added and removed as git counts them, a modified line being
+two — over the reviewed five and nothing else, minus the lines a classed row above already reports. The
+unit is the command's because the row names the command, and any other unit makes the row disagree with
+its own evidence; the word *other* is what makes the enumeration and the count sum to the whole rather
+than overlap, so `hyper` maps each classed fact to its lines at both revisions. It already loads both
+revisions of the reviewed artefacts — four of the nine classes read off two Journal entries, and the
+Cadence, the required Capabilities, the credential source, the declared Kinds and the Operation set do
+not — so that map costs nothing beyond what the table already pays. Nothing outside the reviewed five
+counts, which is §7's rule arriving from the other side: `repo_dirty` marks that same file set "so the
+marker and the count agree on what code is by construction". The generated workflow is out
+particularly — it is projected rather than authored and byte-exact against what `project` would write
+(ADR-0046), so a change in it is a `hyper` version move already in Provenance, a Procedure move already
+classed, or a hand-edit, and a hand-edit is `check`'s Refusal rather than a row here.
+
+**Where either side recorded `repo_dirty`, the command is suppressed** and the row renders
+`N other lines changed` alone. The bytes that Run read are nowhere in git — a dirty baseline's working
+tree is gone for good — so `git diff <rev> <rev>` does not reproduce what moved, and printing a command
+that does not reproduce is worse than printing none. `N` and the classed rows are still computed between
+the two committed revisions, which is what the Provenance names and what a reader can check out; the one
+thing the table cannot then vouch for is marked in every cell that names a revision, by the `+` the
+header states. §7 already accepts this shape from the other end, a reaped Step file omitting its code
+facts "where the dead Run's revision resolves them, and absent where it does not, which is every Run
+that recorded `repo_dirty`".
+
+**`TOTALS` counts rows** (ADR-0058), so the line totals what is on the page above it and a Record
+changed and destroyed in one window counts once. `changes` is the asset rows plus the observation rows;
+the tombstone count is a **subset** of the asset count and is never added to it; code facts enter
+neither number. All four numbers render, `0` included, so the line is scanned rather than parsed. The
+last segment is a phrase and not a count — summing a classed fact, a repository revision and a line
+count into one integer is three incommensurable things under one head — and it renders its negative
+explicitly, *the code did not move*, on the same argument the empty tables above render.
+
+A fold across several Procedures — `--since` over a Store with more than one, or the whole-Store
+mode — renders one block per Procedure, each with its own header, its own three tables and its own
+`TOTALS`, in Procedure-name code-point order. There is no grand total: it would sum across windows with
+different baselines, which is the cross-Procedure reading the window rule refuses, and a reader looking
+for which Procedure did the damage is served by the per-block line and misled by the sum.
 
 ```
 $ hyper changes --since 2026-08-04T09:12:00Z
@@ -297,22 +449,22 @@ $ hyper changes --since 2026-08-04T09:12:00Z
 
   YOU DID THIS   5 assets
   CHANGE     TARGET   DEFINITION       RECORD        ORDINAL  FIELDS
-  destroyed  staging  hetzner-staging  preview-8801  4 → 5    † confirmed 11:02
-  destroyed  staging  hetzner-staging  preview-8802  3 → 4    † confirmed 11:02
-  destroyed  staging  hetzner-staging  preview-8806  7 → 8    † confirmed 11:03
-  created    staging  hetzner-staging  preview-8821  – → 1    server_type: cx22 · region: fsn1
+  destroyed  staging  hetzner-staging  preview-8801  4 → 5    † confirmed 11:02 · region: fsn1 · server_type: cx22
+  destroyed  staging  hetzner-staging  preview-8802  3 → 4    † confirmed 11:02 · region: fsn1 · server_type: cx22
+  destroyed  staging  hetzner-staging  preview-8806  7 → 8    † confirmed 11:03 · region: fsn1 · server_type: cx22
   changed    staging  hetzner-staging  preview-8815  9 → 10   labels.retire-after: 2026-08-18 → 2026-08-25
+  created    staging  hetzner-staging  preview-8821  – → 1    region: fsn1 · server_type: cx22
 
   THE WORLD MOVED   2 observations
   CHANGE   TARGET  DEFINITION  RECORD            ORDINAL  FIELDS
-  changed  local   uptime      status.hyper.dev  22 → 23  status: 200 → 503
   changed  local   uptime      cert.hyper.dev    22 → 23  days_left: 41 → 34
+  changed  local   uptime      status.hyper.dev  22 → 23  status: 200 → 503
 
   THE CODE MOVED   3 facts
-  DEFINITION           FACT                 FROM     TO
-  retire-preview-envs  procedure revision   a91f0c2  b0c94f1
-  retire-preview-envs  step retire · bound  3        5
-  —                    repository revision  1f0a3d7  88bc402
+  SUBJECT                        FACT                 FROM     TO
+  procedure retire-preview-envs  procedure revision   a91f0c2  b0c94f1
+  procedure retire-preview-envs  step retire · bound  3        5
+  —                              repository revision  1f0a3d7  88bc402
   2 other lines changed · git diff 1f0a3d7 88bc402
 
   TOTALS  7 changes · 5 asset · 2 observation · 3 tombstone · the code moved
@@ -340,7 +492,7 @@ about, and not the versions it wrote. The two are different numbers and differ e
 back unchanged, which under a Cadence is nearly every Run (ADR-0030). The Run above is the one the
 Comparison renders: `probe` concluded about twelve Observations and two of them moved, `label` about
 eight Assets and two of them moved, `retire` confirmed three destroyed — twenty-three conclusions and
-the seven versions the `TOTALS` line above counts.
+the seven rows the `TOTALS` line above counts (ADR-0058).
 
 The written count is the less useful of the two here, and on a `read` it is barely a fact at all: a Step
 that checked twelve hosts and found none of them moved wrote nothing, so a column reporting versions
@@ -530,19 +682,28 @@ $ hyper review procedures/retire-preview-envs.yaml --json
 ```
 $ hyper changes --since 2026-08-04T09:12:00Z --json
 {"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","outcome":"completed","procedure_revision":"a91f0c2"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","outcome":"completed","procedure_revision":"b0c94f1"}}
-{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_ordinal":4,"to_ordinal":5,"confirmed_at":"2026-08-06T11:02:41Z"}
-{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_ordinal":3,"to_ordinal":4,"confirmed_at":"2026-08-06T11:02:52Z"}
-{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_ordinal":7,"to_ordinal":8,"confirmed_at":"2026-08-06T11:03:09Z"}
-{"type":"asset","change":"created","target":"staging","definition":"hetzner-staging","name":"preview-8821","to_ordinal":1,"fields":{"server_type":"cx22","region":"fsn1"}}
+{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_ordinal":4,"to_ordinal":5,"confirmed_at":"2026-08-06T11:02:41Z","fields":{"region":"fsn1","server_type":"cx22"}}
+{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_ordinal":3,"to_ordinal":4,"confirmed_at":"2026-08-06T11:02:52Z","fields":{"region":"fsn1","server_type":"cx22"}}
+{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_ordinal":7,"to_ordinal":8,"confirmed_at":"2026-08-06T11:03:09Z","fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"asset","change":"changed","target":"staging","definition":"hetzner-staging","name":"preview-8815","from_ordinal":9,"to_ordinal":10,"fields":{"labels.retire-after":["2026-08-18","2026-08-25"]}}
-{"type":"observation","change":"changed","target":"local","definition":"uptime","name":"status.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"status":[200,503]}}
+{"type":"asset","change":"created","target":"staging","definition":"hetzner-staging","name":"preview-8821","to_ordinal":1,"fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"observation","change":"changed","target":"local","definition":"uptime","name":"cert.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"days_left":[41,34]}}
-{"type":"code","definition":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2","to":"b0c94f1"}
-{"type":"code","definition":"retire-preview-envs","fact":"step retire · bound","from":3,"to":5}
+{"type":"observation","change":"changed","target":"local","definition":"uptime","name":"status.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"status":[200,503]}}
+{"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2","to":"b0c94f1"}
+{"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"step retire · bound","from":3,"to":5}
 {"type":"code","fact":"repository revision","from":"1f0a3d7","to":"88bc402"}
 {"type":"code","fact":"other lines changed","count":2,"command":"git diff 1f0a3d7 88bc402"}
 {"type":"result","truncated":false}
 ```
+
+A change row's `fields` carries every value **whole**, including the ones the page rendered `changed`
+(ADR-0059), and `from_ordinal` and `to_ordinal` are absent exactly where the column renders `–` — the
+absence rule (§7) saying *nothing to name on this side* by writing no key, which is what a `vanished`
+row carries in place of a subject ordinal. A `code` row carries `subject_kind` and `subject` where the
+fact has an artefact subject and neither where it does not, the pair being the one cell the table
+renders `—` in; the catch-all's `command` is likewise absent where either side recorded `repo_dirty`,
+and the `window` object carries `repo_dirty: true` on the side that recorded it rather than the `+` the
+header draws, one fact in the two notations exactly as `changed` and `~` are above.
 
 ```
 $ hyper run retire-preview-envs --json

@@ -285,7 +285,16 @@ record without one.
 **There is no one list of everything that happened, in order.** The Comparison is three tables split
 by actor — what `hyper` did, what the world did, what the code did — and that split is what makes
 each row attributable; a single chronological scan is what it costs (§8). Nothing renders one, on any
-surface.
+surface. **Nor does a row show a Record's intermediate states**: a row is one Record read at its two
+ends (ADR-0058), so a Record changed three times and then destroyed between two Runs renders as
+`destroyed`, and the only admission that anything sat in between is the gap in `ORDINAL`.
+
+**A large or multi-line projected value never renders on a Comparison.** `FIELDS` shows a value whole
+or shows `changed` (ADR-0059), which is the only rendering that cannot show two different values as
+identical bytes — but it means a `shell` `read` whose `stdout` moved reports that it moved and nothing
+about how. The Store has the bytes and `hyper show` reads them back; the surface built to be scanned
+is not where a Provider that projects unparsed text (ADR-0052) is legible, and `--json` carrying every
+value whole is the way out for anything automated.
 
 **Half of what there is to see costs infrastructure.** The surfaces that come before a Run are free:
 `check` and a Definition review resolve no credential, reach no network, and invoke nothing (§4, §8),
