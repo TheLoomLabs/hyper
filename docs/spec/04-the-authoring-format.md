@@ -401,9 +401,10 @@ Steps are sequenced without (ADR-0002). A Step names its `id:`, its `definition:
 the Records an effectful Step may affect, and a `when:` condition rooted at an earlier Step's Record,
 carrying `step:` beside `field:`. A nested invocation names an `id:` and a `procedure:` in place of
 `definition:`/`operation:`/`target:`, and its Steps render under the invoking Step's path with the
-invoked Procedure's transitive envelope. A comment is permitted on any line, rendered verbatim in the
-gutter and never read by `hyper`; no directive syntax may ever exist inside one, since that would be a
-bypass wearing a comment.
+invoked Procedure's transitive envelope. A comment is permitted on any line, rendered verbatim in place
+on the line it was written on and never read by `hyper`; it is source rather than annotation and never
+enters the review's gutter, which carries only what `hyper` derived (§8). No directive syntax may ever
+exist inside one, since that would be a bypass wearing a comment.
 
 `target:` is written on every Step and is checked for membership of its Definition's `targets:` list. It
 is not derived from a Definition naming one Target: the gutter annotates what is in the file being read

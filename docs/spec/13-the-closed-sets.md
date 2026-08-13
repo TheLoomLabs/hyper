@@ -757,12 +757,17 @@ kinds, which is why there are four rather than four per artefact:
 
 ### The change names
 
-Three, reading on the lines the gutter marks as moved since the review's range opened (§8). They are
-directions rather than classes, the class being carried in the row's text:
+Three, reading on the lines the gutter's change column marks as touched since the review's range opened
+(§8) — including the line a deletion anchors to, which the column marks and which did not itself move.
+They are directions rather than classes, the class being carried in the row's text:
 
 - **`widened`** — the cited line grew what the artefact may reach.
 - **`narrowed`** — it shrank it.
 - **`changed`** — it moved, and no direction is claimed.
+
+All three read the baseline as well as the marked line, which is the gutter's supply and not a reach
+past it (ADR-0057): a review renders the working tree, so the value a direction is measured against is
+never on screen and the flag's text is where it renders.
 
 **Direction is claimed exactly where it is mechanically decidable, and never where it is not.** That is
 numeric comparison for a Bound and set inclusion for declared Kinds, Target sets, required Capabilities,

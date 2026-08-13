@@ -25,10 +25,41 @@ Bound, its opacity, and its envelope check. A `mutate` Step with no declared Bou
 its absence is not a static check's business and it is rendered here instead (§4). A Step invoking an
 Operation whose request uses an Opaque Capability is marked opaque beside its Kind — opacity is a
 Manifest fact, exactly as a Kind is, and the gutter carries it for the reason it carries the Kind: what
-`hyper` cannot describe is not readable from the Step's own lines. A comment renders verbatim beside
-the line it sits on and is read for nothing else (§3). A nested Procedure invocation renders under the
-invoking Step's path with the transitive envelope §3 states. Where the artefact has a previous
-revision, the review renders the range and the gutter marks every line that moved.
+`hyper` cannot describe is not readable from the Step's own lines. A nested Procedure invocation
+renders under the invoking Step's path with the transitive envelope §3 states.
+
+**Nothing an author wrote enters the gutter.** A comment renders verbatim in place, inside the line it
+was written on, exactly as every other byte of the artefact does, and is read for nothing else (§3). It
+is source rather than annotation: the gutter carries what `hyper` derived about a line, and a column
+two authors write into is one where a marker and a comment contend for a cell that holds one of them —
+which, since the gutter may not lie by omission (ADR-0026), has no answer that is not a rule about
+whose text is dropped. The rule closes the class rather than that one instance: there is nothing else
+in the format today an author could put there, and were there one, it would render in place too.
+
+**The gutter is two columns.** A **marker** column carries the marks above; a **change** column, one
+character wide, carries whether the range touched the line. They are separate because reading down the
+marker column *is* the step table (ADR-0026), and a fact about the artefact's history interleaved into
+it — on only the lines that happen to have both — is that column ceasing to be one table's. A marker
+composes within itself, a Kind, its opacity and its Target being one Step's claim rendered in one cell;
+the change mark is not that Step's claim and never joins them.
+
+The marker column is as wide as the widest marker in this rendering, and a marker is never truncated: a
+Target name is an identity in a reviewed artefact, and eliding a character of one is this screen
+stating something other than what is about to be approved. Its header is the artefact's kind —
+`PROCEDURE`, `DEFINITION`, `TARGET`, `MANIFEST`, `REPOSITORY` — which is true on all five, where a
+header naming blast radius describes a Procedure's marks and a Definition's and misdescribes a Target
+declaration's endpoint and a Repository declaration's retention policy. Nothing on this screen is sized
+to the terminal: §9's truncation discipline governs a result set, which has a limit and a cursor, and
+an artefact has neither.
+
+**A review renders the working tree and no removed lines** (ADR-0057). Where the artefact has a
+previous revision, the review renders the range and the change column marks `~` on every line the range
+touched — a line whose content differs from the baseline, a line that is new, and the line a deletion
+anchors to. One mark and not three: the gutter marks and does not classify, and a direction is `FLAGS`'
+text below (§12). A deletion anchors to the opening line of the nearest enclosing structure — a removed
+`bound:` to its Step's `- id:`, a removed Step to `steps:` — which is the line carrying the subject a
+flag cites anyway, and the only anchor that is not whatever text happens to sit adjacent. Where the
+review has no range the column has no content and no width, and the source sits two characters left.
 
 **The gutter reads on all five reviewed artefacts, not only a Procedure**, and every marker it carries
 is what `FLAGS` below may index — so what a review can say about an artefact is fixed here and nowhere
@@ -37,8 +68,8 @@ Operations named; on a **Target declaration** the Kinds accepted, the Capabiliti
 endpoint, each credential slot's environment variable, and the opt-in admitting an `opaque` `destroy`
 (§4); on a **Manifest** each Operation's Kind, its Repeatability, its opacity, the auth scheme, and the
 Capabilities required; on a **Repository declaration** the `hyper` version pin and the retention
-policy. The moved-line marks read on all five. Only a Procedure has Steps, so only a Procedure carries
-a Kind, Target, Bound or envelope mark, and the last of those is why only a Procedure is guaranteed a
+policy. The change column reads on all five. Only a Procedure has Steps, so only a Procedure carries a
+Kind, Target, Bound or envelope mark, and the last of those is why only a Procedure is guaranteed a
 flag.
 
 **A Procedure's range opens at the last Run, not at `HEAD`.** The revision on the left of
@@ -71,21 +102,32 @@ rendering. The vocabulary is seven names and §12 states them.
 subject.** The bound that matters is that it never leaves the gutter, not that it never leaves one row
 of it — what ADR-0026 closes is a surface assembled from somewhere the reviewer is not looking, and the
 gutter is by construction the thing they are looking at. That is what admits `ENVELOPE`, whose subject
-is the `targets:` line and whose claim quantifies over every Step's `target:`, each of them marked; and
-it is what admits `WIDENED`, since a direction is only readable by comparing the two values the marked
-lines carry.
+is the `targets:` line and whose claim quantifies over every Step's `target:`, each of them marked.
+
+**The gutter's supply is the artefact across the range** (ADR-0057): a marked line, and its counterpart
+at the revision the header names. That is what admits `WIDENED`, which reads a direction off two values
+only one of which is on screen — the baseline is the same artefact at the revision the whole screen is
+scoped to, not a second file assembled beside it. A surface permitted to say *widened* has read the
+baseline already; withholding it the numbers would keep the claim and drop the evidence for it, which
+is the wrong half of ADR-0026 to enforce.
 
 Rows render in **line order**, with a file-level row last (ADR-0054). A review whose artefact draws no
 flag renders the block with an explicit empty state rather than omitting it — an absent block would be
 ambiguous between *nothing to flag* and *the renderer had nothing to say*, which is the ambiguity the
 two named absences above already refuse to leave standing.
 
+**Every line number this chapter renders is the working tree's**, counted from one over every line of
+the file including blank ones. A flag's citation, a `gutter` row's `line`, a Refusal's caret excerpt
+and its `EDIT ONE OF` rows are one numbering, and it is the numbering of the file the reader has
+checked out — which is the whole of what a citation is for. A removed line has no number, having no
+line; what a deletion is cited at is the anchor above.
+
 A review resolves no credential, reaches no network, and invokes nothing.
 
 ```
 $ hyper review procedures/retire-preview-envs.yaml
 
-  BLAST RADIUS      │  procedures/retire-preview-envs.yaml     a91f0c2 → working tree
+  PROCEDURE         │  procedures/retire-preview-envs.yaml     a91f0c2 → working tree
   ──────────────────┼──────────────────────────────────────────────────────────────
                     │   kind: procedure
                     │   procedure: retire-preview-envs
@@ -119,8 +161,7 @@ $ hyper review procedures/retire-preview-envs.yaml
                     │             equals: preview
                     │           - field: created_at
                     │             older_than: 14d
-                    │ -     bound: 3
-                    │ +     bound: 5
+                    │ ~     bound: 5
 
   AUTHORITY   assembled from definitions/ and targets/
   DEFINITION       TARGET   DEFINITION KINDS     TARGET KINDS         EFFECTIVE  DESTROY OPS
@@ -364,10 +405,10 @@ $ hyper run retire-preview-envs
 
   refused: bound exceeded — nothing was deleted
 
-    procedures/retire-preview-envs.yaml:30
-     28 │           - field: created_at
-     29 │             older_than: 14d
-     30 │       bound: 5
+    procedures/retire-preview-envs.yaml:33
+     31 │           - field: created_at
+     32 │             older_than: 14d
+     33 │       bound: 5
         │              ^ expansion resolved 23 assets on staging
         │
         = checked at expansion, before the first call
@@ -375,8 +416,8 @@ $ hyper run retire-preview-envs
 
   EDIT ONE OF
   FILE                                 LINE  FIELD           FROM  TO
-  procedures/retire-preview-envs.yaml  30    steps[2].bound  5     ≥ 23
-  procedures/retire-preview-envs.yaml  29    steps[2].over   14d   30d   expands to 4
+  procedures/retire-preview-envs.yaml  33    steps[2].bound  5     ≥ 23
+  procedures/retire-preview-envs.yaml  32    steps[2].over   14d   30d   expands to 4
 
   steps 1-2 ran and what they did stands. step 3 wrote nothing.
 
@@ -459,18 +500,29 @@ prose mistake. A flag's name goes on the wire in kebab-case like any other membe
 (§12); the block above renders it upper-case for the eye, exactly as the gutter renders the Kind
 `destroy` as `DESTROY`.
 
+**A `gutter` row is one rendered line, not one marked cell.** It carries `line`, the marker column's
+rendered text as `marker` where that cell has content, and `changed` where the change column marked the
+line; a line with content in either column gets a row and a line with neither gets none. One row per
+rendered row is what makes the two surfaces unable to state different things (ADR-0026), so the row
+carries the marker as the string the page renders rather than decomposing it into a Kind, a Target and
+a Bound — a decomposition is a second rendering of the same fact, and the second one can be wrong about
+the first. `changed` is written `true` rather than as the `~` the column draws, the sigil and the
+boolean being one fact in the two notations exactly as `envelope ✓` and `"envelope ok"` are; the
+revision it is relative to is named in the header and in each flag row's text, never once per touched
+line.
+
 ```
 $ hyper review procedures/retire-preview-envs.yaml --json
 {"type":"gutter","line":3,"marker":"envelope ok"}
 {"type":"gutter","line":5,"marker":"read local"}
-{"type":"gutter","line":13,"marker":"mutate! staging"}
-{"type":"gutter","line":21,"marker":"DESTROY staging"}
-{"type":"gutter","line":30,"marker":"changed since a91f0c2"}
+{"type":"gutter","line":14,"marker":"mutate! staging"}
+{"type":"gutter","line":23,"marker":"DESTROY staging"}
+{"type":"gutter","line":33,"changed":true}
 {"type":"authority","definition":"uptime","target":"local","definition_kinds":["read"],"target_kinds":["read"],"effective":["read"],"destroy_operations":[]}
 {"type":"authority","definition":"hetzner-staging","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["delete_server"]}
-{"type":"flag","flag":"unbounded","cites_line":13,"step":"label"}
-{"type":"flag","flag":"destroy","cites_line":21,"step":"retire"}
-{"type":"flag","flag":"widened","cites_line":30,"step":"retire"}
+{"type":"flag","flag":"unbounded","cites_line":14,"step":"label"}
+{"type":"flag","flag":"destroy","cites_line":23,"step":"retire"}
+{"type":"flag","flag":"widened","cites_line":33,"step":"retire"}
 {"type":"flag","flag":"envelope","cites_line":3}
 {"type":"result","truncated":false}
 ```
@@ -497,9 +549,9 @@ $ hyper run retire-preview-envs --json
 {"type":"step","index":1,"id":"probe","kind":"read","disposition":"ran","records":12}
 {"type":"step","index":2,"id":"label","kind":"mutate","disposition":"ran","records":8}
 {"type":"step","index":3,"id":"retire","kind":"destroy","disposition":"refused"}
-{"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"artefact":"procedures/retire-preview-envs.yaml","line":30}
-{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":30,"field":"steps[2].bound","from":5,"to":23}
-{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":29,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
+{"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"artefact":"procedures/retire-preview-envs.yaml","line":33}
+{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":33,"field":"steps[2].bound","from":5,"to":23}
+{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":32,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
 {"type":"provenance","procedure_revision":"b0c94f1","repo_revision":"88bc402","hyper_version":"1.4.0"}
 {"type":"provenance","step":1,"definition_revision":"c3a17b0","manifest_digest":"sha256:2b7e…"}
 {"type":"provenance","step":2,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}

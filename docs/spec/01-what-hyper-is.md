@@ -82,7 +82,7 @@ in full, with the `AUTHORITY` table and the two Steps dropped here.
 ```
 $ hyper review procedures/retire-preview-envs.yaml
 
-  BLAST RADIUS      │  procedures/retire-preview-envs.yaml     a91f0c2 → working tree
+  PROCEDURE         │  procedures/retire-preview-envs.yaml     a91f0c2 → working tree
   ──────────────────┼──────────────────────────────────────────────────────────────
   envelope ✓        │   targets: [local, staging]
 
@@ -95,12 +95,11 @@ $ hyper review procedures/retire-preview-envs.yaml
                     │             equals: preview
                     │           - field: created_at
                     │             older_than: 14d
-                    │ -     bound: 3
-                    │ +     bound: 5
+                    │ ~     bound: 5
 
   FLAGS   index into the gutter above — no flag states anything the gutter does not
-  DESTROY    line 21  step retire   delete_server, bound 5
-  WIDENED    line 30  step retire   bound 3 → 5 since a91f0c2
+  DESTROY    line 23  step retire   delete_server, bound 5
+  WIDENED    line 33  step retire   bound 3 → 5 since a91f0c2
   ENVELOPE   line 3   ok            no step reaches a target outside [local, staging]
 ```
 
