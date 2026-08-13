@@ -609,7 +609,8 @@ not have to perform, worth it because the alternative is a reviewer widening a d
 the other number.
 
 **A relative predicate is glossed with the instant it resolved to** (ADR-0034), on this surface and on
-the two others where a Run renders a selector — `show` and `show --expansion` (§9). It renders as a `=`
+the one other where a Run renders a selector: `show --expansion`, where each Step carries the selector
+it resolved (§9). It renders as a `=`
 note beneath the caret, first among them, because it reads the excerpt above it where the others read
 the check; and beside the value in the `EDIT ONE OF` row, whose trailing column already carries what
 `hyper` derived about that remediation. The proposal is glossed as the current value is: it resolves

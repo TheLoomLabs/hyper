@@ -64,7 +64,8 @@ Step disagreeing with another about what day it is under a Cadence.
   one-editorial-surface rule where it stands. `check` renders no gloss, being offline with no Run and
   therefore no instant. *Located by ADR-0063:* a **review** has no Run either, so this gloss never
   reaches one; it renders as a `=` note beneath a Refusal's caret excerpt, beside the value in the
-  `EDIT ONE OF` row, and on `show --expansion` (§8). ADR-0063 generalises the clause above — a gloss is
+  `EDIT ONE OF` row, and on `show --expansion`, which is the only other surface a Run renders a
+  selector on (§8, §9). ADR-0063 generalises the clause above — a gloss is
   a notation rather than a claim, and it renders where its supply is.
 - **§13's *written value that depends on when the Run happens* keeps its entry and narrows its
   reason.** It argued from *no artefact names the current instant*, which is no longer true: a
