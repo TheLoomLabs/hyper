@@ -58,7 +58,9 @@ members are present, never what a present member means.
   `show` emit the same shape and there is no second rendering to keep in step.
 - **A member with no value at a level is absent, not null.** §7's absence rule already says so; the
   visible instance is `origin_digest` on a Step whose Provider is built in or locally authored.
-- **A Procedure's own revision is left where it stood.** The rule says where a member goes once it
-  exists and says nothing about whether Provenance should have a Procedure revision at all. What it does
-  supply is the test that decision now has to answer: a Run spans nested Procedures as one Run (§6), so a
-  Procedure revision is single-valued at Run level only for the top-level one.
+- **A Procedure's own revision was left where it stood, and has since been decided.** The rule says
+  where a member goes once it exists and said nothing about whether Provenance should have a Procedure
+  revision at all. What it supplied was the test that decision had to answer: a Run spans nested
+  Procedures as one Run (§6), so a Procedure revision is single-valued at Run level only for the
+  top-level one. ADR-0048 takes exactly that reading — `procedure_revision` is the top-level Procedure's
+  and nothing beneath it — and this rule placed it with no amendment.

@@ -27,6 +27,21 @@ beside the line it sits on and is read for nothing else (§3). A nested Procedur
 under the invoking Step's path with the transitive envelope §3 states. Where the artefact has a
 previous revision, the review renders the range and the gutter marks every line that moved.
 
+**A Procedure's range opens at the last Run, not at `HEAD`.** The revision on the left of
+`a91f0c2 → working tree` is the `procedure_revision` the most recent Run of that Procedure recorded
+(§7), so the range reads *since this last reached the world* and the gutter's marks survive any number
+of commits between. Against `HEAD` they would not: an agent that authored the widened Bound and
+committed it leaves the two sides equal, and the review renders nothing to mark on the one branch a
+human is about to approve. A dry-run entry is disqualified as that baseline exactly as it is for the
+Comparison below (§7) — otherwise rehearsing a widened `destroy` Bound retires the `WIDENED` flag that
+was the warning, which is what the disqualification exists to prevent.
+
+Two absences are named rather than rendered as one: *no baseline — `<Procedure>` has not run*, and
+*no baseline — no Store*. Neither refuses. A review resolves nothing and reaches nothing, and the
+surface a human reads an agent's first artefact on has to work in a fresh clone; but an artefact that
+has never run and a repository that cannot answer are different facts, and a header that rendered them
+identically would omit one (ADR-0026).
+
 **`AUTHORITY`** is the one table, because it is assembled from a Definition and a Target declaration
 together and no gutter on this file could hold it: the claimed Kinds against the accepted Kinds, their
 intersection, and the `destroy` Operations the Definition names (§5). Granularity following severity
@@ -113,8 +128,12 @@ writes no Journal entry and can never be either (ADR-0009). Where no baseline ex
 as a named state — *no baseline — first Run of `<Procedure>`* — with every Record rendering as created
 or appeared.
 
-The header names both Runs, each with its id, its Trigger, when it started, its outcome, and how long
-it took. A duration derives within one Journal entry; two entries' timestamps are never subtracted (§7).
+The header names both Runs, each with its id, its Trigger, when it started, its outcome, how long it
+took, and the `procedure_revision` it recorded (§7). A duration derives within one Journal entry; two
+entries' timestamps are never subtracted (§7). The revision is named in full as a Procedure's — an
+unqualified `rev` sitting one table above a row reading `repository revision` is two facts inviting one
+reading — and it renders on both lines whether or not it moved, the header orienting a reader where the
+table below reports only what changed.
 
 ### Three tables
 
@@ -162,12 +181,20 @@ three tables. They render on `runs` and only where they are not the trivial sing
 `THE CODE MOVED` reports over the closed enumeration of code facts §12 defines, terminated by the
 mandatory catch-all row §12 states, counting every other line of every reviewed artefact that moved.
 
+The `procedure revision` row is `the digests` class emitting one of its members rather than a tenth
+class: that class is *every member of the Provenance* (§12), so a member joining the field set brings
+its row with it, and a class defined as every member with one carved out is an enumeration that has
+stopped being checkable. It and the `bound` row are not one fact rendered twice — an edit that moves no
+classed fact at all still moves the revision, and that row is the one saying a reviewed artefact is not
+the one that ran last. Its subject is a Procedure, as the credential source's is a Target and the
+repository revision's is neither; where that leaves the table's first column is a row rule.
+
 ```
 $ hyper changes --since 2026-08-04T09:12:00Z
 
   retire-preview-envs
-  BASELINE  01991c3a-7d40…  cron           Tue 4 Aug 09:12  completed  1m48s  rev a91f0c2
-  SUBJECT   01991ea6-b118…  igor@thinkpad  Thu 6 Aug 11:03  completed  2m31s  rev 4d7e118
+  BASELINE  01991c3a-7d40…  cron           Tue 4 Aug 09:12  completed  1m48s  procedure rev a91f0c2
+  SUBJECT   01991ea6-b118…  igor@thinkpad  Thu 6 Aug 11:03  completed  2m31s  procedure rev b0c94f1
 
   YOU DID THIS   5 assets
   CHANGE     TARGET   DEFINITION       RECORD        VERSION  FIELDS
@@ -184,7 +211,7 @@ $ hyper changes --since 2026-08-04T09:12:00Z
 
   THE CODE MOVED   3 facts
   DEFINITION           FACT                 FROM     TO
-  retire-preview-envs  definition revision  a91f0c2  4d7e118
+  retire-preview-envs  procedure revision   a91f0c2  b0c94f1
   retire-preview-envs  step retire · bound  3        5
   —                    repository revision  1f0a3d7  88bc402
   2 other lines changed · git diff 1f0a3d7 88bc402
@@ -332,7 +359,7 @@ $ hyper review procedures/retire-preview-envs.yaml --json
 
 ```
 $ hyper changes --since 2026-08-04T09:12:00Z --json
-{"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","outcome":"completed","revision":"a91f0c2"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","outcome":"completed","revision":"4d7e118"}}
+{"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","outcome":"completed","procedure_revision":"a91f0c2"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","outcome":"completed","procedure_revision":"b0c94f1"}}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_version":4,"to_version":5,"confirmed_at":"2026-08-06T11:02:41Z"}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_version":3,"to_version":4,"confirmed_at":"2026-08-06T11:02:52Z"}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_version":7,"to_version":8,"confirmed_at":"2026-08-06T11:03:09Z"}
@@ -340,7 +367,7 @@ $ hyper changes --since 2026-08-04T09:12:00Z --json
 {"type":"asset","change":"changed","target":"staging","definition":"hetzner-staging","name":"preview-8815","from_version":9,"to_version":10,"fields":{"labels.retire-after":["2026-08-18","2026-08-25"]}}
 {"type":"observation","change":"changed","target":"local","definition":"uptime","name":"status.hyper.dev","from_version":22,"to_version":23,"fields":{"status":[200,503]}}
 {"type":"observation","change":"changed","target":"local","definition":"uptime","name":"cert.hyper.dev","from_version":22,"to_version":23,"fields":{"days_left":[41,34]}}
-{"type":"code","definition":"retire-preview-envs","fact":"definition revision","from":"a91f0c2","to":"4d7e118"}
+{"type":"code","definition":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2","to":"b0c94f1"}
 {"type":"code","definition":"retire-preview-envs","fact":"step retire · bound","from":3,"to":5}
 {"type":"code","fact":"repository revision","from":"1f0a3d7","to":"88bc402"}
 {"type":"code","fact":"other lines changed","count":2,"command":"git diff 1f0a3d7 88bc402"}
@@ -355,7 +382,7 @@ $ hyper run retire-preview-envs --json
 {"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"artefact":"procedures/retire-preview-envs.yaml","line":30}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":30,"field":"steps[2].bound","from":5,"to":23}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":29,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
-{"type":"provenance","repo_revision":"88bc402","hyper_version":"1.4.0"}
+{"type":"provenance","procedure_revision":"b0c94f1","repo_revision":"88bc402","hyper_version":"1.4.0"}
 {"type":"provenance","step":1,"definition_revision":"c3a17b0","manifest_digest":"sha256:2b7e…"}
 {"type":"provenance","step":2,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
 {"type":"provenance","step":3,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}

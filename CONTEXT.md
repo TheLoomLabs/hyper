@@ -239,11 +239,12 @@ rather than clone size.
 _Avoid_: GC, Pruning, Vacuum, Cleanup, Retention
 
 **Provenance**:
-The record of which code produced something: Definition revision, Manifest digest, origin digest,
-repository revision, and the version of `hyper` that performed it — which, Providers being data, is the
-only code that ran. Every Record version carries the whole of it; the Journal carries it split by scope,
-each member written where it has exactly one value, so a Run that wrote no Record still says which code
-performed it and a Procedure spanning two Definitions has no revision it must invent.
+The record of which code produced something: Procedure revision, Definition revision, Manifest digest,
+origin digest, repository revision, and the version of `hyper` that performed it — which, Providers
+being data, is the only code that ran. The Procedure revision is the top-level Procedure's, the only one
+a Run has exactly one of. Every Record version carries the whole of it; the Journal carries it split by
+scope, each member written where it has exactly one value, so a Run that wrote no Record still says
+which code performed it and a Procedure spanning two Definitions has no revision it must invent.
 _Avoid_: Audit, History, Lineage
 
 **Comparison**:

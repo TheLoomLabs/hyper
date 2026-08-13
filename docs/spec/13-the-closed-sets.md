@@ -570,7 +570,12 @@ does not:
   is a row rule rather than a membership question.
 - **the Operation set** — the Operations a Manifest exposes, and the `destroy` Operations a Definition
   names.
-- **the digests** — every member of the Provenance, the full set a Record version carries (§7).
+- **the digests** — every member of the Provenance, the full set a Record version carries (§7). Stated
+  intensionally on purpose: a member joining that field set brings a row here without this enumeration
+  moving, which is how the Procedure revision arrived (ADR-0048) and why there are still nine. A class
+  reading *every member except one* would be the enumeration ceasing to be checkable. The Procedure
+  revision's subject is a Procedure, as the credential source's is a Target; where that leaves it in the
+  table's columns is a row rule rather than a membership question, exactly as above.
 
 The catch-all terminates the table and is not optional: `N other lines changed · git diff <rev> <rev>`,
 counting every line of every reviewed artefact that moved and that no row above reports — a widened

@@ -117,6 +117,7 @@ ADR-0011 requires the working tree to describe itself.
     "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
     "hyper_version": "1.4.0",
     "manifest_digest": "sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1",
+    "procedure_revision": "2f81ac4b6e05d3971c8a4f2b0e63d75a91c4e087",
     "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
   },
   "record_type": "asset",
@@ -210,6 +211,7 @@ one version whose `fields` can be missing for no other reason, so the absence ne
     "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
     "hyper_version": "1.4.0",
     "manifest_digest": "sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1",
+    "procedure_revision": "2f81ac4b6e05d3971c8a4f2b0e63d75a91c4e087",
     "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
   },
   "record_type": "asset",
@@ -249,6 +251,7 @@ it.
   "procedure": "retire-preview-dns",
   "provenance": {
     "hyper_version": "1.4.0",
+    "procedure_revision": "2f81ac4b6e05d3971c8a4f2b0e63d75a91c4e087",
     "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
   },
   "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
@@ -360,7 +363,11 @@ paths and edits nothing the dead Run wrote (ADR-0011). It writes the in-flight S
 the next `<nnnn>`, `attempted-outcome-unknown` and carrying `closed_by_run`, and then `outcome.json`.
 Without that file §6's rule has nowhere to land and the crashed Step reads as never reached, which
 re-runs an effect nobody vouched for. Which Step it was is not a guess: `run.json` names the Procedure
-and the revision to load it at, and the highest `<nnnn>` present is the last one that finished.
+and the *repository* revision to load it at, and the highest `<nnnn>` present is the last one that
+finished. That is `repo_revision` and never `procedure_revision`, the two doing different work and not
+standing in for one another: reconstructing the Step sequence means loading every Procedure the
+top-level one invokes, which a commit resolves and a blob id cannot. The Provenance member says which
+Procedure file *moved*; the repository revision says where to *find* one.
 
 That file carries what the reaper knows and omits what it cannot establish. Always `schema_version`,
 `step`, `disposition` and `closed_by_run`; the Step's `id` and its code facts where the dead Run's
@@ -508,14 +515,25 @@ through and nothing but an artefact edit left (ADR-0001): the review aid would d
 ## Provenance
 
 Every Record version carries Provenance, and carries it in full rather than by reference to the Run that
-wrote it: `definition_revision`, `manifest_digest`, `origin_digest`, `repo_revision`, and
-`hyper_version` — which, Providers being data, is the only code that ran (ADR-0004). A version file
-saying only *see Run `abc`* would be unreadable in a browser and in a diff, which is exactly where this
-field set is read.
+wrote it: `procedure_revision`, `definition_revision`, `manifest_digest`, `origin_digest`,
+`repo_revision`, and `hyper_version` — which, Providers being data, is the only code that ran
+(ADR-0004). A version file saying only *see Run `abc`* would be unreadable in a browser and in a diff,
+which is exactly where this field set is read.
 
 `definition_revision` is the git blob id of the Definition file: content-addressed, computable offline
-from the working tree, unmoved by a rebase, and equal exactly where the content is. `repo_revision` is
-the commit at `HEAD`. Both are written whole and rendered abbreviated (§8).
+from the working tree, unmoved by a rebase, and equal exactly where the content is.
+`procedure_revision` is the same fact about the Procedure file. `repo_revision` is the commit at
+`HEAD`. All three are written whole and rendered abbreviated (§8).
+
+`procedure_revision` is the revision of the **top-level** Procedure — the file `run.json`'s `procedure`
+names. A Run spans nested Procedures as one Run (§6), so that is the only reading with exactly one value
+at Run level, and it has one for every Run, every Run being a Run of a Procedure (ADR-0036). The member
+is therefore never absent. It earns its place because the Procedure is the artefact holding the Bound,
+the selector, the `target:` a Step binds and every argument value: without it a Record's Provenance names
+the code that performed the effect and not the code that decided its extent, while naming a revision for
+the Definition, which holds neither (ADR-0048). What it does not carry is a nested Procedure's own
+revision — a Bound widened inside one moves nothing here, and is reported by §12's `Bounds` class and
+counted by the catch-all like any other line of any other artefact.
 
 `manifest_digest` is SHA-256 over the Manifest's exact bytes — the file in `providers/` for an installed
 or locally authored Provider, the embedded bytes for a built-in, which has no blob in the repository at
@@ -546,10 +564,11 @@ diff` command that does not reproduce rather than a Procedure that refuses forev
 
 Provenance splits by scope across the three files, a member being written at the level where it has
 exactly one value and omitted from every level where it has none (ADR-0043). A Record version carries all
-of it. `run.json` carries the members that are Run-wide — `hyper_version`, `repo_revision`, and
-`repo_dirty` where it applies — which is what makes a Run that wrote no Record still say which code
-performed it. A Step file carries the members that are the Step's — `definition_revision`,
-`manifest_digest`, `origin_digest` — a Step naming one Definition, one Operation and one Provider.
+of it. `run.json` carries the members that are Run-wide — `hyper_version`, `procedure_revision`,
+`repo_revision`, and `repo_dirty` where it applies — which is what makes a Run that wrote no Record
+still say which code performed it. A Step file carries the members that are the Step's —
+`definition_revision`, `manifest_digest`, `origin_digest` — a Step naming one Definition, one Operation
+and one Provider.
 Nothing at Run level names a Definition, so a Procedure whose Steps span several has nothing to
 disambiguate.
 

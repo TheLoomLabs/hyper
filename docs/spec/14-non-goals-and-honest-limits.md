@@ -242,7 +242,10 @@ surface.
 
 **Half of what there is to see costs infrastructure.** The surfaces that come before a Run are free:
 `check` and a Definition review resolve no credential, reach no network, and invoke nothing (§4, §8),
-so an artefact can be verified and read from a clone and nothing else. The Comparison is not. It
+so an artefact can be verified and read from a clone and nothing else. One part of a review is not
+free, and it is the part that says what moved: the range it opens against is the revision the last Run
+recorded (§8), so a Procedure nobody has run yet is reviewed with no range and a gutter that marks
+nothing. The Comparison is not free at all. It
 renders one Run against the Run before it, its code table included — those facts being the Provenance
 each of the two Runs recorded (§7, §8) — so everything on that side of the thesis is bought with two
 Runs against real systems.
