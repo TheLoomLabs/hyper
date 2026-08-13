@@ -114,36 +114,127 @@ Operations named; on a **Target declaration** the Kinds accepted, the Capabiliti
 endpoint, each credential slot's environment variable, and the opt-in admitting an `opaque` `destroy`
 (§4); on a **Manifest** each Operation's Kind, its Repeatability, its opacity, the auth scheme, and the
 Capabilities required; on a **Repository declaration** the `hyper` version pin and the retention
-policy. The change column reads on all five. Only a Procedure has Steps, so only a Procedure carries a
-Kind, Target, Bound or envelope mark, and the last of those is why only a Procedure is guaranteed a
-flag.
+policy. Only a Procedure has Steps, so only a Procedure carries a Kind, Target, Bound or envelope mark,
+and the last of those is why only a Procedure is guaranteed a flag.
 
-**A Procedure's range opens at the last Run, not at `HEAD`.** The revision on the left of
-`a91f0c2 → working tree` is the `procedure_revision` the most recent Run of that Procedure recorded
-(§7), so the range reads *since this last reached the world* and the gutter's marks survive any number
-of commits between. Against `HEAD` they would not: an agent that authored the widened Bound and
-committed it leaves the two sides equal, and the review renders nothing to mark on the one branch a
-human is about to approve. A dry-run entry is disqualified as that baseline exactly as it is for the
-Comparison below (§7) — otherwise rehearsing a widened `destroy` Bound retires the `WIDENED` flag that
-was the warning, which is what the disqualification exists to prevent.
+**The change column reads on all five**, and that is a statement about which artefacts have a range
+rather than about which renderings carry one. No kind is exempt from the column: where it is empty the
+supply is missing and not the artefact excused, which is a different thing from `envelope` below being
+Procedure-only because only a Procedure *has* Steps. An artefact with no range would have carried marks
+had a Run supplied one.
+
+### Where a range opens
+
+**A range opens at the last Run that read the artefact, and never at `HEAD`.** The revision on the left
+of `a91f0c2 → working tree` is what that Run supplies about this file (§7), so the range reads *since
+this last took part in reaching the world* and the gutter's marks survive any number of commits between.
+Against `HEAD` they would not: an agent that authored the widened Bound and committed it leaves the two
+sides equal, and the review renders nothing to mark on the one branch a human is about to approve. The
+same agent commits `env: STAGING_TOKEN` → `env: PROD_TOKEN`, so that argument is not a Procedure's and
+`HEAD` is refused on all five.
+
+**A dry-run entry supplies no range**, exactly as it is disqualified as the Comparison's baseline (§7).
+Rehearsing a widened `destroy` Bound would otherwise retire the `WIDENED` flag that was the warning,
+which is what the disqualification exists to prevent, and a rehearsal disarming a review surface is the
+shape that rules everywhere rather than on the artefact the rehearsal named.
+
+**Which Runs read an artefact is read off the Journal and never inferred from the working tree.** A
+Procedure is read by the Run whose `run.json` names it; a Definition by every Run with a Step file
+naming it in `definition`, a Manifest by every Run naming it in `provider`, a Target declaration by
+every Run naming it in `target`, and a nested Procedure by every Run carrying it in a Step file's `path`
+(§7). A Repository declaration is read by every Run there is, governing all of them (§11). Several Runs
+qualify for all but the first, and the most recent of them supplies the range: a Run reads one working
+tree, so every Step of one Run naming one artefact agrees about its revision, and the multiplicity is
+across entries rather than inside one.
+
+**What that Run supplies is decided by whether the artefact carries a revision of its own, not by its
+kind** ([ADR-0067](../adr/0067-a-range-is-anchored-by-whether-the-artefact-carries-a-revision-not-by-its-kind.md)).
+Two do. A top-level **Procedure**'s range opens at the `procedure_revision` that Run recorded and a
+**Definition**'s at the `definition_revision` on the Step file that named it — both git blob ids over the
+bytes that Run actually read, computable with `git hash-object` and wrong under no condition. The other
+three carry no member of their own, and neither does a Procedure reached only by invocation, ADR-0048
+carrying the top-level one and no other: their range opens at **that file's blob under the
+`repo_revision` the same Run recorded**. It is resolved to a blob rather than rendered as the commit
+because the range sits on the line beside the artefact's path and names one file's bytes there — a
+commit in that position invites the reading #56 refused, a repository revision moving when a README does.
+The resolution is derived at render and stored nowhere, as `ORDINAL` is (ADR-0049).
+
+**A `repo_dirty` entry supplies no range to an artefact with no revision of its own.** The derivation
+above is valid only over a clean tree: the bytes that Run read are not the bytes at that commit and are
+nowhere in git (§7), so the blob resolves perfectly and names something else. The range is then rendered
+against the wrong side and the gutter marks the wrong lines — a `~` on a line that did not move and none
+on a line that did, which is the one screen ADR-0026 says may not lie. The supplying Run is therefore
+the most recent that is neither a rehearsal nor dirty, and the absence below where there is none. It
+costs an author who habitually runs against uncommitted edits their Target-declaration ranges, and that
+is the right cost: the two members that survive a dirty tree are hashes of what ran, and marking a
+revision `+` says the bytes differ where the failure here is an individually wrong mark that no suffix
+makes readable.
 
 **That entry is the one the gloss reads.** §10's *last ran* is the most recent Run of that Procedure
 with dry-run entries filtered out, which is the baseline above under the same filter, so the header
 renders one Journal entry twice — as a revision on the range, and as an age beside the gloss. One
 lookup, two notations.
 
-Two absences are named rather than rendered as one: *no baseline — `<Procedure>` has not run*, and
-*no baseline — no Store*. Neither refuses. A review resolves nothing and reaches nothing, and the
-surface a human reads an agent's first artefact on has to work in a fresh clone; but an artefact that
-has never run and a repository that cannot answer are different facts, and a header that rendered them
-identically would omit one (ADR-0026).
+### The three absences
+
+Three absences are named rather than rendered as one, and none of them refuses. A review resolves
+nothing and reaches nothing, and the surface a human reads an agent's first artefact on has to work in a
+fresh clone; but a header that rendered any two of these identically would omit one (ADR-0026). §12
+carries their names.
+
+- **A built-in Manifest has no range at any point in its life.** It ships inside the binary and has no
+  file in the repository (§4, §11), so no Run can record a revision for it and none ever will — an
+  absence that is permanent where the other two are repaired by an act. What it points at is where the
+  fact *is* readable: a built-in's bytes move only when the binary does, which is `hyper_version`, which
+  is the pin, which is a one-line edit to a Repository declaration that has a range of its own.
+- **No Run read the artefact.** The Journal answered and holds nothing that anchors this file.
+- **The Store is unreachable**, so nothing can be asked.
+
+**They rank, and the order is `built-in`, then no Store, then no Run.** The permanent fact beats the
+transient one and the unanswerable supply beats the answered-and-empty one. Rendering *no Store* on a
+built-in promises a range that repairing the Store will never produce, which is the defect the three
+names exist to refuse, one layer in; and *no Store* beating *no Run* needs stating rather than leaving
+to fall out of which check can run, since a rule that holds by accident is one no reader can check a
+rendering against.
+
+**The sentence names the act that would supply a range, and the act differs by kind**: *has not run* for
+a Procedure, *nothing has bound* for a Target declaration, *nothing has named* for a Definition,
+*nothing has loaded* for a Manifest. The wire name is one for all of them (§12) and pays the cost of a
+closed set's stability; the sentence pays no such cost, and *`staging` has not run* is false — nothing
+runs a Target declaration, and a reader told so learns neither what happened nor what to do.
+
+```
+  no baseline — retire-preview-envs has not run
+  no baseline — nothing has bound staging
+  no baseline — no Store
+  no baseline — shell ships in the binary
+```
+
+The lead-in is one phrase across all four lines. A built-in's absence is permanent and the other two are
+not, and that difference is carried by what the sentence says rather than by a second form of words: two
+lead-ins would make the eye sort the absences before reading them, which is the ranking `FLAGS` is the
+one surface permitted to do (ADR-0026).
 
 **One absence serves both readings of that entry.** Where it is missing it is missing for the range and
 for *last ran* alike, so the header states it once, on the range's line, and the gloss line carries only
 what the artefact's own bytes supply — which needs no Store and renders offline as it always has (§9).
 Rendering *no baseline — `retire-preview-envs` has not run* above and *last ran: never* below is one
-fact twice: the argument for naming two absences is that those two are different facts, and these are
+fact twice: the argument for naming three absences is that they are three different facts, and these are
 one fact in two notations.
+
+**A Target declaration's header is the rule's other half rendered**, and it is two lines because there is
+no Cadence beneath it — the gloss is a Procedure's, and its absence takes the line rather than leaving
+one blank:
+
+```
+$ hyper review staging
+
+  TARGET            │  targets/staging.yaml                    7c1e93b → working tree
+  ──────────────────┼──────────────────────────────────────────────────────────────
+```
+
+`7c1e93b` is a blob id like the Procedure's above and not the commit it was resolved from, so the two
+headers say the same kind of thing about the two files. What differs is only what supplied it.
 
 **`AUTHORITY`** is the one table, because it is assembled from a Definition and a Target declaration
 together and no gutter on this file could hold it: the claimed Kinds against the accepted Kinds, their
@@ -490,6 +581,13 @@ credential source is a **Target**'s; a Definition's claimed Kinds, its bindable 
 any binary whose version differs from the repository's in either direction (§11) and that member moving
 *is* the pin moving. `repo_revision` alone belongs to no artefact and renders `—`, which is therefore
 the one cell in the table that has it.
+
+**Which Manifests a Run read is the Step files' `provider`** (§7), and the two Manifest classes cannot be
+computed without it: `manifest_digest` names the bytes that ran and never which Provider they were, so
+enumerating the Manifests to diff would otherwise mean resolving each Step's `definition` to its
+`provider:` at that Step's own revision — a git object per Step, in the surface that already has both
+revisions of the artefacts themselves. It is the same member a review's range on a Manifest reads, and
+a field two surfaces need is not one added for either's convenience.
 
 **The `cadence` row's two expressions are glossed**, each under the cron it glosses in its own cell, on
 §10's rule that no surface renders a Cadence as the expression alone (ADR-0005, ADR-0063). Cron is
@@ -894,9 +992,10 @@ number and never a band or a word: a rate whose only form is prose puts the esca
 this row exists to take it out of.
 
 **The baseline's absence is named on the wire as it is on the page.** `baseline` is written where there
-is one; where there is not, `baseline_absent` carries which of the two §12 names it is, since a key
-merely missing would collapse the distinction the header renders two sentences for. `last_run` is absent
-on both, one entry supplying both readings.
+is one; where there is not, `baseline_absent` carries which of the three §12 names it is, since a key
+merely missing would collapse the distinction the header renders three sentences for. It carries the
+name the header ranked and never the set of what was true, one absence rendering on the page and one
+going out. `last_run` is absent on all three, one entry supplying both readings.
 
 A review does not decompose into rows the way the three change tables do, so `review --json` emits the
 annotations and never the source — the consumer already has the file. Each `flag` row carries the line

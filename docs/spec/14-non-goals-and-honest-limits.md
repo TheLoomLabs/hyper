@@ -320,12 +320,27 @@ value whole is the way out for anything automated.
 **Half of what there is to see costs infrastructure.** The surfaces that come before a Run are free:
 `check` and a Definition review resolve no credential, reach no network, and invoke nothing (§4, §8),
 so an artefact can be verified and read from a clone and nothing else. One part of a review is not
-free, and it is the part that says what moved: the range it opens against is the revision the last Run
-recorded (§8), so a Procedure nobody has run yet is reviewed with no range and a gutter that marks
-nothing. The Comparison is not free at all. It
+free, and it is the part that says what moved: the range it opens against is what the last Run that
+read the artefact recorded (§8), so **any of the five reviewed artefacts nothing has yet run against is
+reviewed with no range and a gutter that marks nothing** — a Procedure nobody has run, a Definition no
+Step has named, a Target declaration no Step has bound. Two of them pay more than that. A Target
+declaration, a Repository declaration and a Manifest carry no revision of their own, so their range is
+resolved from the repository revision a Run recorded, and a Run that recorded `repo_dirty` supplies none
+at all: an author who habitually runs against uncommitted edits gets no range on those three, the
+alternative being a gutter that marks the wrong lines (§8). The Comparison is not free at all. It
 renders one Run against the Run before it, its code table included — those facts being the Provenance
 each of the two Runs recorded (§7, §8) — so everything on that side of the thesis is bought with two
 Runs against real systems.
+
+**`hyper review shell` never says what changed, and never will.** A built-in Provider's Manifest ships
+inside the binary and has no file in the repository (§4, §11), so there is nothing for a Run to have
+recorded a revision of and no number of Runs repairs it: alone among the five reviewed artefacts, a
+built-in Manifest has no range at any point in its life, and the header says so as a third named absence
+rather than as an empty column (§8, §12). What that hides is less than it looks and the page points at
+where it is readable — a built-in's bytes move only when the binary does, which is `hyper_version`,
+which is the pin, which is a one-line edit to a Repository declaration that has a range like any other
+file. The limit is that the reading takes two screens rather than one, and that the artefact you asked
+about is not the one that answers.
 
 ## What `hyper` never says first
 

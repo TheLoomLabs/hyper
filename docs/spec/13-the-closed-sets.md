@@ -886,14 +886,26 @@ the slope ADR-0026 sits at the top of.
 
 ## The review header's absent baseline
 
-**Closed to `hyper`.** Two names, carried by an `artefact` row's `baseline_absent` where a review has no
-range: `not-run`, the Procedure has no non-rehearsal Run in the Journal; and `no-store`, the Store is
-unreachable. They are the two absences §8 renders as two sentences on the argument that an artefact
-that has never run and a repository that cannot answer are different facts — a key merely missing would
-put them back under one reading on the wire, which is the two surfaces stating different things.
+**Closed to `hyper`.** Three names, carried by an `artefact` row's `baseline_absent` where a review has
+no range: `built-in`, the artefact is a Manifest that ships inside the binary and has no file in the
+repository for any Run to have recorded a revision of; `no-store`, the Store is unreachable; and
+`not-run`, no non-rehearsal Run in the Journal read this artefact. They are the three absences §8
+renders as three sentences on the argument that a permanent absence, a repository that cannot answer and
+an artefact nothing has run against are different facts — a key merely missing would put them back under
+one reading on the wire, which is the two surfaces stating different things. **They rank in that order**
+and the row carries the name the header ranked, never the set of what was true, so the page and the wire
+name one absence each and name the same one.
+
+**`not-run` is one name over a fact that grew rather than five names over five kinds.** It never meant
+*the Procedure did not run*; it meant *there is no Run to anchor on*, and what widened is the set of
+ways to be that — a Definition no Step named, a Target declaration no Step bound, a Manifest no Step
+loaded, a Procedure reached only by invocation (§8). The connotation strains on a Target declaration,
+which nothing runs, and it is paid on the page instead: §8 renders the act that would supply a range
+and the act differs by kind, where the wire name is one and stays stable for the consumers that filter
+on it.
 
 Reuse was considered and rejected. `store-absent` is an `error_code` and a review does not decline, so
-naming this with one would point a reader at a Refusal that did not happen. What earns the pair a place
+naming this with one would point a reader at a Refusal that did not happen. What earns the three a place
 here rather than in §8 is that these are names travelling as values, which is what this chapter holds;
 the header's own membership is a list of keys and is stated beside the rendering in §8, where the
 gutter's marks already are.

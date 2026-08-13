@@ -290,8 +290,8 @@ not by the shape of the field.
 ### The Step file
 
 A Step file carries `schema_version`, the `step` position, the Step's authored `id`, its `definition`,
-`operation`, `target` and `kind`, its `disposition`, `started_at` and `ended_at`, its `provenance`, and
-the three things a Disposition holds below. A Step reached through a nested Procedure invocation
+`operation`, `provider`, `target` and `kind`, its `disposition`, `started_at` and `ended_at`, its
+`provenance`, and the three things a Disposition holds below. A Step reached through a nested Procedure invocation
 carries `path` as well — the invocation chain, `retire.probe` — beside its own `id`; a top-level Step
 carries none.
 
@@ -315,6 +315,7 @@ carries none.
     "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
     "manifest_digest": "sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1"
   },
+  "provider": "cloudflare-dns",
   "schema_version": 1,
   "selector": {
     "bound": 5,
@@ -340,7 +341,17 @@ carries none.
 when the Step ran, which is the fact §8's third table exists to report as moving — and a Journal whose
 Dispositions cannot be read without fetching three artefacts at the revision that Run names is evidence
 with a dependency. It is the argument that puts the selector in the file as authored, applied to the
-one other fact in the same position.
+facts in the same position.
+
+`provider` is the second of them, and it is the Provider's **name** where `manifest_digest` beside it is
+the Provider's **bytes**. The digest identifies what ran and answers nothing about what it was: finding
+the Runs that read `providers/cloudflare-dns.yaml` without this member means resolving every Step's
+`definition` to its `provider:` at that Step's own `definition_revision`, which is the dependency the
+paragraph above refuses, one artefact deeper and once per Step. Two surfaces need the answer — a review's
+range on a Manifest, and the required-Capabilities and Operation-set classes of §8's third table, both of
+which enumerate the Manifests a Run read before they can diff one. It is a Definition that names the
+Provider and a Step that names the Definition, so the name is derivable and the point of holding it is
+that deriving it costs git objects a shallow clone does not have.
 
 A Step that is a nested Procedure invocation writes no file of its own. An invocation is not a Step,
 none of the seven Dispositions describes one, and its own Steps each write a file carrying `path`.
