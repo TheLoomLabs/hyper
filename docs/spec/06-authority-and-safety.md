@@ -101,13 +101,21 @@ reachable only by literal identifier — a `values:` list, occupying lines the g
 counted by the Bound like any other selector (§12) — never by a selector ranging over it: a Record
 `hyper` never created is not an Asset, and an effectful selector has nowhere else to reach.
 
-The Tombstone rule reads on a `values:` list too, once a member has a series to have a head: a member
-whose head is a Tombstone is dropped from the Expansion like any other, and a member naming no series at
-all is reached. What that states is that `hyper` drops what it knows is gone and reaches what it has no
-record of — a member it never touched being in the second class — so a `values:` list left standing in a
-Procedure that runs on a Cadence is self-limiting rather than a Run that fails on a call the artefact
-never asked it to repeat. It is the Store that shortens the list and never lengthens it, which is what
-lets §4 count the authored length against the Bound offline.
+The Tombstone rule reads on a `values:` list too, once a member has a series to have a head, and there
+it is a `destroy`'s: on a `destroy` Step a member whose head is a Tombstone is dropped from the
+Expansion, and a member naming no series at all is reached. What that states is that `hyper` drops what
+it knows is gone and reaches what it has no record of — a member it never touched being in the second
+class — so a `values:` list left standing in a Procedure that runs on a Cadence is self-limiting rather
+than a Run that fails on a call the artefact never asked it to repeat.
+
+A `mutate` reaches such a member instead, and the same sentence is the reason: a create over a
+Tombstoned series is a call the artefact *is* asking for, and §6 skips a member only while its Asset
+stands. Dropping it here would leave destroy-then-recreate reachable from a Step with no selector and
+from nowhere else, which nothing states and ADR-0011 contradicts. This is ADR-0027's Kind-scoping
+arriving at a case it did not enumerate rather than a second rule standing beside it.
+
+It is the Store that shortens the list and never lengthens it, which is what lets §4 count the authored
+length against the Bound offline.
 
 ## No bypass
 

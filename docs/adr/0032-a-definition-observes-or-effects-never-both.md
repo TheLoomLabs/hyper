@@ -23,8 +23,9 @@ We chose a static rule on the Definition's claim because it is the one shape tha
 first clause — *most dangerous states are unreachable from the five artefacts by construction* — rather
 than after an effect. The narrower rule the hole seems to ask for is unavailable: *one Definition may not
 span a `read` and an effectful Operation projecting the same identity field* cannot be checked, because
-in `hyper`'s own worked Manifest those paths are `$.result.id` and `$.id`, and knowing that two paths
-name one upstream field is knowledge about the API that `hyper` has no oracle for (§4). A claim-level
+in `hyper`'s own worked Manifest those projections are `"{name}"` and `$.id` — a hole resolving to the
+DNS name and a path to Cloudflare's own id — and knowing whether two projections name one upstream thing
+is knowledge about the API that `hyper` has no oracle for (§4). A claim-level
 rule needs one authored line and no Manifest reading at all. It is coarser than the hole — a Definition
 reading zones and creating DNS records has two disjoint identity spaces and no collision available to it,
 and is refused too — and that cost is taken on the same ground ADR-0023 takes its restrictions: a

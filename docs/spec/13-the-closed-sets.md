@@ -45,7 +45,9 @@ claimed at Kind level and `destroy` by named Operation, granularity following se
   run: an absolute-state `mutate`, every read.
 - `skip-if-recorded` — skip while the Asset it would produce still stands. The test reads the head
   version of the Record series `(Target, Definition, name)` identifies, not the existence of that
-  series, so a series whose head is a Tombstone runs again (ADR-0011).
+  series, so a series whose head is a Tombstone runs again (ADR-0011). It decides **per Record**, one
+  series per member of the Step's Expansion, so a Step may skip some members and call for others
+  (§6, ADR-0056).
 - Undeclared — **run-once**. The Operation runs where the Journal holds no evidence it already ran, and
   Refuses where it does. This is the effectful default, and it is the strict one: an effect nobody
   vouched for is not repeated on a guess.
@@ -66,6 +68,18 @@ preserves the intent, *skip what is already gone*, is what §5's Expansion alrea
 selector and every `values:` member. A `read` projects an Observation, which no `destroy` may ever
 Tombstone (ADR-0032), so its head stands from the first Run forever: the value would read the world
 once and skip every occurrence after, reporting `completed` each time.
+
+Deciding per Record puts two requirements on a `skip-if-recorded` Operation that no other value carries,
+both of them checked before a Run (§4). Its `identity:` must **resolve before the call**, since the name
+the test reads is the name the call it is deciding on would write under: a template hole has that
+property, resolving to an Operation input like any hole outside a Capability-relevant position (below),
+and so does `$.command` on a `shell` Operation, which is in the response object precisely
+because it is a fact about the call rather than about the answer (§3). A response path anywhere else
+names a value that exists only once the call has gone out, and is `manifest-inconsistent`. And the Step
+must be able to reach a member the test can answer *run* for, which an `assets:` selector never
+does — an effectful Expansion reaches only standing Assets, so every member stands by construction and
+the Step can never call (`skip-if-recorded-unreachable`). A `values:` list is the form that expresses a
+population `hyper` may not yet have built, which is what the value is for.
 
 Run-once has no spelling, so a `read`'s only expressible Repeatability is `repeatable`, whether written
 or omitted. The strict default is not withheld from `read` as an exception but because its own reason —
@@ -91,7 +105,8 @@ leaves behind (§6).
 - **ran** — `ran`. The Step was invoked and its outcome came back.
 - **skipped as already recorded** — `skipped-as-already-recorded`. The Step's Operation declared
   `skip-if-recorded` and the Asset it would produce still stands. The only value that is Repeatability
-  evidence.
+  evidence. On an expanding Step it is the value where **every** member skipped; where any call went
+  out the Step is *ran*, that value claiming no count (§6, ADR-0056).
 - **skipped by condition** — `skipped-by-condition`. The Step's `when:` did not hold. Says nothing about
   what the world holds, which is why it is not the same value as the skip above.
 - **refused** — `refused`. A guardrail declined the Step before any effect reached the world (§5).
@@ -331,14 +346,14 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Forty-five members, each the identifier of a check that declined, named where that check is
+**Closed.** Forty-six members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
 resisting and has none, and the ways it can resist are not a set anything could close over. Two
 failures are told apart by the exit code above rather than here.
 
-Twenty-seven are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
+Twenty-eight are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `reference-unresolvable`, `capability-mismatch`, `manifest-inconsistent`,
 `target-inconsistent`, `auth-header-reserved`, `local-reserved`, `identity-undeclared`,
@@ -346,8 +361,10 @@ Twenty-seven are contributed by §4's static checks alone: `strict-yaml-violatio
 `kind-not-granted`, `capability-not-granted`, `operation-not-claimed`, `envelope-exceeded`,
 `opaque-destroy-not-granted`, `bound-missing`, `bound-illegal`, `host-not-granted`,
 `command-malformed`, a shell Step's `command:` that is empty or names its executable by reference
-(§3, ADR-0051), and `opaque-destroy-unscoped`, an `opaque` `destroy` Step carrying no `over:` selector
-and therefore reaching the world with nothing to write a Tombstone under (§5, ADR-0053). §6's two run-time checks carry `bound-exceeded`, an Expansion
+(§3, ADR-0051), `opaque-destroy-unscoped`, an `opaque` `destroy` Step carrying no `over:` selector
+and therefore reaching the world with nothing to write a Tombstone under (§5, ADR-0053), and
+`skip-if-recorded-unreachable`, a `skip-if-recorded` Step expanding over `assets:`, whose every member
+stands by construction and whose test can therefore only ever answer *skip* (above, ADR-0056). §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
 Journal already holds as *ran* or *attempted, outcome unknown*.
 

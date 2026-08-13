@@ -111,7 +111,7 @@ ADR-0011 requires the working tree to describe itself.
     "id": "372e67954025e0ba6aaa6d586b9e0b59",
     "name": "preview-42.example.com"
   },
-  "name": "372e67954025e0ba6aaa6d586b9e0b59",
+  "name": "preview-42.example.com",
   "operation": "create_dns_record",
   "provenance": {
     "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
@@ -295,9 +295,9 @@ carries none.
   "identities": {
     "digest": "sha256:6f1c8d0a4b93e527f10c6ba8d34e79521f0badc6e84397b210f5cd6e0a4b7f38",
     "members": [
-      "372e67954025e0ba6aaa6d586b9e0b59",
-      "9a4c1f0d3b7e5286c1d09f4a7b3e6152",
-      "c07b3e91d4a2f5860b3c19e75d2a4f83"
+      "preview-17.example.com",
+      "preview-42.example.com",
+      "preview-8.example.com"
     ]
   },
   "kind": "destroy",
@@ -316,9 +316,9 @@ carries none.
       ]
     },
     "expanded_to": [
-      "372e67954025e0ba6aaa6d586b9e0b59",
-      "9a4c1f0d3b7e5286c1d09f4a7b3e6152",
-      "c07b3e91d4a2f5860b3c19e75d2a4f83"
+      "preview-17.example.com",
+      "preview-42.example.com",
+      "preview-8.example.com"
     ]
   },
   "started_at": "2026-08-06T11:05:41.902Z",
@@ -442,7 +442,10 @@ in. It is deliberately not the sequence: what the Step did in what order is `exp
 the two lists differ in order wherever a `values:` list is the selector.
 
 Four Dispositions carry a set and two do not. *ran* carries one. *skipped as already recorded* carries
-one — the skip test read a head version, which is a conclusion about that identity. *attempted, outcome
+one — the skip test read a head version, which is a conclusion about that identity. Under
+`skip-if-recorded` those two are one set at two granularities: the test decides per member (§6,
+ADR-0056), so a Step that called for one member and skipped two holds all three, and its digest does
+not move as a `values:` list fills in one member at a time. *attempted, outcome
 unknown* carries the conclusions it did reach and not the ones it did not: a destroy that confirmed
 three of five holds three. *refused* carries none, nothing having been concluded about anything; *skipped
 by condition* and *never reached* carry none, and the second writes no file to carry it in.

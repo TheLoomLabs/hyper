@@ -21,7 +21,9 @@ as a `read`.
 world, so an Asset somebody deleted by hand is skipped and the Run reports `completed` with nothing
 standing (§6). Nothing reconciles the two, that engine being the one `hyper` declined to build
 (ADR-0010), and no surface reports the divergence because nothing looked. What a `completed` Run
-asserts is that the record was consulted, never that the world was.
+asserts is that the record was consulted, never that the world was. The test decides per Record
+(ADR-0056), so this is paid per member rather than per Step: one hand-deleted member of a list is
+skipped while the rest of the list is served correctly, and the Run says nothing about the one.
 
 **That a scheduled Run did not happen.** A workflow auto-disabled after 60 days of repository
 inactivity produces no run and no error anywhere `hyper` can read, and an oversized job summary is

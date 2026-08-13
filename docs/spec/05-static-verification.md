@@ -51,15 +51,17 @@ Target-class type-check get their names here: an Operation projecting a Record a
 identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
 
-Nine further checks are one fact wearing nine shapes — a Manifest whose own declarations disagree with
+Ten further checks are one fact wearing ten shapes — a Manifest whose own declarations disagree with
 each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an Operation
 whose `record:` carries no collection path, a `host-input:` naming a property the Operation's input
 schema does not define, a `headers:` entry taking the request position its Auth scheme owns, a Provider
 declaring only the `shell` Capability while carrying an `auth:` block, a
 Target declaration's credential slots not covering the scheme's slots for a binding a Definition makes
 (§3), a `read` or `mutate` Operation carrying no `record:`, a `destroy` Operation carrying one,
-`skip-if-recorded` declared on an Operation that is not a `mutate` (ADR-0037), and a `concurrency:`
-limit declared on an Operation that is not a `read` (ADR-0045). The last four are the
+`skip-if-recorded` declared on an Operation that is not a `mutate` (ADR-0037), a `concurrency:`
+limit declared on an Operation that is not a `read` (ADR-0045), and a `skip-if-recorded` Operation whose
+`identity:` resolves only from the response, which is a test that cannot run before the call it decides
+(§3, ADR-0056). The last five are the
 Kind disagreeing with what the Operation projects, with what its Repeatability would have to read, or
 with what its Expansion could ever do,
 and they earn no code of their own because they point a reader at one file, one Operation, and two
@@ -120,6 +122,19 @@ Such a Step must also name the population it destroys. An `opaque` `destroy` Ste
 selector is `opaque-destroy-unscoped`: it is invoked once (§3), has no Expansion to write a Tombstone
 under and declares no identity, so it would reach the world and leave nothing in the record at all
 (§5, ADR-0053).
+
+## A skip that can only skip
+
+A `skip-if-recorded` Step expanding over `assets:` is `skip-if-recorded-unreachable`. An effectful
+Expansion reaches only Assets whose head stands (§5), and the value's test skips exactly while a head
+stands, so every member skips on every Run and no call can ever go out — a Step refused for what it can
+never do rather than for what it might. It renders a `RECORDS` count off a Disposition that made no call
+(§8), which is the *truthful and still misleading* shape §5 declines on the Bound.
+
+The remedy is one of two edits and the code points at both: an `over:` `values:` list, which is the form
+that names a population `hyper` may not yet have built, or a Repeatability the Step's population can
+answer. The check needs no Store and no credential — the selector form and the Operation's declared
+Repeatability are both authored (ADR-0056).
 
 ## The Bound
 

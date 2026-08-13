@@ -54,10 +54,28 @@ Step calling it: the Provider author knows whether invoking it twice is intended
 author would be guessing. Nothing downstream may override it, which is what leaves a Manifest omitting
 it on an effectful Operation a thing only its own author can correct (§13).
 
-A Step skipped under `skip-if-recorded` is one whose Asset still stands, which is a fact the head
-version of its Record series carries (§12). A series whose head is a Tombstone stands for nothing,
-so create, destroy, and create again is three Runs that each do what they say rather than a third
-that reports `completed` having built nothing (ADR-0011).
+`skip-if-recorded` skips while the Asset a call would produce still stands, which is a fact the head
+version of that Record's series carries (§12). The test therefore decides at the granularity of the key
+it reads, which is per Record and not per Step: a Step's Expansion holds one such series per member, and
+whether the Asset a call would produce still stands is a question about that member (ADR-0056). A member
+whose head stands is skipped. A member whose head is a Tombstone runs, the series
+standing for nothing, so create, destroy, and create again is three Runs that each do what they say
+rather than a third that reports `completed` having built nothing (ADR-0011). A member naming no
+series at all runs, there being nothing for it to have been recorded as. A Step carrying no selector is
+that same test over the one series it would write.
+
+The decision is taken at each member's turn and not at Expansion, so every member the selector resolved
+to is in `expanded_to` (§7) whether its call went out or not. Nothing is dropped for standing: what the
+Store shortens is a `destroy`'s list, and only for what it knows is gone (§5). A `values:` list whose
+members are filling in one at a time therefore reads as what it is — three authored, three expanded to,
+one created this Run — rather than as a list the Store has been quietly shortening.
+
+A Step whose every member skipped is *skipped as already recorded*. A Step any call went out from is
+*ran*, which claims no count and never did: a `read` Step expanding over five hundred carries the same
+value. Which of the two a mixed Step carries decides nothing about a later Run — the test reads the
+Store's head version and never the Journal, so unlike run-once below it consumes no Disposition — and it
+is a fact for a reader rather than an input to anything. Either way the identity set (§7) holds every
+member, the skip test having concluded about each.
 
 Run-once refuses on evidence rather than on suspicion, and the evidence is what the Journal (§7)
 holds for that Step: where no Run records it as *ran* or as *attempted, outcome unknown*, it runs;

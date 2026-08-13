@@ -326,6 +326,12 @@ no call renders a count, and it may be larger than a neighbouring Step's that di
 evidentiary content of that Disposition rather than an artefact of it: the number says how much the skip
 covered, and a Step that skipped five hundred Assets did not do nothing.
 
+A Step that skipped some members and called for others renders `n`, not `n of m`. The skip test reached
+a conclusion about every member (§6, ADR-0056), so nothing is unaccounted for, and `n of m` says a Step
+stopped short of its Expansion. How much of that `n` was a call is the Comparison's to render: the
+members that ran are the rows in `YOU DID THIS`, and the members that skipped wrote no version and have
+none.
+
 ## The Refusal
 
 A Refusal is the most verbose surface in the tool (ADR-0026). No flag, no confirmation and no override

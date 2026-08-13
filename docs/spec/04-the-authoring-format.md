@@ -211,7 +211,7 @@ operations:
         type: {type: string, enum: [A, AAAA, CNAME]}
         content: {type: string}
     record:
-      identity: $.body.result.id
+      identity: "{name}"
       fields:
         id: $.body.result.id
         name: $.body.result.name
@@ -457,6 +457,22 @@ steps:
       type: A
       content: 203.0.113.10
 
+  - id: publish-aliases
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    over:
+      values:
+        - docs.preview-42.example.com
+        - api.preview-42.example.com
+        - cdn.preview-42.example.com
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: {item: $}
+      type: CNAME
+      content: preview-42.example.com
+    bound: 3
+
   - id: retire
     definition: preview-dns
     operation: delete_dns_record
@@ -472,6 +488,15 @@ steps:
       record_id: {item: $.id}
     bound: 5
 ```
+
+`publish-aliases` is the same `skip-if-recorded` Operation expanding, and it is where that value's test
+does more than it can on `publish`. The Operation's identity is the hole `{name}` and the Step fills that
+input from the member, so each member is one series and the test asks its question three times. On the
+first Run all three are created. On the second nothing is: three heads stand, every member skips, and
+the Step is *skipped as already recorded* (§6). Add a fourth member and that Run creates the fourth and
+skips the other three — the Step is *ran*, one call went out, and the identity set holds all four
+(§7, ADR-0056). A member the Cadence's earlier occurrence left Tombstoned is created again, since the
+test asks whether an Asset stands rather than whether the series exists (§12, ADR-0011).
 
 The same Step written against records another tool created reaches them by literal identifier instead.
 Each member is one Record name: the Step destroys three things `hyper` never built, and writes three
@@ -752,6 +777,20 @@ its Kind, which is what lets §12 state which Repeatability values each Kind may
 
 A Record's name is the value the identity field holds, so an Operation projecting a Record and declaring
 no identity produces one nothing can identify, and declaring none is `identity-undeclared` (§4).
+
+An Operation declaring `skip-if-recorded` carries one further requirement, and it is the only place
+`identity:` is not free to be an ordinary response path. That value's test reads the head of the series
+the call would write under, before deciding whether to make the call (§6, §12) — so the identity must
+**resolve before the call**. A **template hole** has that property, resolving to an Operation input like
+any hole outside a Capability-relevant position (§12), which is why `create_dns_record` above writes
+`identity: "{name}"` and takes the DNS name as its Record name rather than the opaque id Cloudflare
+answers with. The two forms are told apart where every scalar in this grammar is: a path opens with `$`
+and a hole with `{`. So does `$.command` on a `shell` Operation, which sits in the response object
+precisely because it is a fact about the call rather than about the answer — the built-in
+`mutate_skip_if_recorded` needs nothing further. A response path anywhere else names a value that exists
+only once the call has gone out, which is a Manifest declaring a test it cannot perform:
+`manifest-inconsistent` (§4), the code that already refuses a `pagination` Pattern outside an `over:`
+and a `record:` on a `destroy`.
 `fields:` is optional: a Record carrying only its identity and its metadata is a perfectly good Asset,
 and an empty mapping would be a thing written to mean nothing.
 

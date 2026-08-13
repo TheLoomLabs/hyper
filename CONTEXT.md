@@ -38,8 +38,10 @@ An Operation's declared behaviour when a Procedure is run again: `repeatable` (i
 run-once on an effectful Operation and `repeatable` on a `read`. Declared in the Manifest, never
 inferred, and never overridden downstream. Which values an Operation may declare follows its Kind,
 two of the three deciding by reading a projection: `skip-if-recorded` is `mutate`-only, and run-once
-cannot be written at all. A run-once Step is refused under a Cadence, its second occurrence having
-nobody present to read the Refusal.
+cannot be written at all. `skip-if-recorded` decides per Record rather than per Step, an Expansion
+holding one series per member, so a Step may skip the members whose Assets stand and call for the rest.
+A run-once Step is refused under a Cadence, its second occurrence having nobody present to read the
+Refusal.
 _Avoid_: Idempotency, Retry policy, Rerun mode
 
 **Opaque**:
