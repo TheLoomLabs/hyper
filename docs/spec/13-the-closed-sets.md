@@ -160,8 +160,10 @@ between them: `75` says retry me, and `77` says a verbatim retry will refuse ide
 - `http` — a request to a host the bound Target grants, reaching that Target's enumerated host set and
   never the network, `local` included (ADR-0024).
 - `shell` — a command run on the machine `hyper` runs on, and the Capability behind an `opaque`
-  Operation. It is the one reserved to built-ins, so an Extension declaring it is refused at load
-  (`capability-reserved`, §11).
+  Operation. Its request block carries one key, `command:`, a list of argv words `hyper` execs directly
+  with no interpreter between the artefact and the process (§3). It is the one reserved to built-ins,
+  so an Extension declaring it is refused at load (`capability-reserved`, §11) — and it is the one no
+  Probe may invoke, whatever any Target grants (§9).
 
 **Opacity is a property of the Capability rather than of the Operation.** `http` describes what it does
 — a method, a host, a path, a body, every one of them in the artefact — and `shell` cannot describe
@@ -220,6 +222,73 @@ A third declaration belongs to `read` alone, that being the one of the six that 
 same sentence as the two above — `hyper` knows nothing whatever about the command, and how many of them
 a machine will tolerate at once is exactly the sort of thing it would be guessing at (ADR-0045).
 
+The request is the same on all six, and it is the sentence again in its purest form: `command:` is a
+hole, and the argv arrives in a Step's `args:` (§3). The projection is the same on the four that carry
+one, `destroy` and `destroy_once` being forbidden a `record:` like every other `destroy` (ADR-0037) —
+so a shell Record's name is always the command that produced it. No `secret:` is declared anywhere in
+it, for the reason §3 gives and at the cost §13 states.
+
+```yaml
+kind: provider
+provider: shell
+schema-version: 1
+class: local
+capabilities: [shell]
+operations:
+  read:
+    kind: read
+    repeatability: repeatable
+    deadline: 1h
+    shell:
+      command: "{command}"
+    input:
+      type: object
+      required: [command]
+      properties:
+        command: {type: array, items: {type: string}}
+    record:
+      identity: $.command
+      fields:
+        exit_code: $.exit_code
+        stdout: $.stdout
+        stderr: $.stderr
+  mutate:
+    kind: mutate
+    repeatability: repeatable
+    deadline: 1h
+    shell:
+      command: "{command}"
+    input:
+      type: object
+      required: [command]
+      properties:
+        command: {type: array, items: {type: string}}
+    record:
+      identity: $.command
+      fields:
+        exit_code: $.exit_code
+        stdout: $.stdout
+        stderr: $.stderr
+  destroy:
+    kind: destroy
+    repeatability: repeatable
+    deadline: 1h
+    shell:
+      command: "{command}"
+    input:
+      type: object
+      required: [command]
+      properties:
+        command: {type: array, items: {type: string}}
+```
+
+`mutate_once` and `destroy_once` are the two above with `repeatability:` omitted, and
+`mutate_skip_if_recorded` is `mutate` with `skip-if-recorded` in its place; nothing else in any of the
+three differs, which is the point of there being six. The repetition is not factored out because a
+Manifest has no factoring construct and would need one invented for its own author's convenience
+(ADR-0022), and because `operation` writes these lines back unchanged (§9) — what a reviewer reads is
+what `manifest_digest` covers.
+
 ## Auth schemes
 
 **Closed.** Two members, both of them a request header:
@@ -262,20 +331,23 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Forty-three members, each the identifier of a check that declined, named where that check is
+**Closed.** Forty-five members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
 resisting and has none, and the ways it can resist are not a set anything could close over. Two
 failures are told apart by the exit code above rather than here.
 
-Twenty-five are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
+Twenty-seven are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `reference-unresolvable`, `capability-mismatch`, `manifest-inconsistent`,
 `target-inconsistent`, `auth-header-reserved`, `local-reserved`, `identity-undeclared`,
 `target-class-mismatch`, `definition-kinds-mixed`,
 `kind-not-granted`, `capability-not-granted`, `operation-not-claimed`, `envelope-exceeded`,
-`opaque-destroy-not-granted`, `bound-missing`, `bound-illegal`, `host-not-granted`. §6's two run-time checks carry `bound-exceeded`, an Expansion
+`opaque-destroy-not-granted`, `bound-missing`, `bound-illegal`, `host-not-granted`,
+`command-malformed`, a shell Step's `command:` that is empty or names its executable by reference
+(§3, ADR-0051), and `opaque-destroy-unscoped`, an `opaque` `destroy` Step carrying no `over:` selector
+and therefore reaching the world with nothing to write a Tombstone under (§5, ADR-0053). §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
 Journal already holds as *ran* or *attempted, outcome unknown*.
 
@@ -316,11 +388,16 @@ A Manifest's projection of a response is a different thing wearing the same word
 codes above, and it contributes no member: a path failing to resolve against a response is read after
 the call went out, so nothing declined and there is no check to name (§6, ADR-0017).
 
-## The response object
+## The response objects
 
-**Closed.** Five members. A Manifest's projection and a polling Pattern's `until:` read from this object
-and never from the bytes a server returned (ADR-0040, §3). It is the `http` Capability's; `shell`
-describes nothing and answers with nothing this shape would fit.
+**Closed**, and there is one per Capability. A Manifest's projection and a polling Pattern's `until:`
+read from the object belonging to the Capability the Operation's request is written under, and never
+from the bytes that came back (ADR-0040, §3). The two share no member: `http` describes what it did and
+`shell` describes nothing, so what each can be asked about afterwards differs the same way.
+
+### `http`
+
+**Five members.**
 
 - `host` — the host the request reached, which is the one host the candidate set and the grant
   intersected to (ADR-0029). It is a fact about the call rather than the answer, and it is here because
@@ -352,11 +429,40 @@ mint a version on every Run that projected it and fill the record with evidence 
 than that anything moved; a duration is computed inside one Journal entry, which is where this one
 already lives (§7). There are no raw bytes either, on the ground ADR-0017 settled for rendering.
 
+### `shell`
+
+**Four members.**
+
+- `command` — the argv as run, JSON-encoded on one line. It is `host`'s member argument one Capability
+  over: a fact about the call rather than about the answer, here because an Operation whose answer
+  carries no identity of its own has nowhere else to project one from. JSON rather than a joining rule
+  because it must be injective — `[echo, "a b"]` and `[echo, a, b]` are two commands, and a joining
+  rule makes them one series that `record-identity-collision` can never catch, the two names being
+  genuinely equal.
+- `exit_code` — the code the command exited with, an integer, **absent** where it could not be started.
+- `stdout` — what the command wrote to standard output, **text**, never parsed (ADR-0052). **Absent**
+  where the command could not be started.
+- `stderr` — the same, for standard error.
+
+Where the command **could not be started at all** the object is `command` and nothing else, on the rule
+the `http` object carries for a call that got no answer (ADR-0050). No member says why: that is the
+catch-all bucket ADR-0017 closed, arriving on the object every projection reads from.
+
+There is no parsed form of `stdout`, and its absence is the `opaque` trait arriving in the projection.
+`hyper` cannot describe what a command does, and parsing its output is a description of exactly that.
+Nothing enforces it beyond the grammar below, which reaches no further inside a scalar than inside a
+string anywhere else — so a shell projection reaches `$.exit_code`, `$.stdout` and `$.stderr` and
+nothing finer, and a shell response holds no collection, so every shell Operation is of `one`
+cardinality by construction.
+
+An exit code is an answer and never an `error_code`, on the sentence the `http` object carries above.
+Which codes halt follows Kind and is stated in §6, and no set here has an opinion about it.
+
 ## The path grammar
 
-**Closed.** Two roots: a Manifest's projection reads from the response object above, and a Step's
-reference reads from a Record. From either root, the grammar is `$`, `.member`, and `["member"]`, and
-nothing else.
+**Closed.** Two roots: a Manifest's projection reads from its Capability's response object above, and a
+Step's reference reads from a Record. From either root, the grammar is `$`, `.member`, and
+`["member"]`, and nothing else.
 
 An Operation of `series` cardinality carries one further root inside the first: the path naming the
 collection reads from the response, and the identity and field paths read from each member of that

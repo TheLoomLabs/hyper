@@ -185,6 +185,25 @@ nothing; an effectful Operation halts, no status being not `2xx`. Retry is unaff
 follows only a failure that provably preceded the request (ADR-0018), so no status is ever retried, and
 an exhausted retry leaves the object above for the projection to read.
 
+**An exit code is an answer too**, and the rule above is the same rule (ADR-0050). A `read` never halts
+on it: the code is recorded, so a check script whose exit status *is* the finding is describable
+without a second declaration saying what success means. An effectful Operation completes on **`0`** and
+halts on everything else.
+
+There is one asymmetry, and it is the `404`. A status code is a protocol's shared vocabulary and `404`
+means *not there* in every API that speaks it, which is why a `destroy` completes on one. An exit code
+is the command's own vocabulary and means whatever that command decided; nothing in any artefact says
+which value stands for *already absent*, and the Provider author who would declare it is `hyper`, which
+knows nothing whatever about the command. **A `destroy` completes on `0` alone**, and the trap the
+`404` exists to avoid is closed here by the `over:` selector instead: a `values:` member the Store
+already holds a Tombstone for is dropped from the Expansion before the command goes out (§5), so the
+Step does not re-reach what it already ended.
+
+Where the command **could not be started at all** — no such binary, not executable — the response
+object is `command` and nothing else (§3, §12), which is the no-answer case one Capability over. A
+`read` records the attempt with its `exit_code` gone quiet; an effectful Operation halts, no exit code
+being not `0`.
+
 Every call is judged, a Pattern's included. There is no final call a rule could privilege without
 inventing one, and a Pattern may not change what an Operation does (§3).
 
@@ -210,6 +229,14 @@ and the Step's Disposition is *attempted, outcome unknown*: no Tombstone, which 
 the safe direction, and no silence, which would be a lie in the other. Nothing retries its way out
 of that state, since a retry Pattern follows only a failure that provably preceded the request
 (ADR-0018).
+
+A `shell` Operation's child runs in **its own process group**, and a deadline reached kills that group
+with `SIGKILL` and no grace period. The group rather than the process, so a command's own children do
+not outlive the deadline that bounded it; `SIGKILL` rather than a `SIGTERM` and a wait, because the
+wait is a guessed constant on a Provider that knows nothing whatever about the command, which is the
+ground `concurrency:` is 1 on (ADR-0045). A killed effectful child is *attempted, outcome unknown* like
+any other deadline, which is the accurate thing to say about it. The one hour §12 fixes is `hyper`'s
+patience and not a blast radius, and §13 states what it costs.
 
 ## When a projection does not resolve
 
@@ -282,6 +309,14 @@ entry at all — the next effectful Run closes it `failed` with the in-flight St
 outcome unknown* (ADR-0003). There is no reaper, no daemon, and no heartbeat: an abandoned entry is
 noticed by the next Run that looks. Draining is a laptop property; an executor that kills after a
 short grace period lands in the open-entry path instead, which is what that path is for.
+
+The child's own process group is what makes draining true of a `shell` Step at all: in `hyper`'s group
+a terminal's interrupt reaches the child directly and it dies at once, so the Step in flight would not
+finish and the drain would be a sentence the implementation contradicts. Two costs follow and §13
+carries both. The bounded wait is bounded by the Operation's deadline, which on every shell Operation
+is **one hour**. And a second interrupt kills `hyper`, which — the child being in a group of its own —
+leaves that command running with nothing watching it: `hyper` never claims to have stopped a command it
+started.
 
 ## The lock
 

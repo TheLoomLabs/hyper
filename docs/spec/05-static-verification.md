@@ -27,8 +27,15 @@ input schema outside the closed subset is `schema-unsupported`; a malformed or
 misplaced credential slot is `credential-slot-malformed`; a hole resolving outside its position's legal
 source is `hole-illegal`, which covers a hole written inside an Auth scheme's parameters, the one
 position with no legal source at all (§3); a reference naming an earlier Step of `series` cardinality is
-`series-reference`; and a reference naming a field no Operation of that Provider projects is
-`reference-unresolvable` (§3).
+`series-reference`; a reference naming a field no Operation of that Provider projects is
+`reference-unresolvable` (§3); and a shell Step's `command:` that is empty, or whose first member is a
+reference rather than a literal, is `command-malformed` (§3, ADR-0051).
+
+`command-malformed` is one code over two faults because it is one check — *a shell Step names its
+executable literally* — and both faults are the same absence of one. It is stated here rather than
+under the hole positions above because what it constrains is a Step's argument rather than a Manifest's
+template, and it is a member of its own rather than a widening of `hole-illegal` for the same reason: a
+reader handed that code would go looking for a hole.
 
 `name-mismatch` is its own member rather than a widening of `kind-mismatch`. The two carry different
 disagreements over four artefacts, and one code standing for both would leave a reader of the rendering
@@ -109,13 +116,19 @@ opted in; a Definition claiming one against a Target that has not is `opaque-des
 is the artefact half of the check — whether the credential in hand also carries the opt-in is resolved
 at Run start and belongs to §5.
 
+Such a Step must also name the population it destroys. An `opaque` `destroy` Step carrying no `over:`
+selector is `opaque-destroy-unscoped`: it is invoked once (§3), has no Expansion to write a Tombstone
+under and declares no identity, so it would reach the world and leave nothing in the record at all
+(§5, ADR-0053).
+
 ## The Bound
 
 A `destroy` Step declares the maximum number of Records it may affect. An absent Bound on a `destroy`
 Step means unbounded, and unbounded is refused before anything runs: `bound-missing`. An `opaque`
 `destroy` Step is where that rule stops and the opposite one starts: it carries no Bound, and one
-written there is `bound-illegal`. There is no population for it to count and the only value it could
-carry is `1`, which would render as a promise the Step cannot make (§5). A `mutate`
+written there is `bound-illegal`. A count of the commands it ran says nothing about what any of them
+did, and the only value a single command could carry is `1`, which would render as a promise the Step
+cannot make (§5). It names a population all the same, under the check above. A `mutate`
 Step's Bound is optional; its absence is not a check's business — it is rendered, unbounded, in the
 blast-radius summary, which belongs to §8. A `read` Step carries no Bound at all, having nothing for
 one to guard.

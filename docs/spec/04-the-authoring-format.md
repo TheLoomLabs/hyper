@@ -587,6 +587,50 @@ operations:
         endpoint: {type: string}
 ```
 
+### The command
+
+A `shell:` block carries one key, `command:`, and no other. It is a list of argv words, and `hyper`
+execs it directly: nothing stands between the artefact and the process, so a pipe, a redirection, a
+glob and an `&&` are not writable and join the limits §13 states (ADR-0051).
+
+The words are the Step's rather than the Manifest's. `hyper`'s own `shell` Provider is the only one
+that may declare this Capability (§11, ADR-0039) and it knows nothing whatever about the command, so
+its `command:` is a hole and the argv arrives in a Step's `args:` — which is what §13 means by *what
+bounds a shell Step is the words a reviewer read in the Procedure*. The hole resolves to an Operation
+input like every other non-Capability-relevant position (§12): a grant enumerates hosts and a command
+reaches none, so there is no enumeration for one here to draw on.
+
+**The first member is the reach axis, and it is a literal.** A reference there would put the choice of
+binary in a value the world supplied, which is the arrival ADR-0029 closed for a host, reappearing on
+the one Capability no grant bounds. A Step whose `command:` names its executable by reference — or
+whose `command:` is empty, there being no executable to name — is `command-malformed` (§4), decidable
+from the Procedure alone with no Store and no credential. Every member after the first is
+referenceable, which is what makes an Expansion writable at all.
+
+```yaml
+  - id: disk-free
+    definition: host-checks
+    operation: read
+    target: local
+    over:
+      values: [web-01, web-02, db-01]
+    args:
+      command: [ssh, {item: $}, df, -h, /srv]
+```
+
+Three commands, three Observations, one series per host, the Record's name being the command that
+produced it — and `ssh` is read off the line rather than off a Record. The hosts here are argv words
+and are checked against no grant: a `values:` member is a host only where the Step wires it into an
+Operation's `host-input:`, and a `shell` Operation has none, which is §13's *the one Capability whose
+reach no grant bounds* in its most ordinary form. §5 states what the same shape requires on a
+`destroy`.
+
+`cwd:`, `stdin:` and `env:` are not keys, and each is fixed instead. The working directory is the
+repository root, so a laptop and a runner agree without a line saying so; stdin is empty; and the
+environment is the one §11 states, the invoking environment with every credential-slot variable in the
+repository removed. Each would otherwise be a further position a hole could fill on the Capability that
+has no grant, and an authored `env:` would route a secret through an argument list.
+
 ## The Patterns
 
 A Pattern is behaviour `hyper` performs around a call, which a Manifest parameterises and does not
@@ -641,9 +685,11 @@ patterns:
 ### What a response is
 
 A response is not the bytes a server sent back: it is an object `hyper` assembles from the call it made,
-and every path in a Manifest roots at that object rather than at the body (ADR-0040). Five members,
-closed and stated in §12 — `host`, `status`, `headers`, `body`, and `tls`. A body field is therefore
-`$.body.result.id`, and a projection reading nothing but `$.status` is a complete one.
+and every path in a Manifest roots at that object rather than at the body (ADR-0040). There is one such
+object per Capability, each closed and stated in §12, and which one a projection reads from is decided
+by the key the Operation's request is written under. The `http` object has five members — `host`,
+`status`, `headers`, `body`, and `tls`. A body field is therefore `$.body.result.id`, and a projection
+reading nothing but `$.status` is a complete one.
 
 `host` is the host the request reached — the one member of the object that is a fact about the call
 rather than about the answer. It is there because a Record's identity is projected from the response and
@@ -668,6 +714,27 @@ nothing: the Observation carries its identity and its `status` has gone quiet, a
 renders as a change like any other (§6, §8). An effectful Operation halts there instead, no status being
 not `2xx` (§6). There is no member saying *what* went wrong, on the ground ADR-0017 settled for
 rendering — it would be the catch-all bucket, arriving on the object every projection reads from.
+
+The `shell` object has four: `command`, `exit_code`, `stdout`, and `stderr`. **`stdout` and `stderr`
+are text and are never parsed** (ADR-0052). A command that answers in JSON is recorded as the string it
+printed, and `$.stdout.result.id` is not a path — which is the `opaque` trait arriving in the
+projection, `hyper` being unable to describe what a command does and parsing its output being a
+description of exactly that. Nothing new is needed to enforce it: the grammar §12 closes has three
+productions and none of them reaches inside a scalar, so a shell projection reaches `$.exit_code`,
+`$.stdout` and `$.stderr` and nothing finer. A shell response holds no collection either, so every
+shell Operation is of `one` cardinality by construction rather than by a rule.
+
+`command` is the argv as run, JSON-encoded on one line, and it is `host`'s member argument one Capability
+over: a fact about the call rather than about the answer, present because an Operation whose answer
+carries no identity of its own has nowhere else to project one from. The encoding is JSON rather than a
+joining rule because it is injective — `[echo, "a b"]` and `[echo, a, b]` are two commands and must be
+two identities, and a joining rule silently makes them one series that `record-identity-collision`
+could never catch, the two names being genuinely equal.
+
+Where the command **could not be started at all** — no such binary, not executable — the object is
+`command` and nothing else, on the rule the `http` object already carries for a call that got no answer
+(ADR-0050). `command` survives for the reason `host` does, so a `read` records the attempt and an
+effectful Operation halts (§6).
 
 ### `record:`
 
@@ -695,6 +762,14 @@ response and cannot disagree, and where the paths differ the Record's name and i
 genuinely two facts. A reference naming a field nothing projects is caught before the Run
 (`reference-unresolvable`, §4), which is what keeps the arrangement from being a trap.
 
+The built-in `shell` Provider writes one projection, shared by all four of its Operations that carry
+one, and §12 states it in full: `identity: $.command`, with `exit_code`, `stdout` and `stderr` as
+`fields:`. A Definition author cannot vary it, a Manifest's declared facts being the Provider author's
+and no artefact downstream overriding one (§13) — and here the Provider author is `hyper`. The Record's
+name is therefore the command, so two Steps running the same argv against one Definition and Target
+write two versions of one series, and `mutate_skip_if_recorded` means *skip while the Asset this exact
+command produced still stands*.
+
 ### Two roots, one marker
 
 A `series` Operation reads from two roots. `over:` reads from the response; `identity:` and every
@@ -712,6 +787,12 @@ The list is separate for two reasons. `fields:` values stay uniformly scalar, so
 position keeps meaning a reference and nothing else (ADR-0022). And a reviewer asking what a Provider
 handles that never reaches the Store reads one line rather than scanning a projection for marks — the
 argument §12 makes for keeping a closed set readable in one place.
+
+The built-in `shell` Provider declares none, and that is a decision rather than an omission. `secret:`
+is a Provider author's claim about output that author understands, and here the author is `hyper`,
+which knows nothing whatever about the command: declaring `stdout` secret on every command would be
+`hyper` asserting a fact it cannot have, and declaring it on none is the honest reading of the same
+ignorance. What it costs is stated in §13, where it qualifies ADR-0007 rather than sitting beside it.
 
 ## Auth
 

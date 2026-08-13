@@ -474,6 +474,22 @@ response object carries (§3, ADR-0050).
 "answered": {"host": "api.cloudflare.com", "status": 500}
 ```
 
+A `shell` Step carries the same key with its own Capability's members: the command it ran and the code
+it exited with, and the `exit_code` absent where the command could not be started at all (§3, §6). Its
+threshold is `0` rather than `2xx`, and it covers one case rather than two, there being no `404` for a
+command to answer with.
+
+```json
+"answered": {"command": "[\"rm\",\"-rf\",\"/srv/app/releases/r41\"]", "exit_code": 1}
+```
+
+`command` is written rather than left to the identity set beside it for two reasons. A `destroy`
+projects nothing and declares no identity (§3), so on the Kind where this key matters most there is no
+projected `command` anywhere in the entry. And it is what keeps the key from ever being written empty:
+a failed exec would otherwise leave `answered: {}`, which the encoding above suppresses outright, and
+the fact that something other than the ordinary answer decided this Step would vanish exactly where it
+is least ordinary.
+
 It is here rather than on any Record for the reason the Pattern account is (ADR-0018): what it holds is
 that a non-`2xx` answer changed what `hyper` did, which is `hyper`'s own conduct rather than the world's
 state. That is also why it is effectful-only. A `read`'s status is the answer, and the answer belongs in

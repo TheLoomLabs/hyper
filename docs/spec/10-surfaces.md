@@ -184,6 +184,22 @@ declaring no `local` grants no host, so a Probe there reaches nothing and declin
 absent declaration being a grant of nothing rather than a fault of its own — and the Refusal renders the
 artefact to author (§8).
 
+**A Probe may never invoke an `opaque` Operation**, whatever any Target grants. `shell`'s `read` is a
+`read` Kind and its `class:` is `local`, so `probe shell read` satisfies every other rule on this page
+— and what it would run is a command supplied at invocation, with no Definition, no Journal entry and
+no Record, which is to say with nothing reviewed anywhere and no evidence afterwards that it happened.
+The grant that holds the `http` case does not reach it: `hosts:` is present exactly where
+`capabilities:` grants `http` (§3), so there is no host to check, and checking the Capability grant
+instead would turn on whether a repository happened to grant `shell` on the Target it named `local` —
+which is what an author with shell Steps and one class-local declaration does by default. A guardrail
+whose failure mode is the obvious authoring is not one.
+
+It is a **usage error** rather than a Refusal, and it names no `error_code` (§12). A Refusal's
+remediation points at an artefact to edit (§5, §8), and there is no edit that would make this work: the
+surface declines the invocation, on the reading that puts `install` outside MCP. Nothing is lost that
+`hyper` was ever the right tool for — a human, and an agent, can each run the command directly, and
+`hyper` has no business offering a worse terminal than the one it is invoked from.
+
 ## Inspection
 
 Four commands over the record, taking typed, closed parameters and nothing else. There is no predicate

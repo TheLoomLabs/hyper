@@ -189,11 +189,49 @@ Definition that claimed it.
 Target granted and nothing else, checked before the Run and enforced at the call (§4, §12). A command
 reaches whatever the machine reaches: any host, any file, anything already in the environment. The
 Target it binds is class-local, and such a Target's host grant governs its `http` Operations and governs
-nothing about a command (§12, ADR-0024). What bounds a shell Step is the words a reviewer read in the Procedure,
-plus the two opt-ins an `opaque` `destroy` needs, and nothing else in the system — which is why the
+nothing about a command (§12, ADR-0024). What bounds a shell Step is the words a reviewer read in the Procedure —
+the executable among them, which may not arrive by reference (§3, ADR-0051) — plus, on an `opaque`
+`destroy`, the two opt-ins and the population the author wrote down (§5, ADR-0053), and nothing else in
+the system. Which is why the
 Capability is granted to no Extension, and why *a third party can never ship a Provider that runs
 commands on your machine* is the honest form of that guarantee rather than *nobody can*. The blast
 radius of such a Step is stated with the accurate word: unbounded, carrying no Bound at all (§5).
+
+**A command's structured output is recorded as a blob.** `stdout` and `stderr` are text and are never
+parsed (§12, ADR-0052), so a command answering in JSON is one string in one field and no path reaches
+inside it. §7 says a blob nobody reviews has no business on a branch whose whole point is that it can
+be read, and the `shell` Provider bends that rule by construction — one more reason it is the escape
+hatch rather than the road. The cost lands unevenly by Kind and the asymmetry is the part worth
+knowing: a shell `read`'s output is an Observation, and Compaction reclaims its interior versions; a
+shell `mutate`'s is an Asset, and Compaction never removes one, so that output is on the branch
+permanently. No cap stands between a chatty command and the Store, a byte limit being a number `hyper`
+would be guessing at on a Provider that knows nothing whatever about the command (ADR-0045).
+
+**A command that prints a credential puts it in the Store, and nothing notices.** ADR-0007's *`hyper`
+never stores a secret* holds because every credential `hyper` handles occupies a position `hyper` owns
+— a scheme's header, a declared slot, a `secret:` field — and it is suppressed by that position rather
+than by anything recognising a value. A command's stdout is not such a position. §11 keeps `hyper`'s
+own resolved credentials out of the child, so this is never a secret the repository named; it is one
+the command obtained elsewhere and printed. The built-in declares no `secret:` and could not usefully
+declare one, `hyper` being the Provider author and knowing nothing about the output (§3). This is the
+one place the headline claim is qualified rather than merely bounded.
+
+**No pipe, no redirection, no glob, no `&&`.** A `command:` is a list of argv words `hyper` execs
+directly, with no interpreter in between (§3, ADR-0051), so `aws … | jq …` is not writable and neither
+is `cmd > file`. What is written instead is a script in the repository, invoked as one word — which is
+the substitution this limit is really making: the shell logic moves from a line nobody reviews into a
+file that is reviewed like any other, at the cost of being a file at all.
+
+**An interrupt during a shell Step can wait an hour.** §6's first interrupt drains, and the drain is
+bounded by the Operation's deadline, which on every shell Operation is the one hour §12 fixes and
+nothing downstream may lower. Where §6 calls that *a bounded wait* it was written with a
+thirty-second HTTP deadline in view.
+
+**A second interrupt leaves the command running.** The child is in a process group of its own, which is
+what makes draining true of a shell Step at all (§6); a second interrupt kills `hyper`, which is then
+not there to kill the group. `hyper` never claims to have stopped a command it started, and the Journal
+entry it leaves open says only that the Run's outcome is unknown — which is accurate about the Run and
+says nothing about the process.
 
 **A command sees the environment `hyper` was invoked with.** What `hyper` removes from the child is
 exactly the variables a Target declaration names as a credential slot, which it knows positionally

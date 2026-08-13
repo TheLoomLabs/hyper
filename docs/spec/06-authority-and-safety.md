@@ -28,7 +28,9 @@ shown to touch only Assets and cannot be Bounded — it is unbounded blast radiu
 words, and it is refused unless two separate opt-ins agree. The Target's declaration must opt in —
 the artefact half, checked statically with no credential resolved (`opaque-destroy-not-granted`, §4).
 The credential resolved for that Target at Run start must carry the same opt-in, or the Step Refuses —
-the half no static check can perform, since no credential exists before then. The two opt-ins are
+the half no static check can perform, since no credential exists before then. A third requirement is
+stated with the Bound below, where the reason for it is: an `opaque` `destroy` Step must name the
+population it is destroying. The two opt-ins are
 independent by design: a laptop's credential for a Target can carry the opt-in while the credential
 Actions holds for the same Target does not, which makes "CI may not do this" a fact about what the CI
 credential holds rather than a belief about where the process runs — credentials resolve the same way
@@ -41,12 +43,36 @@ before anything runs rather than left unchecked (`bound-missing`, §4).
 
 An `opaque` `destroy` Step is the one Step that carries no Bound, and writing one there is refused
 (`bound-illegal`, §4). This is not the rule above softened. A Bound counts the Records an Expansion
-resolved to, and an opaque Step expands over nothing and names no population, so the only value it could
-carry is `1` — which would stand in the gutter and in `FLAGS` reading *at most one thing will be
-destroyed* while `rm -rf /` is magnitude one. Truthful and still misleading is the worse failure on the
-most severe Step the tool runs. What stands in the Bound's place is what the section above already
-requires and nothing else: two independent opt-ins, and a Definition that named the Operation. Unbounded
-is the accurate word for it, and §13 uses that word.
+resolved to, and a count of the calls an opaque Step made says nothing about what any of them did: the
+only Bound a single command could carry is `1`, which would stand in the gutter and in `FLAGS` reading
+*at most one thing will be destroyed* while `rm -rf /` is magnitude one. Truthful and still misleading
+is the worse failure on the most severe Step the tool runs. Unbounded is the accurate word for it, and
+§13 uses that word.
+
+**An `opaque` `destroy` Step must carry an `over:` selector** (`opaque-destroy-unscoped`, §4). Without
+one it is invoked once (§3), so it has no Expansion, no series to write a Tombstone under, and no
+declared identity — a `destroy` carries no `record:` at all (§3, ADR-0037). It would reach the world
+and write nothing whatever: no Record, no Tombstone, an empty identity set, and no row in `YOU DID
+THIS`, which is the one thing an effectful path may not do. The requirement is not a Bound arriving
+under another name (ADR-0053). It buys two different things: the population is authored literally, on
+lines the gutter annotates, so a reviewer reads what is being destroyed rather than inferring it from a
+command; and `expanded_to` records what the Step resolved to in Expansion order (§7), so *which three
+of the five* is legible after a halt with no Bound anywhere claiming to have guarded it.
+
+```yaml
+  - id: purge-releases
+    definition: host-ops
+    operation: destroy
+    target: local
+    over:
+      values: [/srv/app/releases/r41, /srv/app/releases/r42]
+    args:
+      command: [rm, -rf, {item: $}]
+```
+
+Two Tombstones, each opening the series it ends (§7, ADR-0033), each named by a path a human
+recognises. What stands in the Bound's place is therefore three things and not two: the two independent
+opt-ins above, a Definition that named the Operation, and a population the author wrote down.
 
 ## Expansion
 
@@ -58,6 +84,10 @@ would make one artefact reach further every month the Store grows. A series whos
 stands for nothing and is expanded over by neither, so what one Run destroyed the next does not reach
 again and does not count against its Bound (§7) — which is that same rule applied to the one version
 type that stands for nothing.
+
+An `opaque` Step expands like any other, all three `over:` forms reading on it under the same Kind
+rule. Nothing about opacity restricts which Records a selector may range over; what it restricts is
+what may be concluded from counting them, which is the Bound's business above.
 
 An Expansion is where a predicate meets a value, so it is where a value of the wrong type is found. It
 Refuses (`predicate-type-mismatch`, §12) rather than excluding the Record quietly, which it can do
