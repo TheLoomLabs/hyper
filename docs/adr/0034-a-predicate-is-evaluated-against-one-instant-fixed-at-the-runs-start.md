@@ -62,7 +62,10 @@ Step disagreeing with another about what day it is under a Cadence.
   `older_than: 14d` is glossed with the absolute instant it resolved to. This is ADR-0005's Cadence
   gloss one axis over, and it is derived arithmetic rather than a claim, so it leaves §8's
   one-editorial-surface rule where it stands. `check` renders no gloss, being offline with no Run and
-  therefore no instant.
+  therefore no instant. *Located by ADR-0063:* a **review** has no Run either, so this gloss never
+  reaches one; it renders as a `=` note beneath a Refusal's caret excerpt, beside the value in the
+  `EDIT ONE OF` row, and on `show --expansion` (§8). ADR-0063 generalises the clause above — a gloss is
+  a notation rather than a claim, and it renders where its supply is.
 - **§13's *written value that depends on when the Run happens* keeps its entry and narrows its
   reason.** It argued from *no artefact names the current instant*, which is no longer true: a
   predicate names one, relatively, in a filter. What survives is the distinction that matters — nothing

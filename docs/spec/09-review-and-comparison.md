@@ -17,8 +17,34 @@ or a word already says and never carries a fact of its own (ADR-0015).
 ## The Definition review
 
 The object under review is the artefact itself, annotated in place by a gutter, with a table for what is
-assembled from elsewhere and one editorial surface (ADR-0026). Three renderings sit inside one screen,
-and each has its own rule.
+assembled from elsewhere and one editorial surface (ADR-0026), under a header naming what is being read.
+Four renderings sit inside one screen, and each has its own rule. ADR-0026 fixes three disciplines —
+annotate in place, aggregate what is assembled from elsewhere, editorialise only by citation — and how
+many surfaces instantiate one is a separate question (ADR-0063).
+
+**The header states facts about the artefact as a whole**, each read from one supply, and it cites no
+line. That last clause is what separates it from `FLAGS` below: a fact pointing at a line is an index
+into the gutter and belongs to the surface built for one, and a header permitted to point would be the
+editorial voice ADR-0026 removed, arriving at the top of the screen instead of the bottom. It ranks
+nothing and introduces no claim of its own.
+
+Its members are the artefact's kind, its path, the range the review is read across, and — on a Procedure
+declaring a Cadence — the gloss §10 states and the last Journal entry beside it. The rule is what admits
+a further member and the list is what keeps the set checkable against a rendering; an intensional rule
+nobody can enumerate is a set that has stopped being closed (§12). A whole-artefact fact no supply on
+this screen already holds is not a header member for want of a home.
+
+**It is a block, one fact per line, inside the same rule.** The kind heads the marker column below, the
+path and the range share the first line, and the gloss takes the second. Composed onto the first line it
+would make the screen's width depend on how awkwardly an expression glosses, and the grammar §10 states
+admits expressions that gloss at very different lengths. Below the rule it would sit directly above
+`kind: procedure` and read as an annotation of that line, which is the one thing the header may not be.
+
+**A Cadence is a header fact and not a gutter mark**, though it is a blast-radius multiplier like the
+Bounds the gutter carries (ADR-0005). The gutter annotates a line's claim about itself and a Cadence
+governs every Step in the artefact; and the gloss reaches a supply the gutter does not have, the last
+Journal entry being no part of the artefact across the range (ADR-0057). Its line is source like every
+other and renders in place, and the change column marks it when the range touched it.
 
 The **gutter** marks, beside the lines that make the claim, each Step's Kind, the Target it binds, its
 Bound, its opacity, and its envelope check. A `mutate` Step with no declared Bound is marked `mutate!`:
@@ -81,17 +107,32 @@ human is about to approve. A dry-run entry is disqualified as that baseline exac
 Comparison below (§7) — otherwise rehearsing a widened `destroy` Bound retires the `WIDENED` flag that
 was the warning, which is what the disqualification exists to prevent.
 
+**That entry is the one the gloss reads.** §10's *last ran* is the most recent Run of that Procedure
+with dry-run entries filtered out, which is the baseline above under the same filter, so the header
+renders one Journal entry twice — as a revision on the range, and as an age beside the gloss. One
+lookup, two notations.
+
 Two absences are named rather than rendered as one: *no baseline — `<Procedure>` has not run*, and
 *no baseline — no Store*. Neither refuses. A review resolves nothing and reaches nothing, and the
 surface a human reads an agent's first artefact on has to work in a fresh clone; but an artefact that
 has never run and a repository that cannot answer are different facts, and a header that rendered them
 identically would omit one (ADR-0026).
 
+**One absence serves both readings of that entry.** Where it is missing it is missing for the range and
+for *last ran* alike, so the header states it once, on the range's line, and the gloss line carries only
+what the artefact's own bytes supply — which needs no Store and renders offline as it always has (§9).
+Rendering *no baseline — `retire-preview-envs` has not run* above and *last ran: never* below is one
+fact twice: the argument for naming two absences is that those two are different facts, and these are
+one fact in two notations.
+
 **`AUTHORITY`** is the one table, because it is assembled from a Definition and a Target declaration
 together and no gutter on this file could hold it: the claimed Kinds against the accepted Kinds, their
 intersection, and the `destroy` Operations the Definition names (§5). Granularity following severity
 (§12), the claimed-Kinds column carries `destroy` where the Definition names any: it is derived at
-that one position rather than read.
+that one position rather than read. It is the one *table*, and not the one surface reading past this
+file: the header above reads the Journal for its range and its gloss. What makes a fact a table is
+being assembled from more than one artefact, and a table is heavier than a header line for a reason —
+`AUTHORITY` has two artefacts' columns to align and the header has one artefact's value to state.
 
 **`FLAGS`** is the one editorial surface, and it is an index rather than a voice: it ranks nothing,
 claims nothing, and points. Every row cites a line the gutter already marked and introduces no claim of
@@ -111,6 +152,15 @@ scoped to, not a second file assembled beside it. A surface permitted to say *wi
 baseline already; withholding it the numbers would keep the claim and drop the evidence for it, which
 is the wrong half of ADR-0026 to enforce.
 
+**A flag glosses what it renders** (ADR-0063). A `changed` row on the `cadence:` line carries the full
+before-and-after text §12 states, and both expressions render through the gloss §10 states, exactly as
+the header renders the working tree's. A gloss is the value in a second notation rather than a claim
+about it, so it introduces nothing `FLAGS` may not introduce; and the alternative fails ADR-0005 on its
+own example — a reviewer looking at `0 0 1 * *` → `*/5 * * * *` would read the rate that matters for one
+side of the edit and cron for the other, on the screen the mandatory gloss was written for. What renders
+here is the gloss and not the Journal fact beside it in the header: the entry is one, and a row about
+two revisions has no side to hang it on.
+
 Rows render in **line order**, with a file-level row last (ADR-0054). A review whose artefact draws no
 flag renders the block with an explicit empty state rather than omitting it — an absent block would be
 ambiguous between *nothing to flag* and *the renderer had nothing to say*, which is the ambiguity the
@@ -128,10 +178,12 @@ A review resolves no credential, reaches no network, and invokes nothing.
 $ hyper review procedures/retire-preview-envs.yaml
 
   PROCEDURE         │  procedures/retire-preview-envs.yaml     a91f0c2 → working tree
+                    │  03:00 UTC every Monday · ≈4.3 runs/month · last ran 41 days ago
   ──────────────────┼──────────────────────────────────────────────────────────────
                     │   kind: procedure
                     │   procedure: retire-preview-envs
   envelope ✓        │   targets: [local, staging]
+                    │   cadence: "0 3 * * 1"
                     │   steps:
   read     local    │     - id: probe
                     │       definition: uptime
@@ -169,9 +221,9 @@ $ hyper review procedures/retire-preview-envs.yaml
   hetzner-staging  staging  mutate destroy       read mutate destroy  m d        delete_server
 
   FLAGS   index into the gutter above — no flag states anything the gutter does not
-  UNBOUNDED  line 14  step label    mutate with no declared bound
-  DESTROY    line 23  step retire   delete_server, bound 5
-  WIDENED    line 33  step retire   bound 3 → 5 since a91f0c2
+  UNBOUNDED  line 15  step label    mutate with no declared bound
+  DESTROY    line 24  step retire   delete_server, bound 5
+  WIDENED    line 34  step retire   bound 3 → 5 since a91f0c2
   ENVELOPE   line 3   ok            no step reaches a target outside [local, staging]
 ```
 
@@ -399,6 +451,14 @@ any binary whose version differs from the repository's in either direction (§11
 *is* the pin moving. `repo_revision` alone belongs to no artefact and renders `—`, which is therefore
 the one cell in the table that has it.
 
+**The `cadence` row's two expressions are glossed**, each under the cron it glosses in its own cell, on
+§10's rule that no surface renders a Cadence as the expression alone (ADR-0005, ADR-0063). Cron is
+write-only for humans and agents alike wherever it is read, and this row is the one place the whole
+tool renders a Cadence *moving* — ADR-0005's own `0 0 1 * *` → `*/5 * * * *`, whose 8,600× is legible
+in the two rates and in nothing else on the page. What renders is the phrase and the rate; there is no
+Journal fact beside them here, the header above already naming both Runs and this row being about two
+revisions rather than about what stands now.
+
 Rows render sorted by `(SUBJECT, FACT)` on Unicode code point, with the `—` subject after every named
 one and the catch-all last of all. `—` means *this fact belongs to no artefact you can open*, so it
 sorts away from the rows that do, and §12 already fixes the catch-all as terminating the table.
@@ -548,6 +608,18 @@ and the narrowed selector is speculatively re-expanded so its count is on the pa
 not have to perform, worth it because the alternative is a reviewer widening a destroy Bound for want of
 the other number.
 
+**A relative predicate is glossed with the instant it resolved to** (ADR-0034), on this surface and on
+the two others where a Run renders a selector — `show` and `show --expansion` (§9). It renders as a `=`
+note beneath the caret, first among them, because it reads the excerpt above it where the others read
+the check; and beside the value in the `EDIT ONE OF` row, whose trailing column already carries what
+`hyper` derived about that remediation. The proposal is glossed as the current value is: it resolves
+against the same instant, which is this Run's start and not the reader's clock (ADR-0034).
+
+This is the only gloss a Run's surfaces render, and none of it reaches a review or a `check`: both are
+offline, neither has a Run, and an instant is what a Run supplies (ADR-0063). The gloss §10 states runs
+the other way — it is on every surface that renders a Cadence, a review included, and needs no Run at
+all.
+
 The sentence beneath the table names no count. What it carries is that the Steps before the refused one
 ran and that nothing rewinds them (§6), which is a different fact from how many Records they touched and
 the one a reader of this surface needs; the counts are in the column directly above it.
@@ -566,19 +638,20 @@ $ hyper run retire-preview-envs
 
   refused: bound exceeded — nothing was deleted
 
-    procedures/retire-preview-envs.yaml:33
-     31 │           - field: created_at
-     32 │             older_than: 14d
-     33 │       bound: 5
+    procedures/retire-preview-envs.yaml:34
+     32 │           - field: created_at
+     33 │             older_than: 14d
+     34 │       bound: 5
         │              ^ expansion resolved 23 assets on staging
         │
+        = older_than: 14d resolved to 2026-07-23T11:03:18Z
         = checked at expansion, before the first call
         = no flag overrides this (ADR-0001) — the way past is an artefact edit
 
   EDIT ONE OF
   FILE                                 LINE  FIELD           FROM  TO
-  procedures/retire-preview-envs.yaml  33    steps[2].bound  5     ≥ 23
-  procedures/retire-preview-envs.yaml  32    steps[2].over   14d   30d   expands to 4
+  procedures/retire-preview-envs.yaml  34    steps[2].bound  5     ≥ 23
+  procedures/retire-preview-envs.yaml  33    steps[2].over   14d   30d   expands to 4 · 30d is 2026-07-07T11:03:18Z
 
   steps 1-2 ran and what they did stands. step 3 wrote nothing.
 
@@ -714,8 +787,8 @@ true id from the operator in front of the one that is there.
 
 `--json` switches every surface above to NDJSON: one JSON object per line, each carrying a `type`
 discriminator. Both forms come out of one renderer (ADR-0026), and the mapping is total — every row of
-every table above is one object, a Comparison's header is one object, and nothing rendered is left out.
-A long Run streams.
+every table above is one object, each of the two headers above is one object, and nothing rendered is
+left out. A long Run streams.
 
 The last row is always the terminal row, and its absence means the stream was cut off. There are two,
 and the type is itself the discriminator: a Run emits `outcome`, carrying the outcome, the exit code
@@ -737,6 +810,26 @@ Consumers filter rows rather than queries. There is no expression language over 
 behind it (ADR-0013): `hyper changes --json | jq 'select(.type=="asset")'` is the shape of every
 arbitrary predicate.
 
+**The review's header is one `artefact` row**, on the `window` row's precedent below rather than the
+`gutter` row's: a header cites no line, so one row per rendered line would invent an anchor the surface
+does not have. It is named for what it carries — what is under review — because every other type in the
+stream names its content and none names a position on a page. It carries the kind, the path, the
+baseline revision, and on a Procedure declaring a Cadence the expression, the phrase, the rate as a
+number, and the last entry the header rendered an age from.
+
+**It carries the gloss's parts and never the composed string.** The `gutter` row goes the other way and
+says why — a decomposition is a second rendering of the same fact, and the second one can be wrong about
+the first — but a marker is one derived fact rendered in one cell, where the gloss is several facts with
+several supplies sharing a line, which is the `window` row's shape and not the marker's. Carrying both
+the parts and the string would be the failure `gutter` names. §12 states the `flag` rows are what a
+reviewing agent reads to decide whether to escalate; a rate it must re-parse out of a phrase is that
+agent doing the renderer's arithmetic backwards.
+
+**The baseline's absence is named on the wire as it is on the page.** `baseline` is written where there
+is one; where there is not, `baseline_absent` carries which of the two §12 names it is, since a key
+merely missing would collapse the distinction the header renders two sentences for. `last_run` is absent
+on both, one entry supplying both readings.
+
 A review does not decompose into rows the way the three change tables do, so `review --json` emits the
 annotations and never the source — the consumer already has the file. Each `flag` row carries the line
 it cites, which makes a flag citing a line no `gutter` row marked a detectable violation rather than a
@@ -757,16 +850,17 @@ line.
 
 ```
 $ hyper review procedures/retire-preview-envs.yaml --json
+{"type":"artefact","kind":"procedure","path":"procedures/retire-preview-envs.yaml","baseline":"a91f0c2","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3,"last_run":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","ended":"2026-07-01T03:01:44Z"}}
 {"type":"gutter","line":3,"marker":"envelope ok"}
-{"type":"gutter","line":5,"marker":"read local"}
-{"type":"gutter","line":14,"marker":"mutate! staging"}
-{"type":"gutter","line":23,"marker":"DESTROY staging"}
-{"type":"gutter","line":33,"changed":true}
+{"type":"gutter","line":6,"marker":"read local"}
+{"type":"gutter","line":15,"marker":"mutate! staging"}
+{"type":"gutter","line":24,"marker":"DESTROY staging"}
+{"type":"gutter","line":34,"changed":true}
 {"type":"authority","definition":"uptime","target":"local","definition_kinds":["read"],"target_kinds":["read"],"effective":["read"],"destroy_operations":[]}
 {"type":"authority","definition":"hetzner-staging","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["delete_server"]}
-{"type":"flag","flag":"unbounded","cites_line":14,"step":"label"}
-{"type":"flag","flag":"destroy","cites_line":23,"step":"retire"}
-{"type":"flag","flag":"widened","cites_line":33,"step":"retire"}
+{"type":"flag","flag":"unbounded","cites_line":15,"step":"label"}
+{"type":"flag","flag":"destroy","cites_line":24,"step":"retire"}
+{"type":"flag","flag":"widened","cites_line":34,"step":"retire"}
 {"type":"flag","flag":"envelope","cites_line":3}
 {"type":"result","truncated":false}
 ```
@@ -797,14 +891,18 @@ renders `—` in; the catch-all's `command` is likewise absent where either side
 and the `window` object carries `repo_dirty: true` on the side that recorded it rather than the `+` the
 header draws, one fact in the two notations exactly as `changed` and `~` are above.
 
+A `code` row whose fact is `cadence` carries `from_phrase` and `to_phrase` beside its two expressions,
+and `from_rate` and `to_rate` as numbers — the parts and never the composed cell, which is the
+`artefact` row's rule above and the rule a `flag` row's glossed before-and-after follows too.
+
 ```
 $ hyper run retire-preview-envs --json
 {"type":"step","index":1,"id":"probe","kind":"read","disposition":"ran","records":12}
 {"type":"step","index":2,"id":"label","kind":"mutate","disposition":"ran","records":8}
 {"type":"step","index":3,"id":"retire","kind":"destroy","disposition":"refused"}
-{"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"file":"procedures/retire-preview-envs.yaml","line":33,"field":"steps[2].bound","message":"expansion resolved 23 assets on staging"}
-{"type":"remediation","file":"procedures/retire-preview-envs.yaml","line":33,"field":"steps[2].bound","from":5,"to":23}
-{"type":"remediation","file":"procedures/retire-preview-envs.yaml","line":32,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
+{"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"file":"procedures/retire-preview-envs.yaml","line":34,"field":"steps[2].bound","message":"expansion resolved 23 assets on staging","resolved":{"14d":"2026-07-23T11:03:18Z"}}
+{"type":"remediation","file":"procedures/retire-preview-envs.yaml","line":34,"field":"steps[2].bound","from":5,"to":23}
+{"type":"remediation","file":"procedures/retire-preview-envs.yaml","line":33,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4,"resolved":{"30d":"2026-07-07T11:03:18Z"}}
 {"type":"provenance","procedure_revision":"b0c94f1","repo_revision":"88bc402","hyper_version":"1.4.0"}
 {"type":"provenance","step":1,"definition_revision":"c3a17b0","manifest_digest":"sha256:2b7e…"}
 {"type":"provenance","step":2,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
@@ -820,6 +918,12 @@ because a file is not a stream — the same reason `expanded_to` is a list in th
 column above. A row carries the same members its Store counterpart does, plus the `operation` and
 `target` the Step it cites was bound to; a Refusal that reached no Step carries neither, and carries no
 `step` row before it, there being no Step table on that page.
+
+A `refusal` and a `remediation` row each carry `resolved` where the text they render holds a relative
+predicate, mapping the operand to the instant it resolved to — the `=` note and the trailing cell in the
+two notations, and absent where the page rendered no such operand. It is derived from `run.json`'s
+`started_at` and stored nowhere (ADR-0034), which is why it rides on the rows that render it rather than
+on the `provenance` row beside them.
 
 ```
 $ hyper run retire-preview-envs --json

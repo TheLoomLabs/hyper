@@ -55,6 +55,12 @@ approved.
   occupies a run of lines a marker can sit beside; a single-expression or non-line-oriented format
   would have collapsed the gutter back into the derived table this decision rejected. The authoring
   format later satisfied it by being a strict, line-oriented YAML subset with no expression language.
+- **Three disciplines, not three surfaces.** *Added by ADR-0063.* What this decision fixes is what a
+  surface may do with its supply — annotate in place, aggregate what is assembled from elsewhere,
+  editorialise only by citation — and not how many surfaces instantiate one. The review's **header** is
+  a fourth surface under the second discipline, and it was already rendering, unnamed, when this ADR was
+  written. A **gloss** is a value in a second notation and introduces nothing, so it is admissible on
+  every surface that renders the value, `FLAGS` included.
 - **The terminal and JSON forms share one renderer.** JSON is one row per rendered row with a `type`
   discriminator, so the two surfaces cannot state different things about the same Run; the cost is
   that an NDJSON consumer only knows the outcome at the last line.

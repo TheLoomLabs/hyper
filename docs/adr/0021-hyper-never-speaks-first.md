@@ -72,9 +72,12 @@ and would be the only part of the system whose delivery `hyper` could not record
   last Journal entry is rendered beside it — `03:00 UTC every Monday · ≈4.3 runs/month · last ran 41
   days ago` — and the human does the subtraction. `hyper` never says *overdue*: any threshold would be
   the tool introducing a claim of its own on a surface built to make that impossible, and a missed
-  window is documented executor behaviour rather than a fault. Where no Store is reachable the gloss
-  degrades to `last ran: unknown (no Store)`; `review` reads the Journal when it is there and does not
-  require it, which keeps the offline authoring loop intact.
+  window is documented executor behaviour rather than a fault. *Amended by ADR-0063:* the entry is a
+  fact placed beside the gloss rather than a member of it, which is why it renders on the review header
+  and on none of the other three surfaces that gloss a Cadence; and where no Store is reachable it does
+  not degrade separately — the range and *last ran* read one entry, so the header names that absence
+  once and `last ran: unknown (no Store)` retires. `review` reads the Journal when it is there and does
+  not require it, which keeps the offline authoring loop intact.
 - **Two executor failures `hyper` can neither see nor prevent.** A scheduled workflow auto-disabled
   after 60 days of repository inactivity produces no run, no error in the Actions tab and no banner —
   only GitHub's own warning email, addressed to whoever last enabled it. And an oversized job summary

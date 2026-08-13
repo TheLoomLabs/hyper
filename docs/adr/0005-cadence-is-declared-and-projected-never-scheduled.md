@@ -35,6 +35,9 @@ the artefact the review surface. A cron line in `.github/workflows` escaped both
 - **The gloss is mandatory, not a nicety.** Cron is write-only for humans and agents alike, so the
   review surface renders `0 3 * * 1` as `03:00 UTC every Monday` *and* its derived frequency
   (`≈4.3 runs/month`). The frequency is the number that matters beside a Procedure that destroys.
+  *Extended by ADR-0063:* it renders in the review's **header** with the last Journal entry beside it,
+  and the rule is total — every surface rendering a Cadence glosses it, the `changed` flag on a
+  `cadence:` line included, which is where the 8,600× above is actually read.
 - **A missed window is never made up.** Cadence is a lower bound on staleness, not a promise of
   coverage. An Observation is a fact read at a point in time and a past window is unreadable; for
   effectful Steps, catch-up would mean the clock deciding to repeat an effect, which Repeatability

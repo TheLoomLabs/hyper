@@ -153,7 +153,8 @@ reason.
 
 `review <artefact>` renders §8's Definition review of the artefact named. It resolves no credential,
 reaches no network, and invokes nothing, so it runs offline against a repository whose Store is
-unreachable, with the Cadence gloss §10 states degrading rather than the command failing. A `FLAGS` row
+unreachable — the header naming that absence once, for the range and for the Cadence gloss's last entry
+alike, rather than the command failing (§8, §10). A `FLAGS` row
 is a fact about the artefact rather than a problem with it, so a review that rendered exits 0 however
 many flags it carried; only an artefact that would not load exits 1, and what it writes then is
 `check`'s row. *Would not load* means found and faulty: an artefact that is not there at all has no row
@@ -822,11 +823,16 @@ records(target?, definition?, name?, history?, limit?)
 
 ```jsonc
 project()
-// → rows: [{ type: "workflow", path, procedure, cadence }]   // one per Procedure, all of them
+// → rows: [{ type: "workflow", path, procedure,
+//            cadence, phrase, rate }]        // the gloss's parts, §10 — one per Procedure, all of them
 ```
 
 `project` is not a Run and carries no `outcome` key, and it takes no arguments at all: it is repo-wide
 and all-or-nothing above, and there is nothing here for a per-Procedure argument to name.
+
+Its row glosses the expression like every other surface that renders one (§10), carrying the parts
+rather than the composed phrase-and-rate line (§8). It carries no last Journal entry: `project` writes a
+file and reports what it wrote, and what stands in the Store is no part of that.
 
 ## Long Runs
 

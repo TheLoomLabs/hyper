@@ -850,6 +850,20 @@ attention and is not blast radius — it changes nothing about what a Run may re
 the slide from *an index of what the gutter marked* to *a list of things worth thinking about*, which is
 the slope ADR-0026 sits at the top of.
 
+## The review header's absent baseline
+
+**Closed to `hyper`.** Two names, carried by an `artefact` row's `baseline_absent` where a review has no
+range: `not-run`, the Procedure has no non-rehearsal Run in the Journal; and `no-store`, the Store is
+unreachable. They are the two absences §8 renders as two sentences on the argument that an artefact
+that has never run and a repository that cannot answer are different facts — a key merely missing would
+put them back under one reading on the wire, which is the two surfaces stating different things.
+
+Reuse was considered and rejected. `store-absent` is an `error_code` and a review does not decline, so
+naming this with one would point a reader at a Refusal that did not happen. What earns the pair a place
+here rather than in §8 is that these are names travelling as values, which is what this chapter holds;
+the header's own membership is a list of keys and is stated beside the rendering in §8, where the
+gutter's marks already are.
+
 ## The input-schema subset
 
 **Closed.** Six keywords are the whole of the JSON Schema an Operation's input schema is written in:

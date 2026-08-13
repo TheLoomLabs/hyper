@@ -85,18 +85,40 @@ The **rate** derives by counting the expression's matches over a calendar year a
 It is the number that matters beside a Procedure that destroys, which is why it is rendered rather than
 left to be inferred from the phrase.
 
-The **last Journal entry** is the most recent Run of that Procedure, dry-run entries filtered out like
-every other reading of Journal evidence (§7). What an overdue reading is made of is that entry, its
-Trigger (§7), and its age against the declared Cadence — facts placed beside each other, with the human
-doing the subtraction.
+Beside them renders the **last Journal entry** — the most recent Run of that Procedure, dry-run entries
+filtered out like every other reading of Journal evidence (§7). It is a fact placed next to the gloss
+rather than a third member of it (ADR-0021), which is why the two part company on the surfaces below.
+What an overdue reading is made of is that entry, its Trigger (§7), and its age against the declared
+Cadence — facts placed beside each other, with the human doing the subtraction.
 
 `hyper` never says *overdue*, and nothing refuses on it. Any threshold would be a claim of the tool's
 own on a surface built to admit none (ADR-0021, ADR-0026), and being overdue is a fact about the
 executor rather than about the artefact or the world.
 
-Where no Store is reachable the last entry degrades to `last ran: unknown (no Store)` and the surface
-renders anyway: `review` reads the Journal where there is one and never requires one, which is what
-keeps the offline authoring loop intact (§9).
+### Where it renders
+
+**Wherever a Cadence renders, the gloss renders with it, and there is no surface exempt.** Cron is
+write-only wherever it is read, so the rule is total rather than a property of the review screen
+(ADR-0063). Four surfaces render one today:
+
+- **A review's header**, on the line beneath the path and the range, with the last Journal entry beside
+  it (§8). The gloss is a fact about the artefact as a whole, which is the header's own subject, and it
+  is not a gutter mark: a Cadence governs every Step rather than making a claim about its own line.
+- **A review's `FLAGS` row**, where the Cadence moved inside the range — both expressions glossed,
+  which is the only way ADR-0005's blast-radius argument survives on the screen it was written for. A
+  gloss is a notation and not a claim, so ADR-0026's one-editorial-surface rule is untouched (§8).
+- **`THE CODE MOVED`'s `cadence` row**, both expressions again, in a Comparison (§8).
+- **`project`'s rows**, one per Procedure, where the agent that just wrote the workflow reads back what
+  it projected (§9).
+
+The last Journal entry renders on the first of those and on none of the others. It is a fact about what
+stands now, and the three below are about a value moving between two revisions or about a file just
+written — a surface with no artefact-under-review has no side to hang it on.
+
+**A review's absent entry is one absence, not two.** The range and *last ran* read the same entry under
+the same filter, so §8 names it once, on the range's line, and the gloss line carries the phrase and the
+rate — which need no Store and render offline as they always have. `review` reads the Journal where
+there is one and never requires one, which is what keeps the offline authoring loop intact (§9).
 
 ### Two facts the gloss carries
 
