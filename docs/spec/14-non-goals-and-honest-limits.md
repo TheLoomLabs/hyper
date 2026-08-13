@@ -37,7 +37,7 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Sixteen victims stand at it, each a thing an author can want, describe precisely, and not write:
+Seventeen victims stand at it, each a thing an author can want, describe precisely, and not write:
 
 - **OIDC federation.** `hyper` reads credentials and never acquires them (ADR-0007), so a federated
   cloud reached from CI needs a long-lived credential in the executor's secrets — worse than the
@@ -105,6 +105,13 @@ Sixteen victims stand at it, each a thing an author can want, describe precisely
   `Link` header or a `next` field is reach arriving from data, which no rule in the model permits
   (ADR-0024, ADR-0029). An API offering only that form is unwritable, and unlike the rest of this list
   it is unwritable on purpose rather than for want of a primitive.
+- **An effectful Operation whose API answers anything but `2xx`.** A `mutate` or `destroy` completes on
+  `2xx` and halts on everything else, a `destroy` on `404` besides, and no artefact declares otherwise
+  (§6, ADR-0050). So a create answering `303 See Other` is unwritable, and so is one against an API that
+  answers a transient `5xx` mid-poll, every call being judged and retry reaching only failures that
+  provably preceded the request (ADR-0018). It is the one entry here that costs nothing on the other
+  Kind: a `read` never halts on a status at all, which is what makes the same rule the reason `uptime`
+  is writable rather than a further thing it cannot say.
 
 The process by which those sets grow — who adds a member, and when — is undecided, and §12 records it
 as undecided rather than answering it.

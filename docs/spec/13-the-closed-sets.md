@@ -326,15 +326,26 @@ describes nothing and answers with nothing this shape would fit.
   intersected to (ADR-0029). It is a fact about the call rather than the answer, and it is here because
   an Operation whose answer carries no identity of its own has nowhere else to project a Record identity
   from.
-- `status` — the HTTP status, an integer.
+- `status` — the HTTP status, an integer, **absent** where no response arrived.
 - `headers` — a mapping of header name to value, names lowercased: a header name is case-insensitive on
-  the wire and a path is exact, so the lowering is what makes one path mean one thing.
+  the wire and a path is exact, so the lowering is what makes one path mean one thing. **Absent** where
+  no response arrived.
 - `body` — the parsed JSON body, **absent** where the response carried none or carried something else,
   and its absence is not an error. A site that is down answers with no body at all, and an uptime check
   is pointed at hosts that answer in HTML.
 - `tls` — present where the scheme was HTTPS, carrying `not_after`, `days_left`, `subject`, and
   `issuer`. `days_left` is a member because no artefact could compute one: there is no arithmetic in the
   format (ADR-0022), and what it counts from is the instant the Run fixed (ADR-0034).
+
+Where **no response arrived at all** the object is `host` and nothing else (ADR-0050). `host` is the
+member that survives because it is a fact about the call rather than about the answer, which is what
+lets a `read` record a host that answered nothing rather than halting on it (§6). No member says what
+went wrong: that is the catch-all bucket ADR-0017 closed, and what stands in its place is the same
+absence a projection already reads.
+
+A status is an answer and never an `error_code`. Which statuses halt follows Kind and is stated in §6,
+and no set here has an opinion about it: nothing is declared, so there is nothing to enumerate, and a
+range `hyper`'s own code applies is not a closed set an artefact draws members from.
 
 There is no duration or latency member. A Record versions only on change (§7), so a timing field would
 mint a version on every Run that projected it and fill the record with evidence that `hyper` ran rather

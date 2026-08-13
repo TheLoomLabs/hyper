@@ -163,6 +163,14 @@ Comparison baseline (ADR-0009). Having no outcome triple, it terminates its row 
 and never with `outcome` (§8). It may surface the raw response beside the projection `hyper` derived
 from it, which no credentialled surface does (ADR-0017).
 
+A Probe exits `0` whatever came back — a `503` as readily as a `200`, and a host that answered nothing
+as readily as either, that being a response object of `host` alone (§3, ADR-0050). A `read` never halts
+on what came back, so there is no failure to map, and a nonzero exit would be `hyper` deciding that a
+`503` is bad news: the judgement this surface refuses when it renders a Cadence's staleness and never
+says *overdue*. The exit code says whether the command did what it was asked; the rendering says what
+came back. What can still fail a Probe is its projection, on the one path every surface fails it
+(§6).
+
 A Probe's `--input` is the only place in `hyper` where a value arrives at invocation, and it is not the
 door ADR-0036 closed wearing another name. It chooses what is *looked at*: a Probe is not a Run, is
 `read` Kind against `local`, and writes no Record and no Journal entry, so nothing it carries can widen
@@ -191,7 +199,10 @@ that distinguishes a world that has not changed from one nobody has looked at (�
 one entry in full: each Step's Disposition with the Record identities it acted on, `hyper`'s own account
 of what it did to reach that outcome — a Pattern's attempts, its pages, its poll iterations — and, on a
 Step a projection failure halted, the path that failed to project beside the partial set it wrote
-(§6, §7), each beside that Step's own Provenance and all of it beside the Run's (§7). Under
+(§6, §7). On an effectful Step whose call answered anything but `2xx` it writes the host reached and the
+status got, which is as true of the `404` that completed a `destroy` as of the `500` that halted one
+(§7, ADR-0050). Each of those sits beside that Step's own Provenance and all of it beside the Run's
+(§7). Under
 `--expansion` each Step
 also carries its selector, what that selector expanded to, and its Bound, which is what §8's Refusal
 footer points at.

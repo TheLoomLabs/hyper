@@ -157,14 +157,51 @@ resolves to more Records than its declared Bound Refuses before the first call (
 ## Errors and deadlines
 
 An error halts the Run. There is no per-Step failure suppression — no `allowFailure`, no
-`continueOnError`, nothing an author can write to silence one. Whether an unreachable host or a 503
-is a result or an error is the Provider's declaration, made in the Manifest the way Kind is: a
-monitoring Provider records *down* as an Observation, and `hyper`'s own rule stays one line.
+`continueOnError`, nothing an author can write to silence one.
+
+**A status is an answer, not an error** (ADR-0050), and which answers halt follows Kind, as what an
+Operation projects does (§3, ADR-0037). No artefact declares it.
+
+A **`read`** never halts on what came back. Whatever the status, the response object §12 states is
+what the projection reads, so a monitoring Provider records *down* as an Observation and `hyper`'s own
+rule stays one line. An API answering `404` for *absent* is describable for the same reason: the status
+is recorded and a later Step's `when:` decides on it (§3), which puts *what counts as acceptable* on a
+line the gutter annotates rather than in the artefact a reviewer reads least. What still halts a `read`
+is its projection, below — `list_records` against a `401` has no `$.body.result`, and a collection that
+was empty and a path that was wrong are not the same fact.
+
+An **effectful** Operation completes on `2xx` and halts on everything else, a **`destroy`** completing
+on `404` besides. A `mutate` or `destroy` the server did not accept did not do what the Step said, and
+`hyper` does not read the shape of an error body to decide whether its own effect happened. `3xx` is on
+the halting side because `hyper` follows no redirect, a redirect target being reach arriving from data
+(ADR-0029). `404` completes a `destroy` because a `destroy` told there is nothing there has reached the
+state it exists to reach, and because the alternative halts that Step identically on every re-run,
+leaving an Asset that can never be Tombstoned and Steps after it *never reached* for good.
+
+Where **no response arrived at all** — a refused connection, a name that does not resolve, a handshake
+that failed — the response object is the host and nothing else (§3, §12). A `read` records an
+Observation whose `status` has gone quiet, which is how *down* is recorded against a host that answers
+nothing; an effectful Operation halts, no status being not `2xx`. Retry is unaffected either way: it
+follows only a failure that provably preceded the request (ADR-0018), so no status is ever retried, and
+an exhausted retry leaves the object above for the projection to read.
+
+Every call is judged, a Pattern's included. There is no final call a rule could privilege without
+inventing one, and a Pattern may not change what an Operation does (§3).
+
+A Step halted by a status carries no `error_code` — nothing declined, and a failure has none (§12) —
+and its Disposition is *ran*. A response arrived, which is what that value means, and it is *ran*
+whether the status was `400` or `500`: the residual doubt about whether a `500` left something behind
+is real and is not what *attempted, outcome unknown* carries, that value meaning no answer came back at
+all. What the Step names instead is the host it reached and the status it got, held by the Step file
+(§7).
 
 Within a single `read` Step's Expansion, errors drain: every item is attempted, every Observation
-that succeeded is recorded, and the Step then fails with the rest of the results already on disk. An
-effectful Expansion is serial and stops at the first error, with everything it confirmed before that
-recorded.
+that succeeded is recorded, and the Run then halts with the rest of the results already on disk. After
+the rule above that is one case rather than several — a projection that did not resolve, below — and
+draining it is not a preference: an Expansion of a `read` runs concurrently and the order its calls
+complete in is defined nowhere, so halting at the *first* failure would make which Observations were
+recorded depend on the one thing nothing may derive from. An effectful Expansion is serial and stops at
+the first error, with everything it confirmed before that recorded.
 
 A deadline is declared per Operation in the Manifest; there is no whole-Run deadline, which could
 only ever fire mid-effect. A deadline reached on a `read` fails the Step. Reached on a `mutate` or
@@ -187,7 +224,10 @@ going quiet renders as a change like any other (§8). A path a Record's identity
 error in the sense above, and so is the path an Operation of `series` cardinality reads its Records
 from: without the first `hyper` cannot say which Record it is holding, and without the second it
 cannot tell a collection that was empty from a path that was wrong — the *I recorded nothing* the
-absent wire would otherwise be needed to diagnose (ADR-0017). Either halts the Run.
+absent wire would otherwise be needed to diagnose (ADR-0017). Either halts the Run, and on a `read`
+Expansion after that Expansion has drained (above): this is the one way a `read` fails at all
+(ADR-0050), so the drain is what decides which Observations were recorded rather than a completion
+order nothing derives from.
 
 The Step's Disposition is *ran*: the call went out and the answer came back, and what failed is
 `hyper`'s reading of it rather than the call. It is never *attempted, outcome unknown* — an
@@ -223,7 +263,12 @@ it.
 A halted Run leaves what it did. Nothing is compensated, rewound, or removed from the record: a
 `destroy` Step that confirmed three of five Assets leaves three Tombstones and two live Assets and
 stops there, and the next Run reads exactly that (ADR-0011). A Tombstone is written on confirmed
-destruction only, one per Asset as each confirms.
+destruction only, one per Asset as each confirms — and a `404` confirms it, the Asset's resource being
+gone whether this Run removed it or found it already absent (ADR-0050). Nothing on the Tombstone tells
+the two apart: what `hyper` is accountable for is that the thing is gone, and recording *already gone*
+as a fact about the Asset would be the reconciliation `hyper` declined to build (ADR-0010). The status
+that confirmed it is on the Step file (§7), which is where a fact about the Run rather than about the
+thing belongs.
 
 ## Signals
 

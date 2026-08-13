@@ -294,6 +294,12 @@ takes no credential, and `host-input:` is present because `{from-target}` expand
 grants and a Step names which of them this Run is checking. `days_left` is absent from a version written
 against a plain-HTTP host, a field's presence being a predicate fact rather than a type (§12).
 
+Nothing here declares which statuses are acceptable, and that is not an omission: a `read` never halts
+on what came back (§6, ADR-0050), so `status: $.status` records a `503` as readily as a `200` and this
+Manifest describes *is this site up* without a second declaration saying what *up* is. Against a host
+that answers nothing at all only `host` resolves, and the version carries an identity and no `status` —
+the same absence, read the same way.
+
 ### Target declaration
 
 `kind: target-declaration`, in `targets/`. The reviewed half of a Target, holding no credentials: the
@@ -653,6 +659,15 @@ The cost of that lands in §13 — an API that answers in XML can be called and 
 is present where the scheme was HTTPS, and it carries a remaining-days figure beside the expiry because
 no artefact could compute one, arithmetic being refused (ADR-0022), and because what it counts from is
 the instant the Run fixed (ADR-0034) rather than anything a Manifest can name.
+
+`status` and `headers` carry the same absence, and it is the one case that reaches every member at once:
+where **no response arrived at all** — a refused connection, a name that does not resolve, a handshake
+that failed — the object is `host` and nothing else (ADR-0050). `host` survives because it is the fact
+about the call rather than about the answer, which is what lets a `read` record a host that answered
+nothing: the Observation carries its identity and its `status` has gone quiet, and a field going quiet
+renders as a change like any other (§6, §8). An effectful Operation halts there instead, no status being
+not `2xx` (§6). There is no member saying *what* went wrong, on the ground ADR-0017 settled for
+rendering — it would be the catch-all bucket, arriving on the object every projection reads from.
 
 ### `record:`
 

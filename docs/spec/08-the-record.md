@@ -403,8 +403,8 @@ is no second flag.
 A Step's Disposition — one of the six §6 names and §12 defines — is held here rather than by any Record,
 and each carries up to three things beyond its value: the identities the Step reached a recorded
 conclusion about, the selector it resolved together with what that selector expanded to and the Bound
-it was counted against, and what `hyper` itself did to reach the outcome. A fourth arises in one case
-only, and is stated below with it.
+it was counted against, and what `hyper` itself did to reach the outcome. Two more arise in one case
+each, and are stated below with them.
 
 **The identity set is what the Step concluded about**, not what it wrote and not what it saw: what it
 projected from a response under `read` and `mutate`, and what it confirmed destroyed under `destroy`,
@@ -462,6 +462,26 @@ rather than twice — except on *attempted, outcome unknown*, where it is writte
 declared at all. How many times `hyper` may have touched the world is the fact that Disposition exists
 to carry, and *one attempt* and *no retry declared* are the same silence everywhere else and must not be
 here.
+
+An **effectful** Step whose call answered anything but `2xx` carries one thing more, under `answered`:
+the host it reached and the status it got. It covers the two cases §6 makes of a non-`2xx` answer — the
+halt, and the `404` that completes a `destroy` — and no others, so its presence is the fact that
+something other than the ordinary answer decided this Step, and which of the two it was is read from the
+Disposition beside it. Where no response arrived at all the `status` inside it is absent, on the rule the
+response object carries (§3, ADR-0050).
+
+```json
+"answered": {"host": "api.cloudflare.com", "status": 500}
+```
+
+It is here rather than on any Record for the reason the Pattern account is (ADR-0018): what it holds is
+that a non-`2xx` answer changed what `hyper` did, which is `hyper`'s own conduct rather than the world's
+state. That is also why it is effectful-only. A `read`'s status is the answer, and the answer belongs in
+the Record wherever its Manifest projected it — an `uptime` version carrying `status: 503` says
+everything a second copy in the Journal would, and the one thing a Journal copy would add is a claim
+that `hyper` thought a `503` was untoward, which on a `read` it does not (§6). And on a `destroy` it is
+the whole of what tells a Tombstone written on `404` from one written on `204`: the Record says the
+thing is gone, and nothing there says how `hyper` learned it, which is the line ADR-0010 draws.
 
 A Step halted by a projection that did not resolve (§6) carries the identities it concluded about and no
 others, and one thing more, under `projection_failed_path`: the path that failed to project. The set is

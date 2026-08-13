@@ -444,6 +444,14 @@ stderr in both modes like any other (§9) rather than into the row stream above.
 Run's surface for it; the Step's Disposition holds the same path in the Journal (§7), and reading it
 back later is `show`'s (§9) rather than an error's rendering at all.
 
+A Run halted by a status is rendered the same way and for the same reason: it names the host it reached
+and the status it got, carries no `error_code` since nothing declined, and goes to stderr as an error's
+rendering rather than into the row stream (§6, ADR-0050). Two facts are the whole of it because two
+facts are the whole of what `hyper` may show — the response behind them is a credentialled Target's and
+no surface renders one. On a `read` there is nothing here to render at all: no status halts one, and the
+status is in the Record wherever the Manifest projected it, which is a row in `THE WORLD MOVED` rather
+than an error.
+
 ## What these surfaces do not say
 
 The Comparison prevents nothing. It is an accountability instrument and never a guardrail, and it
