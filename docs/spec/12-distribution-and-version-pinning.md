@@ -269,6 +269,18 @@ environment is the command's, and `hyper` neither reads it nor records it; §13 
 the digest published for that ref, and writes the file into `providers/`. Bytes that do not match are
 `origin-digest-mismatch` (§12) and nothing is written.
 
+**A ref the registry does not hold exits `1`, not `2`**, which is where this command departs from every
+other positional in the tree (§9, ADR-0060). The other eight resolve a name against something this
+repository holds — an artefact, a Provider, a Store entry, a path — and `hyper` can say the name is
+wrong on evidence it already had. A ref names something in a registry's namespace, and *matches
+nothing* is an answer that had to be fetched: it can differ between two invocations of an identical
+command line, it is unavailable offline, and it arrives beside the answers — a registry that did not
+respond, a resolution that timed out — that are unambiguously the world resisting. `1` is where those
+already live, and it keeps exit `2` decidable without a network. `install` therefore carries three
+codes: `2` for an invocation the ref grammar rejects, `1` for a ref the registry does not hold or a
+fetch that did not complete, and `77` for `origin-digest-mismatch`, which is a check declining bytes
+that did arrive.
+
 Registry as source, repository as record. The registry is where an Extension is discovered and
 fetched; what executes is the file in the tree, reviewed in the same commit as the Definition that uses
 it, and updated by an `install` whose whole effect is a diff. A Run resolves nothing from a registry —

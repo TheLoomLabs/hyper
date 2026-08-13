@@ -37,6 +37,51 @@ reading a second file and Refuses on mismatch, on a laptop and in CI alike; wher
 Refuses naming `hyper project` (§4, ADR-0020). The pin gate is stated once here and presupposed by
 every command below.
 
+## A positional that matches nothing
+
+Nine of the sixteen take a name positionally — `review`, `run`, `provider`, `operation`, `probe`,
+`show`, `changes`, `install` and `check` — and eight of the nine answer the same way when that name
+resolves to nothing: **a usage error, exit `2`, carrying no `error_code`** (§12). A Refusal is the
+artefacts declining an act and a usage error is there being no act to decline (ADR-0036, ADR-0060).
+Nothing was reviewed, so nothing refused, and `77`'s promise that a verbatim retry refuses identically
+would be false here — the remedy is a different name, not an artefact edit. Like the pin gate above,
+this is stated once and presupposed by every command below.
+
+**A positional resolves against its own namespace, and whatever that namespace requires is in place
+before the lookup can happen.** The pin gate fires first everywhere. After it, a working-tree name — an
+artefact in `definitions/` or `procedures/`, a Provider built in or installed under `providers/` —
+needs nothing further, so `hyper run typo` is `2` on a repository with no Store at all: the typo is
+repaired before the Store is missed. `show` is the exception that states the rule, the Store being the
+namespace its `<run-id>` resolves against, so `store-absent` (`77`, §12) necessarily precedes the lookup
+and an unknown id is reachable only where the branch exists.
+
+**A name matches byte-exact over UTF-8, case-sensitive, with no normalisation** (§12), compared against
+the artefact's own `name:` — which `name-mismatch` already pins to its file's basename (§4) — rather
+than settled by whether the filesystem's open succeeded. A macOS filesystem is case-insensitive and a
+runner's is not, so `hyper review Deploy` against a `deploy` artefact would otherwise render on a laptop
+and exit `2` in CI. The fold is `hyper`'s rather than the filesystem's, exactly as it is for a Record
+identity (§7).
+
+**What it writes is the name that was typed, the namespace it was resolved against, and the command
+that enumerates that namespace** — `providers`, `runs`, `targets`. It lists no candidates and suggests
+no near miss. A suggestion is a partial name resolved on the caller's behalf, which is what ADR-0047
+refused for a Run id, and a human who accepts one has run something they did not type; enumerating a
+namespace is the listing commands' job, and they carry `--limit` and a truncation marker because an
+unbounded return is the hazard.
+
+**No row stream opens.** stdout carries nothing in either mode, and the rendering goes to stderr like
+every other human rendering of an error. There is therefore no terminal row and none is missing: a
+usage error is not a path a command takes, it is the command never starting, and the exit code is what
+says so.
+
+Two of the nine are stated where they differ. `install <ref>` exits `1` rather than `2` (§11): its ref
+names nothing in a registry rather than nothing in this repository, and a name that had to be fetched
+before it could be judged is the world resisting rather than the invocation being wrong. And
+`check [path...]` stats its paths before it loads a single artefact, so a path naming no file is `2`
+and no problems are reported at all — the alternative is worse than unstated, since `check` reports
+only the problems positioned in the paths it was given, so a path matching nothing filters to zero
+problems and `hyper check definitions/typo.yaml` exits `0` clean on a job that checked nothing.
+
 ## Discovery
 
 Three commands rather than one taking optional arguments, because they are three questions asked in
@@ -107,7 +152,8 @@ reaches no network, and invokes nothing, so it runs offline against a repository
 unreachable, with the Cadence gloss §10 states degrading rather than the command failing. A `FLAGS` row
 is a fact about the artefact rather than a problem with it, so a review that rendered exits 0 however
 many flags it carried; only an artefact that would not load exits 1, and what it writes then is
-`check`'s row.
+`check`'s row. *Would not load* means found and faulty: an artefact that is not there at all has no row
+to write and is the usage error above, exit `2` (ADR-0060).
 
 ## Execution
 
@@ -158,7 +204,9 @@ weakens no check, and withholding it produces a Refusal that renders like any ot
 `probe <provider> <operation>` invokes a `read` Operation against `local` without a Definition. Inputs
 are supplied as repeated `--input <name>=<value>`, each typed by the Operation's declared input schema
 at that position rather than by what the value looks like (§3); an unknown name, or a required input
-left out, is a usage error. A Probe writes no Record and no Journal entry, has no Trigger, no
+left out, is a usage error. Its two positionals resolve against the Provider set exactly as
+`operation`'s do, and a Provider or Operation matching nothing is the same usage error the tree above
+states. A Probe writes no Record and no Journal entry, has no Trigger, no
 Provenance and no Disposition, and can never be scheduled, sequenced into a Procedure, or used as a
 Comparison baseline (ADR-0009). Having no outcome triple, it terminates its row stream with `result`
 and never with `outcome` (§8). It may surface the raw response beside the projection `hyper` derived
@@ -263,6 +311,8 @@ A truncated result must never look complete.
 `install <ref>` fetches an Extension and writes the tracked, digest-verified file §11 states. It is the
 single point at which third-party data enters the repository, which is why what it writes is a tracked
 file appearing in a diff a human reads. It takes no `--dry-run`; `check` already reports digest drift.
+It is the one command whose positional matching nothing is not a usage error: a ref names nothing in a
+registry rather than nothing here, and it exits `1` (§11, ADR-0060).
 
 `project` regenerates the projection §10 states — whole-file, always overwriting, never merging, one
 file per Procedure — and derives the version pin from the binary that ran it (ADR-0020). It is repo-wide
@@ -343,8 +393,11 @@ an interactive Run that finishes, and that repetition is what the Run that does 
 **The last row is always the terminal row**, and its absence means the stream was cut off. There are
 two, `outcome` for a Run and `result` for everything else, and §8 states both. A Probe is on the
 `result` side, having no outcome triple to report (ADR-0009). `run` is on the `outcome` side on every
-path it takes, the two that decline before a Run is identified included: what is missing there is the
-row's `run_id` and never the row (§8).
+path on which a Run was attempted, the two that decline before a Run is identified included: what is
+missing there is the row's `run_id` and never the row (§8). A usage error is not one of those paths —
+it opens no stream at all, so there is no terminal row to be absent from and nothing was cut off
+(above, ADR-0060). It is the one case where stdout is silent, and the exit code is what distinguishes
+it.
 
 **`error_code` names a check, and a failure carries none.** Every member of the set §12 states is the
 identifier of a check that declined, stated where §12 attributes it, so the code mints no vocabulary of
@@ -565,9 +618,17 @@ pin gate, an absent Store — returns `isError: true` with the Refusal rendered 
 the command exits `77`.
 
 **A domain outcome is never a protocol error.** JSON-RPC errors are reserved for malformed calls — an
-unknown tool, an argument violating a schema, a fault in the server — and a Refusal is an answer to a
-well-formed call. Every usage error the CLI half states arrives here as one of those, which is what
-this surface has in place of exit code `2`.
+unknown tool, an argument violating a schema, an argument that is well-typed and names nothing, a fault
+in the server — and a Refusal is an answer to a well-formed call. Every usage error the CLI half states
+arrives here as one of those, which is what this surface has in place of exit code `2`.
+
+The third member is this surface's whole account of a positional that matches nothing (above): a
+`run("typo")` or a `run_show` against an id the Store lacks satisfies every schema and still names
+nothing, and returning it as a domain answer would give it `isError: true` with no `outcome` key —
+which is exactly the shape a guardrail declining already returns. That would make a usage error
+indistinguishable from a Refusal on the one surface with no exit code to tell them apart, which is the
+distinction the CLI half spends `2` to draw. `install` has no tool here, so its `1` has no MCP half
+(ADR-0060).
 
 **Every Refusal's `text` block ends by stating that a verbatim retry will refuse identically**, naming
 the artefacts to edit. This is load-bearing rather than manners: `isError: true` conventionally invites

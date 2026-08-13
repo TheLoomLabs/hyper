@@ -156,8 +156,11 @@ than coarser: four of the seven are `failed`.
 - `0` — the command did what it was asked. A Run that completed, including one whose every Step
   skipped (§6).
 - `1` — a Run that failed because the world resisted, or a command that is not a Run reporting
-  problems it found. `failed`.
-- `2` — a usage error. No Run began, and no member of the outcome triple applies.
+  problems it found. It is also where `install` lands a ref the registry does not hold, a name in
+  somebody else's namespace being the world rather than the invocation (§11, ADR-0060). `failed`.
+- `2` — a usage error. No Run began, and no member of the outcome triple applies. It covers a
+  positional that matches nothing on eight of the nine commands taking one — `install` is the
+  exception above — and no row stream opens on this code at all (§9, ADR-0060).
 - `75` — a Run that lost the Store: to the lock (§6), or to a push it could not rebase through in
   three attempts (§7). `failed`.
 - `77` — a guardrail declined before any effect reached the world. A Run that refused (§5), and the
