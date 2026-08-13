@@ -49,6 +49,11 @@ only Bound a single command could carry is `1`, which would stand in the gutter 
 is the worse failure on the most severe Step the tool runs. Unbounded is the accurate word for it, and
 §13 uses that word.
 
+So does the review. Such a Step draws three flags — `DESTROY`, `OPAQUE` and `UNBOUNDED` — and the last
+is implied by the first two on every such Step, having no other form to take. It renders regardless
+(§12): a surface indexing what is unbounded, silent on the one Step where nothing can be bounded, is
+omitting rather than economising.
+
 **An `opaque` `destroy` Step must carry an `over:` selector** (`opaque-destroy-unscoped`, §4). Without
 one it is invoked once (§3), so it has no Expansion, no series to write a Tombstone under, and no
 declared identity — a `destroy` carries no `record:` at all (§3, ADR-0037). It would reach the world

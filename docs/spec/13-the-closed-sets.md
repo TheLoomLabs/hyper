@@ -4,8 +4,8 @@ Every closed set `hyper` defines lives here, defined once and in full. Every sec
 member of one cites this chapter; none restates a set it can cite instead.
 
 A set below is **closed** once the sections that draw on it stop adding members to it, and stays
-**open** until then. Every set below carries its marker, and none of them is open; the two whose
-membership this specification does not state say so where they stand.
+**open** until then. Every set below carries its marker, none of them is open, and every one of them
+states its membership in full.
 
 The process by which a set in this chapter grows — who adds a member, and when — is undecided. It is
 not decided here (ADR-0004).
@@ -701,10 +701,91 @@ what makes omission impossible.
 
 ## The `FLAGS` vocabulary
 
-**Closed to `hyper`.** `FLAGS` is the one vocabulary on the one editorial surface a Definition review
-carries (§8); no Manifest mints a flag any more than it mints an `error_code`. Which names it draws
-on is not stated here, and stands where the growth process above stands — undecided, and not decided
-here. What binds every name whatever they turn out to be is the relation §8 states.
+**Closed to `hyper`.** Seven names; no Manifest mints a flag any more than it mints an `error_code`
+(ADR-0004). `FLAGS` is the one surface in the whole tool permitted to say *look here*, and what binds
+every name is the relation §8 states: a flag cites a line the gutter already marked, and introduces no
+claim of its own.
+
+**The set is a rule before it is a list.** Every marker class the gutter carries indexes here, and the
+seven names below are what that rule yields today: a marker class arriving in §8 brings its flag
+without this enumeration moving, exactly as a Provenance member joining brings a `THE CODE MOVED` row.
+The names are written out anyway, so the set stays checkable against a rendering — an intensional rule
+nobody can enumerate is a set that has stopped being closed.
+
+That relation is what sizes the vocabulary rather than any judgement about what is worth saying: the
+gutter is the whole supply, so `FLAGS` cannot name a fact the review does not already annotate in
+place, and a name for one would be the editorial claim ADR-0026 removed.
+
+### The standing names
+
+Four, each reading on every artefact whose gutter marks the fact. They are facts rather than artefact
+kinds, which is why there are four rather than four per artefact:
+
+- **`destroy`** — `destroy` authority is claimed, granted, or exercised on the cited line. It reads on
+  a Step whose Operation declares that Kind, on a Definition's claimed Kinds, on a Target declaration's
+  accepted Kinds, and on a Manifest Operation's declared Kind.
+- **`opaque`** — the cited line reaches an effect `hyper` cannot describe. It reads on a Manifest
+  Operation whose request uses an Opaque Capability, on a Step invoking one, and on the opt-in by which
+  a Target declaration admits an `opaque` `destroy` at all (§4).
+- **`unbounded`** — an effectful Step with no Bound standing behind it: a `mutate` Step carrying no
+  `bound:`, which the gutter marks `mutate!` (§8), and an `opaque` `destroy` Step, which may carry no
+  Bound at all and where a Bound is refused (`bound-illegal`, §4). The second is implied by `destroy`
+  and `opaque` together and renders regardless: §5's argument is that *unbounded* is the accurate word
+  for it, and a surface silent on the strongest instance of the fact it indexes is omitting rather than
+  economising. It is Procedure-only, `bound:` being a Step's key.
+- **`envelope`** — a Procedure's declared Target and Kind envelope, and whether every Step is inside it.
+  Procedure-only likewise, and the one name whose all-clear form renders (below). A review does not run
+  `check` (§9), so an artefact carrying `envelope-exceeded` renders like any other and this flag has two
+  states rather than one.
+
+### The change names
+
+Three, reading on the lines the gutter marks as moved since the review's range opened (§8). They are
+directions rather than classes, the class being carried in the row's text:
+
+- **`widened`** — the cited line grew what the artefact may reach.
+- **`narrowed`** — it shrank it.
+- **`changed`** — it moved, and no direction is claimed.
+
+**Direction is claimed exactly where it is mechanically decidable, and never where it is not.** That is
+numeric comparison for a Bound and set inclusion for declared Kinds, Target sets, required Capabilities,
+and the `destroy` Operations a Definition names. It is not available for a selector, a credential
+source, or a Cadence, each of which takes `changed` and its full before-and-after text: predicate
+subsumption is undecidable in general, so a surface calling `equals: preview` → `starts_with: preview-`
+a widening would be inventing the one thing it may not invent. The classes these read on are the nine
+`THE CODE MOVED` classes above less **the digests**, which is Run-recorded and has no line in any
+artefact — one vocabulary across both surfaces, and the difference between them is that a review reads
+a file and a Comparison reads two Runs.
+
+`narrowed` earns its place on symmetry rather than on usefulness. Rendering `widened` while folding
+every narrowing into `changed` would be the surface deciding that one direction is worth a name, which
+is a judgement about severity and not a fact the gutter carries.
+
+### Order, and the empty state
+
+**Rows render in line order, with a file-level row last** (ADR-0054). `envelope` is the only file-level
+name today, so it is the last row of every Procedure review.
+
+A review whose artefact draws no flag renders the block with an explicit empty state rather than
+omitting it. Only a Procedure is guaranteed a row — `envelope` always renders and always names its
+state — so on the other four artefacts an absent block would be ambiguous between *nothing to flag* and
+*the renderer had nothing to say*, which is the ambiguity §8 already refuses to leave standing between
+its two named absences.
+
+### Why the set is closed and stays small
+
+`FLAGS` is an index, not a voice. Every row it carries is derivable from the `gutter` rows directly
+above it, and the surface exists because derivable is not legible: the gutter is per-line and unranked,
+and on a long Procedure the flag block is the only thing that puts the lines that matter on one screen.
+It carries a second reader the gutter is the wrong granularity for — the `flag` rows of `review --json`
+are what a reviewing agent reads to decide whether to escalate to a human, on artefacts another agent
+wrote.
+
+What is rejected is anything that reaches past the gutter for a reason. An Operation's Repeatability is
+the nearest miss: `skip-if-recorded` trusts the record over the world (§13), which is worth a reviewer's
+attention and is not blast radius — it changes nothing about what a Run may reach. Admitting it starts
+the slide from *an index of what the gutter marked* to *a list of things worth thinking about*, which is
+the slope ADR-0026 sits at the top of.
 
 ## The input-schema subset
 

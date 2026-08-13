@@ -21,11 +21,25 @@ assembled from elsewhere and one editorial surface (ADR-0026). Three renderings 
 and each has its own rule.
 
 The **gutter** marks, beside the lines that make the claim, each Step's Kind, the Target it binds, its
-Bound, and its envelope check. A `mutate` Step with no declared Bound is marked `mutate!`: its absence
-is not a static check's business and it is rendered here instead (§4). A comment renders verbatim
-beside the line it sits on and is read for nothing else (§3). A nested Procedure invocation renders
-under the invoking Step's path with the transitive envelope §3 states. Where the artefact has a
-previous revision, the review renders the range and the gutter marks every line that moved.
+Bound, its opacity, and its envelope check. A `mutate` Step with no declared Bound is marked `mutate!`:
+its absence is not a static check's business and it is rendered here instead (§4). A Step invoking an
+Operation whose request uses an Opaque Capability is marked opaque beside its Kind — opacity is a
+Manifest fact, exactly as a Kind is, and the gutter carries it for the reason it carries the Kind: what
+`hyper` cannot describe is not readable from the Step's own lines. A comment renders verbatim beside
+the line it sits on and is read for nothing else (§3). A nested Procedure invocation renders under the
+invoking Step's path with the transitive envelope §3 states. Where the artefact has a previous
+revision, the review renders the range and the gutter marks every line that moved.
+
+**The gutter reads on all five reviewed artefacts, not only a Procedure**, and every marker it carries
+is what `FLAGS` below may index — so what a review can say about an artefact is fixed here and nowhere
+else. On a **Definition** it marks the Kinds claimed, the Targets bindable, and the `destroy`
+Operations named; on a **Target declaration** the Kinds accepted, the Capabilities granted, the
+endpoint, each credential slot's environment variable, and the opt-in admitting an `opaque` `destroy`
+(§4); on a **Manifest** each Operation's Kind, its Repeatability, its opacity, the auth scheme, and the
+Capabilities required; on a **Repository declaration** the `hyper` version pin and the retention
+policy. The moved-line marks read on all five. Only a Procedure has Steps, so only a Procedure carries
+a Kind, Target, Bound or envelope mark, and the last of those is why only a Procedure is guaranteed a
+flag.
 
 **A Procedure's range opens at the last Run, not at `HEAD`.** The revision on the left of
 `a91f0c2 → working tree` is the `procedure_revision` the most recent Run of that Procedure recorded
@@ -48,9 +62,23 @@ intersection, and the `destroy` Operations the Definition names (§5). Granulari
 (§12), the claimed-Kinds column carries `destroy` where the Definition names any: it is derived at
 that one position rather than read.
 
-**`FLAGS`** is the one editorial surface. Every row cites a line the gutter already marked and
-introduces no claim of its own; a flag citing a line the gutter did not mark is a defect in the
-renderer rather than a rendering.
+**`FLAGS`** is the one editorial surface, and it is an index rather than a voice: it ranks nothing,
+claims nothing, and points. Every row cites a line the gutter already marked and introduces no claim of
+its own; a flag citing a line the gutter did not mark is a defect in the renderer rather than a
+rendering. The vocabulary is seven names and §12 states them.
+
+**A flag may read the text of any line the gutter marked, and cites the one line carrying its
+subject.** The bound that matters is that it never leaves the gutter, not that it never leaves one row
+of it — what ADR-0026 closes is a surface assembled from somewhere the reviewer is not looking, and the
+gutter is by construction the thing they are looking at. That is what admits `ENVELOPE`, whose subject
+is the `targets:` line and whose claim quantifies over every Step's `target:`, each of them marked; and
+it is what admits `WIDENED`, since a direction is only readable by comparing the two values the marked
+lines carry.
+
+Rows render in **line order**, with a file-level row last (ADR-0054). A review whose artefact draws no
+flag renders the block with an explicit empty state rather than omitting it — an absent block would be
+ambiguous between *nothing to flag* and *the renderer had nothing to say*, which is the ambiguity the
+two named absences above already refuse to leave standing.
 
 A review resolves no credential, reaches no network, and invokes nothing.
 
@@ -369,7 +397,9 @@ arbitrary predicate.
 A review does not decompose into rows the way the three change tables do, so `review --json` emits the
 annotations and never the source — the consumer already has the file. Each `flag` row carries the line
 it cites, which makes a flag citing a line no `gutter` row marked a detectable violation rather than a
-prose mistake.
+prose mistake. A flag's name goes on the wire in kebab-case like any other member of a closed set
+(§12); the block above renders it upper-case for the eye, exactly as the gutter renders the Kind
+`destroy` as `DESTROY`.
 
 ```
 $ hyper review procedures/retire-preview-envs.yaml --json
@@ -380,10 +410,10 @@ $ hyper review procedures/retire-preview-envs.yaml --json
 {"type":"gutter","line":30,"marker":"changed since a91f0c2"}
 {"type":"authority","definition":"uptime","target":"local","definition_kinds":["read"],"target_kinds":["read"],"effective":["read"],"destroy_operations":[]}
 {"type":"authority","definition":"hetzner-staging","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["delete_server"]}
-{"type":"flag","flag":"UNBOUNDED","cites_line":13,"step":"label"}
-{"type":"flag","flag":"DESTROY","cites_line":21,"step":"retire"}
-{"type":"flag","flag":"WIDENED","cites_line":30,"step":"retire"}
-{"type":"flag","flag":"ENVELOPE","cites_line":3}
+{"type":"flag","flag":"unbounded","cites_line":13,"step":"label"}
+{"type":"flag","flag":"destroy","cites_line":21,"step":"retire"}
+{"type":"flag","flag":"widened","cites_line":30,"step":"retire"}
+{"type":"flag","flag":"envelope","cites_line":3}
 {"type":"result","truncated":false}
 ```
 
