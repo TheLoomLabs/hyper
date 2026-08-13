@@ -97,6 +97,13 @@ where one does, it Refuses (`run-once-recorded`, §12). A Step the Journal only 
 Procedure permanently un-re-runnable after any halt, and with no bypass (ADR-0001) the only exit
 would be an edit to a reviewed artefact.
 
+A Step the Journal records as *attempted, world untouched* runs on a re-run for the same reason, and
+that is stated rather than left to the list above: the request provably never left, so nothing happened
+that a later Run could be evidence of (§12, ADR-0062). Both cases the value covers need it. A hostname
+somebody mistyped invites the artefact edit anyway, so the brick would be nearly self-clearing there; a
+firewall that lapsed for ten minutes does not, and an evidentiary reading would leave a Procedure whose
+every artefact is correct permanently un-runnable with nothing to edit.
+
 That exit is why a run-once Step and a Cadence cannot be authored together: nobody is present to make
 the edit, and the Refusal is terminal, so the Procedure's remaining Steps stop with it at every
 occurrence after the first. `check` refuses the combination before either runs (`cadence-run-once`,
@@ -216,6 +223,13 @@ nothing; an effectful Operation halts, no status being not `2xx`. Retry is unaff
 follows only a failure that provably preceded the request (ADR-0018), so no status is ever retried, and
 an exhausted retry leaves the object above for the projection to read.
 
+Those three are the class ADR-0018 retries **because** the request provably never left, so the halted
+Step's Disposition is *attempted, world untouched* (§12, ADR-0062) — not *attempted, outcome unknown*,
+which asserts a doubt `hyper` does not have on the one value that exists to carry how many times it may
+have touched the world (§7). The `read` above is *ran*: an answer that is an absence is still the answer
+its Observation records. A connect timeout is not in the class, ADR-0018 declining to retry one, and it
+lands with the deadlines below.
+
 **An exit code is an answer too**, and the rule above is the same rule (ADR-0050). A `read` never halts
 on it: the code is recorded, so a check script whose exit status *is* the finding is describable
 without a second declaration saying what success means. An effectful Operation completes on **`0`** and
@@ -233,7 +247,9 @@ Step does not re-reach what it already ended.
 Where the command **could not be started at all** — no such binary, not executable — the response
 object is `command` and nothing else (§3, §12), which is the no-answer case one Capability over. A
 `read` records the attempt with its `exit_code` gone quiet; an effectful Operation halts, no exit code
-being not `0`.
+being not `0`. It is the same fact under a different Capability and carries the same Disposition,
+*attempted, world untouched*: a child that never started touched nothing, and which Capability the
+request used is not a ground for `hyper` to hold two values for one state (ADR-0062).
 
 Every call is judged, a Pattern's included. There is no final call a rule could privilege without
 inventing one, and a Pattern may not change what an Operation does (§3).
@@ -383,12 +399,24 @@ its Records and its Dispositions rather than in its outcome.
 ## Disposition
 
 What each Step did in a Run is its Disposition, held by the Journal (§7) rather than by any Record
-and drawn from the six values §12 defines.
+and drawn from the seven values §12 defines.
 
 The two skips are distinct because only one of them is Repeatability evidence. Skipped as already
 recorded is the fact a later Run's Repeatability test reads; skipped by condition ran no such test
 and says nothing about what the world holds. Collapsing them into one value would make the second
 look like the first to every later Run.
+
+The two *attempted* values are distinct on the same axis and the other side of it: one carries how many
+times `hyper` may have touched the world, and the other that it certainly did not. Which one a Step
+carries is decided by the transport and never by a Kind, an artefact, or an author (§12, ADR-0018).
+
+*attempted, world untouched* is a fact about the **Step** and not about its last call, so it is the
+value only where no call this Step made reached the world at all. Where any did, the Step is *ran* —
+`skipped as already recorded`'s rule above, over the same Expansion and for the same reason. A
+`destroy` that confirmed three of five before the fourth request never left is *ran* carrying three,
+and the two unaccounted for are read off `expanded_to` by position (§7) exactly as they are after any
+other halt. That is what keeps *world untouched* literally true of every Step that carries it, which is
+what lets the run-once exclusion above be a fact about the value rather than a second test of a set.
 
 ## What completion does not mean
 

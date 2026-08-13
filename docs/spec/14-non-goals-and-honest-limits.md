@@ -179,6 +179,17 @@ were four* is reading the Record series, which is a thing a person does (§9), n
 artefact can carry: a Bound is a ceiling on what may be touched and never a statement of what was
 expected to be.
 
+**The record says the request never left and never why.** A Step that is *attempted, world untouched*
+carries the host it was reaching, or the command it was starting, and nothing more (§7): a refused
+connection, a name that did not resolve, a handshake that failed and a binary that was not there are one
+entry in the Journal, and they are four different things to fix. The three transport members are
+normative in §12 as that Disposition's boundary and are written on no Step file (ADR-0062), which is a
+deliberate refusal of ADR-0050's rejected `error` member arriving through the Journal rather than the
+response object. It is paid where it hurts most — an unattended Run under a Cadence, whose terminal
+rendering nobody saw and whose entry is the whole account. The consolation is that the host is right
+there and the four remediations all begin at the same place, and the fix if that proves too thin is a
+closed enumeration ADR-0018 has already written.
+
 ## What the guardrails do not cover
 
 **Blast radius is a count, not a severity.** A Bound counts Records and never weighs what happened to

@@ -343,7 +343,7 @@ with a dependency. It is the argument that puts the selector in the file as auth
 one other fact in the same position.
 
 A Step that is a nested Procedure invocation writes no file of its own. An invocation is not a Step,
-none of the six Dispositions describes one, and its own Steps each write a file carrying `path`.
+none of the seven Dispositions describes one, and its own Steps each write a file carrying `path`.
 
 `outcome.json` carries `schema_version`, the `outcome` §6's triple fixes, `ended_at`, `closed_by_run`
 where another Run closed the entry, and `refusal` where the outcome is `refused` — the whole of what
@@ -369,7 +369,7 @@ state field to leave stale and no growing file to rewrite. The Run may be in fli
 be gone, and `hyper` never guesses which.
 
 A Step that was never reached writes no file either, and within a *closed* entry that absence is its
-whole representation in the same way. Six Dispositions, five borne by a file and one read from a
+whole representation in the same way. Seven Dispositions, six borne by a file and one read from a
 silence. A forty-Step Procedure that halted at Step 3 would otherwise write thirty-seven files saying
 that nothing happened.
 
@@ -412,7 +412,7 @@ from this one (§8) — a cutoff on the closing Run's clock reaches every Run in
 
 ### What a Disposition holds
 
-A Step's Disposition — one of the six §6 names and §12 defines — is held here rather than by any Record,
+A Step's Disposition — one of the seven §6 names and §12 defines — is held here rather than by any Record,
 and each carries up to three things beyond its value: the identities the Step reached a recorded
 conclusion about, the selector it resolved together with what that selector expanded to and the Bound
 it was counted against, and what `hyper` itself did to reach the outcome. Two more arise in one case
@@ -433,7 +433,7 @@ absence there already means *the digest did not move* and a reader would otherwi
 and saw nothing* from recognising the digest of `[]` as a constant.
 
 The Run compared against is the last one in which that Step carried a set at all, and never simply the
-previous Run (ADR-0055). Two of the six Dispositions below carry no set and a third writes no file, so
+previous Run (ADR-0055). Three of the seven Dispositions below carry no set and a fourth writes no file, so
 the previous Run frequently holds no digest for a Step to differ from, and treating that absence as a
 difference would write `members` where nothing moved — which is the one thing their presence says. The
 Step is matched by its authored `id` (§3); an `id` that moved is a different Step, with no digest behind
@@ -453,7 +453,7 @@ also makes the digest a fact about the set rather than about the order a respons
 in. It is deliberately not the sequence: what the Step did in what order is `expanded_to` below, and
 the two lists differ in order wherever a `values:` list is the selector.
 
-Four Dispositions carry a set and two do not. *ran* carries one. *skipped as already recorded* carries
+Three Dispositions carry a set and four do not. *ran* carries one. *skipped as already recorded* carries
 one — the skip test read a head version, which is a conclusion about that identity. Under
 `skip-if-recorded` those two are one set at two granularities: the test decides per member (§6,
 ADR-0056), so a Step that called for one member and skipped two holds all three, and its digest does
@@ -461,6 +461,13 @@ not move as a `values:` list fills in one member at a time. *attempted, outcome
 unknown* carries the conclusions it did reach and not the ones it did not: a destroy that confirmed
 three of five holds three. *refused* carries none, nothing having been concluded about anything; *skipped
 by condition* and *never reached* carry none, and the second writes no file to carry it in.
+
+*attempted, world untouched* carries none, and it is the fourth on that side rather than a *ran* Step
+whose set happens to be empty: it is the value only where no call this Step made reached the world (§6,
+ADR-0062), so nothing was concluded about anything, by construction rather than by circumstance. That
+distinction is the one §8's dash renders, and it is why the same fact makes this the one failure that is
+not Repeatability evidence — a Step that concluded about nothing is a Step no later Run can read
+evidence off.
 
 The second is the selector, held as authored beside what it resolved to, so that what a Step reached is
 readable back from the entry long after the Run without a checkout at the revision that Run's
@@ -491,12 +498,14 @@ declared at all. How many times `hyper` may have touched the world is the fact t
 to carry, and *one attempt* and *no retry declared* are the same silence everywhere else and must not be
 here.
 
-An **effectful** Step whose call answered anything but `2xx` carries one thing more, under `answered`:
-the host it reached and the status it got. It covers the two cases §6 makes of a non-`2xx` answer — the
-halt, and the `404` that completes a `destroy` — and no others, so its presence is the fact that
-something other than the ordinary answer decided this Step, and which of the two it was is read from the
-Disposition beside it. Where no response arrived at all the `status` inside it is absent, on the rule the
-response object carries (§3, ADR-0050).
+An **effectful** Step whose call did not answer `2xx` carries one thing more, under `answered`: the host
+it reached and the status it got. It covers the three cases §6 makes of an answer that was not the
+ordinary one — the halt, the `404` that completes a `destroy`, and the request that never left at all —
+and no others, so its presence is the fact that something other than the ordinary answer decided this
+Step, and which of the three it was is read from the Disposition beside it. Where no response arrived
+the `status` inside it is absent, on the rule the response object carries (§3, ADR-0050), so a Step that
+is *attempted, world untouched* writes the host alone. It says the request did not arrive and never
+which of ADR-0018's members stopped it (§12, §13, ADR-0062).
 
 ```json
 "answered": {"host": "api.cloudflare.com", "status": 500}
@@ -504,8 +513,9 @@ response object carries (§3, ADR-0050).
 
 A `shell` Step carries the same key with its own Capability's members: the command it ran and the code
 it exited with, and the `exit_code` absent where the command could not be started at all (§3, §6). Its
-threshold is `0` rather than `2xx`, and it covers one case rather than two, there being no `404` for a
-command to answer with.
+threshold is `0` rather than `2xx`, and it covers two of the three cases rather than all of them, there
+being no `404` for a command to answer with: a nonzero exit that halted the Step, and a child that never
+started, which is *attempted, world untouched* under the other Capability and carries the command alone.
 
 ```json
 "answered": {"command": "[\"rm\",\"-rf\",\"/srv/app/releases/r41\"]", "exit_code": 1}

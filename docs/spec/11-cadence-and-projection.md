@@ -267,7 +267,7 @@ to Markdown, so the review gutter and the aligned columns survive and the page c
 terminal carries (§9, ADR-0021).
 
 What lands there is the Step table `run` writes — one row per Step carrying its index, its id, its
-Kind, the count of Records it concluded about (§8, ADR-0030), and its **Disposition**, one of the six
+Kind, the count of Records it concluded about (§8, ADR-0030), and its **Disposition**, one of the seven
 §12 defines. Where a guardrail declined, §8's Refusal rendering follows in full, remediation table
 included. Then the
 Comparison, under `if: always()`, so a Run that failed still renders what reached the world before it

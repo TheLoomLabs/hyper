@@ -356,8 +356,9 @@ A Step whose Disposition carries **no set at all** is that rule at its limit and
 it contributes no identity to its side and removes none from the other. That is the reaper's
 *attempted, outcome unknown* (§7), which carries `step`, `disposition`, `closed_by_run`, the `id` and
 the code facts and no `identities` — a different animal from the same Disposition written by the Run
-itself, which carries the conclusions it did reach. Nothing renders *vanished* on its account and an
-identity returning next Run renders no *appeared* on its account either.
+itself, which carries the conclusions it did reach. It is also every *attempted, world untouched*, whose
+set is absent by construction (§7). Nothing renders *vanished* on their account and an identity
+returning next Run renders no *appeared* on it either.
 
 The three tables never join an Observation series to an Asset series. That join is the drift detection
 `hyper` has no engine for and never performs (ADR-0010).
@@ -510,9 +511,17 @@ Step whose process died mid-sequence, one a projection failure halted, or a `rea
 and then halted (§6, §7). It is §7's arithmetic rendered in the column the eye is already in, and it names
 no member — which Assets those are is `expanded_to`'s and nowhere else.
 
-**`–`** — no set exists, rather than a set with nothing in it. *refused*, *skipped by condition* and
-*never reached* conclude about nothing (ADR-0030), and the dash is what tells them from the *ran* Step
-whose Expansion resolved to nothing, whose set is written empty and whose cell reads `0`.
+**`–`** — no set exists, rather than a set with nothing in it. *refused*, *skipped by condition*,
+*never reached* and *attempted, world untouched* conclude about nothing (ADR-0030), and the dash is what
+tells them from the *ran* Step whose Expansion resolved to nothing, whose set is written empty and whose
+cell reads `0`.
+
+The fourth of those is the one a reader may expect to render `0 of m`: a `destroy` whose Expansion
+resolved to five and whose first request never left did name five Assets and touch none of them. It
+renders `–` all the same. `n of m` means *unaccounted for*, and the whole content of that Disposition is
+that nothing is unaccounted for — rendering the safest state in the tool through the column form
+reserved for doubt would invert it (ADR-0062). The five names are on the entry in `expanded_to` (§7)
+either way.
 
 *skipped as already recorded* carries a set — the head versions the skip test read — so a Step that made
 no call renders a count, and it may be larger than a neighbouring Step's that did. That is the

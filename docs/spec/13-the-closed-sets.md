@@ -100,9 +100,12 @@ leaves behind (§6).
 
 ## Disposition
 
-**Closed.** Six values, one per Step of a Run, each with its wire spelling beside it:
+**Closed.** Seven values, one per Step of a Run, each with its wire spelling beside it:
 
-- **ran** — `ran`. The Step was invoked and its outcome came back.
+- **ran** — `ran`. The Step was invoked and reached a conclusion `hyper` recorded. Usually because its
+  outcome came back; also where no answer came back and that absence was itself the answer, a `read`
+  against a host that answers nothing recording an Observation whose `status` has gone quiet (§6,
+  ADR-0050), and where the answer came back and `hyper` could not read it (§6).
 - **skipped as already recorded** — `skipped-as-already-recorded`. The Step's Operation declared
   `skip-if-recorded` and the Asset it would produce still stands. The only value that is Repeatability
   evidence. On an expanding Step it is the value where **every** member skipped; where any call went
@@ -115,10 +118,23 @@ leaves behind (§6).
 - **attempted, outcome unknown** — `attempted-outcome-unknown`. The call went out and no answer came
   back. It attaches the uncertainty to the attempt rather than to the thing, so nothing downstream reads
   it as either success or failure.
+- **attempted, world untouched** — `attempted-world-untouched`. The request provably never left, so
+  `hyper` is certain nothing was touched. Effectful-only, and only where **no** call this Step made
+  reached the world: a `read` in this state recorded an answer and is *ran*, and a `destroy` that
+  confirmed three of five before the fourth request never left is *ran* too (§6, ADR-0062). It concludes
+  about nothing and carries no identity set, and it is the one failure that is not Repeatability
+  evidence.
+
+The last value's extent is the transport class ADR-0018 fixes and is not re-derived from it: a
+**connection refused**, a **name that did not resolve**, a **handshake that failed**, and — the same
+fact one Capability over — a **child process that could not be started at all**. A connect timeout is
+outside it, ADR-0018 declining to retry one, so a certainty `hyper` will not act on is not a certainty
+it asserts. These are the value's boundary and not its content: a Step file says the request never left
+and never which of the four it was (§7, §13).
 
 Every Disposition carries more than its value — the identities it concluded about, the selector, and
 `hyper`'s own account of the work, which no Provider supplies (ADR-0018, ADR-0030) — and §7 states what
-each of them holds and which values carry which. Five of the six are borne by a Step file; **never
+each of them holds and which values carry which. Six of the seven are borne by a Step file; **never
 reached** is read from the absence of one inside a closed entry (§7).
 
 ## The Trigger's cause and its executor
