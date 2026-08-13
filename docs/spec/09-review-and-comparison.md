@@ -1,9 +1,9 @@
 # §8 — Review and Comparison
 
 Two surfaces carry the half of the thesis that says nothing changes unseen: a Definition review, before
-anything runs, and a Comparison, after. This chapter states both, together with the Refusal rendering
-that is the whole path back from a declined Step, the line every Run ends with, and the row stream all
-of them emit under `--json`.
+anything runs, and a Comparison, after. This chapter states both, together with the Step table every Run
+renders, the Refusal rendering that is the whole path back from a declined Step, the line every Run ends
+with, and the row stream all of them emit under `--json`.
 The renderings below are what `hyper` produces rather than an illustration of it; the commands that
 produce them and the exit codes they carry are §9's.
 
@@ -277,20 +277,72 @@ $ hyper changes --since 2026-08-04T09:12:00Z
   TOTALS  7 changes · 5 asset · 2 observation · 3 tombstone · the code moved
 ```
 
+## The Step table
+
+Every Run renders one row per Step: its position, its authored `id`, its Kind, its Disposition in the
+vocabulary §6 and §12 fix, and how many Records it concluded about. Under it sits the terminal line
+every Run ends with, in the form stated two sections below.
+
+```
+$ hyper run retire-preview-envs
+
+  STEP  ID      KIND     DISPOSITION  RECORDS
+  1     probe   read     ran          12
+  2     label   mutate   ran          8
+  3     retire  destroy  ran          3
+
+  completed · exit 0 · run 01991ea6-b118-7c93-8d41-6b2f7ae05c19
+```
+
+`RECORDS` is the size of the identity set that Step's Disposition carries (§7): what the Step concluded
+about, and not the versions it wrote. The two are different numbers and differ every time a Record comes
+back unchanged, which under a Cadence is nearly every Run (ADR-0030). The Run above is the one the
+Comparison renders: `probe` concluded about twelve Observations and two of them moved, `label` about
+eight Assets and two of them moved, `retire` confirmed three destroyed — twenty-three conclusions and
+the seven versions the `TOTALS` line above counts.
+
+The written count is the less useful of the two here, and on a `read` it is barely a fact at all: a Step
+that checked twelve hosts and found none of them moved wrote nothing, so a column reporting versions
+renders a Procedure that checks a hundred hosts hourly as a table of zeros, indistinguishable from a Step
+that read nothing at all.
+What each Record did is the Comparison's rendering rather than the Run's; this column says how much each
+Step touched, which is the fact only this page carries.
+
+A cell takes one of three forms.
+
+**`n`** — the set is all the Step reached.
+
+**`n of m`** — the Expansion reached `m` and the Step concluded about `n`, the rest unaccounted for: a
+Step whose process died mid-sequence, one a projection failure halted, or a `read` Expansion that drained
+and then halted (§6, §7). It is §7's arithmetic rendered in the column the eye is already in, and it names
+no member — which Assets those are is `expanded_to`'s and nowhere else.
+
+**`–`** — no set exists, rather than a set with nothing in it. *refused*, *skipped by condition* and
+*never reached* conclude about nothing (ADR-0030), and the dash is what tells them from the *ran* Step
+whose Expansion resolved to nothing, whose set is written empty and whose cell reads `0`.
+
+*skipped as already recorded* carries a set — the head versions the skip test read — so a Step that made
+no call renders a count, and it may be larger than a neighbouring Step's that did. That is the
+evidentiary content of that Disposition rather than an artefact of it: the number says how much the skip
+covered, and a Step that skipped five hundred Assets did not do nothing.
+
 ## The Refusal
 
 A Refusal is the most verbose surface in the tool (ADR-0026). No flag, no confirmation and no override
 reaches one (ADR-0001), so this rendering is the entire path back to a passing review.
 
-It renders three things. The Step table says what each Step did, in the Disposition vocabulary §6 and
-§12 fix, and how many Records each wrote — a Refusal withholds Records for the refused Step and for no
-other, so the Steps before it wrote what they wrote and it is stated in words rather than left to
-inference. The caret excerpt shows the offending line in its own context, which is what lets a reader
-judge whether raising the Bound is the right fix at all or whether the selector is the thing that is
-wrong. The `EDIT ONE OF` table says where to edit. Both remediations are rendered, and the narrowed
-selector is speculatively re-expanded so its count is on the page — a read `hyper` did not have to
-perform, worth it because the alternative is a reviewer widening a destroy Bound for want of the other
-number.
+It renders three things. The Step table above, with the refused Step's cell reading `–`: it concluded
+about nothing, and a Refusal withholds Records for that Step and for no other, so the Steps before it
+carry the counts they earned. The caret excerpt shows the offending line in its own context, which is
+what lets a reader judge whether raising the Bound is the right fix at all or whether the selector is
+the thing that is wrong. The `EDIT ONE OF` table says where to edit. Both remediations are rendered,
+and the narrowed selector is speculatively re-expanded so its count is on the page — a read `hyper` did
+not have to perform, worth it because the alternative is a reviewer widening a destroy Bound for want of
+the other number.
+
+The sentence beneath the table names no count. What it carries is that the Steps before the refused one
+ran and that nothing rewinds them (§6), which is a different fact from how many Records they touched and
+the one a reader of this surface needs; the counts are in the column directly above it.
 
 Under those three sits the terminal line every Run ends with, in the form the next section states: on
 this path it carries the remediation pointer, `show --expansion` being where the whole expansion is read
@@ -302,7 +354,7 @@ $ hyper run retire-preview-envs
   STEP  ID      KIND     DISPOSITION  RECORDS
   1     probe   read     ran          12
   2     label   mutate   ran          8
-  3     retire  destroy  refused      0
+  3     retire  destroy  refused      –
 
   refused: bound exceeded — nothing was deleted
 
@@ -320,9 +372,9 @@ $ hyper run retire-preview-envs
   procedures/retire-preview-envs.yaml  30    steps[2].bound  5     ≥ 23
   procedures/retire-preview-envs.yaml  29    steps[2].over   14d   30d   expands to 4
 
-  steps 1-2 ran and their 20 records are written. step 3 wrote nothing.
+  steps 1-2 ran and what they did stands. step 3 wrote nothing.
 
-  refused · exit 77 · hyper show 01991ea6-b118-7c93-8d41-6b2f7ae05c19 --expansion   for all 23
+  refused · exit 77 · hyper show 0199206d-4e15-7c30-9b8a-52d9ea01f7b4 --expansion   for all 23
 ```
 
 ## The terminal line
@@ -438,7 +490,7 @@ $ hyper changes --since 2026-08-04T09:12:00Z --json
 $ hyper run retire-preview-envs --json
 {"type":"step","index":1,"id":"probe","kind":"read","disposition":"ran","records":12}
 {"type":"step","index":2,"id":"label","kind":"mutate","disposition":"ran","records":8}
-{"type":"step","index":3,"id":"retire","kind":"destroy","disposition":"refused","records":0}
+{"type":"step","index":3,"id":"retire","kind":"destroy","disposition":"refused"}
 {"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"artefact":"procedures/retire-preview-envs.yaml","line":30}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":30,"field":"steps[2].bound","from":5,"to":23}
 {"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":29,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
@@ -446,14 +498,25 @@ $ hyper run retire-preview-envs --json
 {"type":"provenance","step":1,"definition_revision":"c3a17b0","manifest_digest":"sha256:2b7e…"}
 {"type":"provenance","step":2,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
 {"type":"provenance","step":3,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
-{"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded","dry_run":false,"run_id":"01991ea6-b118-7c93-8d41-6b2f7ae05c19"}
+{"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded","dry_run":false,"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}
 ```
+
+A `step` row's `records` is the count the column renders, and it is absent where the column renders `–`:
+a Disposition carrying no set has no number to report, and §7's absence rule says so by writing nothing
+rather than `0`, which is the value the *ran* Step with an empty set carries. Where the column renders
+`n of m` the row carries `expanded` beside it — `m`, and only where it differs from `records`. The row
+exists for a Step that was never reached like any other, that Step having a cell on the page.
+
+The same count reaches `run_show` as the identities themselves, under the same key: `records` is a
+number where a Run reports on itself and the members where an entry is read back (§9), one set in the
+two shapes the two surfaces are for.
 
 Provenance splits on the wire exactly as it splits in the Store (§7): one `provenance` row carrying the
 Run-wide members and one per Step file written, distinguished by `step` the way §7 distinguishes the two
 files themselves. A member with no value at a level is absent rather than `null` — `origin_digest` above
 on the Step whose Provider is locally authored — which is §7's absence rule and not a rendering of its
-own. There is no row for a Step that was never reached, that Disposition writing no file to render.
+own. There is no `provenance` row for a Step that was never reached, that Disposition writing no file to
+render.
 
 ## Redaction and the wire
 

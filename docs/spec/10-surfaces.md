@@ -131,9 +131,10 @@ flag.
 The invocation carries no argument value at all. What it carries is the occasion and never authority: a
 Secret sink, a dry-run marker, and output formatting (§6, ADR-0008).
 
-`run` renders nothing before executing (ADR-0015). What it writes is the Step table §8 states, each
-Step's Disposition and the count of Records it wrote, and, where a guardrail declined, §8's Refusal
-rendering in full; last is §8's terminal line, naming the outcome, the exit code, and — whole — the
+`run` renders nothing before executing (ADR-0015). What it writes is the Step table §8 states — each
+Step's Disposition and the count of Records it concluded about, which is not the count it wrote
+(ADR-0030) — and, where a guardrail declined, §8's Refusal rendering in full; last is §8's terminal
+line, naming the outcome, the exit code, and — whole — the
 entry the Run wrote. Under `--json` it emits those two renderings' rows and the Run's `provenance` in
 both its scopes — the Run-wide row and one row per Step file written (§7, §8) — terminated by the
 `outcome` row carrying those same facts, and nothing else: what each Record did is the Comparison's
@@ -222,6 +223,12 @@ status got, which is as true of the `404` that completed a `destroy` as of the `
 `--expansion` each Step
 also carries its selector, what that selector expanded to, and its Bound, which is what §8's Refusal
 footer points at.
+
+Where an entry holds a digest and no members — the set did not move since the Run that last carried one
+(§7, ADR-0055) — `show` resolves the members from that Run and names it, rendering them as *unchanged
+since* it. It reads another entry's bytes only by saying so: rendering them bare would present a set
+this entry does not hold as though it did, which is the omission these surfaces are built to make
+impossible (ADR-0026). Nothing is stored to spare it the walk, and the walk always terminates (§7).
 
 `changes [procedure]` renders §8's Comparison. Naming a Procedure selects it and omitting one compares
 across every Procedure at once, which is why the Procedure is positional here and a parameter on `runs`
@@ -710,7 +717,9 @@ runs(since?, procedure?, target?, outcome?, limit?)
 ```jsonc
 run_show(run_id, expansion?)
 // → rows: [{ type: "disposition", step, state,   // state: §12
-//            records: [ … ],                     // the Record identities the Step acted on
+//            records: [ … ],                     // the identities the Step concluded about — the set
+//                                                // §8's `records` count is the size of; absent where
+//                                                // the Disposition carries none
 //            pattern: { attempts, pages, polls },
 //            failed_path }]                      // §6's projection failure only; records is partial
 //         §8's provenance rows, unchanged: the Run-wide row, then one per Step file written

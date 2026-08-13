@@ -412,13 +412,26 @@ which projects nothing and declares no identity (§3). A Record that came back u
 and is in the set; that is the case the whole mechanism exists for, and it is why *what it wrote* is
 the wrong reading (ADR-0030).
 
-It is written as `identities`, a `digest` and — only where that digest differs from the same Step's
-digest in the previous Run of the Procedure — the sorted `members` in full. An unchanged listing of five
-hundred Records costs one line; a changed one costs the set, and the set it changed from is findable as
-the last Run whose digest moved. `members` is written whenever the digest moved, an empty list
-included: this is one of the two exceptions to the empty-value rule above, and it earns it, since
+It is written as `identities`, a `digest` and — only where that digest differs from the one the same Step
+carried in the last Run of the Procedure that carried one — the sorted `members` in full. An unchanged
+listing of five hundred Records costs one line; a changed one costs the set, and the set it changed from
+is findable as the last Run whose digest moved. `members` is written whenever the digest moved, an empty
+list included: this is one of the two exceptions to the empty-value rule above, and it earns it, since
 absence there already means *the digest did not move* and a reader would otherwise decode *we looked
 and saw nothing* from recognising the digest of `[]` as a constant.
+
+The Run compared against is the last one in which that Step carried a set at all, and never simply the
+previous Run (ADR-0055). Two of the six Dispositions below carry no set and a third writes no file, so
+the previous Run frequently holds no digest for a Step to differ from, and treating that absence as a
+difference would write `members` where nothing moved — which is the one thing their presence says. The
+Step is matched by its authored `id` (§3); an `id` that moved is a different Step, with no digest behind
+it, writing its set in full on its first Run like any other.
+
+The walk that reads a set back is therefore total. Every entry either holds `members` or, by holding a
+digest, names a set an earlier entry holds in full, terminating at the Run where that Step first carried
+one. Nothing removes the entries in between — Compaction touches interior Observation versions and never
+a Journal entry — so a set and its count are recoverable from any entry the Store holds, which is why
+neither is stored a second time.
 
 The digest is `sha256:` over the canonical JSON encoding of the sorted array, trailing LF included — so
 where a set is written in full a reader recomputes its digest with `sha256sum` over those exact bytes

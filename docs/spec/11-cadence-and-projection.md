@@ -267,15 +267,18 @@ to Markdown, so the review gutter and the aligned columns survive and the page c
 terminal carries (§9, ADR-0021).
 
 What lands there is the Step table `run` writes — one row per Step carrying its index, its id, its
-Kind, the count of Records it wrote, and its **Disposition**, one of the six §12 defines. Where a
-guardrail declined, §8's Refusal rendering follows in full, remediation table included. Then the
+Kind, the count of Records it concluded about (§8, ADR-0030), and its **Disposition**, one of the six
+§12 defines. Where a guardrail declined, §8's Refusal rendering follows in full, remediation table
+included. Then the
 Comparison, under `if: always()`, so a Run that failed still renders what reached the world before it
 stopped.
 
 The Dispositions are why the page is worth writing. A green check means the Run finished, not that
 anything happened: a Run whose every Step was skipped as already recorded completes and exits `0` like
 any other (§6), no exit code distinguishes it, and this page is where the difference is legible — as it
-is where *ran* three times and *never reached* twice reads as the partial Run it was.
+is where *ran* three times and *never reached* twice reads as the partial Run it was. The counts beside
+them say how much each Disposition covered, a Step that skipped five hundred Assets rendering five
+hundred rather than nothing (§8).
 
 `tee` rather than a redirect, because a summary over the executor's per-step limit is dropped *without
 failing the step*: the Actions log is always complete and the summary is a convenience copy of it
