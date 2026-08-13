@@ -342,6 +342,12 @@ which is the pin, which is a one-line edit to a Repository declaration that has 
 file. The limit is that the reading takes two screens rather than one, and that the artefact you asked
 about is not the one that answers.
 
+**And it never says where to go.** With no file there is no path to state either, so the header's first
+line carries the absence alone and that member goes silent rather than rendering a locator nothing
+opens (§8, [ADR-0068](../adr/0068-one-supply-is-stated-once-and-the-member-it-silences-is-not-omitted.md)).
+The two halves of that line are one limit and not two: the artefact you asked about is not the one that
+answers, and it is not one you can edit.
+
 ## What `hyper` never says first
 
 `hyper` is pull-only. It has nothing to push from, no clock of its own, and no process alive between

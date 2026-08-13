@@ -34,6 +34,13 @@ a further member and the list is what keeps the set checkable against a renderin
 nobody can enumerate is a set that has stopped being closed (§12). A whole-artefact fact no supply on
 this screen already holds is not a header member for want of a home.
 
+**A member renders from its own supply, and goes silent where another member's supply has answered for
+it on the same line** ([ADR-0068](../adr/0068-one-supply-is-stated-once-and-the-member-it-silences-is-not-omitted.md)).
+That is not the list going optional, and the distinction is the whole of what keeps omission the defect
+it is everywhere else on this screen (ADR-0026): an omitted member is one with a supply of its own,
+dropped; a silenced member is one the line already answered, and the header states a supply once rather
+than twice. Two instances are below, and both are one artefact's absence serving two readings.
+
 **It is a block, one fact per line, inside the same rule.** The kind heads the marker column below, the
 path and the range share the first line, and the gloss takes the second. Composed onto the first line it
 would make the screen's width depend on how awkwardly an expression glosses, and the grammar §10 states
@@ -98,7 +105,10 @@ declaration's endpoint and a Repository declaration's retention policy. Nothing 
 to the terminal: §9's truncation discipline governs a result set, which has an order and a limit, and an
 artefact has neither.
 
-**A review renders the working tree and no removed lines** (ADR-0057). Where the artefact has a
+**A review renders the working tree and no removed lines** (ADR-0057), and on the one artefact with no
+file in the working tree it renders the bytes embedded in the binary (§11). What ADR-0057 fixes is that
+one side of the range renders and never both; a built-in has no baseline to have drawn, so the rule
+reaches it unchanged and only the word for where the bytes came from widens. Where the artefact has a
 previous revision, the review renders the range and the change column marks `~` on every line the range
 touched — a line whose content differs from the baseline, a line that is new, and the line a deletion
 anchors to. One mark and not three: the gutter marks and does not classify, and a direction is `FLAGS`'
@@ -222,6 +232,26 @@ Rendering *no baseline — `retire-preview-envs` has not run* above and *last ra
 fact twice: the argument for naming three absences is that they are three different facts, and these are
 one fact in two notations.
 
+**And on an artefact with no file in the repository, the path goes with it.** The rule keys on there
+being no file rather than on the artefact's kind or on its being built in — the decomposition ADR-0067
+fixed for the range one paragraph up, and today one artefact answers to it, the roster being bounded by
+a criterion rather than a list (ADR-0039, §11). Where there is no file there is no path to state, and
+the sentence beside it already says where the bytes are, so the header's first line carries that
+sentence alone. `path` is silent because the supply behind it is on the line, not dropped for want of a
+home (ADR-0068). Rendering `shell` there repeats the name the sentence carries and the marker column
+typed; rendering `<built-in>/shell` puts a value in a column of openable files that no `check` cites and
+no editor opens; rendering the binary and its version says *in the binary* twice on one line, which is
+the doubling the paragraph above refuses. The line collapses to its one field rather than leaving the
+path's width as blank run-up — whitespace where a member was is omission wearing a rendering, on the one
+screen that may not (ADR-0026).
+
+```
+$ hyper review shell
+
+  MANIFEST          │  no baseline — shell ships in the binary
+  ──────────────────┼─────────────────────────────────────────
+```
+
 **A Target declaration's header is the rule's other half rendered**, and it is two lines because there is
 no Cadence beneath it — the gloss is a Procedure's, and its absence takes the line rather than leaving
 one blank:
@@ -299,7 +329,9 @@ two named absences above already refuse to leave standing.
 the file including blank ones. A flag's citation, a `gutter` row's `line`, a Refusal's caret excerpt
 and its `EDIT ONE OF` rows are one numbering, and it is the numbering of the file the reader has
 checked out — which is the whole of what a citation is for. A removed line has no number, having no
-line; what a deletion is cited at is the anchor above.
+line; what a deletion is cited at is the anchor above. On a built-in Manifest it is the numbering of
+the bytes this screen renders, which are the bytes `operation` writes back unchanged (§9, §11): there is
+no file to check out, and a citation that resolved against one would have no referent at all.
 
 A review resolves no credential, reaches no network, and invokes nothing.
 
@@ -995,7 +1027,12 @@ this row exists to take it out of.
 is one; where there is not, `baseline_absent` carries which of the three §12 names it is, since a key
 merely missing would collapse the distinction the header renders three sentences for. It carries the
 name the header ranked and never the set of what was true, one absence rendering on the page and one
-going out. `last_run` is absent on all three, one entry supplying both readings.
+going out. `last_run` is absent on all three, one entry supplying both readings. **`path` is absent
+exactly where `baseline_absent` is `built-in`**, and the two are one fact — an artefact with no file has
+no path, and no Run could have recorded a revision of what has none — so the name already on the row is
+the discriminator and a second key would carry that fact twice. It is stated here rather than left to
+fall out of which artefact happens to have a file: a rule that holds by accident is one no reader can
+check a rendering against.
 
 A review does not decompose into rows the way the three change tables do, so `review --json` emits the
 annotations and never the source — the consumer already has the file. Each `flag` row carries the line
