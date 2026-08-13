@@ -1,14 +1,27 @@
 # §6 — Execution
 
-A Run begins with `check` re-run in full with nothing skipped (§4) and with the credentials of every
-Target it may bind resolved once (ADR-0007); no Step starts until both have happened. What is resolved
-is the slots the Run's bindings require rather than every slot each Target declaration carries: presence
-is checked over the (Definition, Target) pairs the Procedure makes, exactly as slot coverage is (§4), so
-a Target serving two Providers does not oblige a Run to hold a credential no Step of it could send
-(`credential-absent`, §12). This chapter
-states what happens after that: the order Steps go in, what re-running one means, what a condition
-may read, what runs concurrently, what a failure does to the rest of the Run, and the three outcomes
-all of it ends in.
+A Run begins in a fixed order, and no Step starts until all of it has happened. The version pin gate
+runs first and the Store is located second, the two paths that decline before a Run is identified at
+all (§9, §7). Then `run.json` is written and pushed, which for an effectful Run is also the Store sync
+(§7) — so every gate below declines into an entry that already exists and has already reached the
+remote. Then the Store files the Run must read are checked for a schema version above this binary's
+(`store-schema-unsupported`, §12), over the Journal and the Record heads under the (Definition, Target)
+pairs the Procedure makes. Then `check` is re-run in full with nothing skipped (§4). Then the
+credentials of every Target the Run may bind are resolved once (ADR-0007). Then Step 1.
+
+What is resolved is the slots the Run's bindings require rather than every slot each Target declaration
+carries: presence is checked over the (Definition, Target) pairs the Procedure makes, exactly as slot
+coverage is (§4) and exactly as the schema check above is, so a Target serving two Providers does not
+oblige a Run to hold a credential no Step of it could send (`credential-absent`, §12). Two Run-start
+gates scoped by one sentence is one rule; two gates scoped by two sentences is a second thing to keep
+true.
+
+Every one of those gates declines before Step 1, which is most of the closed `error_code` set rather
+than a corner of it: `check` re-runs in full, so all of §4's static codes reach a Run this way
+(ADR-0061). Where one declines, the Run is `refused` and the Journal entry holds what declined it
+(§7). This chapter states what happens after all of it: the order Steps go in, what re-running one
+means, what a condition may read, what runs concurrently, what a failure does to the rest of the Run,
+and the three outcomes all of it ends in.
 
 ## The sequence
 
@@ -359,9 +372,10 @@ baseline: a Comparison reads back to the last non-dry Run (§8, ADR-0010).
 ## The outcome triple
 
 Every Run ends in exactly one of the three outcomes §12 defines. `refused` is §5's: a guardrail
-declined a Step before any effect reached the world. `failed` is the world resisting or the Run being
-stopped, which is where every halt above lands — an error, a deadline, an interrupt, lock contention,
-an entry closed by a later Run. `completed` is neither.
+declined before any effect reached the world, most often before any Step existed. `failed` is the world
+resisting or the Run being stopped, which is where every halt above lands — an error, a deadline, an
+interrupt, lock contention, a Store it could not sync, an entry closed by a later Run. `completed` is
+neither.
 
 A Run that halted at the third Step of nine is `failed`, and what it did before it halted lives in
 its Records and its Dispositions rather than in its outcome.

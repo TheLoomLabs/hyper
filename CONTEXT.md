@@ -209,8 +209,11 @@ changed from one nobody has looked at.
 _Avoid_: Source, Cause, Origin, Event
 
 **Refusal**:
-A terminal Run outcome in which a guardrail declined a Step before any effect reached the world.
-Distinct from failure, which means the world resisted.
+A terminal Run outcome in which a guardrail declined before any effect reached the world. Usually
+before any Step exists at all, a Run re-running every static check at its start — so it is a fact about
+the Run rather than about a Step, held on the Run's outcome and never on a Step's, and the Step it may
+cite is an artefact coordinate rather than something that ran. Distinct from failure, which means the
+world resisted, and from losing the Store, which needs no act of anyone's to clear.
 _Avoid_: Rejection, Denial, Block, Abort
 
 **Journal**:

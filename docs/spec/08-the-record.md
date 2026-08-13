@@ -29,8 +29,17 @@ rather than part of it, and that editing it by hand is editing evidence (ADR-001
 
 ### Syncing and durability
 
-An effectful Run syncs the Store before its first effect and Refuses if it cannot (`store-unsynced`,
-§12). A read-only Run proceeds offline and pushes when it can.
+An effectful Run syncs the Store once, at Run start, and that sync **is** the push of its open Journal
+entry — one reach at the remote rather than two, and the earliest moment at which the Run can know it
+will be able to record what it does. A read-only Run proceeds offline and pushes when it can.
+
+An effectful Run that cannot complete it is `failed` with the contention exit code (`75`, §12) and is
+not a Refusal. It is the third way a Run loses the Store, beside the lock (§6) and the push below, and
+it belongs with them rather than with the guardrails: `77` says a verbatim retry will refuse
+identically (§12), and a Run that could not reach the remote succeeds on the same retry five minutes
+later. What separates the two codes is whether an act of yours is required — an artefact edit, a `store
+init`, a newer binary — and a network coming back is not one (ADR-0061). What it wrote before it
+stopped stands locally and goes out with the next Run that syncs.
 
 Nothing on a runner is durable until it is pushed, so §6's guarantee that a crash loses at most the Step
 in flight is a fact about when the pushes happen: the open Journal entry is pushed at Run start, the
@@ -336,8 +345,9 @@ one other fact in the same position.
 A Step that is a nested Procedure invocation writes no file of its own. An invocation is not a Step,
 none of the six Dispositions describes one, and its own Steps each write a file carrying `path`.
 
-`outcome.json` carries `schema_version`, the `outcome` §6's triple fixes, `ended_at`, and `closed_by_run`
-where another Run closed the entry.
+`outcome.json` carries `schema_version`, the `outcome` §6's triple fixes, `ended_at`, `closed_by_run`
+where another Run closed the entry, and `refusal` where the outcome is `refused` — the whole of what
+declined it, in the form the next section states.
 
 ```json
 {
@@ -529,18 +539,67 @@ it failed against (ADR-0017).
 ### A Refusal in the Journal
 
 A Refusal writes no Record — nothing happened to the world — so the Journal is the only place it is
-held, and it is held in full: the Step file carries the check that declined it under its `error_code`
-(§12), the Step, the Target it would have bound, and what was `declared` against what was `observed`
-(§5), beside the `artefact` and `line` the remediation points at. An attempt whose outcome never came
-back is held there as fully and for the same reason, less the `error_code`: nothing declined it, so
-there is no check to name (§9).
+held, and it is held in full. It is held on **`outcome.json` and nowhere else**, under `refusal`, and
+the Step file carries none of it (ADR-0061). A Run has at most one Refusal ever, the outcome being
+terminal, so what declines a Run is a fact about the Run rather than about any Step — and most of the
+closed `error_code` set declines before Step 1, where there is no Step for it to be a fact about (§6).
+The reader that knows a Run refused is already holding the file that says why.
 
-The file and the line are written rather than derived from the Step's own revision. The Journal is
+`refusal` is an **ordered array of at least one member**, and the array is the checks that declined
+this Refusal rather than several Refusals. Each member carries what a `check` problem row carries — the
+`error_code` (§12), the `file`, the `line`, the `field` and the `message` — plus what a Run adds:
+`step` and `step_id` where the check cites a Step, and `declared` against `observed` where the check
+compared two values (§5). Nothing is invented to fill a member that does not apply: a check that
+compared nothing writes no `declared`, on the absence rule above, rather than reporting a value for
+`observed` it never had.
+
+A Refusal and a `check` problem are one shape because they are one thing arriving through two commands:
+what `check` reports offline is what stops a Run online. The key is `file` and not `artefact` — the word
+`hyper` reserves for the five reviewed artefacts (§3) — because two codes cite a file that is not one:
+`projection-stale` cites a generated workflow and `store-schema-unsupported` cites a Store file. It is
+also the word the `EDIT ONE OF` table's column already carries (§8).
+
+```json
+"refusal": [
+  {
+    "declared": 5,
+    "error_code": "bound-exceeded",
+    "field": "steps[2].bound",
+    "file": "procedures/retire-preview-envs.yaml",
+    "line": 33,
+    "message": "expansion resolved 23 assets on staging",
+    "observed": 23,
+    "step": 3,
+    "step_id": "retire"
+  }
+]
+```
+
+`step` is an **artefact coordinate and never an execution fact**: `bound-missing` cites `steps[2]` in a
+Run where no Step was ever reached, and a Step it names may have no file in the entry at all. A Refusal
+before Step 1 writes no Step file, none having reached a Disposition, so such an entry is `run.json` and
+`outcome.json` and nothing else.
+
+**The array has more than one member only where the phase evaluates many checks together.** Two do:
+`check` re-run at Run start, which reports every problem it finds rather than the first (§9), and the
+credential pass, which resolves every slot the Run's bindings require in one go (§6) and so knows every
+absent variable at once. Everywhere else it has exactly one member, a Refusal being terminal — there is
+no second check to reach. The order is the order `check` prints in, by file path and then by line,
+and what the terminal line and the `outcome` row name is the first member's `error_code` (§8). That head
+is derived and never stored: a stored head is a second representation of the array's first member and the
+two can disagree, which is the reason no exit code, no duration and no Head marker is stored either.
+
+An attempt whose outcome never came back is held on its Step file as fully and for the same reason, less
+the `error_code`: nothing declined it, so there is no check to name (§9).
+
+The file and the line are written rather than derived from the artefact's own revision. The Journal is
 evidence, and evidence that needs a checkout at the right revision to be legible is evidence with a
 dependency; the source at that revision is not in the Store at all, so nothing is being said twice. No
 phase is written beside them either: each member of the closed `error_code` set names one check and a
 check happens at one phase, so §8's `phase` derives from the code and is not a set of its own to drift
-from the one it shadows.
+from the one it shadows. That rule is what fixes `store-schema-unsupported` at Run start (§6) rather
+than wherever a read happens to land: a code whose phase depends on which Step read first has no phase
+to derive.
 
 ### The Trigger
 
@@ -681,7 +740,14 @@ not perform.
 
 Every file in the Store carries its own schema version, an integer, and the branch carries none.
 `hyper` reads any file at or below the version it knows, and Refuses on one written above it
-(`store-schema-unsupported`, §12) rather than guessing at a shape it does not recognise (ADR-0028).
+(`store-schema-unsupported`, §12) rather than guessing at a shape it does not recognise (ADR-0028). A
+Run tests it at Run start over the files it will read (§6) rather than wherever a read lands, so the
+code has one phase like every other member of the set.
+
+The rule Refuses on a shape a reader does not recognise; it does not stop that reader writing the shapes
+it does. A Run declining with this code has already written its own entry into the Store beside the
+files it could not read, which is exactly what four independent integers exist to permit — and the trace
+matters most here, one environment upgrading being the likeliest reason the other stopped (ADR-0061).
 
 There are four integers, not one — a Record version's, `run.json`'s, a Step file's and `outcome.json`'s
 — each independent and each starting at `1`, matching the explicit version a Manifest carries (§3).

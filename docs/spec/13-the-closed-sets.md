@@ -139,10 +139,11 @@ from it would be the authority axis §5 does not have.
 
 - `completed` — every Step reached a terminal Disposition and none of them refused or failed. A Run
   whose every Step skipped completed.
-- `refused` — a guardrail declined a Step before any effect reached the world, and the Run stopped
-  there (§5, ADR-0001).
-- `failed` — the world resisted, or the Run was stopped: an error from a Step, a deadline, an interrupt,
-  contention on the Store lock, or an open entry closed by a later Run.
+- `refused` — a guardrail declined before any effect reached the world, and the Run stopped there
+  (§5, ADR-0001). Most often before any Step existed, `check` re-running in full at Run start (§6).
+- `failed` — the world resisted, or the Run was stopped, or it lost the Store: an error from a Step, a
+  deadline, an interrupt, contention on the Store lock, a sync or push it could not complete, or an open
+  entry closed by a later Run.
 
 There is no fourth outcome and no partial one; a Run that halted midway is `failed`, with what it
 completed held by its Records and Dispositions rather than by its outcome.
@@ -161,15 +162,17 @@ than coarser: four of the seven are `failed`.
 - `2` — a usage error. No Run began, and no member of the outcome triple applies. It covers a
   positional that matches nothing on eight of the nine commands taking one — `install` is the
   exception above — and no row stream opens on this code at all (§9, ADR-0060).
-- `75` — a Run that lost the Store: to the lock (§6), or to a push it could not rebase through in
-  three attempts (§7). `failed`.
+- `75` — a Run that lost the Store: to the lock (§6), to the sync at Run start (§7), or to a push it
+  could not rebase through in three attempts (§7). `failed`.
 - `77` — a guardrail declined before any effect reached the world. A Run that refused (§5), and the
   code the version pin gate and an absent Store carry from any command that hits them (§9).
 - `130` — a Run stopped by an interrupt, having drained (§6, ADR-0015). `failed`.
 - `143` — a Run stopped by a termination signal, drained the same way (§9). `failed`.
 
 `75` and `77` are `sysexits`' `EX_TEMPFAIL` and `EX_NOPERM`, and the pairing carries the difference
-between them: `75` says retry me, and `77` says a verbatim retry will refuse identically (§9).
+between them: `75` says retry me, and `77` says a verbatim retry will refuse identically (§9). What
+sorts a stop into one or the other is whether an act is required to clear it — an edit, an `init`, a
+`project`, a newer binary, a variable set — and never how severe it was (ADR-0061).
 
 ## Capabilities
 
@@ -349,12 +352,19 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Forty-six members, each the identifier of a check that declined, named where that check is
+**Closed.** Forty-five members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
 resisting and has none, and the ways it can resist are not a set anything could close over. Two
 failures are told apart by the exit code above rather than here.
+
+**Most of the set declines before Step 1.** A Run re-runs `check` in full at its start (§6), so all
+twenty-eight of §4's static codes reach a Run that way, beside the credential pass, the Cadence's and
+the Store's. Where one does, it is held on `outcome.json` and never on a Step file, `step` being an
+artefact coordinate rather than an execution fact (§7, ADR-0061). Only `bound-exceeded`,
+`run-once-recorded`, `record-identity-collision` and §6's `predicate-type-mismatch` require a Step to
+have been reached at all.
 
 Twenty-eight are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
@@ -378,16 +388,18 @@ everywhere else. `predicate-type-mismatch` is the other, an operator handed a ty
 `in:` that is empty, of one member or of mixed types, an empty `starts_with:`, a predicate against a
 declared-secret field — and §6 fires it against a stored value at Expansion (ADR-0035). Each is one code because it is one check:
 what names a Refusal is the check that declined, never the moment it ran, and a reader is never holding
-one without knowing whether they asked `check` or a Run. §7's four are the Store's:
+one without knowing whether they asked `check` or a Run. §7's three are the Store's:
 `store-absent`, a Run — or any other command that needs the Store (§9) — finding no Store branch;
-`store-unsynced`, an effectful Run that could not sync before its first effect;
 `record-identity-collision`, a Record identity colliding case-insensitively with one already written —
 and, on the same shared-code rule as the two above but across a different pair, §3 firing it at load
 where two members of one `values:` list are one identity under that same fold (§3), which is the one
 place the collision is authored and therefore catchable with no Store at all;
-and `store-schema-unsupported`, a Store file whose schema version is above the reader's (ADR-0028). §9
+and `store-schema-unsupported`, a Store file whose schema version is above the reader's (ADR-0028),
+tested at Run start over the files the Run will read (§6). A Run that could not sync the Store
+contributes no member: it is `failed` at `75` rather than a Refusal, the network coming back being no
+act of anyone's, and `77` promising above that a verbatim retry refuses identically (§7, ADR-0061). §9
 contributes `credential-absent`, a credential a Target declaration names and the environment does not
-hold, checked before a Run's first Step. §10's three are the Cadence's: `cadence-malformed`,
+hold, checked before a Run's first Step and reported for every absent slot at once. §10's three are the Cadence's: `cadence-malformed`,
 a Cadence outside the cron grammar §10 states; `projection-stale`, a generated workflow that is
 not what `project` would write now; and `cadence-run-once`, a Procedure declaring a Cadence that
 reaches a run-once Step at any depth (§4, ADR-0038) — a recurrence whose second occurrence Refuses,

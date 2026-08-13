@@ -576,6 +576,75 @@ $ hyper run retire-preview-envs
   refused · exit 77 · hyper show 0199206d-4e15-7c30-9b8a-52d9ea01f7b4 --expansion   for all 23
 ```
 
+### Where no Step was reached
+
+Most of the closed `error_code` set declines before Step 1 — `check` re-runs in full at Run start, so
+every static code reaches a Run this way, beside the credential pass and the Store schema test (§6,
+ADR-0061). Each of the three parts above is rendered where it has content and omitted where it has
+none.
+
+**The Step table is omitted entirely**, and the sentence beneath it becomes a flat statement that
+nothing ran. An empty table asserts *we looked at the Steps*, which is false, and the fact that no Step
+was reached is the most important thing on the page — an absence cannot carry it.
+
+```
+  nothing ran. no step was reached.
+```
+
+**The caret excerpt survives**, and every code that reaches a Run this way cites a line: a static code
+its own artefact and line, `cadence-run-once` the `cadence:` line, `credential-absent` the `env:` line
+of the Target declaration whose slot the environment did not fill. The `=` note beneath it carries the
+phase §7 derives from the code — `= checked at run start, before the first step` — which is what tells
+a reader this Refusal preceded execution rather than halted it.
+
+The one exception is `store-schema-unsupported`, which **renders no caret**. The file it cites is a
+Store file: evidence rather than an artefact, and editing it is editing evidence (ADR-0011). A caret
+excerpt over a Store path would render, in the surface whose whole purpose is *here is the line to
+change*, a file the reader must not touch. Its file and field go in the `=` notes instead.
+
+**The remediation table is rendered only where an artefact edit is the way past**, and its header stays
+`EDIT ONE OF` on every path where it appears. The set it leaves behind is larger than one code and has
+three remedies, none of them an edit and all of them keeping `77`'s promise that a verbatim retry
+refuses identically: a **command** (`projection-stale` → `hyper project`, `store-absent` → `hyper store
+init`), a **different binary** (`store-schema-unsupported`, `manifest-schema-unsupported`,
+`version-pin-mismatch`), and an **act on the environment** (`credential-absent`). On all of them the
+`=` notes carry the remedy, and they **name the remedying command verbatim**. A check knows its own
+remedy, so naming it states a fact rather than editorialising: `FLAGS` is the one surface ADR-0026
+restricts, and it is restricted for summarising other lines, which this does not do. Prose that
+describes a command without naming it is the same fact rendered worse.
+
+Where a Refusal carries more than one member — the two phases that evaluate many checks together (§7) —
+**every one of them renders**, each with its own caret excerpt and its own remediation table where it
+has one, in the array's order. The Refusal is the entire path back (ADR-0001): rendering the first of
+five costs an operator five round trips, each ending in another `77`. What the terminal line names is
+the first.
+
+```
+$ hyper run retire-preview-envs
+
+  nothing ran. no step was reached.
+
+  refused: credential absent — 2 targets
+
+    targets/staging.yaml:12
+     11 │ auth:
+     12 │   token: {env: STAGING_TOKEN}
+        │          ^ the environment does not hold STAGING_TOKEN
+        │
+        = checked at run start, before the first step
+        = set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --
+
+    targets/cloudflare-prod.yaml:9
+      8 │ auth:
+      9 │   token: {env: CLOUDFLARE_API_TOKEN}
+        │          ^ the environment does not hold CLOUDFLARE_API_TOKEN
+        │
+        = checked at run start, before the first step
+        = set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --
+
+  refused · exit 77 · run 0199206d-4e15-7c30-9b8a-52d9ea01f7b4
+```
+
 ## The terminal line
 
 Every Run's rendering ends with one line naming what happened, the exit code §9 fixes, and the entry
@@ -606,6 +675,13 @@ outcome with a next command to name, its rendering being the entire path back (A
 Run names none. What to look at next is the Comparison, and saying so here would editorialise on a
 surface that reports, `FLAGS` above being the one place that does (ADR-0026).
 
+**The pointer is earned by truncation, not by the outcome.** `show --expansion` stands on the line
+above because the caret cannot fit twenty-three assets in an excerpt; where the page is complete — every
+Refusal that declined before Step 1, whose caret and remediation table are the whole of it — the line
+falls back to the completed form, `refused · exit 77 · run 0199206d-…`, and the Run id renders whole
+there as it does everywhere (ADR-0047). Pointing at `show` would send a reader to look up what they are
+already looking at.
+
 **The Run id renders whole.** Every other id on every other human surface is abbreviated for the eye —
 the Comparison's header, a `runs` row, a Provenance revision (§7) — and this is the one an operator
 retypes, so it renders as the argument the next command takes rather than as a fact to recognise
@@ -617,6 +693,13 @@ is identified at all — the version pin gate and the bootstrap `store-absent`, 
 and writes nothing (§9) — and on both the line says what happened and names nothing to look up, there
 being nothing to look up. Every other Refusal has an id by the time it declines, `run.json` being written
 at Run start (§7).
+
+**An entry that was written is named, whether or not it reached the remote.** An effectful Run that lost
+the Store at its Run-start sync exits `75` having already written `run.json` locally (§7), so the line
+names that id: the rule is *no entry was written*, and one was. It is resolvable by `hyper show` on the
+machine printing the line, and it goes out with the next Run that syncs. On a runner the workspace
+evaporates and nobody reads it again — which is a fact about that executor, not a reason to withhold a
+true id from the operator in front of the one that is there.
 
 ## The row stream
 
@@ -710,14 +793,31 @@ $ hyper run retire-preview-envs --json
 {"type":"step","index":1,"id":"probe","kind":"read","disposition":"ran","records":12}
 {"type":"step","index":2,"id":"label","kind":"mutate","disposition":"ran","records":8}
 {"type":"step","index":3,"id":"retire","kind":"destroy","disposition":"refused"}
-{"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"artefact":"procedures/retire-preview-envs.yaml","line":33}
-{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":33,"field":"steps[2].bound","from":5,"to":23}
-{"type":"remediation","artefact":"procedures/retire-preview-envs.yaml","line":32,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
+{"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"file":"procedures/retire-preview-envs.yaml","line":33,"field":"steps[2].bound","message":"expansion resolved 23 assets on staging"}
+{"type":"remediation","file":"procedures/retire-preview-envs.yaml","line":33,"field":"steps[2].bound","from":5,"to":23}
+{"type":"remediation","file":"procedures/retire-preview-envs.yaml","line":32,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4}
 {"type":"provenance","procedure_revision":"b0c94f1","repo_revision":"88bc402","hyper_version":"1.4.0"}
 {"type":"provenance","step":1,"definition_revision":"c3a17b0","manifest_digest":"sha256:2b7e…"}
 {"type":"provenance","step":2,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
 {"type":"provenance","step":3,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded","dry_run":false,"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}
+```
+
+**One `refusal` row per problem**, in the array's order (§7). Where a Refusal carries five, five rows go
+out and the single `outcome` row's `error_code` is the first one's. The stream does not nest: one row
+carrying an array would make this the one surface that does, and a consumer's
+`select(.type=="refusal")` would stop returning one problem per line. The array exists in the Store
+because a file is not a stream — the same reason `expanded_to` is a list in the entry and a count in the
+column above. A row carries the same members its Store counterpart does, plus the `operation` and
+`target` the Step it cites was bound to; a Refusal that reached no Step carries neither, and carries no
+`step` row before it, there being no Step table on that page.
+
+```
+$ hyper run retire-preview-envs --json
+{"type":"refusal","error_code":"credential-absent","file":"targets/staging.yaml","line":12,"field":"auth.token","message":"the environment does not hold STAGING_TOKEN"}
+{"type":"refusal","error_code":"credential-absent","file":"targets/cloudflare-prod.yaml","line":9,"field":"auth.token","message":"the environment does not hold CLOUDFLARE_API_TOKEN"}
+{"type":"provenance","procedure_revision":"b0c94f1","repo_revision":"88bc402","hyper_version":"1.4.0"}
+{"type":"outcome","outcome":"refused","code":77,"error_code":"credential-absent","dry_run":false,"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}
 ```
 
 A `step` row's `records` is the count the column renders, and it is absent where the column renders `–`:

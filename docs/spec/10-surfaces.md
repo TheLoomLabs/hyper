@@ -142,7 +142,11 @@ repository is therefore not checkable on its own. It resolves no credential, rea
 invokes nothing.
 
 Its output is one row per problem — the file, the line, the field, the `error_code` §12 defines, and a
-message — positioned so that the next act is an edit. There is no `check --fix`: a checker that can
+message — positioned so that the next act is an edit, ordered by file path and then by line. A Run
+re-runs every one of these rules at its start (§6) and reports the same problems in the same order under
+its own row type, one shape arriving through two commands (§7, ADR-0061); what the two differ in is the
+exit code, `1` for a command reporting what it found and `77` for a Run a guardrail declined. There is
+no `check --fix`: a checker that can
 also mutate is a checker you stop trusting, and a repair flag on a gate is the shape ADR-0001 removed
 elsewhere. What repairs projection drift is `project` below, which is a separate command for that
 reason.
@@ -422,14 +426,24 @@ which is the whole point: a caller that reads `refused` as success has been told
 what reached the world.
 
 A caller that retries on `75` is right to, and one that retries on `77` loops forever: with no bypass
-anywhere (ADR-0001) a verbatim retry refuses identically, and the way past is an artefact edit. A shell
-script has the same reflex as an agent, and now the same signal.
+anywhere (ADR-0001) a verbatim retry refuses identically. A shell script has the same reflex as an
+agent, and now the same signal.
+
+**What separates them is whether an act is required, not how severe the stop was.** Past a `77` lies an
+artefact edit, a `hyper store init`, a `hyper project`, a newer binary, or a variable set in the
+environment — an act of somebody's, and until it happens nothing changes. Past a `75` lies time: a lock
+released, a branch reachable again, a push that rebases. That is why a Run that could not sync the Store
+is `failed` at `75` and not a Refusal (§7, ADR-0061): the network coming back is not an act, and telling
+a caller not to retry the one thing retrying fixes is the single most expensive thing this pair of codes
+could get wrong.
 
 The mapping is what keeps the two credential failures apart. Presence is checked where §6 resolves the
 credentials the Run's bindings require, before the first Step: one a binding requires and the
 environment does not hold is a Refusal and exits `77` (`credential-absent`, §12), while one that is
 present and the endpoint rejects is the world resisting and exits `1`. Nothing about where the process
-runs enters either decision (ADR-0007).
+runs enters either decision (ADR-0007). Every absent slot is reported, one member of the Refusal's array
+each (§7), because the pass resolves them all in one go and knows them all at once — reporting the first
+would send an operator round the loop once per variable, each `export` earning another `77`.
 
 Commands that are not Runs carry no outcome. They use `0` for clean, `1` for problems found, and `2`
 for usage, plus `77` where a guardrail declines — the version pin gate above, and the absent Store

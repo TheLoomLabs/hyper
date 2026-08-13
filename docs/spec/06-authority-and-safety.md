@@ -125,11 +125,16 @@ through review (ADR-0001).
 
 ## Refusal
 
-A Refusal is a terminal Run outcome distinct from failure: a guardrail declined a Step before any
-effect reached the world, rather than the world resisting one. Every check this chapter and §4 state
-ends in a Refusal when it does not pass. A Refusal is recorded in full — which check, which Step,
-which Target, what was declared against what was found — and no Record is written for the Step it
-stopped, since nothing happened to the world; both belong to §7.
+A Refusal is a terminal Run outcome distinct from failure: a guardrail declined before any effect
+reached the world, rather than the world resisting one. Every check this chapter and §4 state ends in a
+Refusal when it does not pass — and since a Run re-runs every one of §4's checks at its start (§6), a
+Refusal usually declines before any Step exists to have been declined. It is therefore a fact about the
+Run: recorded in full on the Run's outcome and never on a Step's, and the Step it may cite is a position
+in an artefact rather than something that ran (§7, ADR-0061). No Record is written for a Step it
+stopped, since nothing happened to the world.
+
+Distinct from failure in one further direction: a Run that lost the Store has not been declined by a
+guardrail and is not a Refusal, because nothing anyone does is required to clear it (§7).
 
 ## Blast radius
 
