@@ -156,6 +156,36 @@ Every row in all three tables carries its Target, its Definition, its name, and 
 Observation rows add the fields that moved: a scalar leaf renders `path: old → new`, truncated with a
 marker where it is long, and anything nested or large renders `path: changed`.
 
+### The ordinal
+
+Asset and Observation rows carry an `ORDINAL` beside the change, `4 → 5`. It is each version's ordinal
+position in the `written_at` ordering of what the Store holds when the Comparison is read, derived from
+the same directory listing that derives the Head (§7). It is stored nowhere, and it is never the version's
+identifier, which is the Run that wrote it (ADR-0011, ADR-0049).
+
+What it buys is **adjacency**. A Definition is reachable from more than one Procedure, and `--since` folds
+several Runs into one rendering, so `4 → 7` is the only place a Comparison admits that versions exist
+between its two sides that it is not showing. It is not a count of times the Record was checked: a version
+is minted only where the bytes moved (§7), so a Record read hourly for a month and never changing sits at
+`1`.
+
+An ordinal is unstable, in both tables and under one rule. Compaction removes interior Observation
+versions and renumbers every version above them (§7). A read-only Run proceeds offline and pushes when it
+can (§7), so a laptop's Observations slot in beneath versions a runner already pushed and the ordinal
+moves with no Compaction anywhere — the quieter of the two, Compaction being an explicit command with a
+`git log` behind it. Two renderings of one Store can therefore disagree and neither is wrong. That is
+affordable for exactly one reason, and it is a rule rather than a property of today's flags: **a version
+is named by its Run**, and no surface accepts an ordinal as input.
+
+Nothing marks a gap and nothing counts what a window hides. Both would be sound in the Asset table,
+Compaction never removing an Asset version, and unsound in the Observation table beside it, which is two
+guarantees under one column head.
+
+The left side is `–` where the subject holds a version and the baseline holds none. On a `created` or an
+`appeared` row that repeats what `CHANGE` already says; it earns its place on the `destroyed` row of a
+series whose first version is a Tombstone (§7, ADR-0033), where `– → 1` reads as *`hyper` ended a thing it
+never built* in the column the eye is already in.
+
 *Vanished*, *appeared*, and *nothing moved* are derived from the identity sets each Step's Disposition
 carries (§7) rather than from the Records, which is what buys a disappearance a row at all — an
 unchanged Record and a Record that stopped existing both write nothing. No Record gains state for it and
@@ -197,7 +227,7 @@ $ hyper changes --since 2026-08-04T09:12:00Z
   SUBJECT   01991ea6-b118…  igor@thinkpad  Thu 6 Aug 11:03  completed  2m31s  procedure rev b0c94f1
 
   YOU DID THIS   5 assets
-  CHANGE     TARGET   DEFINITION       RECORD        VERSION  FIELDS
+  CHANGE     TARGET   DEFINITION       RECORD        ORDINAL  FIELDS
   destroyed  staging  hetzner-staging  preview-8801  4 → 5    † confirmed 11:02
   destroyed  staging  hetzner-staging  preview-8802  3 → 4    † confirmed 11:02
   destroyed  staging  hetzner-staging  preview-8806  7 → 8    † confirmed 11:03
@@ -205,7 +235,7 @@ $ hyper changes --since 2026-08-04T09:12:00Z
   changed    staging  hetzner-staging  preview-8815  9 → 10   labels.retire-after: 2026-08-18 → 2026-08-25
 
   THE WORLD MOVED   2 observations
-  CHANGE   TARGET  DEFINITION  RECORD            VERSION  FIELDS
+  CHANGE   TARGET  DEFINITION  RECORD            ORDINAL  FIELDS
   changed  local   uptime      status.hyper.dev  22 → 23  status: 200 → 503
   changed  local   uptime      cert.hyper.dev    22 → 23  days_left: 41 → 34
 
@@ -360,13 +390,13 @@ $ hyper review procedures/retire-preview-envs.yaml --json
 ```
 $ hyper changes --since 2026-08-04T09:12:00Z --json
 {"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","outcome":"completed","procedure_revision":"a91f0c2"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","outcome":"completed","procedure_revision":"b0c94f1"}}
-{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_version":4,"to_version":5,"confirmed_at":"2026-08-06T11:02:41Z"}
-{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_version":3,"to_version":4,"confirmed_at":"2026-08-06T11:02:52Z"}
-{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_version":7,"to_version":8,"confirmed_at":"2026-08-06T11:03:09Z"}
-{"type":"asset","change":"created","target":"staging","definition":"hetzner-staging","name":"preview-8821","to_version":1,"fields":{"server_type":"cx22","region":"fsn1"}}
-{"type":"asset","change":"changed","target":"staging","definition":"hetzner-staging","name":"preview-8815","from_version":9,"to_version":10,"fields":{"labels.retire-after":["2026-08-18","2026-08-25"]}}
-{"type":"observation","change":"changed","target":"local","definition":"uptime","name":"status.hyper.dev","from_version":22,"to_version":23,"fields":{"status":[200,503]}}
-{"type":"observation","change":"changed","target":"local","definition":"uptime","name":"cert.hyper.dev","from_version":22,"to_version":23,"fields":{"days_left":[41,34]}}
+{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_ordinal":4,"to_ordinal":5,"confirmed_at":"2026-08-06T11:02:41Z"}
+{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_ordinal":3,"to_ordinal":4,"confirmed_at":"2026-08-06T11:02:52Z"}
+{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_ordinal":7,"to_ordinal":8,"confirmed_at":"2026-08-06T11:03:09Z"}
+{"type":"asset","change":"created","target":"staging","definition":"hetzner-staging","name":"preview-8821","to_ordinal":1,"fields":{"server_type":"cx22","region":"fsn1"}}
+{"type":"asset","change":"changed","target":"staging","definition":"hetzner-staging","name":"preview-8815","from_ordinal":9,"to_ordinal":10,"fields":{"labels.retire-after":["2026-08-18","2026-08-25"]}}
+{"type":"observation","change":"changed","target":"local","definition":"uptime","name":"status.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"status":[200,503]}}
+{"type":"observation","change":"changed","target":"local","definition":"uptime","name":"cert.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"days_left":[41,34]}}
 {"type":"code","definition":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2","to":"b0c94f1"}
 {"type":"code","definition":"retire-preview-envs","fact":"step retire · bound","from":3,"to":5}
 {"type":"code","fact":"repository revision","from":"1f0a3d7","to":"88bc402"}

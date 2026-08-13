@@ -177,6 +177,11 @@ file name — so finding it is a directory listing rather than the reading of a 
 environments writing one series contend over nothing (ADR-0011). A version identifier is therefore
 mintable by either writer alone and never a counter: a Run id is a UUIDv7 (§12).
 
+The number §8 renders beside a Record is not that identifier and is stored nowhere. It is a version's
+**ordinal** position in this ordering, derived from the same listing and unstable under it — a version
+arriving beneath one already rendered moves every ordinal above it, and Compaction moves them again
+(ADR-0049). Nothing takes one as input: naming a version is naming its Run.
+
 The version that is current is visible to anyone reading the branch, in a fresh checkout or a browser,
 with no git plumbing and no tool.
 
@@ -593,6 +598,11 @@ a Tombstone, never a Journal entry, and never any Provenance. Evidence is what t
 hold: pruning the entry that says a Step *ran* makes it *never reached* again, which is a bypass under a
 maintenance name (ADR-0006, ADR-0001). Compaction is an ordinary commit on the Store branch, so `git
 log` is its own account of what it removed.
+
+What it moves is the ordinal §8 renders: removing an interior version renumbers every version above it,
+so a Comparison read before a Compaction and one read after report different numbers for the same two
+versions, and a gap that was real closes. Nothing consumes an ordinal (ADR-0049), so what this costs is a
+stale rendering rather than an answer.
 
 What Compaction reclaims is tree size and scan cost. It reclaims nothing from a clone: git history is
 not editable, so every byte ever written to the branch is still fetched by the next clone of it. The

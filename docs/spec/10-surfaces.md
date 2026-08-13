@@ -203,11 +203,19 @@ across every Procedure at once, which is why the Procedure is positional here an
 `--between` together is a usage error, the two being different ways of naming one window.
 
 `records` takes `--target`, `--definition`, `--name`, `--history`, and `--limit`, and writes one row
-per Record: its identity, its version, whether it is an Observation or an Asset, whether its head is a
-Tombstone, which of its fields carry the presence-only secret marker (§7), and its Provenance. It
-returns the Head only unless `--history` is given — an explicit boolean rather than a mode that turns
-itself on when some other parameter is named (ADR-0013). An Asset whose Definition no longer exists is
-marked Orphaned on every row that carries it, for as long as it stands (§7).
+per Record: its identity, its ordinal, the Run and Step that wrote the version, whether it is an
+Observation or an Asset, whether its head is a Tombstone, which of its fields carry the presence-only
+secret marker (§7), and its Provenance. It returns the Head only unless `--history` is given — an
+explicit boolean rather than a mode that turns itself on when some other parameter is named (ADR-0013).
+An Asset whose Definition no longer exists is marked Orphaned on every row that carries it, for as long
+as it stands (§7).
+
+The ordinal is §8's and unstable for the reasons stated there. The Run and Step are the version's
+identity, and this is the surface that carries them: it is the one whose job is finding a version rather
+than reading a change, and two Steps of one Run writing one identity write two paths (§12), so the Run
+alone would not name one. They render abbreviated here and whole under `--json`, like every other id on
+a table read down a column (ADR-0047), and nothing takes an ordinal as input at all — naming a version
+is naming its Run (ADR-0049).
 
 Every command in this section takes `--limit`, with a modest default, and every truncated result
 carries a marker naming the axis, what was returned, and what was dropped. There is no cursor and no
@@ -692,7 +700,8 @@ Operation's Kind, one name cannot hold two senses.
 
 ```jsonc
 records(target?, definition?, name?, history?, limit?)
-// → rows: [{ type: "record", key: { target, definition, name }, version,
+// → rows: [{ type: "record", key: { target, definition, name }, ordinal,
+//            run_id, step,                   // the version's identity, §8
 //            record_kind: "observation" | "asset", tombstoned, orphaned,
 //            secret_fields: [ "api_key" ],   // the presence-only marker, per §7
 //            provenance: { … } }]
