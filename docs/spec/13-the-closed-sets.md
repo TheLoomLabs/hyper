@@ -445,6 +445,21 @@ A Manifest's projection of a response is a different thing wearing the same word
 codes above, and it contributes no member: a path failing to resolve against a response is read after
 the call went out, so nothing declined and there is no check to name (§6, ADR-0017).
 
+## The truncation axes
+
+**Closed.** Two, and they are the record's two axes: every read command orders on the one it ranges over,
+and a truncation marker names the one the limit cut (§9, ADR-0065).
+
+| member | the limit cut | what narrows it |
+| --- | --- | --- |
+| `identity` | Records, ordered by `(Target, Definition, name)` | `--target`, `--definition`, `--name` |
+| `time` | Runs or versions, ordered newest-first | `--since`, and `--between` on `changes` |
+
+The member is what makes the marker's `hint` more than manners: it says which parameters would make the
+next call a narrower question rather than the same one twice, on a surface with no cursor to page with
+(§9). `identity` is the word §7 uses for the `(Target, Definition, name)` triple, and it is preferred to
+`name` because the name is the last column of the key and rarely the cut that helps.
+
 ## The response objects
 
 **Closed**, and there is one per Capability. A Manifest's projection and a polling Pattern's `until:`

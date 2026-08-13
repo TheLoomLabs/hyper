@@ -190,6 +190,16 @@ rendering nobody saw and whose entry is the whole account. The consolation is th
 there and the four remediations all begin at the same place, and the fix if that proves too thin is a
 closed enumeration ADR-0018 has already written.
 
+**Two clocks can list two Runs in an order neither machine would agree with.** `runs` orders newest-first
+on `started_at`, and there is no second axis for it to fall back on: a Journal entry is a Run, and Runs
+have nothing to be ordered by except when they happened (§9, ADR-0065). Everywhere else the clock is
+avoidable and is avoided — the Comparison orders by identity and refuses `written_at` for this reason
+(§8), no rendering subtracts timestamps from two entries, and nothing derived from this ordering is a
+check, a Disposition, or a Repeatability test. What it costs is a listing that can transpose two adjacent
+rows written on two machines whose clocks disagree by more than the gap between them, and `hyper` does not
+detect it, warn about it, or correct it: the record holds each writer's own stamp, and inventing an
+authoritative clock to reconcile them is a shared service the tool does not have (§7, ADR-0006).
+
 ## What the guardrails do not cover
 
 **Blast radius is a count, not a severity.** A Bound counts Records and never weighs what happened to

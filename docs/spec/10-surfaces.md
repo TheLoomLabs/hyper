@@ -267,6 +267,12 @@ Journal entry: the Run id, when it started, its Trigger, its outcome, its Proced
 bound, and the version of `hyper` that performed it. The Trigger is on every row, being the only thing
 that distinguishes a world that has not changed from one nobody has looked at (§7).
 
+An open entry (§7) renders no outcome at all, the cell carrying that absence rather than a fourth value:
+*open* is a state and not a member of §12's triple, so writing it into a column named for the triple
+would relitigate that distinction by accident. `--outcome` filters the triple and therefore never selects
+one. A `started` beside an absent outcome is the whole of what the Store holds about a Run nobody has
+closed, and the row says exactly that much.
+
 `show <run-id>` takes a Run id whole — nothing anywhere resolves a partial one (ADR-0047) — and writes
 one entry in full: each Step's Disposition with the Record identities it acted on, `hyper`'s own account
 of what it did to reach that outcome — a Pattern's attempts, its pages, its poll iterations — and, on a
@@ -291,7 +297,7 @@ across every Procedure at once, which is why the Procedure is positional here an
 <timestamp>` or `--between <run-id> <run-id>`, and `--target`, `--kind`, and `--limit`; `--since` and
 `--between` together is a usage error, the two being different ways of naming one window.
 
-`records` takes `--target`, `--definition`, `--name`, `--history`, and `--limit`, and writes one row
+`records` takes `--target`, `--definition`, `--name`, `--history`, `--since`, and `--limit`, and writes one row
 per Record: its identity, its ordinal, the Run and Step that wrote the version, whether it is an
 Observation or an Asset, whether its head is a Tombstone, which of its fields carry the presence-only
 secret marker (§7), and its Provenance. It returns the Head only unless `--history` is given — an
@@ -306,12 +312,59 @@ alone would not name one. They render abbreviated here and whole under `--json`,
 a table read down a column (ADR-0047), and nothing takes an ordinal as input at all — naming a version
 is naming its Run (ADR-0049).
 
-Every command in this section takes `--limit`, with a modest default, and every truncated result
-carries a marker naming the axis, what was returned, and what was dropped. There is no cursor and no
-pagination: an unbounded return blows a context window on the first interesting month, and walking
-three thousand rows a page at a time is the same disaster arriving politely. Truncation is a signal
-that the question was too broad, and the marker names the axis so the next call is a narrower question.
-A truncated result must never look complete.
+**The record has two axes, and every command above orders on the one it ranges over** (ADR-0065). An
+**identity** ordering sorts by `(Target, Definition, name)`, each by Unicode code point, the columns read
+left to right — §8's Comparison rule, §7's identity set rule and §6's Expansion rule, the one ordering
+`hyper` has over Record names reused rather than stated a fourth time (ADR-0044). A **time** ordering runs
+**newest-first**.
+
+`runs` orders on `started_at`, ties broken on the `<run-id>` descending: §7's Head shape, a time key with
+a name behind it, and a UUIDv7 is total over the tie. Ordering on the Run's start rather than its end is
+also what gives an open entry a position like any other — an entry with no `outcome.json` still carries a
+`started_at`, so nothing here needs a rule for one.
+
+`records` orders on identity, and under `--history` it is identity-major: every version of one Record
+together, the identities in name order, and the versions inside each in **§7's Head ordering read
+backwards** — `written_at` descending, ties broken by the file name descending. The reversal is whole,
+both keys inverting together, so the ordering that decides which version is the Head and the ordering this
+surface renders can never drift apart. The first row of each series is therefore the row `records` returns
+without `--history` at all.
+
+`changes` renders §8's tables, whose rows §8 orders. `show` reads one entry back and orders nothing: its
+Step rows are the Run's written order, `<nnnn>` (§12), and `expanded_to` under `--expansion` comes back in
+Expansion order because §7 holds it that way and not sorted — the sequence being where a halted `destroy`'s
+stopping point is legible, and the identity set beside it being a fact about membership instead.
+
+**A query chooses an order; a Run reports one.** The rule governs the four commands here and nothing else.
+A Run's `step` rows arrive as the Steps reach their Dispositions, a Refusal's rows go in the array's order
+(§8), and `expanded_to` is a sequence: none of the three is a result set being ranged over, and reversing
+any of them would reorder events rather than facts.
+
+The order is **normative**. Two renderings of one result are byte-identical and diffable, as §8 requires of
+a Comparison, and the row stream is why it is a contract rather than a convenience: NDJSON goes out one
+line at a time with no cursor behind it, so a consumer cannot re-sort a row it has already printed (§8).
+
+Every command in this section takes `--limit`, with a modest default, and truncation keeps the **first N of
+the ordering above**. That is what the order buys: the first fifty of four thousand Records is the answer to
+a question rather than an arbitrary sample of one. Every truncated result carries a marker naming the axis
+— `time` or `identity`, §12 — what was returned, and what was dropped. There is no cursor and no
+pagination: an unbounded return blows a context window on the first interesting month, and walking three
+thousand rows a page at a time is the same disaster arriving politely. Truncation is a signal that the
+question was too broad, and the marker names the axis so the next call is a narrower question. A truncated
+result must never look complete.
+
+Under `--history` the limit counts **identities and not rows**: a series comes back whole or does not come
+back, because a series cut partway through is a partial history wearing a complete one's shape, which is
+the one thing the sentence above forbids. What bounds a single series instead is a cap on versions per
+series, and it is unnumbered here for the same reason the default above is — both are constants an
+implementation picks, and neither is a fact any artefact, Record or check depends on.
+
+`records` takes `--since` so that the axis a cap can cut has a parameter that narrows it: the marker names
+an axis so the next call can be narrower, and a caller who has already named one Record has no other
+narrowing left to do. It is legal only with `--history`. Without it the parameter would filter heads by when
+they last moved, which is a change read on the command whose job is finding a version, and having it turn
+`--history` on instead would be exactly the mode ADR-0013 refused; `--since` without `--history` is a usage
+error, like `--since` and `--between` together above.
 
 ## Lifecycle
 
@@ -813,7 +866,7 @@ changes(procedure?, since?, between?, target?, record_kind?, limit?)
 Operation's Kind, one name cannot hold two senses.
 
 ```jsonc
-records(target?, definition?, name?, history?, limit?)
+records(target?, definition?, name?, history?, since?, limit?)
 // → rows: [{ type: "record", key: { target, definition, name }, ordinal,
 //            run_id, step,                   // the version's identity, §8
 //            record_kind: "observation" | "asset", tombstoned, orphaned,

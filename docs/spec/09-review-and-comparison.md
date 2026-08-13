@@ -95,8 +95,8 @@ stating something other than what is about to be approved. Its header is the art
 `PROCEDURE`, `DEFINITION`, `TARGET`, `MANIFEST`, `REPOSITORY` — which is true on all five, where a
 header naming blast radius describes a Procedure's marks and a Definition's and misdescribes a Target
 declaration's endpoint and a Repository declaration's retention policy. Nothing on this screen is sized
-to the terminal: §9's truncation discipline governs a result set, which has a limit and a cursor, and
-an artefact has neither.
+to the terminal: §9's truncation discipline governs a result set, which has an order and a limit, and an
+artefact has neither.
 
 **A review renders the working tree and no removed lines** (ADR-0057). Where the artefact has a
 previous revision, the review renders the range and the change column marks `~` on every line the range
@@ -384,7 +384,9 @@ Expansion by, reused rather than reinvented, so two renderings of one window are
 diffable. Grouping by change name is refused on ADR-0054's argument: a rendering that puts the
 destructions first ranks its own rows, which is the one thing only `FLAGS` may do, and it makes the eye
 read the `CHANGE` column twice. Ordering by `written_at` is refused because the laptop and the runner do
-not share a clock (§7).
+not share a clock (§7) — a refusal this table can afford because it ranges over identities and has a name
+axis to order on instead. §9 states the general rule and names the surface with no such fallback: `runs`
+ranges over Journal entries, where time is the only axis there is, and it pays the skew (ADR-0065, §13).
 
 ### The ordinal
 
@@ -839,6 +841,11 @@ scanning it for an absent key.
 Consumers filter rows rather than queries. There is no expression language over the stream and none
 behind it (ADR-0013): `hyper changes --json | jq 'select(.type=="asset")'` is the shape of every
 arbitrary predicate.
+
+**The stream's order is the table's, and here it is a contract rather than a consequence.** One renderer
+means the rows arrive in the order the page renders them (ADR-0026), but this is the surface that makes
+that order normative: a row goes out on its own line, there is no cursor behind the stream, and a consumer
+cannot re-sort what it has already printed. §9 states the orders and the axis a truncation marker names.
 
 **The review's header is one `artefact` row**, on the `window` row's precedent below rather than the
 `gutter` row's: a header cites no line, so one row per rendered line would invent an anchor the surface
