@@ -345,10 +345,21 @@ renders one Run against the Run before it, its code table included — those fac
 each of the two Runs recorded (§7, §8) — so everything on that side of the thesis is bought with two
 Runs against real systems.
 
+**And both surfaces are bought a third time, with the clone.** A range and five of the nine code classes
+read bytes at a revision the Store names, so a clone that does not hold the object renders `not-in-clone`
+in place of what it would have said (§8, ADR-0071). Two causes are repaired by an act — a shallow clone
+deepens, a partial clone refetches, and a projected workflow deepens the runner's before anything runs
+(§10) — and one is not: a code branch whose history was rewritten or force-pushed leaves an object the
+Store names and nothing produces. The Store outlives the history it points into, which is the price of
+`git hash-object` being the anchor at all; it buys a range that survives any number of commits, and it
+cannot survive a commit that was unmade. `hyper` names no repair on that line for the same reason it
+names no *overdue*: it cannot tell which of the three it is looking at without asking a remote, and a
+review asks nothing.
+
 **`hyper review shell` never says what changed, and never will.** A built-in Provider's Manifest ships
 inside the binary and has no file in the repository (§4, §11), so there is nothing for a Run to have
 recorded a revision of and no number of Runs repairs it: alone among the five reviewed artefacts, a
-built-in Manifest has no range at any point in its life, and the header says so as a third named absence
+built-in Manifest has no range at any point in its life, and the header says so as a named absence
 rather than as an empty column (§8, §12). What that hides is less than it looks and the page points at
 where it is readable — a built-in's bytes move only when the binary does, which is `hyper_version`,
 which is the pin, which is a one-line edit to a Repository declaration that has a range like any other

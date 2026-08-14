@@ -23,8 +23,11 @@ rather than left to the member list.
 
 What refuses it is a distinction the corpus already performs and has never stated. §8 argues it for the
 range and *last ran* — "one fact in two notations", so the header says it once and `last_run` goes
-absent on the wire for all three absences — but argues it there as an observation about one Journal
-entry rather than as a rule a member list can be read against. Stated, it does two things: it lets an
+absent on the wire wherever the Journal entry itself is what is missing — but argues it there as an
+observation about one Journal entry rather than as a rule a member list can be read against. ADR-0071
+later supplied the case that proves it was the right reading: `not-in-clone` is an absence whose Journal
+entry is *present*, and `last_run` renders there, because what the rule turns on is the supply and never
+the absence. Stated, it does two things: it lets an
 enumerated list hold a member that sometimes does not render without the list becoming optional, and it
 keeps a renderer that drops a member no other supply answered a defect rather than a judgement call.
 

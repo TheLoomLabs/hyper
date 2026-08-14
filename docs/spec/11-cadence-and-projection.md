@@ -306,6 +306,10 @@ jobs:
         with:
           persist-credentials: true
 
+      - name: deepen the checkout
+        run: |
+          if [ -f .git/shallow ]; then git fetch --unshallow; fi
+
       - name: install hyper 0.4.1
         run: |
           curl -fsSL -o hyper.tar.gz \
@@ -376,6 +380,27 @@ silently on a default somebody else may change (§11). `actions/checkout` is the
 projection names, pinned by commit SHA, and `runs-on` names one pinned platform: both are compiled into
 the binary rather than authored anywhere, and §11 states that whole set and what follows from it
 (ADR-0046).
+
+**The deepen step is what makes the Comparison legible on a runner**, and it is there because
+`actions/checkout` defaults to one commit. `hyper changes` reads bytes at the baseline Run's revisions,
+and a blob id is content-addressed, so on a shallow clone the object is present exactly where the
+artefact did not move and absent exactly where it did: five of the nine code classes and the whole line
+count would go unread on every window that had something in it, and a Target declaration — which carries
+no Provenance member at all — would move without a single row saying so (§8,
+[ADR-0071](../adr/0071-a-missing-git-object-is-an-absence-to-name-never-a-supply-to-substitute.md)).
+
+**It deepens the code branch and not the Store.** `fetch-depth: 0` is the obvious spelling and it is
+*all history for all branches and tags* by the action's own documentation, which fetches the Store
+branch — the one branch §13 names as growing without bound — on every scheduled Run of every Procedure.
+`checkout` leaves `remote.origin.fetch` pinned to the single ref it checked out, so an `--unshallow`
+after it inherits that refspec and reaches nothing else. That is written down rather than relied on.
+
+**The guard is `.git/shallow` and there is no `|| true`.** `--unshallow` errors on a repository that is
+already complete, which a self-hosted or pre-warmed runner may hand it, so the test is what keeps the
+step total. Its failure fails the step, and the step sits before the `run` invocation: nothing has
+reached the world when it dies, so the cost is one skipped window against a Comparison that cannot see a
+credential source move. §8's `not-in-clone` absence stays as the safety net beneath this, and is not the
+path a projected workflow is expected to take.
 
 **The install step carries the version, the URL, and the digest** of the artefact for the platform
 `runs-on` names — the pin and its verification in one reviewed file, with nothing resolved at run time

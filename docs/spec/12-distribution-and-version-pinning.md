@@ -110,7 +110,7 @@ the digest in the reviewed file decides that, and it is checked against bytes fe
 by a step whose script lives in the workflow rather than in the tree. The action is pinned by commit
 SHA, which is a stricter pin than `hyper` gives itself: `runs-on: ubuntu-24.04` names an image GitHub
 rebuilds continuously, and that image supplies the `bash`, `curl`, `tar` and `sha256sum` the install
-step runs. Refusing a SHA-pinned first-party action while trusting a rolling image would be straining at
+step runs and the `git` the deepen step before it runs (§10). Refusing a SHA-pinned first-party action while trusting a rolling image would be straining at
 a gnat. **The trust boundary is the runner**, drawn there because the executor is trusted to execute at
 all, and what stands inside it is the refusal to let anything but a digest choose the binary
 (ADR-0046).
@@ -154,6 +154,12 @@ The version is the only variable, and the platform is not one: it appears in the
 its filename, and everything else is literal. Both URLs are stated here because the projection check is
 byte-exact (§10) — a template shown in an example and stated nowhere is a thing every reader has to
 guess at identically for the check to mean anything.
+
+**A script the projection writes is not a fifth constant.** The install step's `curl`, `sha256sum` and
+`tar`, and the deepen step's guarded `git fetch --unshallow` (§10), are the file's shape rather than
+facts about the world outside it: they name no version, no host and no third party, and they change only
+when the binary's idea of what the job must do changes. What they do consume is the image's tools, which
+is the exemption two paragraphs up and not a new one.
 
 The generated file's *shape* is the binary's throughout — that is what generate-and-verify means — and
 its content divides in two. Everything the file says about this repository derives from something

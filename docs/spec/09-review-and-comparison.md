@@ -187,52 +187,82 @@ with dry-run entries filtered out, which is the baseline above under the same fi
 renders one Journal entry twice — as a revision on the range, and as an age beside the gloss. One
 lookup, two notations.
 
-### The three absences
+### The four absences
 
-Three absences are named rather than rendered as one, and none of them refuses. A review resolves
+Four absences are named rather than rendered as one, and none of them refuses. A review resolves
 nothing and reaches nothing, and the surface a human reads an agent's first artefact on has to work in a
 fresh clone; but a header that rendered any two of these identically would omit one (ADR-0026). §12
 carries their names.
 
 - **A built-in Manifest has no range at any point in its life.** It ships inside the binary and has no
   file in the repository (§4, §11), so no Run can record a revision for it and none ever will — an
-  absence that is permanent where the other two are repaired by an act. What it points at is where the
+  absence that is permanent where the other three are repaired by an act. What it points at is where the
   fact *is* readable: a built-in's bytes move only when the binary does, which is `hyper_version`, which
   is the pin, which is a one-line edit to a Repository declaration that has a range of its own.
-- **No Run read the artefact.** The Journal answered and holds nothing that anchors this file.
 - **The Store is unreachable**, so nothing can be asked.
+- **No Run read the artefact.** The Journal answered and holds nothing that anchors this file.
+- **The clone does not contain the revision.** A Run answered, it is the right Run, and it named a
+  revision — and the object is not here to read
+  ([ADR-0071](../adr/0071-a-missing-git-object-is-an-absence-to-name-never-a-supply-to-substitute.md)).
 
-**They rank, and the order is `built-in`, then no Store, then no Run.** The permanent fact beats the
-transient one and the unanswerable supply beats the answered-and-empty one. Rendering *no Store* on a
-built-in promises a range that repairing the Store will never produce, which is the defect the three
-names exist to refuse, one layer in; and *no Store* beating *no Run* needs stating rather than leaving
-to fall out of which check can run, since a rule that holds by accident is one no reader can check a
-rendering against.
+**They rank `built-in`, `no-store`, `not-run`, `not-in-clone`, and the order is a pipeline rather than
+four facts compared against each other**: each is reachable only where the one before it did not fire —
+no file at all, then nothing to ask, then asked and empty, then answered and the bytes absent. Stating
+it as the pipeline is what lets a reader check a rendering without reading the implementation, where the
+two comparisons underneath it — a permanent fact beats a transient one, an unanswerable supply beats an
+answered-and-empty one — say why the stages run in that order and not what the order is. Rendering *no
+Store* on a built-in promises a range that repairing the Store will never produce, which is the defect
+the four names exist to refuse, one layer in; and a rule that holds by accident is one no reader can
+check a rendering against.
 
-**The sentence names the act that would supply a range, and the act differs by kind**: *has not run* for
-a Procedure, *nothing has bound* for a Target declaration, *nothing has named* for a Definition,
-*nothing has loaded* for a Manifest. The wire name is one for all of them (§12) and pays the cost of a
-closed set's stability; the sentence pays no such cost, and *`staging` has not run* is false — nothing
-runs a Target declaration, and a reader told so learns neither what happened nor what to do.
+**The fourth is about the clone and the other three are about the Journal**, which is what makes it the
+last stage and also what makes it the only one whose absence does not travel. It fires because a blob id
+is content-addressed: the object is present in a shallow clone exactly where the artefact's bytes have
+not moved since that Run, and absent exactly where they have — so on a shallow clone the range is
+missing on every review that would have had something to mark. That is not a corner to render politely,
+and what answers it is the supply rather than the sentence: the projection deepens the runner's clone
+before anything runs (§10), and this absence is the safety net under it.
+
+**Under `not-run` the sentence names the act that would supply a range, and the act differs by kind**:
+*has not run* for a Procedure, *nothing has bound* for a Target declaration, *nothing has named* for a
+Definition, *nothing has loaded* for a Manifest. The wire name is one for all of them (§12) and pays the
+cost of a closed set's stability; the sentence pays no such cost, and *`staging` has not run* is false —
+nothing runs a Target declaration, and a reader told so learns neither what happened nor what to do.
+
+**`not-in-clone` names no act at all and renders the revision instead**, which is the one place the four
+sentences diverge in shape rather than in wording. Three causes reach it and no one act repairs all
+three: a shallow clone wants `--unshallow`, a partial clone wants a refetch or the filter dropped, and a
+code branch whose history was rewritten wants nothing that exists — the object is gone for good. `hyper`
+cannot tell the three apart without asking a remote, which it does not do here, so any act it named
+would be a guess, and a sentence promising a repair that does not work is the defect this section
+refuses one layer in. The revision is what the reader has to work with, and it renders whole
+(ADR-0047).
 
 ```
   no baseline — retire-preview-envs has not run
   no baseline — nothing has bound staging
   no baseline — no Store
   no baseline — shell ships in the binary
+  no baseline — a91f0c2 is not in this clone
 ```
 
-The lead-in is one phrase across all four lines. A built-in's absence is permanent and the other two are
-not, and that difference is carried by what the sentence says rather than by a second form of words: two
-lead-ins would make the eye sort the absences before reading them, which is the ranking `FLAGS` is the
-one surface permitted to do (ADR-0026).
+The lead-in is one phrase across all five lines. A built-in's absence is permanent and the other three
+are not, and that difference is carried by what the sentence says rather than by a second form of words:
+two lead-ins would make the eye sort the absences before reading them, which is the ranking `FLAGS` is
+the one surface permitted to do (ADR-0026).
 
-**One absence serves both readings of that entry.** Where it is missing it is missing for the range and
-for *last ran* alike, so the header states it once, on the range's line, and the gloss line carries only
-what the artefact's own bytes supply — which needs no Store and renders offline as it always has (§9).
-Rendering *no baseline — `retire-preview-envs` has not run* above and *last ran: never* below is one
-fact twice: the argument for naming three absences is that they are three different facts, and these are
-one fact in two notations.
+**Where the absence is the Journal's, one absence serves both readings of that entry.** Where the entry
+is missing it is missing for the range and for *last ran* alike, so the header states it once, on the
+range's line, and the gloss line carries only what the artefact's own bytes supply — which needs no
+Store and renders offline as it always has (§9). Rendering *no baseline — `retire-preview-envs` has not
+run* above and *last ran: never* below is one fact twice: the argument for naming four absences is that
+they are four different facts, and these are one fact in two notations.
+
+**`not-in-clone` is the exception, and it is stated rather than left to be read off the rule above.**
+The lookup succeeded there — the entry is present, dated, and the right one — and what failed is
+downstream of it, so *last ran: 3 days ago* renders in full beside a range that cannot open. Suppressing
+it for symmetry with the other three would drop a fact the Store held for the sake of a tidier header,
+which is the omission ADR-0026 forbids everywhere else on this screen.
 
 **And on an artefact with no file in the repository, the path goes with it.** The rule keys on there
 being no file rather than on the artefact's kind or on its being built in — the decomposition ADR-0067
@@ -405,6 +435,16 @@ the bytes this screen renders, which are the bytes `operation` writes back uncha
 no file to check out, and a citation that resolved against one would have no referent at all.
 
 A review resolves no credential, reaches no network, and invokes nothing.
+
+**That claim is enforced on every git object read rather than left to hold by habit.** On a partial
+clone an ordinary object read is a lazy fetch, so a review on one would reach the network without a line
+of `hyper` intending to and the sentence above would be false where nobody would notice. Every object
+read this chapter performs — a review's baseline, the five byte-reading classes of `THE CODE MOVED`
+below, and its catch-all count — runs with lazy fetching off, and a promisor object that would need
+fetching renders `not-in-clone` like any other absent one. The one place `hyper` reaches a git remote on
+purpose is the Store's sync (§7), which this does not touch. The line is between an object read that
+silently becomes a fetch and a branch sync `hyper` chose, and it is stated as that line rather than as
+one environment variable, so an implementer reading git through a library is bound by the same rule.
 
 ```
 $ hyper review procedures/retire-preview-envs.yaml
@@ -744,6 +784,33 @@ header states. §7 already accepts this shape from the other end, a reaped Step 
 facts "where the dead Run's revision resolves them, and absent where it does not, which is every Run
 that recorded `repo_dirty`".
 
+**Where the clone does not contain a revision the window names, this table degrades partially rather
+than absent.** Four of the nine classes read off two Journal entries and are unaffected; the Cadence,
+the required Capabilities, the credential source, the declared Kinds and the Operation set read bytes,
+and so does the catch-all count. What renders is every row the surviving classes produce, and the
+catch-all row is **replaced** by one line naming what could not be read:
+
+```
+  other lines could not be counted · git diff 1f0a3d7 88bc402
+```
+
+It names no member, on the shape of the `3 definitions did not load` row above, and it replaces rather
+than joins the catch-all, two terminating lines being the doubling this chapter refuses everywhere
+else. **The command it carries is `git diff` and not the act that would repair the clone**, which is
+where this line and the review's header part company: a reviewer is standing in the deficient clone,
+having just run `hyper review` in it, where the reader of a job summary is very often on a phone and
+the deficient clone is a runner's that no longer exists. `git diff 1f0a3d7 88bc402` is what *that*
+reader can run, and it returns strictly more than the count would have. The existing `repo_dirty`
+suppression stacks on top unchanged, the two suppressions being about different commands and reaching
+this row for different reasons.
+
+The reason this is a safety net and not the ordinary case is that the ordinary case would be
+intolerable. A **Target declaration** carries no Provenance member at all — no revision, no digest — so
+on a shallow clone an `env: STAGING_TOKEN` → `env: PROD_TOKEN` edit produces no classed row, no
+catch-all count, and, before the rule below, a `TOTALS` line reading *the code did not move*. That is
+the credential source class §12 minted, rendered as its own negation, on the half of the thesis that
+says nothing changes unseen. §10's projection is what stops it happening.
+
 **`TOTALS` counts rows** (ADR-0058), so the line totals what is on the page above it and a Record
 changed and destroyed in one window counts once. `changes` is the asset rows plus the observation rows;
 the tombstone count is a **subset** of the asset count and is never added to it; code facts enter
@@ -751,6 +818,14 @@ neither number. All four numbers render, `0` included, so the line is scanned ra
 last segment is a phrase and not a count — summing a classed fact, a repository revision and a line
 count into one integer is three incommensurable things under one head — and it renders its negative
 explicitly, *the code did not move*, on the same argument the empty tables above render.
+
+**It has three forms and they are tested in order**: any classed row rendered → *the code moved*;
+otherwise the absence line above rendered → *the code could not be fully read*; otherwise → *the code
+did not move*. The order is what makes the line honest rather than merely careful. A surviving classed
+row is positive proof, where the absence line is proof of nothing either way, so a window in which a
+Bound moved *and* a Target declaration could not be read is reported by the fact — the line above
+already naming what went uncounted. What the ordering removes is the one reading this table may never
+produce: the negative asserted over bytes nobody read.
 
 A fold across several Procedures — `--since` over a Store with more than one, or the whole-Store
 mode — renders one block per Procedure, each with its own header, its own three tables and its own
@@ -1095,15 +1170,23 @@ number and never a band or a word: a rate whose only form is prose puts the esca
 this row exists to take it out of.
 
 **The baseline's absence is named on the wire as it is on the page.** `baseline` is written where there
-is one; where there is not, `baseline_absent` carries which of the three §12 names it is, since a key
-merely missing would collapse the distinction the header renders three sentences for. It carries the
+is one; where there is not, `baseline_absent` carries which of the four §12 names it is, since a key
+merely missing would collapse the distinction the header renders four sentences for. It carries the
 name the header ranked and never the set of what was true, one absence rendering on the page and one
-going out. `last_run` is absent on all three, one entry supplying both readings. **`path` is absent
-exactly where `baseline_absent` is `built-in`**, and the two are one fact — an artefact with no file has
-no path, and no Run could have recorded a revision of what has none — so the name already on the row is
-the discriminator and a second key would carry that fact twice. It is stated here rather than left to
-fall out of which artefact happens to have a file: a rule that holds by accident is one no reader can
-check a rendering against.
+going out. `last_run` is absent on the first three, one entry supplying both readings — and **present
+on `not-in-clone`**, which is the exception the header states above arriving on the wire: the entry was
+found and only its bytes were not. **`path` is absent exactly where `baseline_absent` is `built-in`**,
+and the two are one fact — an artefact with no file has no path, and no Run could have recorded a
+revision of what has none — so the name already on the row is the discriminator and a second key would
+carry that fact twice. It is stated here rather than left to fall out of which artefact happens to have
+a file: a rule that holds by accident is one no reader can check a rendering against.
+
+**`not-in-clone` is one name in two positions.** The Comparison's catch-all row carries it beside the
+`command` it keeps, dropping `count` — `{"type":"code","fact":"other lines changed","baseline_absent":
+"not-in-clone","command":"git diff 1f0a3d7 88bc402"}` — rather than changing `fact` or nulling the
+count, an omitted `count` being exactly the key merely missing that the paragraph above refuses. A
+consumer filtering on the name gets both surfaces, which is `not-run`'s shape one table over: one name
+over a fact with more than one site.
 
 A review does not decompose into rows the way the three change tables do, so `review --json` emits the
 annotations and never the source — the consumer already has the file. Each `flag` row carries the line

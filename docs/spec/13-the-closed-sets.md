@@ -788,8 +788,13 @@ retention policy (§7) among them. `N` is in **`git diff` lines** as git counts 
 being two, because the row names the command and any other unit makes the row disagree with its own
 evidence; the file set is the reviewed five and nothing else, the generated workflow among the
 exclusions (§8). The command is suppressed where either side recorded `repo_dirty`, that being the one
-case it cannot reproduce (§7, §8). The enumeration is what makes the table checkable; the catch-all is
-what makes omission impossible.
+case it cannot reproduce (§7, §8). Where the clone does not contain a revision the window names, the row
+is **replaced** by `other lines could not be counted`, keeping the command and carrying
+`baseline_absent: not-in-clone` on the wire in place of `count` — the count being the part that needed
+the bytes and the command being the part that does not, since the reader of a job summary is rarely in
+the clone that came up short (§8). The enumeration is what makes the table checkable; the catch-all is
+what makes omission impossible, and a replacement that names the gap keeps that true where a dropped row
+would not.
 
 ## The `FLAGS` vocabulary
 
@@ -895,15 +900,26 @@ the slope ADR-0026 sits at the top of.
 
 ## The review header's absent baseline
 
-**Closed to `hyper`.** Three names, carried by an `artefact` row's `baseline_absent` where a review has
+**Closed to `hyper`.** Four names, carried by an `artefact` row's `baseline_absent` where a review has
 no range: `built-in`, the artefact is a Manifest that ships inside the binary and has no file in the
-repository for any Run to have recorded a revision of; `no-store`, the Store is unreachable; and
-`not-run`, no non-rehearsal Run in the Journal read this artefact. They are the three absences §8
-renders as three sentences on the argument that a permanent absence, a repository that cannot answer and
-an artefact nothing has run against are different facts — a key merely missing would put them back under
+repository for any Run to have recorded a revision of; `no-store`, the Store is unreachable; `not-run`,
+no non-rehearsal Run in the Journal read this artefact; and `not-in-clone`, a Run answered and named a
+revision this clone does not contain. They are the four absences §8 renders as four sentences on the
+argument that a permanent absence, a repository that cannot answer, an artefact nothing has run against
+and an object that is not here are different facts — a key merely missing would put them back under
 one reading on the wire, which is the two surfaces stating different things. **They rank in that order**
 and the row carries the name the header ranked, never the set of what was true, so the page and the wire
-name one absence each and name the same one.
+name one absence each and name the same one. The ranking is a pipeline, each name reachable only where
+the one before it did not fire, which is how a reader checks a rendering against it (§8).
+
+**`not-in-clone` is minted rather than folded into `not-run`, and it is the one member with a second
+site.** `not-run` means *there is no Run to anchor on* and has widened four times inside that meaning;
+here a Run exists, it is the right one, and it recorded the revision — what failed is the clone, and the
+edit it points at is a fetch rather than a Run, which is the test this set has used for every reuse it
+has rejected. Its second site is the Comparison's catch-all row, which carries the same name beside the
+`command` it keeps when the bytes cannot be read (§8) — one name over a fact with more than one site, as
+`not-run` is one name over a fact with more than one way of being, and `record-identity-collision` is one
+code over four moments.
 
 **`not-run` is one name over a fact that grew rather than five names over five kinds.** It never meant
 *the Procedure did not run*; it meant *there is no Run to anchor on*, and what widened is the set of
