@@ -20,7 +20,9 @@ The object under review is the artefact itself, annotated in place by a gutter, 
 assembled from elsewhere and one editorial surface (ADR-0026), under a header naming what is being read.
 Four renderings sit inside one screen, and each has its own rule. ADR-0026 fixes three disciplines —
 annotate in place, aggregate what is assembled from elsewhere, editorialise only by citation — and how
-many surfaces instantiate one is a separate question (ADR-0063).
+many surfaces instantiate one is a separate question (ADR-0063). Three of the four read on all five
+reviewed artefacts and `AUTHORITY` reads on three of them; each rendering below states its own roster,
+and there is no artefact on which a rendering is silently withheld.
 
 **The header states facts about the artefact as a whole**, each read from one supply, and it cites no
 line. That last clause is what separates it from `FLAGS` below: a fact pointing at a line is an index
@@ -275,14 +277,83 @@ file: the header above reads the Journal for its range and its gloss. What makes
 being assembled from more than one artefact, and a table is heavier than a header line for a reason —
 `AUTHORITY` has two artefacts' columns to align and the header has one artefact's value to state.
 
-**A row renders for every Target the Definition claims, and an absent declaration empties two of its
-cells rather than the row.** Where a `targets:` member names nothing, the accepted-Kinds column and the
-intersection have no supply and carry `unresolved`; the claimed Kinds and the named `destroy`
-Operations are this artefact's own and render as they always do. Dropping the row would be omission on
-the one table for the reason the gutter may not omit — a Definition claiming three Targets and rendering
-two rows says the third was never claimed (ADR-0026). The fact therefore renders twice, as the
-`targets:` line's gutter mark and as this row's empty half, which is the doubling the header already
-accepts between the range and the gloss: the gutter says *this line*, and the table says *this pairing*.
+**It is one relation read from whichever end the artefact under review supplies, and three of the five
+supply one** ([ADR-0069](../adr/0069-authority-is-one-relation-read-from-whichever-end-the-artefact-supplies.md)).
+A **Definition** supplies the left end and renders a row for every Target it claims. A **Target
+declaration** supplies the right end and renders a row for every Definition that claims it. A
+**Procedure** supplies neither end and binds pairs, rendering one row per distinct `(Definition,
+Target)` its Steps bind — the claims no Step here binds are checked against the Definition's own
+`targets:` list (§3) and render on that Definition's review, and a row for one would sit directly above
+an `ENVELOPE` flag that reads as contradicting it. The columns, their order and the caption do not move
+between
+the three: the filter changes and the table does not, which is what keeps one renderer behind them. A
+column carrying one repeated value stays, a Definition review already rendering `DEFINITION` once per
+row, and eliding it on a Target declaration would make the same table two shapes.
+
+```
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION            TARGET           DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS
+  preview-dns           cloudflare-prod  mutate destroy    read mutate destroy  m d        delete_dns_record
+  preview-dns-observed  cloudflare-prod  read              read mutate destroy  r          —
+```
+
+**A Manifest and a Repository declaration are members of no pair, so the table has no end to read from
+and does not render at all** — no header, no empty body, and no sentence. A Manifest's Operations
+declare the Kinds a Definition may claim rather than claiming any, which is one column's supply and not
+a membership; assembling it two hops out, over every Definition naming this Provider, would render rows
+about pairings this artefact is not in and would traverse backwards the one edge this screen does not
+traverse, the same edge whose absence leaves a Definition with a missing `provider:` complete and
+unmarked above (ADR-0064). A Repository declaration governs every Run and pairs with nothing, and a
+table of what its pin governs is an inventory rather than an intersection, which no discipline ADR-0026
+fixes admits. The absence is stated here rather than rendered, exactly as `envelope` and `unbounded`
+being Procedure-only are stated in §12 and render nowhere.
+
+**Absent and empty are different, and the line between them is whether an edit could produce a row.** A
+Target declaration nothing claims renders the header with an explicit empty state, on the argument that
+carries `FLAGS`' empty block (§12): an edit to any file in `definitions/` puts a row here, so an absent
+block would be ambiguous between *nothing claims this Target* and *the renderer had nothing to say* —
+and the first is a fact worth the line, a granted `destroy` with no claimant being either a Target
+awaiting its Definition or one whose Definition was deleted (ADR-0012). On a Manifest no edit to any
+file produces a row, so there is no ambiguity to refuse and an empty block would assert a supply that
+does not exist.
+
+**Rows sort by `(Target, Definition)`, each by Unicode code point.** It is the ordering §7 sorts an
+identity set's `members` by and the Comparison's tables reuse below, taken again rather than
+reinvented, so two renderings of one review are byte-identical and it degenerates to Definition order
+where the Target column is constant. Step order is refused even where it exists: reading down the
+marker column *is* the step table (ADR-0026), so a table beneath it in step order is a second copy of
+an ordering the reviewer already has, where a sorted one is a second index into the same rows. What
+that costs is a reviewer relating a `DESTROY` mark to its row by name rather than by position — and the
+name is on the Step's own `definition:` line, two lines from the mark.
+
+**On a Definition, an absent declaration empties two of a row's cells rather than the row.** Where a
+`targets:` member names nothing, the accepted-Kinds column and the intersection have no supply and
+carry `unresolved`; the claimed Kinds and the named `destroy` Operations are this artefact's own and
+render as they always do. Dropping the row would be omission on the one table for the reason the gutter
+may not omit — a Definition claiming three Targets and rendering two rows says the third was never
+claimed (ADR-0026). The fact therefore renders twice, as the `targets:` line's gutter mark and as this
+row's empty half, which is the doubling the header already accepts between the range and the gloss: the
+gutter says *this line*, and the table says *this pairing*.
+
+**A supply that did not load renders `unresolved` where it has a cell, and a line beneath the table
+where it has none.** A `targets:` member naming a file that is there and will not parse has no accepted
+Kinds to render, and the cell carries the same name as one whose supply resolved to nothing: the two
+absences differ in nothing this table can act on, and what a reader does about either is `check`'s row
+on that file's own line (ADR-0064). A **discovered** row has no such cell — a Definition claiming this
+Target that did not parse contributes nothing at all — so the table terminates with the count and where
+to take it:
+
+```
+  3 definitions did not load · hyper check
+```
+
+It renders only where the count is non-zero and it names no member, on the shape of the `git diff` row
+below. `review` does not decline for it: §9 fixes exit `1` for the artefact *under review* failing to
+load, and a fault in a file the reviewer did not ask about is `check`'s (ADR-0064). What the line
+refuses to leave standing is the omission. The row set on this one artefact is discovered rather than
+authored, so a discovery failure removes a row outright where every other absence on this screen leaves
+a marked one — and a three-row table read as the whole answer is the one table lying by omission
+(ADR-0026).
 
 **`FLAGS`** is the one editorial surface, and it is an index rather than a voice: it ranks nothing,
 claims nothing, and points. Every row cites a line the gutter already marked and introduces no claim of
