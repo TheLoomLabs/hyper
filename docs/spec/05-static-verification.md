@@ -196,7 +196,9 @@ will report a halt nobody performed.
 Two things must both be authored for that certainty to hold, and the second is the one the Bound below
 also needs. The identity must resolve before the call, or there is nothing on any file to read it off.
 And the member count must be authored — an `over:` `values:` list of two or more — since a one-member
-Expansion collides with nothing and an `assets:` selector's size is on no file. It is
+Expansion has no sibling to collide with and an `assets:` selector's size is on no file. It may still
+collide with the Store, which is the same code against a comparand no file holds and is therefore §6's
+(§6, ADR-0072). It is
 `record-identity-collision`, the code §3 already fires at load where two members of one `values:` list
 are one identity, and the same check found against the wiring rather than against the list; §6 carries
 it everywhere else, over the identities an Expansion actually resolved.

@@ -381,8 +381,13 @@ thirty of §4's static codes reach a Run that way, beside the credential pass, t
 the Store's. Where one does, it is held on `outcome.json` and never on a Step file, `step` being an
 artefact coordinate rather than an execution fact (§7, ADR-0061). Only `bound-exceeded`,
 `run-once-recorded`, `record-identity-collision` and §6's `predicate-type-mismatch` require a Step to
-have been reached at all — `record-identity-collision` at its Store and Expansion sites, its two
-authored sites reaching a Run the way §4's thirty do.
+have been reached at all — `record-identity-collision` at its Expansion site, its two authored sites
+reaching a Run the way §4's thirty do.
+
+**Every one of them declines before a call goes out**, and that is a property of the set rather than a
+coincidence of its members: a guardrail that declines after a call is a halt and has no `error_code` to
+carry (§6, ADR-0072). All four of these fire at or before Expansion, which resolves before the Step's
+first call.
 
 Thirty are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
@@ -420,15 +425,18 @@ same rule across four sections rather than two, which is as far as that reading 
 `store-absent`, a Run — or any other command that needs the Store (§9) — finding no Store branch;
 `record-identity-collision`, two identities that must be distinct being one under the case fold §7
 applies — one check at four moments rather than four checks, on the same shared-code rule as the two
-above but taken across four sections rather than two. §7 fires it against the Store, a Record identity
-colliding with one already written. The other three are all one Expansion's members, which are one
-Record identity each (§3): §3 at load where two members of one `values:` list are one identity, the one
-place the collision is authored and therefore catchable with no Store at all; §4 where the Operation's
+above but taken across four sections rather than two. Two sites are authored and catchable with no Store
+at all: §3 at load where two members of one `values:` list are one identity, and §4 where the Operation's
 identity resolves before the call and no member reference reaches it, so a list of two or more can only
-ever project one name; and §6 at Expansion over the identities the selector actually resolved, before any
-call goes out. Where `identity:` reads from the response there is no fifth site and no code — the name
-arrives with the answer, and a projection found colliding halts the Run as one that failed to resolve
-does (§6);
+ever project one name. The other two both fire at §6's Expansion, over the identities that resolved
+before any call went out, and differ only in what each is compared against — the other members of the
+Expansion, which are one Record identity each (§3), and the series the Store already holds, which is the
+check §7 states and the comparand that reaches a Step carrying no `over:` and a `destroy` by literal
+identifier. Where `identity:` reads from the response there is no fifth site and no code, and it makes no
+difference which comparand it would have collided with — a sibling member, the Store, or another Record
+out of the same `series` response, which no pre-call form reaches at all: the name arrives with the
+answer, the call has gone out, and a projection found colliding halts the Run as one that failed to
+resolve does (§6, ADR-0072);
 and `store-schema-unsupported`, a Store file whose schema version is above the reader's (ADR-0028),
 tested at Run start over the files the Run will read (§6). A Run that could not sync the Store
 contributes no member: it is `failed` at `75` rather than a Refusal, the network coming back being no

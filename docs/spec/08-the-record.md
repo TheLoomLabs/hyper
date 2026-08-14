@@ -170,13 +170,21 @@ the encoding, the preserved case, the truncation of an over-long one — is part
 states.
 
 Case is the one place the two environments genuinely differ, a laptop's filesystem being usually
-case-insensitive and a runner's not, so the rule is `hyper`'s rather than the filesystem's. Writing a
-Record whose identity collides case-insensitively with one already in the Store is a Refusal
+case-insensitive and a runner's not, so the rule is `hyper`'s rather than the filesystem's. A Record
+whose identity collides case-insensitively with one already in the Store may not be written
 (`record-identity-collision`, §12), decided by reading the Store, identically on both platforms, and
 never by attempting the write and seeing what happens. The remedy for a genuine `Foo` beside a `foo` is
 a Manifest identity change, which is a code change and therefore reviewed. The one collision that is
 authored rather than projected — two members of one `values:` list that are one identity under this
 fold — is the same check and the same code, fired at load with no Store in hand (§3).
+
+**The check is stated here and fired at §6's Expansion**, which is what decides whether it Refuses or
+halts. Where the identity resolves before the call, the Store is read at Expansion beside the members'
+comparison against each other, and a collision Refuses with nothing touched. Where `identity:` reads from
+the response, the name arrives with the answer and the call has gone out, so the Refusal is unavailable
+and the Run halts instead, carrying no `error_code` (§6, ADR-0072). It is never decided at the write: a
+guardrail that declines after a call has gone out is not a Refusal, and the write is downstream of every
+call that could produce a name to collide.
 
 ## The Head
 

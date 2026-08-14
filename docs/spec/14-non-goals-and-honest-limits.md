@@ -170,7 +170,8 @@ as an Asset a selector misses, arriving through a literal rather than a predicat
 same way: by the review of the artefact that names it.
 
 **The member that collided on an identity leaves a resource nothing records.** An Expansion's members
-are one Record identity each (§3), and where the identity reads from the response the collision is
+are one Record identity each, and so are the Records one `series` response projects (§3), and where the
+identity reads from the response the collision is
 visible nowhere earlier than the answer that carries it — one call has already gone out and there is no
 name of its own to write it under, so nothing is written and the Run halts (§6). The resource it created
 stands with nothing in the Store reaching it, which is the Orphaned Asset's hazard without the report
@@ -181,6 +182,23 @@ Journal names the member and the identity, and the arithmetic on the entry is ho
 three, concluded about one — so what is lost is a Record and never the fact that it is missing. It costs
 one resource once, and it is the price of the offline half being as large as it is: every collision an
 artefact can be read for is refused before anything is touched.
+
+**A projected identity that collides with the Store costs a resource on every Run.** It is the same
+halt against a different comparand — the name arrives in a response and the series it folds onto is one
+an earlier Run wrote (§6, ADR-0072) — and the paragraph above prices the wrong thing for it. Those
+collisions are between things this Run produced, and a Run that produces them again is a Run whose
+inputs did not change; this one is between something this Run produced and something standing in the
+Store, which stays standing. Nothing in `hyper` clears it and nothing remembers it: the Store is
+append-only (ADR-0011), a Run is never resumed and reads no earlier Run's halt (§6, ADR-0001), so the
+next Run reaches the same member, makes the same call, creates another resource nothing records, and
+halts in the same place. Under a Cadence that is one orphaned resource per occurrence, indefinitely, and
+the Cadence is the multiplier §5 has always called it — the same `*/5 * * * *` that makes a `destroy`
+8,600× the Run it was reviewed as makes this a standing leak rather than an incident. What clears it is
+a Manifest identity change, which is a reviewed code change and the same remedy §7 states for a `Foo`
+beside a `foo` found any other way; until somebody makes it, every Run pays. The compensating fact is
+that the Run is `failed` and loud on every occurrence rather than silent — this is not an Asset a
+selector missed — and that the pre-call half of the same check (§6) has already refused every collision
+whose identity `hyper` held before it called.
 
 **An Asset a selector misses is abandoned silently.** The Bound catches a selector that reaches too
 far and nothing catches one that reaches too little: an Asset whose field holds something other than

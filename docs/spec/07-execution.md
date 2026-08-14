@@ -145,9 +145,10 @@ survivors in the sequence the page has them in. Where it is `assets:` or `observ
 page to read an order off, so the Record `name` supplies one, sorted **by Unicode code point** — the
 name the Store holds, never the percent-encoded path segment §12 builds from it to reach a file
 (ADR-0044), and the same rule §7 sorts an identity set under rather than a second ordering. The sort
-is total and needs no tie-break, one Expansion being one Target and one Definition, and two names
-colliding case-insensitively being a Refusal the Store raises before a second series can exist
-(`record-identity-collision`, §12).
+is total and needs no tie-break, one Expansion being one Target and one Definition, and two series
+colliding case-insensitively being a state the Store never reaches: the collision is refused or halted
+on before the second series can exist, whichever moment the name resolved at
+(`record-identity-collision`, §12, below).
 
 Because it resolves first, a predicate handed a value it cannot compare Refuses here
 (`predicate-type-mismatch`, §12) before any effect reaches the world, and a predicate list does not
@@ -163,12 +164,27 @@ members that are one identity are `record-identity-collision` (§12) with nothin
 refused what a file could decide; this reaches the rest, an `{item: $.id}` over an `assets:` selector
 whose members hold one value in that field being the shape no artefact can count.
 
-It is a test on the whole set rather than on each member at its turn, and that is what keeps it a
-Refusal: a member's turn comes after the member before it has run, so declining there would be declining
-after an effect. It is a different moment from `skip-if-recorded`'s and both are right. Whether two
-members are one identity is a fact about the set of names and is settled here; whether each name's head
-still stands is a question about that name and is still asked at that member's turn (above). One is a
-test on the set and the other on each element, and they are not competing for a moment.
+Those same identities are compared against the Store as well as against each other, under the same fold
+and carrying the same code. A resolved identity colliding with a series the Store already holds is a
+Refusal here; one that is byte-equal to a standing series is the ordinary further version and nothing at
+all. That comparand reaches two Steps the sibling test cannot. It reaches a Step carrying no `over:`,
+which resolves no selector and holds a set of one (below) — vacuous to compare against itself, and not
+against the Store. And it reaches a `destroy` by literal identifier: a `values:` member authored `Foo`
+against a standing `foo` is not dropped by the head lookup §5 states, the two names not being equal, and
+would otherwise open a colliding series with the call already gone out.
+
+Both run over the identities the Expansion resolved, once, rather than at each member's turn, and that is
+what keeps them Refusals: a member's turn comes after the member before it has run, so declining there
+would be declining after an effect. It is a different moment from `skip-if-recorded`'s and both are right.
+Whether a name is one another name already has is settled here, against both comparands; whether that
+name's own head still stands is a question asked at that member's turn (above). The two read the same
+names at different moments and are not competing for one.
+
+Four checks decide at this moment and a Refusal holds exactly one member (§7), so they have an order, and
+it is the causal one: a predicate resolves the set, the set has the count the Bound is read against, and
+the identities are projected off the members the set holds. Where the last two are available at once the
+sibling collision is named first, being reproducible from the artefact alone and therefore pointing at an
+edit with no Store in hand.
 
 Concurrency is a function of Kind and is fixed by `hyper`: a `read` Step's Expansion may run
 concurrently, and a `mutate` or `destroy` Expansion runs strictly serially. There is no authored
@@ -349,26 +365,46 @@ it.
 ### An identity that resolves and collides
 
 A projection can also resolve and still not be writable. Where an Operation's `identity:` reads from the
-response, whether two members of one Expansion are one identity is knowable nowhere earlier than the
-answer that carries the name — and the call that carried it has already gone out. There is no Refusal
+response, whether the name it carries is one another Record already has is knowable nowhere earlier than
+the answer that carries it — and the call that carried it has already gone out. There is no Refusal
 available, on the rule the predicate above is decided by, so the Run halts as above, carries no
-`error_code`, and names the identity together with the members that collided on it.
+`error_code`, and names the identity together with what it collided with.
+
+Three comparands reach it and the rule does not distinguish them. Two members of one Expansion are one
+identity, which is the case the Expansion test above settles wherever the identity resolves earlier.
+Two Records projected out of one response of `series` cardinality are one identity — not the same
+population, a `series` response being one call the Expansion resolved to rather than a set of members,
+and reached by no pre-call form at all, since a `series` Operation reads its identities from a response
+by construction. Or the identity is one the **Store** already holds, which is the comparand the Expansion
+test reads for every identity that resolves before the call and cannot read for one that does not.
+
+What the halt names is the identity, the member or Record that projected it, and the colliding name
+**verbatim**: `Foo` beside `foo` is the whole content of the fault and a report that folds them says
+nothing. Where the collision is with a series the Store holds, naming the series is naming it — which Run
+wrote its head is one directory listing away (§7) and is not frozen into the message.
 
 The member is not written. It has no identity of its own to be written under, which is the sentence above
 one fault over, and a further version of the series it collided with would put its resource on the head
-with the earlier member's beneath it — the collapse §3 refuses, performed once and then reported. The
-earliest member in Expansion order keeps the identity. On an effectful Expansion that is not a choice:
-the Expansion is serial, the earlier version was written before the later member was called, and nothing
-in the Store is removable. On a `read` the Expansion drains first (above) and the same rule decides it,
-so which Observation was recorded is read off the Expansion order rather than off a completion order
-nothing derives from.
+with the earlier member's beneath it — the collapse §3 refuses, performed once and then reported.
+
+**Whatever held the identity first keeps it**, and each comparand supplies the order that decides which
+that was. Across an Expansion it is Expansion order: on an effectful Expansion that is not a choice, the
+Expansion being serial and the earlier version written before the later member was called, and on a
+`read` the Expansion drains first (above) and the same rule decides it, so which Observation was recorded
+is read off the Expansion order rather than off a completion order nothing derives from. Across one
+`series` response it is the order of the collection the Operation reads its Records from (§3), which the
+response states and the drain rule does not reach. Against the Store there is nothing to decide: the
+standing series was written by an earlier Run and nothing in the Store is removable.
 
 The Disposition is *ran*, holding the members it did conclude about, for the reason the projection
 failure above carries that value: the call went out and the answer came back. The entry therefore says
 expanded to three and concluded about one, and §8's `1 of 3` is what happened rather than a halt nobody
 performed. The resource the colliding member created stands with nothing in the Store reaching it — the
 Orphaned Asset's hazard without the report that makes it survivable — and §13 carries that as the limit
-it is, `hyper` having no name to write it under that it did not invent.
+it is, `hyper` having no name to write it under that it did not invent. It carries the Store comparand
+separately, that one costing a resource on every Run rather than once: the series collided with stands
+in the Store until a Manifest identity change removes the collision, so a Procedure on a Cadence reaches
+the same member, makes the same call and halts the same way at every occurrence.
 
 ## Halting
 
