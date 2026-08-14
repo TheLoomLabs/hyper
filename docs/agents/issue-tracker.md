@@ -42,4 +42,10 @@ Used by `/wayfinder`. The **map** is a single issue with **child** issues as tic
 - **Blocking**: GitHub's **native issue dependencies** — the canonical, UI-visible representation. Add an edge with `gh api --method POST repos/<owner>/<repo>/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`, where `<blocker-db-id>` is the blocker's numeric **database id** (`gh api repos/<owner>/<repo>/issues/<n> --jq .id`, _not_ the `#number` or `node_id`). GitHub reports `issue_dependencies_summary.blocked_by` (open blockers only — the live gate). Where dependencies aren't available, fall back to a `Blocked by: #<n>, #<n>` line at the top of the child body. A ticket is unblocked when every blocker is closed.
 - **Frontier query**: list the map's open children (`gh issue list --state open`, scoped to the map's sub-issues / task list), drop any with an open blocker (`issue_dependencies_summary.blocked_by > 0`, or an open issue in the `Blocked by` line) or an assignee; first in map order wins.
 - **Claim**: `gh issue edit <n> --add-assignee @me` — the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far.
+- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`, then append a context pointer (gist + link) to the map's Decisions-so-far **and** the long-form record to `docs/wayfinder/decisions.md`.
+
+**A GitHub issue body is capped at 262,144 UTF-8 bytes**, and exceeding it fails only at write time, as `GraphQL: Body is too long (updateIssue)`. The `hyper` map reached that cap at 53 closed tickets because its Decisions-so-far entries had grown from the one-line gists the format specifies into full restatements. The long-form records now live in [`docs/wayfinder/decisions.md`](../wayfinder/decisions.md), in the order they closed; the map's Decisions-so-far carries **one line per closed ticket**, linking the ticket. Keep it that way — the map is the low-resolution view a session loads in one pass, and a map that costs 60K tokens to read has stopped being one. Check the body size before pushing a map edit:
+
+```sh
+gh issue view <map> --json body --jq .body | wc -c
+```
