@@ -827,6 +827,39 @@ response and cannot disagree, and where the paths differ the Record's name and i
 genuinely two facts. A reference naming a field nothing projects is caught before the Run
 (`reference-unresolvable`, §4), which is what keeps the arrangement from being a trap.
 
+### An Expansion's members are one Record identity each
+
+Every member of an Expansion is a call, so several members projecting one identity is several calls
+writing several versions of one series. The Store takes that in its stride, two versions of one series
+being the ordinary case, and the entry §7 writes then says something else entirely: the identity set
+holds a set where `expanded_to` holds a sequence, so three expanded to and one concluded about reads as
+*two unaccounted for*, the phrase reserved for a call that may have reached the world. That is the same
+sentence the `values:` duplicate above is refused on, one Run later and against a projection rather than
+against a list, and it carries the same code (`record-identity-collision`, §12) because it is the same
+check: two things that must be distinct identities being one.
+
+Nothing required the projection to depend on the member before this, and the three Kinds fail
+differently enough that no example showed it. A `destroy` cannot reach the case at all, projecting
+nothing and writing its Tombstone under the Asset's own identity (§7, ADR-0033), so the member *is* the
+name. A `mutate` under `repeatable` writes the versions and the surface reports a halt that did not
+happen. Under `skip-if-recorded` the first member runs and the rest skip, the test having become true of
+them — which is coherent, reports `completed`, and does one third of what a reviewed artefact asked for,
+with no surface saying so. A `read` collapses identically and touches nothing while doing it. The rule
+therefore turns on Kind nowhere, which is what §6 already says of the projection failure beside it.
+
+The rule is that **distinct members resolve to distinct identities**, not that the member reaches the
+identity. The narrower statement is the one the arithmetic needs, and the wider one is both too strong
+and too weak: `mutate_skip_if_recorded` tells its members apart perfectly with an `identity: $.command`
+that is not the member, and `{item: $.id}` over an `assets:` selector reaches the identity from the
+member and still collides where two Assets hold one value in that field. The boundary is one Step's
+Expansion and nothing wider — two Steps running the same argv against one Definition and Target still
+write two versions of one series, as above.
+
+Where the identity resolves before the call, this is decided before anything is touched: §4 refuses it
+offline wherever the member count is authored, and §6 over the resolved set at Expansion. Where
+`identity:` reads from the response there is nowhere earlier than the response to decide it, and §6
+states what happens then.
+
 The built-in `shell` Provider writes one projection, shared by all four of its Operations that carry
 one, and §12 states it in full: `identity: $.command`, with `exit_code`, `stdout` and `stderr` as
 `fields:`. A Definition author cannot vary it, a Manifest's declared facts being the Provider author's

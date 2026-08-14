@@ -156,6 +156,20 @@ depend on the order an author happened to write two conjuncts in (ADR-0035). The
 read against the instant on this Run's `run.json`, fixed at its start and shared by every Step and
 every nested Procedure, so nothing a Pattern does moves what a later Step reaches (ADR-0034).
 
+Two members resolving to one Record identity is refused here as well, wherever the identities resolve
+before the call — a template hole, or a `shell` Operation's `$.command` (§3). Each member's identity is
+resolved once the selector has, the set is compared against itself under the fold §7 applies, and two
+members that are one identity are `record-identity-collision` (§12) with nothing touched. §4 has already
+refused what a file could decide; this reaches the rest, an `{item: $.id}` over an `assets:` selector
+whose members hold one value in that field being the shape no artefact can count.
+
+It is a test on the whole set rather than on each member at its turn, and that is what keeps it a
+Refusal: a member's turn comes after the member before it has run, so declining there would be declining
+after an effect. It is a different moment from `skip-if-recorded`'s and both are right. Whether two
+members are one identity is a fact about the set of names and is settled here; whether each name's head
+still stands is a question about that name and is still asked at that member's turn (above). One is a
+test on the set and the other on each element, and they are not competing for a moment.
+
 Concurrency is a function of Kind and is fixed by `hyper`: a `read` Step's Expansion may run
 concurrently, and a `mutate` or `destroy` Expansion runs strictly serially. There is no authored
 knob, no flag, and no environment override anywhere in it. How much of a concurrent Expansion runs
@@ -331,6 +345,30 @@ is not the Records but the claim that they are all of them, and that claim lives
 the Step's Disposition carries rather than in any Record: §7 states what that set holds here, and §8
 what reads it. Nothing in it turns on Kind, one response projecting the same way whichever Kind read
 it.
+
+### An identity that resolves and collides
+
+A projection can also resolve and still not be writable. Where an Operation's `identity:` reads from the
+response, whether two members of one Expansion are one identity is knowable nowhere earlier than the
+answer that carries the name — and the call that carried it has already gone out. There is no Refusal
+available, on the rule the predicate above is decided by, so the Run halts as above, carries no
+`error_code`, and names the identity together with the members that collided on it.
+
+The member is not written. It has no identity of its own to be written under, which is the sentence above
+one fault over, and a further version of the series it collided with would put its resource on the head
+with the earlier member's beneath it — the collapse §3 refuses, performed once and then reported. The
+earliest member in Expansion order keeps the identity. On an effectful Expansion that is not a choice:
+the Expansion is serial, the earlier version was written before the later member was called, and nothing
+in the Store is removable. On a `read` the Expansion drains first (above) and the same rule decides it,
+so which Observation was recorded is read off the Expansion order rather than off a completion order
+nothing derives from.
+
+The Disposition is *ran*, holding the members it did conclude about, for the reason the projection
+failure above carries that value: the call went out and the answer came back. The entry therefore says
+expanded to three and concluded about one, and §8's `1 of 3` is what happened rather than a halt nobody
+performed. The resource the colliding member created stands with nothing in the Store reaching it — the
+Orphaned Asset's hazard without the report that makes it survivable — and §13 carries that as the limit
+it is, `hyper` having no name to write it under that it did not invent.
 
 ## Halting
 

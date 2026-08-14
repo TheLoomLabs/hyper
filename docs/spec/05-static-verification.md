@@ -183,6 +183,28 @@ that names a population `hyper` may not yet have built, or a Repeatability the S
 answer. The check needs no Store and no credential — the selector form and the Operation's declared
 Repeatability are both authored (ADR-0056).
 
+## An Expansion with one identity in it
+
+An Expansion's members are one Record identity each (§3). Whether they are is not decidable from the
+artefacts alone except in one case, and there it is decided here: where the Operation's `identity:`
+resolves before the call — a template hole, or `$.command` on a `shell` Operation (§3, §12) — and no
+`{item:}` reference reaches the value that fills it, every member projects one name however the Run
+goes. A literal in that position, or a reference to another Step's output, is one value for the whole
+Expansion by construction, so a three-member list is three calls into one series and the Step's entry
+will report a halt nobody performed.
+
+Two things must both be authored for that certainty to hold, and the second is the one the Bound below
+also needs. The identity must resolve before the call, or there is nothing on any file to read it off.
+And the member count must be authored — an `over:` `values:` list of two or more — since a one-member
+Expansion collides with nothing and an `assets:` selector's size is on no file. It is
+`record-identity-collision`, the code §3 already fires at load where two members of one `values:` list
+are one identity, and the same check found against the wiring rather than against the list; §6 carries
+it everywhere else, over the identities an Expansion actually resolved.
+
+The remedy is one of two edits and the code points at both: wire the member into the input the identity
+reads, which is what an `{item: $}` in an `args:` value does, or drop the selector and write the calls
+out as Steps. Neither needs a Store, a credential, or a response.
+
 ## The Bound
 
 A `destroy` Step declares the maximum number of Records it may affect. An absent Bound on a `destroy`

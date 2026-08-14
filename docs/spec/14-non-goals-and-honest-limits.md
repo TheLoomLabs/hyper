@@ -169,6 +169,19 @@ the API returns to catch it, which is the oracle §4 states it does not have. It
 as an Asset a selector misses, arriving through a literal rather than a predicate, and it is bounded the
 same way: by the review of the artefact that names it.
 
+**The member that collided on an identity leaves a resource nothing records.** An Expansion's members
+are one Record identity each (§3), and where the identity reads from the response the collision is
+visible nowhere earlier than the answer that carries it — one call has already gone out and there is no
+name of its own to write it under, so nothing is written and the Run halts (§6). The resource it created
+stands with nothing in the Store reaching it, which is the Orphaned Asset's hazard without the report
+that makes it survivable (§7, ADR-0012). Writing it as a further version of the series it collided with
+would bury the earlier member's resource beneath it and disguise the fault as an ordinary update, and
+inventing a name to distinguish them would be `hyper` minting an identity no Manifest declared. The
+Journal names the member and the identity, and the arithmetic on the entry is honest — expanded to
+three, concluded about one — so what is lost is a Record and never the fact that it is missing. It costs
+one resource once, and it is the price of the offline half being as large as it is: every collision an
+artefact can be read for is refused before anything is touched.
+
 **An Asset a selector misses is abandoned silently.** The Bound catches a selector that reaches too
 far and nothing catches one that reaches too little: an Asset whose field holds something other than
 what the author's predicate expects is not expanded over, not acted on, and not counted. The Step

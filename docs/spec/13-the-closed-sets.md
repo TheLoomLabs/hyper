@@ -381,7 +381,8 @@ thirty of §4's static codes reach a Run that way, beside the credential pass, t
 the Store's. Where one does, it is held on `outcome.json` and never on a Step file, `step` being an
 artefact coordinate rather than an execution fact (§7, ADR-0061). Only `bound-exceeded`,
 `run-once-recorded`, `record-identity-collision` and §6's `predicate-type-mismatch` require a Step to
-have been reached at all.
+have been reached at all — `record-identity-collision` at its Store and Expansion sites, its two
+authored sites reaching a Run the way §4's thirty do.
 
 Thirty are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
@@ -414,12 +415,20 @@ everywhere else. `predicate-type-mismatch` is the other, an operator handed a ty
 `in:` that is empty, of one member or of mixed types, an empty `starts_with:`, a predicate against a
 declared-secret field — and §6 fires it against a stored value at Expansion (ADR-0035). Each is one code because it is one check:
 what names a Refusal is the check that declined, never the moment it ran, and a reader is never holding
-one without knowing whether they asked `check` or a Run. §7's three are the Store's:
+one without knowing whether they asked `check` or a Run. `record-identity-collision` below carries the
+same rule across four sections rather than two, which is as far as that reading has been taken. §7's three are the Store's:
 `store-absent`, a Run — or any other command that needs the Store (§9) — finding no Store branch;
-`record-identity-collision`, a Record identity colliding case-insensitively with one already written —
-and, on the same shared-code rule as the two above but across a different pair, §3 firing it at load
-where two members of one `values:` list are one identity under that same fold (§3), which is the one
-place the collision is authored and therefore catchable with no Store at all;
+`record-identity-collision`, two identities that must be distinct being one under the case fold §7
+applies — one check at four moments rather than four checks, on the same shared-code rule as the two
+above but taken across four sections rather than two. §7 fires it against the Store, a Record identity
+colliding with one already written. The other three are all one Expansion's members, which are one
+Record identity each (§3): §3 at load where two members of one `values:` list are one identity, the one
+place the collision is authored and therefore catchable with no Store at all; §4 where the Operation's
+identity resolves before the call and no member reference reaches it, so a list of two or more can only
+ever project one name; and §6 at Expansion over the identities the selector actually resolved, before any
+call goes out. Where `identity:` reads from the response there is no fifth site and no code — the name
+arrives with the answer, and a projection found colliding halts the Run as one that failed to resolve
+does (§6);
 and `store-schema-unsupported`, a Store file whose schema version is above the reader's (ADR-0028),
 tested at Run start over the files the Run will read (§6). A Run that could not sync the Store
 contributes no member: it is `failed` at `75` rather than a Refusal, the network coming back being no
