@@ -89,12 +89,25 @@ order — *which Provider*, *which Operation*, *how do I call it* — and a retu
 which argument was omitted is unusable to the caller that most needs it.
 
 `providers` writes one row per Provider `hyper` can load, built-in and Extension alike: its name, its
-origin, a summary, how many Operations it exposes, and its digest.
+origin (§12), a summary, how many Operations it exposes, and its digest.
+
+Origin says where the Manifest's bytes load from and nothing else. It does not say whether those bytes
+were verified against a registry — a built-in and a locally authored Extension both make no such claim,
+and the digest on this row is `manifest_digest`, which every Provider carries (§7). That fact is
+`provider`'s, below, where a Manifest's own facts are reported.
 
 `provider <name>` writes one row per Operation the named Provider exposes — its name, its declared
 Kind, whether it is `opaque`, and a summary — beside the Manifest's own facts: its Auth scheme, the
-Capabilities it requires, its digest, and its schema version. Kind is on every row at this level
-because it is what answers the two-key question (§5) before a single input schema has been read.
+Capabilities it requires, its digest, its schema version, and the ref and digest of its `origin:` block
+where it carries one. Kind is on every row at this level because it is what answers the two-key
+question (§5) before a single input schema has been read.
+
+The two origin members follow the ordinary absence rule: both are written where the block is there and
+both are absent where it is not, which is a built-in Provider and a locally authored Extension (§3,
+§11). Absent together they say the Manifest makes no digest claim, and that is the whole of what
+distinguishes an installed Extension from one an author wrote — the fact `check` enforces as
+`origin-digest-mismatch` and Provenance carries as `origin_digest`, reported here because this row
+exists to state what a Manifest declares and this is the one block of it no surface rendered.
 
 The Auth scheme renders as the header it composes, with the credential's position marked:
 `Authorization: Bearer <secret>` for a `header:` scheme, `Authorization: Basic <secret>` for `basic:`,
@@ -718,14 +731,16 @@ here the protocol says it too: an `outputSchema` is declared once and for every 
 
 ```jsonc
 providers()
-// → rows: [{ type: "provider", name, origin: "builtin" | "extension",
+// → rows: [{ type: "provider", name, origin: "built-in" | "extension",   // origin: §12
 //            summary, operation_count, digest }]
 ```
 
 ```jsonc
 provider(name)
 // → rows: [{ type: "manifest", auth_scheme, capabilities_required: [ … ],
-//            digest, schema_version }]                       // the header row, emitted first
+//            digest, schema_version,
+//            origin_ref, origin_digest }]   // both absent where there is no origin: block
+//                                           // the header row, emitted first
 //         [{ type: "operation", name, kind, opaque, summary }]   // kind: §12
 ```
 

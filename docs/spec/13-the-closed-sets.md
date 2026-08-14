@@ -327,6 +327,30 @@ Manifest has no factoring construct and would need one invented for its own auth
 (ADR-0022), and because `operation` writes these lines back unchanged (§9) — what a reviewer reads is
 what `manifest_digest` covers.
 
+## A Provider's origin
+
+**Closed.** Two members, carried by a `providers` row's `origin` (§9), and the criterion is **where the
+Manifest's bytes load from**:
+
+- `built-in` — the bytes ship inside the binary. The set above fixes which names these are, and it is
+  the same set no Extension may take (`provider-name-collision`, §11).
+- `extension` — the bytes are a tracked file in `providers/`.
+
+The partition is exhaustive because those are the two places a Manifest can be, and it stays at two
+however distribution grows: a Provider authored and distributed by someone other than `hyper` is an
+Extension whether it arrived by `install` or was typed into `providers/` by hand, which is what
+`CONTEXT.md`'s term already says and what §11 says from the file's side.
+
+**Whether a Manifest claimed an upstream is a second fact and not a third member** (ADR-0073). It is
+carried by the `origin:` block a Manifest holds or does not (§3), reported by `provider` beside the
+Manifest's other own facts (§9), and written into Provenance as `origin_digest`, absent for a built-in
+and for a locally authored Extension alike (§7). The two facts are orthogonal and only one of them is
+this set's: `origin` says where the bytes came from, and it has two answers forever.
+
+The spelling is `built-in` and not `builtin`. The review header's absent baseline below carries that
+name for the same fact about the same Manifest, so one fact reaching two wires reaches them under one
+name, on the rule this chapter opens with.
+
 ## Auth schemes
 
 **Closed.** Two members, both of them a request header:

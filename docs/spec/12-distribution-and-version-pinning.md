@@ -233,9 +233,16 @@ governs, which is why this chapter has one version to pin rather than one per Pr
 
 Built-in Providers and Extensions are the same object under the same grammar and the same checks (§4).
 The difference is where the Manifest comes from: a built-in ships inside the binary, and an Extension
-is a tracked file in `providers/`. That is the origin `providers` reports (§9), and it is the whole of
-the difference — a Manifest's powers do not depend on who wrote it, only on what it declares and what a
-Target grants (§5).
+is a tracked file in `providers/`. That is the origin `providers` reports, a two-member set §12 states,
+and it is the whole of the difference — a Manifest's powers do not depend on who wrote it, only on what
+it declares and what a Target grants (§5).
+
+**An Extension is a Provider somebody other than `hyper` authored, whether or not it was fetched.** A
+Manifest an author typed into `providers/` this morning is one, exactly as an installed Manifest is:
+the two differ in whether they claim an upstream, which the `origin:` block below carries and which is
+a fact about a Manifest's provenance rather than about where its bytes load from (ADR-0073). The wire
+keeps the two apart — `origin` says which of the two places the bytes are, and `provider` reports the
+block's ref and digest beside the Manifest's other declared facts (§9).
 
 ### What ships built in
 
@@ -302,7 +309,9 @@ the repository, long after the machine that performed it is gone.
 A Manifest carrying no origin block is a locally authored Provider: checked like any other and making
 no digest claim. Editing an installed Manifest therefore means re-installing it or dropping the block,
 and dropping it is one more visible edit to a tracked file — which is the only mechanism this path has
-ever relied on.
+ever relied on. It is also a readable edit rather than only a visible one: `provider` reports the ref
+and digest where the block is there and reports neither where it is not (§9), so *this Manifest stopped
+claiming an upstream* is a fact a caller reads off the surface and not only a diff a human noticed.
 
 ### Digest only, never intent
 

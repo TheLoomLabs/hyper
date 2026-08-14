@@ -691,8 +691,10 @@ Manifest moves it and moves every later Record's Provenance with it, which rende
 (§8) — correct rather than noisy: the reviewed artefact moved.
 
 `origin_digest` is the registry digest `install` verified, the same value §3's installed Manifest carries
-in its `origin:` block. It is absent for a built-in Provider and for a locally authored one, neither
-having an upstream to have come from. It is not `manifest_digest` under another name even where both
+in its `origin:` block and the same value `provider` reports beside it (§9). It is absent for a built-in
+Provider and for a locally authored one, neither having an upstream to have come from — which is a
+different fact from a Provider's origin, that one naming where the bytes load from and having two
+answers rather than three (§12, ADR-0073). It is not `manifest_digest` under another name even where both
 are present: that one covers the file as it stands, this one covers the published bytes, which are the
 file without the block naming them (§11) — the file in the repository against the file that arrived.
 
