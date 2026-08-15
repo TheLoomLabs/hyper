@@ -24,6 +24,16 @@ is the input schema's declared type (§3, ADR-0078), so an API that wanted `2592
 the rejection reads the edit. Where the same Manifest is wrong about a projection path or about an
 Operation's Kind, nothing on any page says which line to change.
 
+**Which of two values a stored one reads as.** A scalar is read against the schema at its position
+rather than compared with it, at Expansion as at load (§3, §6, ADR-0081), so an `args:` reference into
+a Record holding `"0755"` fills an `{type: integer}` input with **755**. That is ADR-0078's leading-zero
+trap arriving where its defence does not: the authored half has the trap on the line a reviewer reads,
+and this half has it in the Store, on a value nobody wrote and no surface shows beside the input it
+fills. The alternative was binding the stored value's own JSON type, which would make a Refusal turn on
+whether an API answered a string or a number — a fact about the API, and one this section opens by
+saying `hyper` has no oracle for. The cost is paid to keep *satisfies* meaning one thing at both sites
+of one check.
+
 **Whether the world still holds what the record says.** `skip-if-recorded` trusts the record over the
 world, so an Asset somebody deleted by hand is skipped and the Run reports `completed` with nothing
 standing (§6). Nothing reconciles the two, that engine being the one `hyper` declined to build
@@ -46,7 +56,10 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Seventeen victims stand at it, each a thing an author can want, describe precisely, and not write:
+Twenty victims stand at it, each a thing an author can want, describe precisely, and not write. The
+count read *seventeen* against nineteen entries until ADR-0081 counted them, ADR-0078 having added two
+without moving the word — which is the shape §12's opening rule refuses in a closed set, arriving in
+the prose that introduces one:
 
 - **OIDC federation.** `hyper` reads credentials and never acquires them (ADR-0007), so a federated
   cloud reached from CI needs a long-lived credential in the executor's secrets — worse than the
@@ -99,6 +112,15 @@ Seventeen victims stand at it, each a thing an author can want, describe precise
 - **A request body whose top level is not a mapping.** A `body:` is a JSON value tree and its root is a
   mapping (§3), so a batch API taking a bare array has no route. Everything below the root nests
   freely, so this is the narrowest entry on the list: one position, and only the outermost one.
+- **An API with a genuinely optional parameter.** Every input an Operation declares is supplied, there
+  being no `null` in the vocabulary, no key-omission syntax, and therefore no sink at which an
+  unsupplied input could render (§3, ADR-0081). So a search endpoint taking any three of five filters
+  is one Operation per combination, and a caller who wanted to leave one out writes a second Operation
+  instead. It is the only entry here whose cost is **combinatorial** rather than flat: two optional
+  parameters are three Operations and five are thirty-one, so the wall is cheap where the option is
+  rare and prohibitive where an API is built on them. What buys it is that a request's structure is the
+  Manifest's alone — the same sentence the entry below is bought by — and a Step's `args:` can no more
+  remove a key than it can add one.
 - **An API wanting a caller-supplied object in its body.** A template hole fills a scalar position, so a
   hole may not name an input declared `object` or `array` (§3, ADR-0078), and a body's structure is
   therefore always the Manifest's rather than partly a Step's. What buys the limit is what a reviewer

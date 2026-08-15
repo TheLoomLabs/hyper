@@ -17,7 +17,8 @@ is declared and derived at once: a file whose directory and `kind:` disagree is 
 YAML is parsed strictly: anchors, aliases, merge keys, tags, multi-document files, implicit type
 resolution, and unknown keys are all rejected at load (ADR-0023). A scalar's type comes from the schema
 at the position it occupies, never from what it looks like, so nothing resembling the Norway problem
-can arise — there is no untyped position for it to arise in. A file is YAML *syntactically* and not
+can arise — there is no untyped position for it to arise in, save the one `body:` is and the boundary
+stated with it below (ADR-0078). A file is YAML *syntactically* and not
 *semantically*: editors and language servers still parse it, but every construct that would let one
 line's meaning depend on another line (an alias) or on data the format's own grammar does not show (a
 tag) is refused before anything is read for meaning.
@@ -28,12 +29,14 @@ the Comparison's catch-all (§12) and reviewed against the previous revision lik
 
 ## Lists and mappings
 
-One rule decides the shape of every collection in every artefact. A collection of **named** things is a
-mapping keyed by that name — a Manifest's Operations, a projection's fields, a Target declaration's
+One rule decides the shape of every collection the format itself names. A collection of **named** things
+is a mapping keyed by that name — a Manifest's Operations, a projection's fields, a Target declaration's
 credential slots, an Operation's Patterns. A **list** appears in exactly two places: where order is the
 meaning, which is a Procedure's `steps:` and nowhere else, and where the members are bare scalars, which
-is `targets:`, `hosts:`, `kinds:`, `capabilities:`, a Definition's `destroy:` claim, a schema's
-`required:`, and a selector's `values:`.
+is `targets:`, `hosts:`, `kinds:`, `capabilities:`, a Definition's `destroy:` claim, a schema's `enum:`,
+and a selector's `values:`. A value an Operation's input schema governs is outside this rule and shaped
+by that schema instead, which is how a `shell` Step's `command:` is a list of argv words with references
+among them (below).
 
 A mapping makes a name unique by construction, so there is no duplicate-name rule to state, to name a
 check for, or to forget. It also gives each name a line of its own, which is what the gutter annotates —
@@ -71,6 +74,30 @@ disagree.
 The scalar vocabulary is closed and defined in §12: the common JSON Schema primitives plus two the
 domain forces, a `duration` and a `timestamp`. There is no `null` among them — a field's presence is a
 predicate fact (`exists` / `absent`), never a type.
+
+**A scalar is read against the schema at its position; it is never compared with it.** ADR-0023 types a
+scalar by that schema rather than by what it looks like, and reading is what that means: the value's
+characters are read as the declared type, in the text form §12 fixes for it, and the quoting YAML
+required is lexical rather than part of the value. `"2592000"` and `2592000` are one value at an
+`{type: integer}` position, and `NO` at a `boolean` one reads as nothing at all, `true` and `false`
+being the whole of that type's text — which is how the Norway problem stays dead without a blocklist
+anywhere (ADR-0081). §12's text-form column states the reading for every scalar type: it was written
+for what leaves on the wire and is one rule read in both directions.
+
+Characters that will not read that way, an input the schema declares that the caller did not supply, and
+a value outside its `enum` are one check — *a value satisfies the schema at its position* — and one code,
+`schema-mismatch` (§4). It reaches every position of every artefact, `hyper`'s own schemas and an
+Operation's input alike. `body:` is the one position it does not reach, there being no schema there at
+all (below, ADR-0078).
+
+**Every input an Operation declares is supplied.** There is no `null` in the vocabulary above, no
+key-omission syntax anywhere in the format, and therefore no sink at which an unsupplied input could
+render: a `body:` key with nothing to fill it is not writable, and a request whose keys varied with a
+Step's `args:` would put the request's *structure* in the Procedure, which is the reading ADR-0078
+refused. `required` is not a keyword of the input-schema subset for that reason — the property list is
+the whole of it, and a keyword whose only honest value is *all of them* is the second spelling this
+format removes everywhere else. An API with a genuinely optional parameter is two Operations, and §13
+states the cost.
 
 ## No expression language
 
@@ -178,7 +205,7 @@ from the moment it was written — which the Manifest decides on its own, with n
 refused as `manifest-inconsistent` (§4), the code that already refuses a `pagination` Pattern outside an
 `over:` and a `record:` on a `destroy`.
 
-Three of them are stated by omission. `repeatability:` omitted is the default the Operation's own
+Four of them are stated by omission. `repeatability:` omitted is the default the Operation's own
 Kind fixes — run-once where it effects, `repeatable` on a `read` — which §12 states in full, and
 neither is a value to write. `concurrency:` omitted is **1**, and a `read` whose Manifest says nothing
 runs its Expansion serially: how many requests an API tolerates at once is something only the Provider
@@ -186,7 +213,10 @@ author has measured, and every other number `hyper` could put there is a guess a
 described (ADR-0045). An explicit `concurrency: 1` is legal and means exactly what the omission means —
 a limit is a number rather than an enumeration, so 1 is an ordinary member of its value space and not a
 second spelling of silence, and an author who has established that an API refuses concurrency may say so
-instead of leaving it to be read as an oversight. Record cardinality has no key at all — `series` is a
+instead of leaving it to be read as an oversight. `input:` omitted is an Operation that takes none, and
+a Step binding it writes no `args:`: `additionalProperties: false` is forced at every level (§12), so
+the omission refuses every argument without a second rule saying so, and an explicit empty schema means
+exactly what the silence means. Record cardinality has no key at all — `series` is a
 `record:` carrying
 `over:`, and `one` is a `record:` without it, since a `series` projection cannot omit the collection
 path and a `one` projection has nothing to put there. A `destroy` Operation carries no `record:` and
@@ -214,7 +244,6 @@ operations:
       body: {name: "{name}", type: "{type}", content: "{content}"}
     input:
       type: object
-      required: [zone_id, name, type, content]
       properties:
         zone_id: {type: string}
         name: {type: string}
@@ -238,7 +267,6 @@ operations:
       query: {per_page: "100"}
     input:
       type: object
-      required: [zone_id]
       properties:
         zone_id: {type: string}
     patterns:
@@ -259,7 +287,6 @@ operations:
       path: /client/v4/zones/{zone_id}/dns_records/{record_id}
     input:
       type: object
-      required: [zone_id, record_id]
       properties:
         zone_id: {type: string}
         record_id: {type: string}
@@ -288,7 +315,6 @@ operations:
       host-input: host
     input:
       type: object
-      required: [host]
       properties:
         host: {type: string}
     record:
@@ -641,7 +667,6 @@ operations:
       host-input: endpoint
     input:
       type: object
-      required: [endpoint]
       properties:
         endpoint: {type: string}
 ```
@@ -704,7 +729,6 @@ minted beside it.
               tags: ["tag:ci"]
     input:
       type: object
-      required: [description, expiry_seconds]
       properties:
         description: {type: string}
         expiry_seconds: {type: integer}
@@ -727,16 +751,25 @@ body rather than bytes no surface shows.
 
 ### The command
 
-A `shell:` block carries one key, `command:`, and no other. It is a list of argv words, and `hyper`
-execs it directly: nothing stands between the artefact and the process, so a pipe, a redirection, a
-glob and an `&&` are not writable and join the limits §13 states (ADR-0051).
+A `shell:` block carries **no keys at all**, and is written `shell: {}`. The block's key *is* the
+Capability (above), and there is nothing else for it to say. The request is a list of argv words, and
+`hyper` execs it directly: nothing stands between the artefact and the process, so a pipe, a
+redirection, a glob and an `&&` are not writable and join the limits §13 states (ADR-0051).
 
 The words are the Step's rather than the Manifest's. `hyper`'s own `shell` Provider is the only one
 that may declare this Capability (§11, ADR-0039) and it knows nothing whatever about the command, so
-its `command:` is a hole and the argv arrives in a Step's `args:` — which is what §13 means by *what
-bounds a shell Step is the words a reviewer read in the Procedure*. The hole resolves to an Operation
-input like every other non-Capability-relevant position (§12): a grant enumerates hosts and a command
-reaches none, so there is no enumeration for one here to draw on.
+the argv **is** the Operation input named `command`, arriving in a Step's `args:` — which is what §13
+means by *what bounds a shell Step is the words a reviewer read in the Procedure*. The Capability names
+that input the way it fixes `cwd:`, `stdin:` and `env:` below, and for the reason each of those is
+fixed: a key whose only legal content is the one `hyper` requires is a second spelling that can only
+ever disagree with the first.
+
+It is not a template hole, and it could not be one. A hole fills a scalar position and may not name an
+input declared `array` (ADR-0078), so `command: "{command}"` against `{type: array, items: {type:
+string}}` is a Manifest that does not load — `manifest-inconsistent` (§4) — which is what the built-in
+Provider was written as before ADR-0081. What looked like an exception the hole rule needed is none: a
+hole may not carry a request's shape into a Step's arguments, and `shell` is the one Capability whose
+request has no shape of the Manifest's to carry.
 
 **The first member is the reach axis, and it is a literal.** A reference there would put the choice of
 binary in a value the world supplied, which is the arrival ADR-0029 closed for a host, reappearing on

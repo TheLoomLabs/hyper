@@ -261,8 +261,12 @@ A third declaration belongs to `read` alone, that being the one of the six that 
 same sentence as the two above — `hyper` knows nothing whatever about the command, and how many of them
 a machine will tolerate at once is exactly the sort of thing it would be guessing at (ADR-0045).
 
-The request is the same on all six, and it is the sentence again in its purest form: `command:` is a
-hole, and the argv arrives in a Step's `args:` (§3). The projection is the same on the four that carry
+The request is the same on all six, and it is the sentence again in its purest form: the `shell:` block
+is **empty**, and the argv is the Operation input named `command`, arriving in a Step's `args:` (§3,
+ADR-0081). It was written `command: "{command}"` until that ticket read it against the hole rule and
+found the one Provider `hyper` ships refused by `manifest-inconsistent` — a hole may not name an input
+declared `array` (§4, ADR-0078) — and the fix was to delete the key rather than to except it, a request
+with no shape of the Manifest's having nothing for a hole to stand in. The projection is the same on the four that carry
 one, `destroy` and `destroy_once` being forbidden a `record:` like every other `destroy` (ADR-0037) —
 so a shell Record's name is always the command that produced it. No `secret:` is declared anywhere in
 it, for the reason §3 gives and at the cost §13 states.
@@ -278,11 +282,9 @@ operations:
     kind: read
     repeatability: repeatable
     deadline: 1h
-    shell:
-      command: "{command}"
+    shell: {}
     input:
       type: object
-      required: [command]
       properties:
         command: {type: array, items: {type: string}}
     record:
@@ -295,11 +297,9 @@ operations:
     kind: mutate
     repeatability: repeatable
     deadline: 1h
-    shell:
-      command: "{command}"
+    shell: {}
     input:
       type: object
-      required: [command]
       properties:
         command: {type: array, items: {type: string}}
     record:
@@ -312,11 +312,9 @@ operations:
     kind: destroy
     repeatability: repeatable
     deadline: 1h
-    shell:
-      command: "{command}"
+    shell: {}
     input:
       type: object
-      required: [command]
       properties:
         command: {type: array, items: {type: string}}
 ```
@@ -396,7 +394,7 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Forty-nine members, each the identifier of a check that declined, named where that check is
+**Closed.** Fifty members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
@@ -404,22 +402,27 @@ resisting and has none, and the ways it can resist are not a set anything could 
 failures are told apart by the exit code above rather than here.
 
 **Most of the set declines before Step 1.** A Run re-runs `check` in full at its start (§6), so all
-thirty of §4's static codes reach a Run that way, beside the credential pass, the sink gate, the
+thirty-one of §4's static codes reach a Run that way, beside the credential pass, the sink gate, the
 Cadence's and the Store's. Where one does, it is held on `outcome.json` and never on a Step file, `step` being an
 artefact coordinate rather than an execution fact (§7, ADR-0061). Only `bound-exceeded`,
-`run-once-recorded`, `record-identity-collision` and §6's `predicate-type-mismatch` require a Step to
+`run-once-recorded`, `record-identity-collision`, §6's `predicate-type-mismatch` and §6's
+`schema-mismatch` require a Step to
 have been reached at all — `record-identity-collision` at its Expansion site, its two authored sites
-reaching a Run the way §4's thirty do. `secret-sink-absent` is not among them and could have been:
+reaching a Run the way §4's thirty-one do. `secret-sink-absent` is not among them and could have been:
 both its operands are in hand at Run start, so it is stated as the Run's gate rather than the Step's,
 and the reason is not tidiness — declining at the Step under a Cadence would run the Steps before it
 at every occurrence and never reach the tail (§6, ADR-0077).
 
 **Every one of them declines before a call goes out**, and that is a property of the set rather than a
 coincidence of its members: a guardrail that declines after a call is a halt and has no `error_code` to
-carry (§6, ADR-0072). All four of these fire at or before Expansion, which resolves before the Step's
+carry (§6, ADR-0072). All five of these fire at or before Expansion, which resolves before the Step's
 first call.
 
-Thirty are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
+Thirty-one are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
+`schema-mismatch`, a value that does not satisfy the schema at its position — characters that will not
+read as the declared type, a declared input no `args:` supplies, a value outside its `enum` — which is
+the instance half of a schema where `unknown-key` is the key half, the two split on
+`additionalProperties: false` being forced rather than authored (§3, §4, ADR-0081);
 `kind-mismatch`, `name-mismatch`, `schema-unsupported`, `credential-slot-malformed`, `hole-illegal`,
 `series-reference`, `artefact-absent`, a name an artefact writes for one of this repository's artefacts
 resolving to nothing — a Definition's `provider:` or `targets:` member, a Step's `definition:`, a nested
@@ -446,12 +449,18 @@ stands by construction and whose test can therefore only ever answer *skip* (abo
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
 Journal already holds as *ran* or *attempted, outcome unknown*.
 
-Two members are stated by §4 and §6 both. `bound-exceeded` is one, §4 firing it where the Expansion's
+Three members are stated by §4 and §6 both. `bound-exceeded` is one, §4 firing it where the Expansion's
 count is authored and therefore known offline (a `values:` list longer than the Bound) and §6 firing it
 everywhere else. `predicate-type-mismatch` is the other, an operator handed a type it does not take:
 §4 fires it where the fault is authored — a `timestamp` under `greater_than`, `exists: false`, an
 `in:` that is empty, of one member or of mixed types, an empty `starts_with:`, a predicate against a
-declared-secret field — and §6 fires it against a stored value at Expansion (ADR-0035). Each is one code because it is one check:
+declared-secret field — and §6 fires it against a stored value at Expansion (ADR-0035). `schema-mismatch`
+is the third and the newest, and it splits the same way for the same reason: §4 fires it where the value
+is on the page, §6 where an `args:` value arrives from a reference and meets the type its input declares,
+a stored value having no schema of its own for the declared one to disagree with (§3, ADR-0081). What
+makes it one check across both is that *satisfies* means one thing at each — a reading of the value's
+characters against the declared type's text form, never a comparison of the stored value's own JSON
+type, which would have left §4 lenient about quoting and §6 strict about it under one name. Each is one code because it is one check:
 what names a Refusal is the check that declined, never the moment it ran, and a reader is never holding
 one without knowing whether they asked `check` or a Run. `record-identity-collision` below carries the
 same rule across four sections rather than two, which is as far as that reading has been taken. §7's three are the Store's:
@@ -1017,16 +1026,31 @@ gutter's marks already are.
 
 ## The input-schema subset
 
-**Closed.** Six keywords are the whole of the JSON Schema an Operation's input schema is written in:
-`type`, `required`, `enum`, `const`, `properties`, and `items`. `additionalProperties: false` is forced
+**Closed.** Four keywords are the whole of the JSON Schema an Operation's input schema is written in:
+`type`, `enum`, `properties`, and `items`. `additionalProperties: false` is forced
 at every level rather than authored, so an unknown key is refused wherever it appears (`unknown-key`,
-§4). A schema reaching outside this subset is `schema-unsupported`.
+§4). A schema reaching outside this subset is `schema-unsupported`; a value that does not satisfy a
+schema inside it is `schema-mismatch` (§4), which is the instance half the same schema had never been
+given a name for.
 
 `$ref` is rejected on the ground a YAML alias is, a schema whose meaning lives in a document the
 reviewer is not reading (ADR-0023); `allOf`, `oneOf`, and `if`/`then`/`else` are rejected because a
-schema that composes or branches is an expression language in a second costume (ADR-0022). `enum` and
-`const` are constraints on a type rather than types of their own, which is why they sit here and not in
-the set below. This subset covers an Operation's input; its output has no schema at all (§3).
+schema that composes or branches is an expression language in a second costume (ADR-0022). `enum` is a
+constraint on a type rather than a type of its own, which is why it sits here and not in the set below.
+This subset covers an Operation's input; its output has no schema at all (§3).
+
+Two keywords left it with ADR-0081, and both for the reason a second spelling always leaves this format.
+`required` went because **every declared input is supplied** — there is no `null` and no key-omission
+syntax, so an unsupplied input has no sink to render at (§3) — which makes the property list the whole
+of the requirement and any shorter `required:` a declaration of an optionality nothing could express.
+`const` went because it is `enum` of one member, which is the shape §4 already refuses on a predicate
+as *an `in:` of one member, which is `equals` spelled twice*; an input with one legal value is a literal
+the Manifest could have written into its own request, and obliging every Step to retype it is the
+ceremony `required` was carrying. Nothing nests below what those leave: no hole may name an `object` or
+`array` input (ADR-0078), `host-input:` names a whole host, and after ADR-0081 the one array sink in the
+format is the `shell` Capability's argv — so a nested `properties:` reaches nothing and is
+`manifest-inconsistent` (§4) by the quantified check rather than by a clause here enumerating which
+nestings those are.
 
 ## Scalar types
 
@@ -1039,6 +1063,13 @@ type.
 
 A value of one of these types reaches a request through a template hole (above), and there are two
 sinks. A `body:` position takes a JSON value; every other position is text on the wire.
+
+**The text column is read in both directions.** It states what leaves on the wire, and it is also what
+a scalar at a declared position is *read as* when `hyper` loads an artefact or resolves an `args:` value
+at Expansion — the same characters, the same type, the one rule (§3, §6, ADR-0081). That is what makes
+`boolean` two words rather than a blocklist of the words YAML would otherwise fold into it, and what
+makes a quoted `"2592000"` the same value at an `integer` position as an unquoted one, the quote being
+YAML's and not the value's.
 
 | type | in a `body:` | in `path:`, `query:`, `headers:`, `command:` |
 | --- | --- | --- |
@@ -1055,7 +1086,10 @@ it, `1.0` and `1` and `1e0` being one value and needing one spelling wherever `h
 text column is what a composition renders through too, `"preview-{n}"` being a string however `n` is
 declared (§3). `duration` is nearly unreachable in a body and that is not a gap: an API taking seconds
 takes an `integer`, and `duration` earns its place on `retention:` and `deadline:`, which never leave
-the repository.
+the repository. `object` and `array` are refused at both sinks because both sinks are reached through a
+**hole**, and a hole fills a scalar position (ADR-0078). The one place an `array` input reaches anything
+is the `shell` Capability's argv, which is no hole and no sink on this table: `hyper` execs the list
+rather than serialising it (§3, ADR-0081).
 
 ## The artefact `kind:` values
 

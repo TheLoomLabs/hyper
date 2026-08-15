@@ -63,7 +63,10 @@ first stay referenceable, which is the whole of what makes an Expansion over a `
   ADR-0053's.
 - **The built-in's six Operations share one request**, `command: "{command}"` over an input schema of
   `{type: array, items: {type: string}}`. Nothing in the Manifest varies by Operation except the two
-  facts the roster exists to vary, and §12 renders it in full.
+  facts the roster exists to vary, and §12 renders it in full. **Amended by ADR-0081:** that request
+  does not load. A hole may not name an input declared `array` (ADR-0078), so the block carries no key
+  at all — `shell: {}` — and the argv is the Operation input named `command`, which is what this
+  decision meant by *the words are the Step's* and never needed a hole to say.
 - **`hyper` binds the child's process group.** Not a consequence of the argv decision as such, but it
   arrives with the exec: without it a terminal's interrupt reaches the child directly and §6's drain is
   a sentence the implementation contradicts. A deadline then kills the group rather than the pid, and

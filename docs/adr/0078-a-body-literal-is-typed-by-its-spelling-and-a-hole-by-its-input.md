@@ -94,7 +94,10 @@ an input declared `object` or `array` (`manifest-inconsistent`).
   itself in one file, and a hole in a position §12 does not list.
 - **Two entries join §13's wall**, both narrow: a body whose top level is not a mapping, and an API
   wanting a caller-supplied object inside one.
-- **What joins a value to the type its input declares is undecided**, and is not this decision's to
+- **What joins a value to the type its input declares is undecided** *(settled by ADR-0081: a value is
+  **read** against the schema at its position rather than compared with it, at load and at Expansion
+  alike, under one code — `schema-mismatch` — which the corpus had never named at any position of any
+  artefact)*, and is not this decision's to
   make. An authored `args:` value disagreeing with its input's declared type has no code in §4, and a
   value arriving through a reference has no schema to disagree with at all, an Operation's output
   carrying none. Before this decision a mismatch there was harmless, everything being stringified;

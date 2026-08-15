@@ -21,7 +21,9 @@ Loading a file is the first check, and failing it stops every check after. The r
 credential slot's mapping shape, the three hole positions, the path and reference grammar — and this
 chapter is where each rejection gets the name it is refused under, nothing more: a construct the YAML
 subset excludes is `strict-yaml-violation` (ADR-0023); a key the schema at that position does not
-define is `unknown-key`; a `kind:` disagreeing with its directory or filename, against §12's table, is
+define is `unknown-key`; a value that does not satisfy the schema at its position — characters that
+will not read as the declared type, an input the schema declares that no `args:` supplies, a value
+outside its `enum` — is `schema-mismatch` (§3, ADR-0081); a `kind:` disagreeing with its directory or filename, against §12's table, is
 `kind-mismatch`; an artefact's name disagreeing with its file's basename is `name-mismatch` (§3); an
 input schema outside the closed subset is `schema-unsupported`; a malformed or
 misplaced credential slot is `credential-slot-malformed`; a hole resolving outside its position's legal
@@ -41,6 +43,19 @@ reader handed that code would go looking for a hole.
 `name-mismatch` is its own member rather than a widening of `kind-mismatch`. The two carry different
 disagreements over four artefacts, and one code standing for both would leave a reader of the rendering
 unable to tell which of two files to edit.
+
+`schema-mismatch` and `unknown-key` are the two halves of one schema and two codes all the same, and
+the line between them is §12's own: `additionalProperties: false` is **forced rather than authored**,
+so `unknown-key` refuses the one constraint `hyper` imposes and `schema-mismatch` refuses a value
+against what an author wrote. They also send a reader to different places — every `schema-mismatch`
+names a schema position to go and read, and an unknown key names none, the key having matched nothing.
+It is the check ADR-0023 has described since it was written, *expected string, got object at that
+line*, and never named (ADR-0081).
+
+Nor is it `schema-unsupported` a word away. That pair passes the test `name-mismatch` was split out of
+`kind-mismatch` on: `schema-unsupported` is an input schema reaching outside the closed subset and its
+edit is in the Manifest, `schema-mismatch` is a value read against a schema that is fine and its edit is
+wherever the value was written, which is a Procedure's `args:` as often as it is anything else.
 
 ## Resolution
 
@@ -91,7 +106,7 @@ Target-class type-check get their names here: an Operation projecting a Record a
 identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
 
-Eleven further checks are one fact wearing eleven shapes — a Manifest whose own declarations disagree
+Twelve further checks are one fact wearing twelve shapes — a Manifest whose own declarations disagree
 with each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an
 Operation whose `record:` carries no collection path, a `host-input:` naming a property the Operation's
 input schema does not define, a `headers:` entry taking the request position its Auth scheme owns, a
@@ -99,6 +114,9 @@ Provider declaring only the `shell` Capability while carrying an `auth:` block, 
 Target declaration's credential slots not covering the scheme's slots for a binding a Definition makes
 (§3), a template hole naming an input the same file declares `object` or `array` — a hole fills a
 scalar position, and a whole object is no more interpolable than it is referenceable (§3, ADR-0078) —
+an input the Operation declares that no position of its request reaches, by no hole, no `host-input:`
+and not the argv the `shell` Capability names (§3), which under ADR-0081's *every declared input is
+supplied* obliges every Step to write an `args:` entry that goes nowhere,
 a `read` or `mutate` Operation carrying no `record:`, a `destroy` Operation carrying one,
 `skip-if-recorded` declared on an Operation that is not a `mutate` (ADR-0037), a `concurrency:`
 limit declared on an Operation that is not a `read` (ADR-0045), and a `skip-if-recorded` Operation whose

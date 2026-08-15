@@ -235,9 +235,12 @@ a Procedure that declares a Cadence and reaches such a Step is refused at `check
 §4) rather than left to Refuse unattended at every occurrence.
 
 `probe <provider> <operation>` invokes a `read` Operation against `local` without a Definition. Inputs
-are supplied as repeated `--input <name>=<value>`, each typed by the Operation's declared input schema
-at that position rather than by what the value looks like (§3); an unknown name, or a required input
-left out, is a usage error. Its two positionals resolve against the Provider set exactly as
+are supplied as repeated `--input <name>=<value>`, each read against the Operation's declared input
+schema at that position rather than by what the value looks like (§3); an unknown name, an input left
+out — every declared input being supplied (ADR-0081) — or a value whose characters will not read as
+its declared type is a usage error, exit `2`, carrying no `error_code`. That is the same fault §4
+refuses as `schema-mismatch` and it is not that code here, on ADR-0060's line: an `error_code` names a
+check that declined an **artefact**, and a value typed at a command line is not one. Its two positionals resolve against the Provider set exactly as
 `operation`'s do, and a Provider or Operation matching nothing is the same usage error the tree above
 states. A Probe writes no Record and no Journal entry, has no Trigger, no
 Provenance and no Disposition, and can never be scheduled, sequenced into a Procedure, or used as a

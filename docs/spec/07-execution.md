@@ -180,6 +180,22 @@ depend on the order an author happened to write two conjuncts in (ADR-0035). The
 read against the instant on this Run's `run.json`, fixed at its start and shared by every Step and
 every nested Procedure, so nothing a Pattern does moves what a later Step reaches (ADR-0034).
 
+An Expansion is also where an `args:` value arrives from a reference, so it is where a stored value
+meets the type an input declares. Nothing joined those two facts until §3 made the declared type decide
+the bytes: an Operation's output carries no schema, so `{item: $.ttl}` filling an `{type: integer}`
+input is an authored type meeting a value nobody typed. It is read here exactly as an authored scalar
+is read at load — characters against the declared type's text form (§3, §12) — and one that will not
+read is `schema-mismatch` (§12), the same code §4 fires where the value is on the page. A reference
+resolving to nothing supplies no value at all, which is the same code again, every declared input being
+supplied (§3, ADR-0081). Both Refuse rather than halt, for the reason the predicate above does: the
+Expansion resolves before the Step's call goes out.
+
+The reading is deliberately the one rule at both sites. A stored `"2592000"` fills an `integer` input
+and a stored `"thirty"` does not, which is §12's *`integer` and `number` are one comparison where a
+value has already come back* applied one key over — and the alternative, binding the stored value's own
+JSON type, would make the Refusal turn on whether a remote API answered a string or a number, which is
+a fact about the API and one §4 states `hyper` has no oracle for. What it costs is §13's.
+
 Two members resolving to one Record identity is refused here as well, wherever the identities resolve
 before the call — a template hole, or a `shell` Operation's `$.command` (§3). Each member's identity is
 resolved once the selector has, the set is compared against itself under the fold §7 applies, and two
