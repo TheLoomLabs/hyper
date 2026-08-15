@@ -231,6 +231,25 @@ rows written on two machines whose clocks disagree by more than the gap between 
 detect it, warn about it, or correct it: the record holds each writer's own stamp, and inventing an
 authoritative clock to reconcile them is a shared service the tool does not have (§7, ADR-0006).
 
+**Two effectful Runs across the laptop and a runner are serialised by nothing.** §6's lock is one
+filesystem's and §10's `concurrency` group covers runner-to-runner, and this pair falls between them:
+they can bind the same Target and mutate the same resource at the same moment. It is the same shape as
+the two clocks above — two machines with no shared authority to appeal to — and the remedy is the same
+one, a lock server ADR-0006 rules out on the ground that CI shares no hidden state with the laptop.
+
+**What it does not cost is the record.** ADR-0076 settled that separately and completely: every Store
+path carries the id of the Run that wrote it, so two overlapping Runs cannot write one path, neither can
+take a write from the other, and a Run reaped while it was alive finishes on its own terms and leaves a
+**contested** entry holding both accounts (§7). Every Run's own account of what it did survives the
+overlap in full, and the surfaces show the disagreement rather than resolving it. So the exposure here
+is the **world** and never the evidence — which is the one shape of this limit `hyper` can actually
+stand behind, the tool's claim having always been about what the record says rather than about what it
+could prevent.
+
+Nothing detects the overlap, and nothing could without the lock: an open entry is indistinguishable from
+an abandoned one by design (§6), which is why the reap is unconditional and why it had to be made
+harmless rather than made accurate.
+
 ## What the guardrails do not cover
 
 **Blast radius is a count, not a severity.** A Bound counts Records and never weighs what happened to

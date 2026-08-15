@@ -221,9 +221,18 @@ _Avoid_: Rejection, Denial, Block, Abort
 **Journal**:
 The append-only series of Run entries — one per Run, carrying its outcome, its Provenance, and every
 Step's Disposition. The only place a Refusal or an unconfirmed attempt is recorded, since neither
-writes a Record. An entry carrying no outcome is **open**: the Run may be in flight or its process may
-be gone, and `hyper` never guesses which.
+writes a Record. An entry carrying no account of how it ended is **open**: the Run may be in flight or
+its process may be gone, and `hyper` never guesses which. An entry may be closed by its own Run or by a
+later one, and holding both is a Contested entry.
 _Avoid_: Log, Audit trail, Run state, Checkpoint
+
+**Contested entry**:
+A Journal entry holding two accounts of how a Run ended: its own Run's, and a later Run's inference that
+it had died. It is what a Run that was reaped while still alive leaves behind, and both accounts stand —
+the inference is a true fact about the Run that made it. The entry's outcome is its own Run's, an
+observation being what an inference was an inference about; `hyper` never chooses between two accounts
+of what the *world* did, and holding both files is what keeps this from being that.
+_Avoid_: Conflict, Disputed run, Split entry, Zombie run
 
 **Disposition**:
 What a Step did in a Run: ran, skipped as already recorded, skipped by condition, refused, never

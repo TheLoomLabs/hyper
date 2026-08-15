@@ -102,6 +102,14 @@ path predates 2010, and a pin would be a fifth projection constant ADR-0046 clos
   specified as canonical JSON, which was never a resolution. It is a same-path write, the losing Run is
   `failed` with `75` having pushed nothing, and what the Store ends up holding is a question about
   evidence rather than about materialisation.
+
+  **Superseded by ADR-0076.** Asking that evidence question found that the closing write was the only
+  path in the Store not carrying the id of the Run that wrote it, which is the whole of why there was a
+  surviving conflict. The closer now writes `closed-by/<closer-run-id>.json` and there is no unclean case
+  left: `only unclean case is the one §7 already names` above reads as *every retry is clean*, and
+  `closed_by_run` is gone from `outcome.json`. Nothing else in this ADR moves — the path-set union, the
+  per-confirmed-write commit, and §6's crash guarantee resting on it are all unchanged and are what made
+  the question askable.
 - **The case-fold check stops being a rule the write could contradict.** §7 grounded
   `record-identity-collision` in a laptop's case-insensitive filesystem against a runner's. `hyper` now
   never puts a Record's identity on a filesystem at all — a git tree entry is a byte string, case-sensitive

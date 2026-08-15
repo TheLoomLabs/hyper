@@ -286,6 +286,13 @@ would relitigate that distinction by accident. `--outcome` filters the triple an
 one. A `started` beside an absent outcome is the whole of what the Store holds about a Run nobody has
 closed, and the row says exactly that much.
 
+A **contested** entry (§7) renders its owner's outcome in that cell and carries a marker on the row. The
+cell is not where the contest goes, for the reason the open entry's is not: the column is named for the
+triple, the owner's account is a member of it, and a second account of the entry is not a fourth value
+either. `--outcome` therefore selects a contested entry on its owner's outcome, which is the one the
+entry has. `show <run-id>` is where the contest is stated in full, one line per `closed-by/` file in the
+form §8's header uses.
+
 `show <run-id>` takes a Run id whole — nothing anywhere resolves a partial one (ADR-0047) — and writes
 one entry in full: each Step's Disposition with the Record identities it acted on, `hyper`'s own account
 of what it did to reach that outcome — a Pattern's attempts, its pages, its poll iterations — and, on a

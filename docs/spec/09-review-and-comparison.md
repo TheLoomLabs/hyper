@@ -524,19 +524,34 @@ below rendering an outcome it does not have. Where no baseline exists the header
 state — *no baseline — first Run of `<Procedure>`* — with every Record rendering as created or appeared.
 
 **Each side of the window is an instant, and it is that entry's own last one** — `outcome.json`'s
-`ended_at` where the Run wrote it, and the last Step file's where a reaper closed the entry (§7). That
-second is the instant §7 already names as "when the Run went quiet", read as a timestamp and never as a
-verdict, and it is used here for the reason a duration may not use `outcome.json`'s: a reaped entry's
-`ended_at` is the *closing* Run's instant on the closing Run's clock, so a Run reaped a week later would
-otherwise sweep every intervening Run's versions into its side of the window.
+`ended_at` where the Run wrote it, and the last Step file's where the entry's only account is a
+`closed-by/` file (§7). That second is the instant §7 already names as "when the Run went quiet", read as
+a timestamp and never as a verdict, and it is used here for the reason a duration may not use a
+`closed-by/` file's: that `ended_at` is the *closing* Run's instant on the closing Run's clock, so a Run
+reaped a week later would otherwise sweep every intervening Run's versions into its side of the window.
+
+A **contested** entry (§7) is not that case and takes no special reading here: it holds an `outcome.json`
+its own Run wrote, so the window's side is that `ended_at` like any other Run's. The `closed-by/` file
+beside it names another Run's clock and is never an endpoint.
 
 The header names both Runs, each with its id, its Trigger, when it started, its outcome, how long it
 took, and the `procedure_revision` it recorded (§7). A duration derives within one Journal entry; two
 entries' timestamps are never subtracted (§7). **A reaped entry's duration cell renders the word
-`reaped`.** No duration exists to render there and `closed_by_run` is what says so (§7); a column whose
-every other cell is a duration and this one names why there is none is the same discipline as the two
-named absences above, applied to one cell. A bare dash there reads as a renderer that broke, and the
-outcome cell beside it says `failed` on plenty of Runs whose duration derives perfectly well.
+`reaped`.** No duration exists to render there and the entry's account being a `closed-by/` file is what
+says so (§7); a column whose every other cell is a duration and this one names why there is none is the
+same discipline as the two named absences above, applied to one cell. A bare dash there reads as a
+renderer that broke, and the outcome cell beside it says `failed` on plenty of Runs whose duration
+derives perfectly well.
+
+**A contested entry's outcome and duration cells are the owner's, unqualified**, and the contest is a
+line rather than a cell value. An entry holding both an `outcome.json` and a `closed-by/` file renders
+its own Run's outcome and its own Run's duration exactly as if no reaper had been there, and carries
+beneath the header one stated line per `closed-by/` file — *contested — Run `<id>` recorded this entry
+`failed` at `<instant>`*. Nothing is minted for it: every fact in that line is read off the file's own
+keys, and the entry's account is present rather than absent, so this is not the discipline that produced
+`reaped`, `not-run`, `no-store` and the `baseline_absent` members. Putting it in the outcome cell would
+be the surface deciding between two accounts, which §7 is precise that it does not do; putting it
+nowhere would be the tool holding a disagreement it never shows anyone.
 
 The revision is named in full as a Procedure's — an unqualified `rev` sitting one table above a row
 reading `repository revision` is two facts inviting one reading — and it renders on both lines whether
@@ -680,9 +695,10 @@ like any other Run's; it is that one set's absences that say nothing.
 
 A Step whose Disposition carries **no set at all** is that rule at its limit and is read the same way:
 it contributes no identity to its side and removes none from the other. That is the reaper's
-*attempted, outcome unknown* (§7), which carries `step`, `disposition`, `closed_by_run`, the `id` and
-the code facts and no `identities` — a different animal from the same Disposition written by the Run
-itself, which carries the conclusions it did reach. It is also every *attempted, world untouched*, whose
+*attempted, outcome unknown* — a `closed-by/` file, which carries `step`, `disposition`, the `id` and
+the code facts and no `identities` (§7). It is a different animal from the same Disposition written by
+the Run itself, which carries the conclusions it did reach, and since ADR-0076 the difference is which
+file it is rather than which key it holds. It is also every *attempted, world untouched*, whose
 set is absent by construction (§7). Nothing renders *vanished* on their account and an identity
 returning next Run renders no *appeared* on it either.
 
@@ -780,7 +796,7 @@ tree is gone for good — so `git diff <rev> <rev>` does not reproduce what move
 that does not reproduce is worse than printing none. `N` and the classed rows are still computed between
 the two committed revisions, which is what the Provenance names and what a reader can check out; the one
 thing the table cannot then vouch for is marked in every cell that names a revision, by the `+` the
-header states. §7 already accepts this shape from the other end, a reaped Step file omitting its code
+header states. §7 already accepts this shape from the other end, a `closed-by/` file omitting its code
 facts "where the dead Run's revision resolves them, and absent where it does not, which is every Run
 that recorded `repo_dirty`".
 

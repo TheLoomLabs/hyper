@@ -4,7 +4,12 @@ A Run begins in a fixed order, and no Step starts until all of it has happened. 
 runs first and the Store is located second, the two paths that decline before a Run is identified at
 all (§9, §7). Then `run.json` is written and pushed, which for an effectful Run is also the Store sync
 (§7) — so every gate below declines into an entry that already exists and has already reached the
-remote. Then the Store files the Run must read are checked for a schema version above this binary's
+remote. **An effectful Run reaps inside that same push**: the fetch has landed, so every open entry in
+the Journal is readable, and the `closed-by/` file for each goes out beside `run.json` rather than taking
+a reach of its own (§7, ADR-0076). It reaps every open entry it finds and not a subset — a rule that
+reaped some would need a criterion, and the only candidates are age and liveness, both of them the guess
+below declines. A Run that then declines at a gate has already reaped, which is the same reason its entry
+is pushed before the gates at all. Then the Store files the Run must read are checked for a schema version above this binary's
 (`store-schema-unsupported`, §12), over the Journal and the Record heads under the (Definition, Target)
 pairs the Procedure makes. Then `check` is re-run in full with nothing skipped (§4). Then the
 credentials of every Target the Run may bind are resolved once (ADR-0007). Then Step 1.
@@ -433,9 +438,17 @@ and it turns most cancellations into a stop that is recorded in full rather than
 
 A second interrupt kills the process, and what that leaves is an open Journal entry rather than no
 entry at all — the next effectful Run closes it `failed` with the in-flight Step marked *attempted,
-outcome unknown* (ADR-0003). There is no reaper, no daemon, and no heartbeat: an abandoned entry is
-noticed by the next Run that looks. Draining is a laptop property; an executor that kills after a
-short grace period lands in the open-entry path instead, which is what that path is for.
+outcome unknown* (ADR-0003), in a file named for the Run doing the closing (§7). There is no reaper, no
+daemon, and no heartbeat: an abandoned entry is noticed by the next Run that looks. Draining is a laptop
+property; an executor that kills after a short grace period lands in the open-entry path instead, which
+is what that path is for.
+
+Nothing distinguishes an abandoned entry from a live one, so an effectful Run overlapping another closes
+it whether or not it was dead. That costs the Run being closed nothing: it holds the only paths its own
+account can be written at, so it finishes on its own terms and the entry ends up **contested** rather
+than decided by whichever Run reached the remote first (§7, ADR-0076). It never learns, and the only way
+it could would be a re-read after its own last push — which would make the tool's word depend on push
+ordering. The contest is a fact of the record and shows up wherever the record is read.
 
 The child's own process group is what makes draining true of a `shell` Step at all: in `hyper`'s group
 a terminal's interrupt reaches the child directly and it dies at once, so the Step in flight would not
@@ -456,7 +469,9 @@ collapses into `failed` with an exit code of its own (§12).
 Only an effectful Run closes another Run's open entry. A read-only Run holds the shared lock, so it
 can find a live effectful Run's entry open with no way to tell it from an abandoned one; it reads
 and never reaps. The lock is one filesystem's, and two executors share no filesystem: what stands in
-for it across runners is the projection §10 states.
+for it across runners is the projection §10 states. Between the laptop and a runner nothing stands in
+for it at all, and §13 carries that as the limit it is — the record survives the overlap intact, and
+what is unguarded is the world.
 
 ## Dry-run
 
@@ -470,8 +485,11 @@ baseline: a Comparison reads back to the last non-dry Run (§8, ADR-0010).
 Every Run ends in exactly one of the three outcomes §12 defines. `refused` is §5's: a guardrail
 declined before any effect reached the world, most often before any Step existed. `failed` is the world
 resisting or the Run being stopped, which is where every halt above lands — an error, a deadline, an
-interrupt, lock contention, a Store it could not sync, an entry closed by a later Run. `completed` is
-neither.
+interrupt, lock contention, a Store it could not sync. `completed` is neither.
+
+No Run's outcome depends on another Run's reap. A closing write lands at a path only its writer can
+reach, so a Run that is reaped while alive loses nothing it wrote and nothing it was going to write
+(§7, ADR-0076).
 
 A Run that halted at the third Step of nine is `failed`, and what it did before it halted lives in
 its Records and its Dispositions rather than in its outcome.

@@ -92,24 +92,28 @@ Store is pushed after every effectful Step, and a Run's reads batch to its end (
 A push rejected as non-fast-forward fetches, re-applies and retries, three times, after which the Run
 is `failed` with the contention exit code (`75`, §12) — the same code §6's lock contention takes, both
 being a Run that lost the Store rather than a guardrail declining or the world resisting. It is not
-`git rebase`, which needs a worktree there is none of (ADR-0075): `hyper` knows exactly which paths it
-wrote, so it re-applies that set onto the fetched tip's tree and commits. Disjoint path sets cannot
-collide, and every path carries the id of the Run that wrote it, so *every* retry is clean but one —
-which is a fact about the operation rather than an observation about how a merge behaves.
+`git rebase`, which needs a worktree there is none of (ADR-0075): `hyper` knows exactly which paths are
+unpushed — every path in every local commit the remote does not hold, this Run's and any earlier Run's
+that stopped before it could push — so it re-applies that set onto the fetched tip's tree and commits.
+It is the whole unpushed set and not this Run's alone, which is what makes *what it wrote before it
+stopped stands locally and goes out with the next Run that syncs* above true rather than aspirational.
 
-The one that is not is two Runs closing the same open entry. Both write the same two paths — the
-in-flight Step file at the next `<nnnn>` and `outcome.json`, whose `closed_by_run` and `ended_at`
-always differ — so it is detected as a same-path write rather than found by a textual merge, and the
-losing Run is `failed` with `75` having pushed nothing. It stands as a conflict rather than being
-resolved in either direction: it is a disagreement about what happened, and picking a side is the tool
-editing evidence.
+**Every retry is clean**, with no exception anywhere in the Store, and that is a fact about the operation
+rather than an observation about how a merge behaves. Disjoint path sets cannot collide, and every path
+the Store holds carries the id of the Run that wrote it (§12,
+[ADR-0076](../adr/0076-every-store-path-carries-the-id-of-the-run-that-wrote-it.md)) — so two Runs cannot
+write one path, two Runs cannot mint one `<run-id>`, and a stranded unpushed write stays pushable
+forever rather than colliding on every later sync from that machine.
+
+The one path form that once broke this was the closing write, which named the **dead** Run's id in a
+file it wrote itself. It now names both (below), so two Runs closing one entry write two files rather
+than one path twice.
 
 The re-application reaches nothing below a shallow boundary, and that is a consequence of append-only
 rather than a hope. The branch is only ever appended to and never force-pushed, so every fetch lands on
 a descendant of the boundary the previous one set; a local unpushed commit is rooted at the tip `hyper`
 last saw, so the merge base of it and the new remote tip is at or above that boundary and is present.
-The surviving conflict is about content at the tip and is unmoved by depth, and the push is a
-fast-forward whose parent the remote already holds.
+The push is a fast-forward whose parent the remote already holds.
 
 ## Append-only
 
@@ -425,9 +429,11 @@ that deriving it costs git objects a shallow clone does not have.
 A Step that is a nested Procedure invocation writes no file of its own. An invocation is not a Step,
 none of the seven Dispositions describes one, and its own Steps each write a file carrying `path`.
 
-`outcome.json` carries `schema_version`, the `outcome` §6's triple fixes, `ended_at`, `closed_by_run`
-where another Run closed the entry, and `refusal` where the outcome is `refused` — the whole of what
-declined it, in the form the next section states.
+`outcome.json` carries `schema_version`, the `outcome` §6's triple fixes, `ended_at`, and `refusal` where
+the outcome is `refused` — the whole of what declined it, in the form the next section states. It is
+written by the Run whose entry it is and by no other, so it carries no member naming its author: the
+`<run-id>` in its path is that member, and another Run's account of the entry is a `closed-by/` file
+below.
 
 ```json
 {
@@ -444,34 +450,62 @@ than by a field.
 
 ### The open entry
 
-An open entry is one with no `outcome.json`, and that absence is the whole representation — there is no
-state field to leave stale and no growing file to rewrite. The Run may be in flight or its process may
-be gone, and `hyper` never guesses which.
+An open entry is one holding **no account at all** — neither an `outcome.json` its own Run wrote nor a
+`closed-by/` file another Run wrote — and that absence is the whole representation. There is still no
+state field to leave stale and no growing file to rewrite: closing has two *forms*, not two writes to
+one path. The Run may be in flight or its process may be gone, and `hyper` never guesses which.
 
 A Step that was never reached writes no file either, and within a *closed* entry that absence is its
 whole representation in the same way. Seven Dispositions, six borne by a file and one read from a
 silence. A forty-Step Procedure that halted at Step 3 would otherwise write thirty-seven files saying
 that nothing happened.
 
-Closing one is §6's rule and stays append-only here: the Run that closes another's entry creates two
-paths and edits nothing the dead Run wrote (ADR-0011). It writes the in-flight Step's file first, at
-the next `<nnnn>`, `attempted-outcome-unknown` and carrying `closed_by_run`, and then `outcome.json`.
-Without that file §6's rule has nowhere to land and the crashed Step reads as never reached, which
-re-runs an effect nobody vouched for. Which Step it was is not a guess: `run.json` names the Procedure
-and the *repository* revision to load it at, and the highest `<nnnn>` present is the last one that
-finished. That is `repo_revision` and never `procedure_revision`, the two doing different work and not
-standing in for one another: reconstructing the Step sequence means loading every Procedure the
-top-level one invokes, which a commit resolves and a blob id cannot. The Provenance member says which
-Procedure file *moved*; the repository revision says where to *find* one.
+Closing one is §6's rule and stays append-only here: the Run that closes another's entry creates **one**
+path and edits nothing the dead Run wrote (ADR-0011). It writes
+`journal/<yyyy>/<mm>/<dd>/<run-id>/closed-by/<closer-run-id>.json` — inside the dead Run's entry and
+under the dead Run's date partition, so *is this entry closed* stays a listing of one directory, and
+named by the Run making the claim
+([ADR-0076](../adr/0076-every-store-path-carries-the-id-of-the-run-that-wrote-it.md)). It writes neither
+`outcome.json` nor a file under `steps/`: those are the owner's paths, and a closer that could take one
+is the same-path write §12's grammar now makes impossible.
 
 That file carries what the reaper knows and omits what it cannot establish. Always `schema_version`,
-`step`, `disposition` and `closed_by_run`; the Step's `id` and its code facts where the dead Run's
-revision resolves them, and absent where it does not, which is every Run that recorded `repo_dirty`.
-Never `started_at` — the reaper does not know when the Step began, and filling it would be `hyper`
-asserting something about a Run it did not perform, on the surface built to hold what happened.
+`ended_at`, `step` and `disposition`; the Step's `id` and its code facts where the dead Run's revision
+resolves them, and absent where it does not, which is every Run that recorded `repo_dirty`. The
+Disposition is `attempted-outcome-unknown` and no other value can appear there — without it §6's rule
+has nowhere to land and the crashed Step reads as never reached, which re-runs an effect nobody vouched
+for. It is written out rather than assumed from the file's existence, `outcome` being the key that is
+not: the entry's outcome is a question about the **entry**, which this file's existence answers in full,
+where a Disposition is a fact about a **Step** that this file is the only carrier of, and §8 reads
+Dispositions generically across all seven values. The file carries no member naming its author either,
+its path being that member, and never `started_at` — the reaper does not know when the Step began, and
+filling it would be `hyper` asserting something about a Run it did not perform, on the surface built to
+hold what happened.
+
+Which Step it was is not a guess: `run.json` names the Procedure and the *repository* revision to load it
+at, and the highest `<nnnn>` present is the last one that finished, so `step` is the one after it. That
+is `repo_revision` and never `procedure_revision`, the two doing different work and not standing in for
+one another: reconstructing the Step sequence means loading every Procedure the top-level one invokes,
+which a commit resolves and a blob id cannot. The Provenance member says which Procedure file *moved*;
+the repository revision says where to *find* one.
 
 The last Step file's `ended_at` is when the Run went quiet, and it is the only evidence a Run that never
 came back leaves. It is read as a timestamp and never as a verdict.
+
+**A contested entry** holds both — an `outcome.json` its own Run wrote and a `closed-by/` file another
+Run wrote — and it is what a reap of a Run that was alive after all leaves behind. Both stand and
+neither is removed: the reaper's file truthfully records that a Run inferred death at an instant, and
+the owner's truthfully records what the Run went on to do. **The entry's outcome is the owner's wherever
+one exists.** An `outcome.json` is its own Run's observation; a `closed-by/` file is another Run's
+inference about that Run, drawn from a silence. Where the two disagree the observation is what happened
+and the inference stays true of the Run that drew it. `hyper` picks no side between two accounts of
+*what the world did* and never will; this is not that, and holding both files is what keeps it from
+becoming that.
+
+Where an entry holds `closed-by/` files and no `outcome.json`, the Run really did not come back: the
+entry is `failed`, reaped exactly as before, and where several closers landed the close instant is the
+**earliest** `ended_at` among them — the first inference, later ones adding nothing but their own
+existence. All of them stand.
 
 ### Times, not durations
 
@@ -486,9 +520,16 @@ the runner do not share a clock.
 A reaped entry therefore renders no duration at all, and §8's header names that absence in the cell.
 Its `ended_at` is the closing Run's instant on the closing Run's clock, so subtracting the dead Run's
 `started_at` from it is the cross-entry subtraction this rule forbids, wearing one entry's directory.
-`closed_by_run` being present is what says so; there is no second flag. The same reasoning is why a
-Comparison takes its window's ends from the last Step file's `ended_at` on such an entry rather than
-from this one (§8) — a cutoff on the closing Run's clock reaches every Run in between.
+**The entry's account being a `closed-by/` file is what says so**, and there is no second flag: the file
+that holds the instant is the file whose path names a different Run, so the two facts arrive together
+and cannot come apart. The same reasoning is why a Comparison takes its window's ends from the last Step
+file's `ended_at` on such an entry rather than from this one (§8) — a cutoff on the closing Run's clock
+reaches every Run in between.
+
+None of it reaches a **contested** entry. There the account is the owner's `outcome.json`, written on the
+owner's clock inside the owner's entry, so the duration derives normally and the window end is that
+`ended_at` like any other Run's. The `closed-by/` file beside it is not an endpoint of anything: it is
+another Run's instant, and this rule is exactly what stops it being read as one.
 
 ### What a Disposition holds
 
@@ -848,14 +889,15 @@ code has one phase like every other member of the set.
 
 The rule Refuses on a shape a reader does not recognise; it does not stop that reader writing the shapes
 it does. A Run declining with this code has already written its own entry into the Store beside the
-files it could not read, which is exactly what four independent integers exist to permit — and the trace
+files it could not read, which is exactly what five independent integers exist to permit — and the trace
 matters most here, one environment upgrading being the likeliest reason the other stopped (ADR-0061).
 
-There are four integers, not one — a Record version's, `run.json`'s, a Step file's and `outcome.json`'s
-— each independent and each starting at `1`, matching the explicit version a Manifest carries (§3).
+There are five integers, not one — a Record version's, `run.json`'s, a Step file's, `outcome.json`'s and
+a `closed-by/` file's — each independent and each starting at `1`, matching the explicit version a
+Manifest carries (§3).
 `STORE.md` carries none, being prose written once. One integer across the Store would move a Record
 version's number when a Step file's shape moved, and an older binary would then Refuse a Record file it
-could read perfectly; ADR-0028's rule is that the integer moves only when a file's shape moves, and four
+could read perfectly; ADR-0028's rule is that the integer moves only when a file's shape moves, and five
 ceilings for the reader is what that sentence costs to be literally true.
 Append-only makes migration in place impossible, so the reader accretes format handling and the Store
 accretes nothing: a schema change adds new files rather than editing old ones.

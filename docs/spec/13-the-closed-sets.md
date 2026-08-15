@@ -159,8 +159,9 @@ from it would be the authority axis §5 does not have.
 - `refused` — a guardrail declined before any effect reached the world, and the Run stopped there
   (§5, ADR-0001). Most often before any Step existed, `check` re-running in full at Run start (§6).
 - `failed` — the world resisted, or the Run was stopped, or it lost the Store: an error from a Step, a
-  deadline, an interrupt, contention on the Store lock, a sync or push it could not complete, or an open
-  entry closed by a later Run.
+  deadline, an interrupt, contention on the Store lock, or a sync or push it could not complete. Never
+  another Run's reap: a closing write lands where only its writer can reach, so no Run's outcome is
+  reachable from another Run's entry (§6, §7, ADR-0076).
 
 There is no fourth outcome and no partial one; a Run that halted midway is `failed`, with what it
 completed held by its Records and Dispositions rather than by its outcome.
@@ -603,10 +604,19 @@ which is the one a Manifest projects with and a Step references with; this one i
 | `records/<target>/<definition>/<name>/<run-id>-<nnnn>.json` | one per Record version |
 | `journal/<yyyy>/<mm>/<dd>/<run-id>/run.json` | at Run start |
 | `journal/<yyyy>/<mm>/<dd>/<run-id>/steps/<nnnn>.json` | one per Step reaching a Disposition |
-| `journal/<yyyy>/<mm>/<dd>/<run-id>/outcome.json` | when the Run ends, or by the Run that closes it |
+| `journal/<yyyy>/<mm>/<dd>/<run-id>/outcome.json` | when the Run ends |
+| `journal/<yyyy>/<mm>/<dd>/<run-id>/closed-by/<closer-run-id>.json` | by a Run closing an entry it does not own |
+
+**Every path here carries the id of the Run that wrote it**, and `STORE.md` — written once, by no Run —
+is the only exception ([ADR-0076](../adr/0076-every-store-path-carries-the-id-of-the-run-that-wrote-it.md)).
+That is what makes the push retry's re-application clean in every case rather than in every case but one
+(§7): two Runs cannot mint one UUIDv7, so two Runs cannot write one path. The last breach of it was the
+closing write, which named the **dead** Run's id in a path it wrote itself; it now names both, the entry
+it speaks about and the Run speaking.
 
 `<run-id>` is a UUIDv7, lowercase and hyphenated: time-ordered, and mintable by either environment
-alone, which a counter is not (ADR-0006). `<yyyy>/<mm>/<dd>` is the UTC date of the Run's start.
+alone, which a counter is not (ADR-0006). `<closer-run-id>` is one of these belonging to another entry,
+which is what a `closed-by/` file's whole content omits: nothing inside it restates its own path. `<yyyy>/<mm>/<dd>` is the UTC date of the Run's start.
 `<nnnn>` is the Step's position in the Run's written order, the first Step `0001`, a nested Procedure's
 Steps counted in that order — the invocation itself being no Step and writing no file (§7) —
 zero-padded to four digits and widening beyond four rather than wrapping; it names a Record version as
