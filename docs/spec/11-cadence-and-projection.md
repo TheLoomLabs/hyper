@@ -395,6 +395,14 @@ branch — the one branch §13 names as growing without bound — on every sched
 `checkout` leaves `remote.origin.fetch` pinned to the single ref it checked out, so an `--unshallow`
 after it inherits that refspec and reaches nothing else. That is written down rather than relied on.
 
+**What the Store gets instead is `hyper`'s own depth-1 fetch, naming the ref**, the checkout having left
+neither the branch nor a refspec that reaches it (§7,
+[ADR-0074](../adr/0074-the-store-branch-is-fetched-shallow-and-whole.md)). It lands after this step, so
+the `.git/shallow` this step just cleared comes back with a boundary naming the Store branch alone: the
+code branch stays whole, and nothing later in the file reads that path. The two depths are opposite
+because the two branches are read differently — the code branch is read *at revisions the Store names*,
+and the Store is read at its tip and nowhere else.
+
 **The guard is `.git/shallow` and there is no `|| true`.** `--unshallow` errors on a repository that is
 already complete, which a self-hosted or pre-warmed runner may hand it, so the test is what keeps the
 step total. Its failure fails the step, and the step sits before the `run` invocation: nothing has

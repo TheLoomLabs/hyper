@@ -33,6 +33,26 @@ An effectful Run syncs the Store once, at Run start, and that sync **is** the pu
 entry — one reach at the remote rather than two, and the earliest moment at which the Run can know it
 will be able to record what it does. A read-only Run proceeds offline and pushes when it can.
 
+**The sync takes the tip and no history.** Where the branch is absent from the clone — which is every
+runner, `actions/checkout` taking one ref (§10) — `hyper` creates it with a depth-1 fetch of that one
+ref. Where the branch is present it fetches incrementally and names no depth, so a clone that holds the
+Store whole keeps it whole. `hyper` never deepens the Store and never shortens one it did not create,
+which decides the depth exactly once, at the moment there is nothing to preserve
+([ADR-0074](../adr/0074-the-store-branch-is-fetched-shallow-and-whole.md)). It is a depth-1 fetch and
+never a filtered one: no blob filter, no tree filter, no partial clone. The Store's history is never
+read and its content always is.
+
+Nothing `hyper` answers about the record is defined over the branch's commits. Finding a Head is a
+directory listing, finding a Step's previous Run is a backward scan through date partitions, and
+append-only makes a year-old Run a read of the tip like any other; Provenance names revisions on the
+**code** branch and none on this one (ADR-0011, and *Files are authoritative* below). Content is the
+other way round: a version's `written_at` sits inside the file, so ordering a series opens every version
+of it, and under a filter each of those is a lazy fetch — which would make *a read-only Run proceeds
+offline* false wherever the network is.
+
+`hyper` names the ref explicitly rather than relying on the remote's configured refspec, a checkout
+having left it pinned to the one ref it took (§10, ADR-0071).
+
 An effectful Run that cannot complete it is `failed` with the contention exit code (`75`, §12) and is
 not a Refusal. It is the third way a Run loses the Store, beside the lock (§6) and the push below, and
 it belongs with them rather than with the guardrails: `77` says a verbatim retry will refuse
@@ -52,6 +72,13 @@ one of those rebases is trivially clean, since every path carries the id of the 
 no two Runs target one path. The one conflict that is not clean — two Runs closing the same open entry
 with different outcomes — stands as a conflict rather than being resolved in either direction: it is a
 disagreement about what happened, and picking a side is the tool editing evidence.
+
+The rebase reaches nothing below a shallow boundary, and that is a consequence of append-only rather
+than a hope. The branch is only ever appended to and never force-pushed, so every fetch lands on a
+descendant of the boundary the previous one set; a local unpushed commit is rooted at the tip `hyper`
+last saw, so the merge base of it and the new remote tip is at or above that boundary and is present.
+The surviving conflict is about content at the tip and is unmoved by depth, and the push is a
+fast-forward whose parent the remote already holds.
 
 ## Append-only
 
@@ -742,18 +769,28 @@ interior Observation versions only — never a Head, never a series' first versi
 a Tombstone, never a Journal entry, and never any Provenance. Evidence is what the record exists to
 hold: pruning the entry that says a Step *ran* makes it *never reached* again, which is a bypass under a
 maintenance name (ADR-0006, ADR-0001). Compaction is an ordinary commit on the Store branch, so `git
-log` is its own account of what it removed.
+log` is its own account of what it removed — as far back as the clone reaches, which for a Store
+`hyper` fetched shallow is one commit. The two meet on no path `hyper` projects: this command never
+runs on a Cadence and the shallow Store is the runner's (§10, ADR-0074).
 
 What it moves is the ordinal §8 renders: removing an interior version renumbers every version above it,
 so a Comparison read before a Compaction and one read after report different numbers for the same two
 versions, and a gap that was real closes. Nothing consumes an ordinal (ADR-0049), so what this costs is a
 stale rendering rather than an answer.
 
-What Compaction reclaims is tree size and scan cost. It reclaims nothing from a clone: git history is
-not editable, so every byte ever written to the branch is still fetched by the next clone of it. The
-Store therefore grows monotonically, forever, and there is no rollover to a fresh branch — carrying one
-forward would have to carry enough Disposition evidence with it to keep run-once refusing, or it is the
-same bypass again. This is named here as the honest limit it is and carried forward to §13.
+What Compaction reclaims is tree size, scan cost, and the size of every later shallow fetch — the sync
+above taking the tip, what it pays for is what Compaction just made smaller. It reclaims nothing from a
+clone: git history is not editable, so every byte ever written to the branch is still fetched by the
+next clone of it. The Store therefore grows monotonically, forever, and there is no rollover to a fresh
+branch — carrying one forward would have to carry enough Disposition evidence with it to keep run-once
+refusing, or it is the same bypass again.
+
+What it reclaims at no depth is the **Journal**. This command removes interior Observation versions and
+nothing else, and a version is minted only where the bytes moved, so a Record read every five minutes
+and never changing costs one file — while every one of those Runs writes an entry, and every entry
+stands forever. The term that grows with the Cadence rather than with the world is the term nothing
+reclaims. This is named here as the honest limit it is and carried forward to §13, which states it as
+the two curves and two payers it is.
 
 ## Orphaned Assets
 

@@ -323,11 +323,34 @@ at all, and what happened is in the executor's log or nowhere.
 
 ## What the record costs
 
-**The Store grows monotonically, forever.** Compaction reclaims tree size and scan cost and nothing
-from a clone, and there is no rollover to a fresh branch (§7, ADR-0011, ADR-0001). Every byte ever
-written to the branch is fetched by the next clone of it: a repository that runs often enough, for
-long enough, pays for its whole history every time somebody clones it, and no command in the tool
-stops that.
+**The Store grows monotonically, forever, and it is paid for twice on two different curves.** There is
+no rollover to a fresh branch (§7, ADR-0011, ADR-0001), so nothing ever gets smaller on either.
+
+**A clone pays for the whole history, and Compaction reclaims nothing from it.** Git history is not
+editable, so every byte ever written to the branch is fetched by the next clone of it: a repository
+that runs often enough, for long enough, pays for its whole history every time somebody clones it, and
+no command in the tool stops that.
+
+**`hyper`'s own sync pays for the live tree, and pays it once per environment that lacks the branch.**
+The sync is a depth-1 fetch (§7, ADR-0074), so it costs what the branch currently holds rather than
+what it has ever held — but on a runner the branch is always absent, `actions/checkout` taking one ref
+(§10), so **every scheduled occurrence of every Procedure fetches the whole live Store from scratch**.
+This is the curve that recurs, and the clause above names the rarer act. Compaction does reclaim from
+this one, which is the only place in the tool where it buys anything on the wire.
+
+**What neither curve reclaims is the Journal**, and it is the term that grows with the Cadence rather
+than with the world. Compaction removes interior Observation versions only, and a version is minted
+only where the bytes moved, so a Record checked every five minutes and never changing sits at one file
+— while each of those Runs writes an entry, and every entry stands forever (§7). At a five-minute
+recurrence the Journal is the dominant term in what a runner fetches, it is untouchable by the one
+command that reclaims anything, and the recurrence that makes it grow is the same declaration §10
+projects.
+
+**A clone that never held the Store gets Compaction's account one commit deep.** `git log` on the
+branch is what says what a Compaction removed (§7), and where `hyper` created the branch itself the
+history behind that commit was never fetched. It reaches exactly one clone — a `--single-branch` laptop,
+whose owner opted out of the branch already — because a runner never compacts and an ordinary `git
+clone` has the whole branch before `hyper` touches it (ADR-0074).
 
 **Reading an old commit's Store needs that commit's binary.** Checking out history moves the pin, and
 every command that reads the record is gated on it (§11, ADR-0020). Reading a year-old Run therefore
