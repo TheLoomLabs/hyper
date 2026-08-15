@@ -413,6 +413,17 @@ opens (§8, [ADR-0068](../adr/0068-one-supply-is-stated-once-and-the-member-it-s
 The two halves of that line are one limit and not two: the artefact you asked about is not the one that
 answers, and it is not one you can edit.
 
+**The record costs one runtime dependency, and it is the only one.** `hyper` reads and writes the Store
+by invoking `git` as a subprocess (§7, [ADR-0075](../adr/0075-hyper-never-checks-the-store-out.md)), so
+a single self-contained binary is not quite what ships: it needs `git` on `PATH`, on a laptop as much as
+on a runner. §11 exempts the image's tools from the pinning ritual, and that exemption is about what a
+**generated workflow** consumes, so this is named here rather than folded into it. What makes it
+survivable is that `hyper` operates inside a git clone by construction — the repository root is found by
+walking up to the git root (§9) — and what it buys is that the credential a checkout leaves behind
+resolves the same way for `hyper` as for the human, rather than through a second implementation of
+git's config that would agree with the first only until it did not. No version is stated: every command
+on that path predates 2010.
+
 ## What `hyper` never says first
 
 `hyper` is pull-only. It has nothing to push from, no clock of its own, and no process alive between

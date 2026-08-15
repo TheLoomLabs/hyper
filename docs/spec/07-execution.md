@@ -57,6 +57,12 @@ have rebuilt. A serial effectful Expansion therefore leaves what it confirmed ra
 three Tombstones where the fourth call never returned, which is the state the halting rule below
 states and the next Run reads.
 
+Those three survive because each was committed as its call confirmed — the Store carries no
+uncommitted local state at any moment (§7, ADR-0075). It is the granularity that makes this paragraph
+true rather than an economy: the push is per Step, and a write held between pushes as anything other
+than a commit is either a file a later Run cannot tell from a hand-edit of evidence or an object
+nothing reaches.
+
 ## Repeatability
 
 An Operation's Repeatability decides what a re-run does to a Step that already ran. Its three values

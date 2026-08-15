@@ -398,7 +398,9 @@ write a workflow fetching a binary nobody can download (ADR-0020).
 
 `store init` creates the orphan branch §7 names and writes `STORE.md`, and does nothing else: there is
 no configuration to write (ADR-0014), and no example Definition is scaffolded, `hyper` authoring a
-reviewed artefact being the line the whole surface does not cross. Every command that needs the Store
+reviewed artefact being the line the whole surface does not cross. It touches no file in the working
+tree — the branch is a parentless commit built from objects, and nothing about it is ever checked out
+(§7, ADR-0075) — so it runs against a dirty tree like any read command. Every command that needs the Store
 and does not find it Refuses naming this one (`store-absent`, §12) rather than failing: an absent Store
 is a guardrail declining, not the world resisting.
 

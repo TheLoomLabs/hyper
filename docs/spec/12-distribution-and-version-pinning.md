@@ -161,6 +161,13 @@ facts about the world outside it: they name no version, no host and no third par
 when the binary's idea of what the job must do changes. What they do consume is the image's tools, which
 is the exemption two paragraphs up and not a new one.
 
+**The binary's own `git` is a different claim and is not this exemption.** `hyper` reads and writes the
+Store by invoking `git` as a subprocess (§7, ADR-0075), and it does so on a laptop as much as on a
+runner, where the sentence above is about what a **generated workflow** consumes on an image `hyper`
+names. It is the one external tool the binary requires, no version is pinned for it — every command on
+that path predates 2010, and a pin would be a fifth constant this section closed at four — and §13
+carries it as a limit rather than letting the exemption stretch to cover it.
+
 The generated file's *shape* is the binary's throughout — that is what generate-and-verify means — and
 its content divides in two. Everything the file says about this repository derives from something
 somebody wrote and reviewed: the recurrence, the job and workflow names, the `env:` block, the

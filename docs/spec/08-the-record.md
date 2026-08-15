@@ -53,6 +53,30 @@ offline* false wherever the network is.
 `hyper` names the ref explicitly rather than relying on the remote's configured refspec, a checkout
 having left it pinned to the one ref it took (§10, ADR-0071).
 
+### Where the Store sits locally
+
+Nowhere. `hyper` never checks the Store out: it reads the branch's files out of git tree objects and
+writes them with `hash-object`, `commit-tree` and `update-ref`, so no byte of Store content is ever an
+ordinary file on disk and no worktree, temporary directory or hidden checkout exists to leave behind
+([ADR-0075](../adr/0075-hyper-never-checks-the-store-out.md)). *Files are authoritative* below is
+unchanged by this: the files are the ones in the tree, and finding a Head is a listing of one.
+
+**The Store therefore has no uncommitted local state, ever.** A write is committed as the call that
+produced it confirms — one commit per confirmed write — and pushed after every effectful Step, which is
+what §6's crash guarantee rests on. Between two pushes there is no dirty directory a later Run would
+have to tell from a hand-edit, and a crashed Run's local branch tip is exactly what it confirmed.
+
+The local ref is `refs/heads/hyper-store`, so a human's `git checkout hyper-store` works on the clone
+they already have. There is nothing to keep private: the record being in the open is the thesis, and a
+worktree would take that checkout away — `git worktree add` locks the branch to itself.
+
+What does sit on disk is `hyper`'s own, under `.git/hyper/`: the lock §6 states, and any derived state
+that makes a Head lookup or a backward scan faster. It is never committed and never part of the record.
+
+**`git` is a subprocess, and it is the one external tool the binary requires.** It is the same `git`
+that resolves the credential a checkout left behind (§10), which is what `hyper` fetches and pushes with
+(§11, §13).
+
 An effectful Run that cannot complete it is `failed` with the contention exit code (`75`, §12) and is
 not a Refusal. It is the third way a Run loses the Store, beside the lock (§6) and the push below, and
 it belongs with them rather than with the guardrails: `77` says a verbatim retry will refuse
@@ -65,17 +89,24 @@ Nothing on a runner is durable until it is pushed, so §6's guarantee that a cra
 in flight is a fact about when the pushes happen: the open Journal entry is pushed at Run start, the
 Store is pushed after every effectful Step, and a Run's reads batch to its end (ADR-0006).
 
-A push rejected as non-fast-forward fetches, rebases, and retries, three times, after which the Run is
-`failed` with the contention exit code (`75`, §12) — the same code §6's lock contention takes, both
-being a Run that lost the Store rather than a guardrail declining or the world resisting. Almost every
-one of those rebases is trivially clean, since every path carries the id of the Run that wrote it and
-no two Runs target one path. The one conflict that is not clean — two Runs closing the same open entry
-with different outcomes — stands as a conflict rather than being resolved in either direction: it is a
-disagreement about what happened, and picking a side is the tool editing evidence.
+A push rejected as non-fast-forward fetches, re-applies and retries, three times, after which the Run
+is `failed` with the contention exit code (`75`, §12) — the same code §6's lock contention takes, both
+being a Run that lost the Store rather than a guardrail declining or the world resisting. It is not
+`git rebase`, which needs a worktree there is none of (ADR-0075): `hyper` knows exactly which paths it
+wrote, so it re-applies that set onto the fetched tip's tree and commits. Disjoint path sets cannot
+collide, and every path carries the id of the Run that wrote it, so *every* retry is clean but one —
+which is a fact about the operation rather than an observation about how a merge behaves.
 
-The rebase reaches nothing below a shallow boundary, and that is a consequence of append-only rather
-than a hope. The branch is only ever appended to and never force-pushed, so every fetch lands on a
-descendant of the boundary the previous one set; a local unpushed commit is rooted at the tip `hyper`
+The one that is not is two Runs closing the same open entry. Both write the same two paths — the
+in-flight Step file at the next `<nnnn>` and `outcome.json`, whose `closed_by_run` and `ended_at`
+always differ — so it is detected as a same-path write rather than found by a textual merge, and the
+losing Run is `failed` with `75` having pushed nothing. It stands as a conflict rather than being
+resolved in either direction: it is a disagreement about what happened, and picking a side is the tool
+editing evidence.
+
+The re-application reaches nothing below a shallow boundary, and that is a consequence of append-only
+rather than a hope. The branch is only ever appended to and never force-pushed, so every fetch lands on
+a descendant of the boundary the previous one set; a local unpushed commit is rooted at the tip `hyper`
 last saw, so the merge base of it and the new remote tip is at or above that boundary and is present.
 The surviving conflict is about content at the tip and is unmoved by depth, and the push is a
 fast-forward whose parent the remote already holds.
@@ -196,11 +227,14 @@ field of an upstream response, which makes it hostile input. How an identity bec
 the encoding, the preserved case, the truncation of an over-long one — is part of the grammar §12
 states.
 
-Case is the one place the two environments genuinely differ, a laptop's filesystem being usually
+Case is the one place a reader's two environments genuinely differ, a laptop's filesystem being usually
 case-insensitive and a runner's not, so the rule is `hyper`'s rather than the filesystem's. A Record
 whose identity collides case-insensitively with one already in the Store may not be written
 (`record-identity-collision`, §12), decided by reading the Store, identically on both platforms, and
-never by attempting the write and seeing what happens. The remedy for a genuine `Foo` beside a `foo` is
+never by attempting the write and seeing what happens — which `hyper` could not do if it wanted to, a
+git tree entry being a byte string and case-sensitive everywhere, so the write always succeeds
+(ADR-0075). The filesystem enters only where a **human** checks the branch out, which is exactly the
+reading the Head section promises them. The remedy for a genuine `Foo` beside a `foo` is
 a Manifest identity change, which is a code change and therefore reviewed. The one collision that is
 authored rather than projected — two members of one `values:` list that are one identity under this
 fold — is the same check and the same code, fired at load with no Store in hand (§3).
@@ -834,6 +868,9 @@ direction.
 
 Every answer `hyper` gives about the record is defined over the files themselves. Finding a Head is a
 directory listing; finding the previous Run of a given Step is a backward scan through the date
-partitions, stopping at the first match (ADR-0011). Any index is local, ignored by git, droppable, and
-rebuildable by a full scan of the branch, and no answer depends on one existing — an index makes those
-two workloads faster, never different, and a lost index costs a rebuild rather than data.
+partitions, stopping at the first match (ADR-0011). `hyper` may keep local derived state that makes
+those two workloads faster: it lives under `.git/hyper/`, is never committed, is always droppable, and
+is rebuildable by a full scan of the branch. No answer depends on one existing — it makes those two
+workloads faster, never different, and losing it costs a rebuild rather than data. It is nameless on
+purpose: it is optional, nothing else refers to it, and the word this sentence used to spend on it is
+already carrying the gutter's sense in §8 and §12 and `git`'s own in the section above.
