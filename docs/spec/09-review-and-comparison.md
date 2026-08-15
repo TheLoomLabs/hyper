@@ -819,8 +819,8 @@ comparison is by the fact's own equality and never by the text.
 
 **A side with nothing renders `–`.** For a set-shaped fact an absent key and an empty list are one
 value and `–` is it, which is what the review's `AUTHORITY` table already renders for a Definition
-claiming no `destroy` Operations; the Step table's distinction between `–` and `0` two sections below
-is between a Disposition that concluded about nothing and one that concluded about zero things, and no
+claiming no `destroy` Operations; the Step table's distinction between `–` and `0` below is between a
+Disposition that concluded about nothing and one that concluded about zero things, and no
 artefact has a counterpart to it. Where the format states a value *by omission* — an absent `bound:`
 being unbounded (§5), an absent `over:` a Step invoked once (§3), an absent `cadence:` no recurrence —
 the cell still renders `–`. Naming what an absence means is a claim and not a value, and `FLAGS` above
