@@ -413,13 +413,21 @@ here is the gloss and not the Journal fact beside it in the header: the entry is
 two revisions has no side to hang it on.
 
 The row keeps the one-line head every other flag has and carries the two glosses beneath it, the arrow
-marking which side each belongs to. It wraps like the Comparison cell above and shortens nothing:
+marking which side each belongs to. It wraps like the Comparison cell below and shortens nothing:
 
 ```
   CHANGED  line 8  cadence  0 0 1 * * → */5 * * * *
                             00:00 UTC on the 1st of the month · 1 run/month
                           → every 5 minutes · ≈8800 runs/month
 ```
+
+**A selector and a credential source render in the Comparison's notation below.** §12 gives those two
+and the Cadence `changed` and their full before-and-after text, and a selector's text is not a scalar:
+what `FROM` and `TO` state below — the form name heading the cell, a ` · `-separated run of names, one
+`field operator operand` line per conjunct — is this row's notation too. One notation and not two, on
+the argument that already puts the change names on both surfaces (§12): it is the same fault read off a
+file here and off two Runs there, and two spellings of one selector would be the doubling this chapter
+refuses everywhere else.
 
 Rows render in **line order**, with a file-level row last (ADR-0054). A review whose artefact draws no
 flag renders the block with an explicit empty state rather than omitting it — an absent block would be
@@ -741,6 +749,84 @@ any binary whose version differs from the repository's in either direction (§11
 *is* the pin moving. `repo_revision` alone belongs to no artefact and renders `—`, which is therefore
 the one cell in the table that has it.
 
+**The second column is `FACT`, and it names the key the fact is written at** — `over`, `bound`,
+`targets`, `target`, `kinds`, `capabilities`, `destroy`, `operations`, `cadence` — qualified by a
+coordinate wherever that key repeats inside one artefact: `step retire · bound`, and `credential token`
+for the credential source, which emits one row per slot rather than one per Target declaration. §12's
+nine class names are the grouping and never appear on this screen. A cell naming the class would
+misdescribe every row whose value is shaped unlike the class it sits under — a Step's `target:` is one
+Target beneath a class called the Target set, and a Definition's `destroy:` claim is not an exposed
+Operation set — and the key is what a reader greps for and what the review's gutter marks. `the
+digests` is the one class with no key to name, being Run-recorded with no line in any artefact (§12),
+so its rows name their Provenance member: `procedure revision`, `definition revision`, `manifest
+digest`, `origin digest`, `repository revision`, `hyper version`.
+
+**A `FROM`/`TO` cell renders its value whole**, and the column widens and the row wraps to as many
+lines as the two values need. Nothing is truncated and nothing is elided. ADR-0059's whole-or-`changed`
+rule governs the `FIELDS` column above and does not reach here — nor could it be extended to: it
+disqualifies anything nested, and a selector is nested by construction, so the extension renders every
+selector `changed`, which is the one word this column can never carry. The row exists because the fact
+moved, so a cell saying so restates the row. Both columns refuse truncation for one reason and it is
+ADR-0059's: two values agreeing for their first hundred characters and diverging after would render as
+identical bytes on a row asserting they differ. What they do instead differs because `changed` names
+which field moved in one column and names nothing in the other.
+
+**A row's rendering and its comparison both follow the shape of the value at that row, never the class
+above it.** The Target set class alone emits a set row for a Procedure's envelope and a scalar row for
+a Step's `target:`.
+
+- A **set of names** — declared Kinds, a Target set, required Capabilities, the Operations a Manifest
+  exposes, a Definition's `destroy:` claim — compares by set equality and renders as one ` · `-separated
+  run, sorted by Unicode code point, wrapping.
+- A **`values:` selector** compares by list equality and renders **as authored**. Its order is the
+  fact: §6 orders an Expansion by the artefact where the selector is a literal list, so a reordering
+  moves which member a Run reaches first, and sorting it would hide the whole of what changed.
+- A **predicate selector** compares by set equality — a predicate list is always AND and does not
+  short-circuit (§12), so conjunct order carries no meaning — and renders one conjunct per line as
+  `field operator operand`, colons dropped, sorted by Unicode code point on the rendered line. `exists`
+  and `absent` render bare, their operand being the only one either takes.
+- A **scalar** — a Bound, a Step's `target:`, a credential slot's variable, a digest — renders as
+  written.
+
+A selector's cell is headed by its form (§12): `values`, `assets` or `observations`. A cell dropping it
+could not tell an `assets` selector from an `observations` one, which is the difference between ranging
+over what `hyper` built and over what it read (§5).
+
+```
+  SUBJECT                 FACT                           FROM                       TO
+  definition ci-keys      kinds                          mutate                     destroy · mutate
+  manifest tailscale      operations                     create_key · delete_key ·  create_key · delete_key ·
+                                                         list_keys                  get_key · list_keys
+  procedure sync-ci-keys  step issue-runner-keys · over  values                     values
+                                                         ci-arm64 · ci-x86 ·        ci-arm64 · ci-x86 ·
+                                                         ci-macos                   ci-macos · ci-arm64-2
+  procedure sync-ci-keys  step retire-expired · over     assets                     assets
+                                                         expires older_than 0s      created older_than 30d
+                                                                                    expires older_than 0s
+  target tailscale-prod   credential token               TAILSCALE_STAGING          TAILSCALE_PROD
+```
+
+**Sorting where a fact compares as a set is what makes the two cells readable against each other**, and
+it is the `FIELDS` column's ordering reused rather than a second one: a thirteen-name set beside a
+twelve-name one can be differenced by eye only where both sides run in the same order.
+
+**A fact that did not move emits no row, however its bytes moved.** Reordering `targets: [staging,
+local]`, or reordering two conjuncts of one selector, changes the file and changes nothing this table
+reports, so those lines fall to the catch-all's count. That is §12's own argument for refusing a
+one-member `in:` — one filter with two spellings, "which would render as a change in `THE CODE MOVED`
+with nothing moved" — applied to the two second-spellings the format does not refuse, and it is why the
+comparison is by the fact's own equality and never by the text.
+
+**A side with nothing renders `–`.** For a set-shaped fact an absent key and an empty list are one
+value and `–` is it, which is what the review's `AUTHORITY` table already renders for a Definition
+claiming no `destroy` Operations; the Step table's distinction between `–` and `0` two sections below
+is between a Disposition that concluded about nothing and one that concluded about zero things, and no
+artefact has a counterpart to it. Where the format states a value *by omission* — an absent `bound:`
+being unbounded (§5), an absent `over:` a Step invoked once (§3), an absent `cadence:` no recurrence —
+the cell still renders `–`. Naming what an absence means is a claim and not a value, and `FLAGS` above
+is the one editorial surface in the tool: `unbounded` is a flag, on the file where the line is, and a
+reader of `step retire · bound  3  –` has already read that the Bound was removed.
+
 **Which Manifests a Run read is the Step files' `provider`** (§7), and the two Manifest classes cannot be
 computed without it: `manifest_digest` names the bytes that ran and never which Provider they were, so
 enumerating the Manifests to diff would otherwise mean resolving each Step's `definition` to its
@@ -772,6 +858,12 @@ The rate gets no row and no column of its own. A class emits one row per `(subje
 rate is not a fact that can move while the Cadence stands still, so a row for it would be the same fact
 rendered twice — and a column would be one every other row in the table left blank.
 
+**Two rules meet in that cell and neither is the other.** A Cadence's value is a cron expression, which
+is a scalar and renders as one under the shape rule above; what stacks the cell is the mandatory gloss
+(§10, ADR-0005, ADR-0063), a fact about cron being write-only rather than about the value being
+compound. Reading the stack as the shape rule's would hand every non-scalar a stacking form it does not
+have, and would leave the gloss looking like a consequence of compoundness rather than of notation.
+
 Rows render sorted by `(SUBJECT, FACT)` on Unicode code point, with the `—` subject after every named
 one and the catch-all last of all. `—` means *this fact belongs to no artefact you can open*, so it
 sorts away from the rows that do, and §12 already fixes the catch-all as terminating the table.
@@ -789,6 +881,13 @@ marker and the count agree on what code is by construction". The generated workf
 particularly — it is projected rather than authored and byte-exact against what `project` would write
 (ADR-0046), so a change in it is a `hyper` version move already in Provenance, a Procedure move already
 classed, or a hand-edit, and a hand-edit is `check`'s Refusal rather than a row here.
+
+**What a classed row subtracts is the lines its own value occupies and nothing else.** A Manifest
+gaining an Operation moves the whole block that Operation is written as, and the `operations` row above
+reports one name: the key line is subtracted, and the request, the projection and the declared Kind
+beneath it are not, being reported by no row above. Subtracting the block would have the catch-all
+silently drop lines it exists to guarantee are never dropped, which is the one thing the word *other*
+forbids.
 
 **Where either side recorded `repo_dirty`, the command is suppressed** and the row renders
 `N other lines changed` alone. The bytes that Run read are nowhere in git — a dirty baseline's working
@@ -1288,10 +1387,16 @@ renders `—` in; the catch-all's `command` is likewise absent where either side
 and the `window` object carries `repo_dirty: true` on the side that recorded it rather than the `+` the
 header draws, one fact in the two notations exactly as `changed` and `~` are above.
 
+**A `from` or `to` that is not a scalar carries the artefact's own parsed shape** — `{"values":
+["ci-arm64","ci-x86"]}`, `{"assets":[{"field":"labels.role","equals":"preview"}]}`, `["read","mutate"]`
+— in the order the page renders it, and the key is absent where the page renders `–`, which is
+`from_ordinal`'s rule two row types above. The page's notation is this chapter's geometry and never a
+fact either surface states (ADR-0059), so nothing composed goes out composed.
+
 A `code` row whose fact is `cadence` carries `from_phrase` and `to_phrase` beside its two expressions,
 and `from_rate` and `to_rate` as numbers rounded exactly as `rate` is — the parts and never the composed
-cell, which is the `artefact` row's rule above and the rule a `flag` row's glossed before-and-after
-follows too.
+cell, which is the `artefact` row's rule above, the rule a `flag` row's glossed before-and-after follows
+too, and the paragraph above arriving at the one cell whose parts are a gloss rather than a value.
 
 ```
 $ hyper run retire-preview-envs --json

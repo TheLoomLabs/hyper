@@ -848,7 +848,15 @@ does not:
 A class emits **one row per `(subject, fact)` pair** rather than one row: a class is a kind of fact, so
 a Definition's declared Kinds and its Target declaration's accepted ones moving in one window is two
 rows under one name here. §8's `SUBJECT` column carries a kind-qualified name — `target staging`,
-`procedure retire-preview-envs` — and fixes each class's subject.
+`procedure retire-preview-envs` — and fixes each class's subject. The credential source's pair is a
+**slot** rather than a Target declaration, so a declaration carrying three of them emits three rows.
+What each row's `FACT` cell says is §8's and not this list's: it names the key the fact is written at,
+and the class names above are the grouping and reach no screen.
+
+How a row renders a fact that is not a scalar, and what makes two of them differ, is §8's: the shape of
+the value at the row decides both, and a set-shaped fact compares by set equality — so a reordering
+that moves the bytes and not the fact emits no row, which is this section's `in:` argument above
+arriving at the surface it was made about.
 
 The catch-all terminates the table and is not optional: `N other lines changed · git diff <rev> <rev>`,
 counting every line of every reviewed artefact that moved and that no row above reports — a widened
@@ -927,9 +935,13 @@ past it (ADR-0057): a review renders the working tree, so the value a direction 
 never on screen and the flag's text is where it renders.
 
 **Direction is claimed exactly where it is mechanically decidable, and never where it is not.** That is
-numeric comparison for a Bound and set inclusion for declared Kinds, Target sets, required Capabilities,
-and the `destroy` Operations a Definition names. It is not available for a selector, a credential
-source, or a Cadence, each of which takes `changed` and its full before-and-after text: predicate
+numeric comparison for a Bound, and set inclusion wherever the fact compares as a set and one side
+contains the other — declared Kinds, Target sets, required Capabilities, the Operations a Manifest
+exposes, and the `destroy` Operations a Definition names (§8). Quantified rather than listed: the rule
+reaches a set-shaped fact the list would have had to be edited for, and it refuses an edit that both
+gains and loses a member without needing a second clause, neither inclusion holding there and `changed`
+being what is left. It is not available for a selector, a credential source, or a Cadence, each of
+which takes `changed` and its full before-and-after text in the notation §8 states: predicate
 subsumption is undecidable in general, so a surface calling `equals: preview` → `starts_with: preview-`
 a widening would be inventing the one thing it may not invent. The classes these read on are the nine
 `THE CODE MOVED` classes above less **the digests**, which is Run-recorded and has no line in any
