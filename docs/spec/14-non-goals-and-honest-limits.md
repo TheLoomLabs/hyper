@@ -142,6 +142,14 @@ gives back is the timing: `cadence-run-once` names the Operation and the file at
 before anything is projected or run, rather than at the second occurrence some night after the first
 one worked.
 
+Its sibling check costs nothing here, and the contrast is what shows where this limit's weight actually
+sits. A Cadence is refused over a Step whose Operation declares **secret output** on the same walk and
+for a stricter reason — that Procedure works never rather than once (§4, ADR-0077) — and yet no limit
+follows, because that remedy runs around the Manifest rather than through it: moving the Step into a
+Procedure a person invokes with `--secret-out` is an edit to the consumer's own artefacts, available
+whoever wrote the Provider. What is unfixable above is therefore not *a Manifest fact a Cadence
+forbids*; it is specifically that run-once's only remedy is the Manifest's own `repeatability:`.
+
 The closed grammars charge in the same currency without extending that list. A Cadence is UTC-only
 cron, with no field, no flag, and no file that could name a zone (§10, ADR-0005, ADR-0014), so *3am
 my time* is unexpressible: what is authored instead is the UTC hour that means it today, and it stays

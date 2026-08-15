@@ -279,6 +279,27 @@ effect — the alternative is a Procedure that works once, and a repository that
 clock comes round. What is authored instead is two Procedures: the run-once Steps in one that is run
 by hand, and the recurring Steps in one that carries the Cadence.
 
+A Procedure declaring a Cadence may likewise reach no Step whose Operation declares secret output, at
+any depth: `cadence-secret-output` (ADR-0077). Such a Step Refuses where the invocation supplied no
+Secret sink (§9, ADR-0007), and the workflow `project` generates supplies none — so where a Cadence
+carries it the Refusal lands at every occurrence and the Procedure works never, which is the run-once
+case one degree worse. It is the same walk as the rule above, reading `secret:` off the Operation
+where that one reads `repeatability:`, so this costs §4 a rule and not a traversal.
+
+What makes it static despite the sink being *a fact about the invocation* — the phrasing §9 fixes, and
+`check` sees no invocation — is the quantifier. What is refused is not *this Run has no sink* but
+*this recurrence has no invocation that could ever supply one*, and the projection's executor is
+compiled in (§10, ADR-0046), so that is a claim about reviewed text and a fixed template rather than
+about an occasion. The remedy is §10's split again, with the secret-producing Steps in the Procedure a
+person invokes and `--secret-out` on that invocation. Unlike the rule above it is always available:
+it moves a Step between the consumer's own Procedures and never asks anything of a Manifest, so an
+installed Provider strands nobody here.
+
+Both Cadence rules refuse a Step no condition may have reached. A `when:` that never holds and a
+`skip-if-recorded` that always skips are alike beyond `check`'s reach, and refusing them is refusing a
+delayed certainty rather than guessing: the morning the condition first holds is the morning the
+Procedure stops (ADR-0038).
+
 ## What `check` cannot know
 
 Every rule above is checkable because it compares one artefact's declared claim against another's, or

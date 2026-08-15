@@ -12,7 +12,19 @@ below declines. A Run that then declines at a gate has already reaped, which is 
 is pushed before the gates at all. Then the Store files the Run must read are checked for a schema version above this binary's
 (`store-schema-unsupported`, §12), over the Journal and the Record heads under the (Definition, Target)
 pairs the Procedure makes. Then `check` is re-run in full with nothing skipped (§4). Then the
-credentials of every Target the Run may bind are resolved once (ADR-0007). Then Step 1.
+credentials of every Target the Run may bind are resolved once (ADR-0007). Then the invocation is
+tested for a Secret sink, where the Procedure reaches a Step whose Operation declares secret output
+(`secret-sink-absent`, §12). Then Step 1.
+
+That last gate is the invocation's rather than the environment's or the artefacts', and it is stated
+here rather than at the Step it is about because both its operands are already in hand: the invocation
+carries a sink or it does not, and which reachable Steps declare secret output is a walk over reviewed
+text. Every such Step is reported at once, as the credential gate reports every absent slot. Declining
+at the Step instead would run the Steps before it and never reach the tail — which under a Cadence is
+an effectful prefix repeated for as long as the clock fires, and is the second reason the combination
+is refused at `check` before it can arise (§4, ADR-0077). The gate does not read `--dry-run`: §9's
+dry-run performs the reads it reaches, so a `read` declaring secret output is reached and produces a
+secret with nowhere to go.
 
 What is resolved is the slots the Run's bindings require rather than every slot each Target declaration
 carries: presence is checked over the (Definition, Target) pairs the Procedure makes, exactly as slot

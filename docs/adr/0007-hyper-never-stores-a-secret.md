@@ -27,13 +27,19 @@ model) true rather than aspirational.
   and it would also publish an offline-crackable oracle for any secret a human chose rather than a
   machine generated. The Comparison says *redacted, unknown* instead, which is the honest answer.
 - **A secret-valued output requires a sink, and the absence of one is a Refusal.** The invocation
-  supplies a path for secret outputs or it does not; a Step whose Operation declares one Refuses when
-  it does not. The obvious phrasing — refuse when unattended — is illegal here, because that is an
+  supplies a path for secret outputs or it does not; a Run reaching a Step whose Operation declares one
+  Refuses when it does not (`secret-sink-absent`, §12). The obvious phrasing — refuse when unattended —
+  is illegal here, because that is an
   `is-CI` guess and the environment is never an axis. Expressed as a property of the invocation it is
   testable on a laptop by omitting the flag, and in Actions the generated workflow simply supplies
   nothing. The sink is written `0600`, and a path resolving inside the repository working tree is
   refused: a generated root password written beside the artefacts is one `git add -A` from being
-  permanent.
+  permanent. _ADR-0077 amends this:_ *the generated workflow simply supplies nothing* was written as a
+  neutral illustration of the invocation-not-environment rule, and it is load-bearing. It cannot be
+  made to supply one — a path under the runner's temp loses the secret with the runner, and any route
+  that forwards it either publishes it or has `hyper` acquiring it — so a Procedure that declares a
+  Cadence and reaches such a Step Refuses at every occurrence and is refused at `check` instead
+  (`cadence-secret-output`, §4).
 - **Some Assets are not re-readable.** An Asset whose only handle is the secret it contains — an API
   key returned once at creation — cannot be recovered from the record. You rotate rather than
   recover. `skip-if-recorded` is unaffected, because the Record exists; only the value is gone.

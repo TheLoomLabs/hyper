@@ -394,7 +394,7 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Forty-seven members, each the identifier of a check that declined, named where that check is
+**Closed.** Forty-nine members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
@@ -402,12 +402,15 @@ resisting and has none, and the ways it can resist are not a set anything could 
 failures are told apart by the exit code above rather than here.
 
 **Most of the set declines before Step 1.** A Run re-runs `check` in full at its start (§6), so all
-thirty of §4's static codes reach a Run that way, beside the credential pass, the Cadence's and
-the Store's. Where one does, it is held on `outcome.json` and never on a Step file, `step` being an
+thirty of §4's static codes reach a Run that way, beside the credential pass, the sink gate, the
+Cadence's and the Store's. Where one does, it is held on `outcome.json` and never on a Step file, `step` being an
 artefact coordinate rather than an execution fact (§7, ADR-0061). Only `bound-exceeded`,
 `run-once-recorded`, `record-identity-collision` and §6's `predicate-type-mismatch` require a Step to
 have been reached at all — `record-identity-collision` at its Expansion site, its two authored sites
-reaching a Run the way §4's thirty do.
+reaching a Run the way §4's thirty do. `secret-sink-absent` is not among them and could have been:
+both its operands are in hand at Run start, so it is stated as the Run's gate rather than the Step's,
+and the reason is not tidiness — declining at the Step under a Cadence would run the Steps before it
+at every occurrence and never reach the tail (§6, ADR-0077).
 
 **Every one of them declines before a call goes out**, and that is a property of the set rather than a
 coincidence of its members: a guardrail that declines after a call is a halt and has no `error_code` to
@@ -466,12 +469,22 @@ and `store-schema-unsupported`, a Store file whose schema version is above the r
 tested at Run start over the files the Run will read (§6). A Run that could not sync the Store
 contributes no member: it is `failed` at `75` rather than a Refusal, the network coming back being no
 act of anyone's, and `77` promising above that a verbatim retry refuses identically (§7, ADR-0061). §9
-contributes `credential-absent`, a credential a Target declaration names and the environment does not
-hold, checked before a Run's first Step and reported for every absent slot at once. §10's three are the Cadence's: `cadence-malformed`,
+contributes two, alike in being the occasion's supply rather than the environment's or the artefacts',
+both checked before a Run's first Step and both reported exhaustively rather than at the first:
+`credential-absent`, a credential a Target declaration names and the environment does not
+hold, reported for every absent slot at once; and `secret-sink-absent`, an invocation supplying no
+Secret sink where the Procedure reaches a Step whose Operation declares secret output, reported for
+every such Step at once (§6, ADR-0007). It carries no Kind axis and no `--dry-run` exemption, a `read`
+declaring secret output being reached by a rehearsal and producing one. §10's four are the Cadence's: `cadence-malformed`,
 a Cadence outside the cron grammar §10 states; `projection-stale`, a generated workflow that is
-not what `project` would write now; and `cadence-run-once`, a Procedure declaring a Cadence that
+not what `project` would write now; `cadence-run-once`, a Procedure declaring a Cadence that
 reaches a run-once Step at any depth (§4, ADR-0038) — a recurrence whose second occurrence Refuses,
-which is why it is refused before the first. §11's seven are distribution's. Three are the pin's:
+which is why it is refused before the first; and `cadence-secret-output`, one that reaches a Step
+whose Operation declares secret output at any depth (§4, ADR-0077) — a recurrence whose *every*
+occurrence Refuses, the projected workflow supplying no sink and having none to supply. The two
+Cadence checks are one walk reading two keys off the same Operation, and they are two codes rather
+than one because a reader handed `cadence-run-once` on a `secret:` clash edits a `repeatability:` that
+is correct; the widening that worked in `not-run`'s case fails here on the set's own test. §11's seven are distribution's. Three are the pin's:
 `version-pin-mismatch`, a binary whose version differs from the Repository declaration's pin in either
 direction;
 `version-pin-absent`, a command that needs the pin and finds none; and `release-artefact-absent`,

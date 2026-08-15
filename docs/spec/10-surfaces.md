@@ -214,12 +214,25 @@ a halted rehearsal being the correct outcome of a correct operation rather than 
 is partial, and it says so on the page rather than in the code. The flag is not global: a `records
 --dry-run` or a `check --dry-run` would have to mean something, and neither does.
 
-**`--secret-out <path>`** names the Secret sink. A Step whose Operation declares a secret output
-Refuses when none was supplied, which is a fact about the invocation and never about the environment it
-runs in (ADR-0007). The path is written `0600` and is refused where it resolves inside the repository
-working tree; `-` is not accepted, stdout being exclusively the answer and a secret written there
-landing in the same pipe a CI job logs. It is not a bypass and must not read like one: supplying it
-weakens no check, and withholding it produces a Refusal that renders like any other (§8).
+**`--secret-out <path>`** names the Secret sink. A Run reaching a Step whose Operation declares a
+secret output Refuses when none was supplied (`secret-sink-absent`, §12), which is a fact about the
+invocation and never about the environment it runs in (ADR-0007). The path is written `0600` and is
+refused where it resolves inside the repository working tree; `-` is not accepted, stdout being
+exclusively the answer and a secret written there landing in the same pipe a CI job logs. It is not a
+bypass and must not read like one: supplying it weakens no check, and withholding it produces a
+Refusal that renders like any other (§8).
+
+The Refusal declines before Step 1 rather than at the Step, beside the credential gate and on the same
+ground — both operands are the occasion's and both are in hand — and it names every Step that would
+have needed a sink rather than the first (§6). It carries no Kind axis: a `read` declaring secret
+output is as refused as a `create`, because the sink is the only route by which a secret value ever
+leaves `hyper`, and a Run that suppresses one into the Store with nowhere to hand it is useless
+without saying so. For the same reason `--dry-run` earns no exemption — the rehearsal performs the
+reads it reaches, and one of them may be the Step in question.
+
+Because the projected workflow supplies no sink and cannot sensibly be made to (ADR-0007, ADR-0077),
+a Procedure that declares a Cadence and reaches such a Step is refused at `check` (`cadence-secret-output`,
+§4) rather than left to Refuse unattended at every occurrence.
 
 `probe <provider> <operation>` invokes a `read` Operation against `local` without a Definition. Inputs
 are supplied as repeated `--input <name>=<value>`, each typed by the Operation's declared input schema
