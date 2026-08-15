@@ -645,7 +645,7 @@ twice.
 `A`–`Z`, `a`–`z`, `0`–`9`, `-`, `_` and `.` is written as `%` and two uppercase hexadecimal digits over
 its UTF-8 bytes, as is a leading `.`. Case is preserved rather than folded (§7). An encoded segment
 longer than 200 bytes is cut at 200 on an escape boundary and suffixed with `~` and the first 16
-hexadecimal digits of the SHA-256 of the whole encoded segment; `~` is outside the unreserved set
+lowercase hexadecimal digits of the SHA-256 of the whole encoded segment; `~` is outside the unreserved set
 above, so it never occurs in an encoding and the suffix is unambiguous.
 
 The encoding names a file and orders nothing. An Expansion is ordered by the Record `name` itself (§6,

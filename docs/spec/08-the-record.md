@@ -128,10 +128,10 @@ value paths §3 states.
 
 ## Canonical JSON
 
-Every JSON file in the Store is written in one encoding, and the encoding is stated in full because it
-is not presentation: a version is minted only where the bytes moved, the identity digest below is taken
-over these bytes, and a file name breaks a Head tie under them. An unstated separator is a fact two
-writers can disagree about.
+Every JSON value the Store holds is written in one encoding, and the encoding is stated in full because
+it is not presentation: a version is minted only where the bytes moved, the identity digest below is
+taken over these bytes, and a file name breaks a Head tie under them. An unstated separator is a fact
+two writers can disagree about.
 
 UTF-8, LF line endings, and a trailing LF. Two-space indent. Keys sorted by Unicode code point. `": "`
 after a key; a comma immediately after a value, then the line ending; no trailing whitespace. Numbers
@@ -139,11 +139,25 @@ as the shortest decimal that round-trips. An array writes one element per line a
 set that gains a member gains a line and a git diff of it names what moved rather than reporting that
 one long line changed. An empty mapping and an empty array are written inline, `{}` and `[]`.
 
+**The encoding is defined over a value, and a file is the case where the value is the whole file**
+([ADR-0079](../adr/0079-the-canonical-encoding-is-a-property-of-a-value.md)). A value encoded on its own
+is encoded exactly as it would be were it that file's whole content — an array alone opens at no indent
+and writes its elements two spaces in, a nested mapping is a mapping like any other and is never
+compacted onto one line — which is what the identity digest below is taken over. It governs what the
+Store holds and what `hyper` hashes and nothing else: §8's row stream is a second encoding, and is
+stated there rather than here.
+
 Escaping is the minimum JSON requires, and a character outside ASCII is written as itself in UTF-8
 rather than as an escape — so a Record whose name carries an umlaut is legible in a browser and hashes
 as what it reads as. The trailing LF is written for the same reason the rest of this is: a file without
 one puts `\ No newline at end of file` into every diff of a branch whose whole purpose is being read as
 one.
+
+Every hexadecimal digit `hyper` writes is lowercase — every digest below, every one on §8's wire, and
+the SHA-256 that suffixes an over-long path segment (§12). The one exception is a percent-escape in that
+same grammar, which is uppercase because RFC 3986 says so, and which is the reason this is stated at all:
+one rule with a stated exception is readable, where two conventions and no rule is what an implementer
+guesses at.
 
 A timestamp is RFC 3339, UTC, `Z` mandatory, with milliseconds always to three digits. The width is
 fixed, so lexicographic order over a timestamp is chronological order, and the window in which two Runs
@@ -394,8 +408,14 @@ carries none.
     "bound": 5,
     "declared": {
       "assets": [
-        {"field": "name", "starts_with": "preview-"},
-        {"field": "created_on", "older_than": "14d"}
+        {
+          "field": "name",
+          "starts_with": "preview-"
+        },
+        {
+          "field": "created_on",
+          "older_than": "14d"
+        }
       ]
     },
     "expanded_to": [
@@ -566,9 +586,30 @@ one. Nothing removes the entries in between — Compaction touches interior Obse
 a Journal entry — so a set and its count are recoverable from any entry the Store holds, which is why
 neither is stored a second time.
 
-The digest is `sha256:` over the canonical JSON encoding of the sorted array, trailing LF included — so
-where a set is written in full a reader recomputes its digest with `sha256sum` over those exact bytes
-and nothing else. Sorting is by Unicode code point, the rule canonical JSON already uses for keys
+The digest is `sha256:` over the canonical JSON encoding of the sorted array, trailing LF included — the
+array as it would be written **alone**, at no indent, and never as it sits inside this entry, where
+`members` carries four spaces of it. Where a set is written in full a reader recomputes it with
+`sha256sum` over those exact bytes and nothing else:
+
+```
+[
+  "ci-macos",
+  "ci-riscv",
+  "ci-x86",
+  "über-vm"
+]
+```
+
+`sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12`. The umlaut is in the example
+rather than a fourth ASCII name because it pins what the prose above cannot: a character outside ASCII
+is written as itself, so an implementation escaping it to `\u00fc` produces a plausible digest and no
+signal at all, and code point order puts it last, which `LC_ALL=C sort` reproduces exactly, UTF-8 byte
+order being code point order. The empty set is `[]` under the inline rule above, so its digest is the
+constant `sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570` — printed here
+because a set that moved to empty writes `members` in full beside it, so recognising the constant tells
+a reader nothing the file did not already say.
+
+Sorting is by Unicode code point, the rule canonical JSON already uses for keys
 rather than a second ordering — the same rule §6 orders an Expansion by, over the same names — which
 also makes the digest a fact about the set rather than about the order a response happened to arrive
 in. It is deliberately not the sequence: what the Step did in what order is `expanded_to` below, and
@@ -788,7 +829,10 @@ counted by the catch-all like any other line of any other artefact.
 or locally authored Provider, the embedded bytes for a built-in, which has no blob in the repository at
 all. Over the bytes rather than a canonical form of what they parse to, because a second digest of one
 Manifest is a second representation that can disagree with the one `install` verified, and because a
-reader checks bytes with `sha256sum` and a canonical form with nothing but `hyper`. Reformatting a
+reader checks bytes with `sha256sum` and a canonical form only where something has written that form
+out for them. The identity digest above is the one place anything has: its set is in the entry, in the
+encoding it was hashed in. A Manifest's parse tree is nowhere, and re-encoding one to check a digest is
+work only `hyper` can do. Reformatting a
 Manifest moves it and moves every later Record's Provenance with it, which renders as a code change
 (§8) — correct rather than noisy: the reviewed artefact moved.
 

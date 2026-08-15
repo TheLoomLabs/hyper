@@ -1146,7 +1146,10 @@ true id from the operator in front of the one that is there.
 ## The row stream
 
 `--json` switches every surface above to NDJSON: one JSON object per line, each carrying a `type`
-discriminator. Both forms come out of one renderer (ADR-0026), and the mapping is total — every row of
+discriminator. The line is compact — no space after a separator — and its keys are in the renderer's
+order rather than the Store's: this is **not** §7's canonical encoding, and it does not need to be,
+nothing on this wire being hashed or compared as bytes. A consumer filters rows with `jq`, which reads
+neither spacing nor key order. Both forms come out of one renderer (ADR-0026), and the mapping is total — every row of
 every table above is one object, each of the two headers above is one object, and nothing rendered is
 left out. A long Run streams.
 

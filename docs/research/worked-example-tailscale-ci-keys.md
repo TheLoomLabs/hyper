@@ -419,8 +419,14 @@ checked out and has no uncommitted local state at any moment (ADR-0075).
     "bound": 5,
     "declared": {
       "assets": [
-        {"field": "description", "starts_with": "ci-"},
-        {"field": "created", "older_than": "30d"}
+        {
+          "field": "description",
+          "starts_with": "ci-"
+        },
+        {
+          "field": "created",
+          "older_than": "30d"
+        }
       ]
     },
     "expanded_to": [
