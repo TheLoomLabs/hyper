@@ -17,6 +17,13 @@ Manifest can be internally consistent, pass every static check, and still be wro
 What finds that out is a Run, and the Run that finds it out is a `mutate` or a `destroy` as readily
 as a `read`.
 
+One face of it is **legible after the fact and the rest are not**, which is worth stating because it
+is the only part of this limit an author can act on without instrumenting anything. A body's wire type
+is the input schema's declared type (§3, ADR-0078), so an API that wanted `2592000` and received
+`"2592000"` is a wrong `type:` sitting a few lines below the body in the same file — a reviewer reading
+the rejection reads the edit. Where the same Manifest is wrong about a projection path or about an
+Operation's Kind, nothing on any page says which line to change.
+
 **Whether the world still holds what the record says.** `skip-if-recorded` trusts the record over the
 world, so an Asset somebody deleted by hand is skipped and the Run reports `completed` with nothing
 standing (§6). Nothing reconciles the two, that engine being the one `hyper` declined to build
@@ -84,8 +91,18 @@ Seventeen victims stand at it, each a thing an author can want, describe precise
   same literal at every occurrence until somebody edits the artefact and puts it back through review. A
   predicate does name the instant, relatively, in a filter position, and the Run fixes it once for all
   of them (ADR-0034); the two are different positions and only the first is behind this wall.
-- **A request body that is not JSON.** A `body:` is a mapping serialised as JSON and nothing else (§3),
-  so a form-encoded POST, an XML payload, or a raw upload has no route but waiting for one to ship.
+- **A request body that is not JSON.** A `body:` is serialised as JSON and nothing else (§3), so a
+  form-encoded POST, an XML payload, or a raw upload has no route but waiting for one to ship.
+  There is no back door either: `Content-Type` is one of the five headers `hyper` computes and no writer
+  may name one (`header-reserved`, §4), so the wall cannot be walked round by sending JSON under
+  another label.
+- **A request body whose top level is not a mapping.** A `body:` is a JSON value tree and its root is a
+  mapping (§3), so a batch API taking a bare array has no route. Everything below the root nests
+  freely, so this is the narrowest entry on the list: one position, and only the outermost one.
+- **An API wanting a caller-supplied object in its body.** A template hole fills a scalar position, so a
+  hole may not name an input declared `object` or `array` (§3, ADR-0078), and a body's structure is
+  therefore always the Manifest's rather than partly a Step's. What buys the limit is what a reviewer
+  gets for it: the shape of every request is readable off the Provider, and only its values move.
 - **An API that answers in anything but JSON.** The response object's `body` is a parsed JSON body and
   is absent where the answer is XML, HTML, or bytes (§12, ADR-0040) — so such an API is callable and its
   answer is unprojectable, and everything an Operation records of it comes from the status, the headers,

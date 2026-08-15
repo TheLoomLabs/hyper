@@ -575,11 +575,19 @@ Manifest declaring a Capability no Operation's block names, or naming one it did
 `capability-mismatch` in either direction.
 
 An `http:` block carries `method:`, `host:`, and `path:`, and optionally `query:`, `headers:`, and
-`body:`. `query:` and `headers:` are mappings of name to string, always: a query string is text on the
-wire, and typing it as text leaves schema-directed typing nothing to guess at. `body:` is a mapping
-serialised as JSON, and `hyper` sets `Content-Type` accordingly. A form-encoded, XML, or raw body is
-not writable, and joins the limits §13 states rather than becoming a second serialisation this format
-learns.
+`body:`. `query:` and `headers:` are mappings of name to string, always — which is not a rule this
+format imposes but one the wire does: a query string and a header field are text, so there is no other
+type to carry into and schema-directed typing has nothing to guess at. `body:` is the one position in a
+request that is not text, and it is stated below. A form-encoded, XML, or raw body is not writable, and
+joins the limits §13 states rather than becoming a second serialisation this format learns.
+
+The five headers `hyper` computes for itself — `Host`, `Content-Length`, `Content-Type`,
+`Transfer-Encoding`, `Connection` — are reserved against every writer rather than against an Auth
+scheme alone, and a `headers:` entry naming one is `header-reserved` (§4), compared case-insensitively
+as an HTTP header name is. `Host` is what shows the rule is not hygiene, `hyper` deriving it from the
+value the Target's grant was checked against (ADR-0029). `Content-Type` is where it holds the line §13
+draws: `hyper` writes it because it serialised JSON, and an author able to overwrite it would reach a
+form-encoded body not by writing one but by mislabelling the one `hyper` sent.
 
 ### The host
 
@@ -637,6 +645,85 @@ operations:
       properties:
         endpoint: {type: string}
 ```
+
+### The body
+
+`body:` is a JSON value tree, and it is the one position in any artefact `hyper` holds no schema for:
+the shape is the API's, authored per Operation, and it lives outside this repository. The top level is
+a mapping; a value is a scalar, a mapping, or a list; nesting is unbounded and a list member is itself
+any of the three. A body whose top level is a list or a scalar is not writable and joins §13.
+
+Because there is no schema at that position, **a literal scalar in `body:` carries its YAML 1.2 core
+type onto the wire** — `false` is a JSON boolean, `2592000` a JSON number, `"2592000"` a JSON string.
+This is the one place in the format where the artefact's own spelling types a value, and it is
+schema-directed typing's boundary rather than an exception to it: the rule is refused nowhere, it is
+unavailable here (ADR-0078). YAML 1.2 core is what keeps the Norway problem out — `NO` is a string, the
+booleans are `true` and `false` with their case variants and nothing else, and there are no
+sexagesimals. What it still costs is a leading zero: `0755` is the integer 755, so an identifier of that
+shape is quoted.
+
+**A template hole carries the declared type of the Operation input it resolves to.** A hole cannot
+spell its own type — unquoted, `{expiry_seconds}` is a YAML flow mapping, so the quote is mandatory
+(ADR-0023) and therefore says nothing — which leaves the input schema as the only thing that can, and
+it is `hyper`'s to read, in the same file, a few lines below. An input declared `{type: integer}`
+reaches the wire as a JSON number.
+
+The hole is the **whole** of the value or it is not typed. `"{expiry_seconds}"` carries the input's
+type; `"preview-{name}"`, `"{a}-{b}"` and `" {name}"` are compositions, which have no meaning but a
+string, and the input is rendered into them in the text form §12 fixes for its type. The boundary is on
+the line the reviewer reads, and so is its cost: a stray space changes the type on the wire and nothing
+else changes with it.
+
+A hole fills a value position only — every value of the tree, a list member included — and never a
+mapping key. A key hole would put the request's own shape in a Step's arguments, which is ADR-0024's
+*reach arriving from data* one aisle over on content instead of reach, and it would leave the body's key
+set unenumerable by anything downstream. It is `hole-illegal` (§4), §12's hole positions being positions
+and a key not being among them.
+
+A hole may not name an input declared `object` or `array`. That is the rule a reference already carries
+— a hole fills a scalar position, so a whole object can no more be interpolated than referenced — and
+what it holds is that a reviewer reads a request's structure off the Manifest and its values off the
+Procedure. One that does is `manifest-inconsistent` (§4): a Manifest's body and its own input schema
+disagreeing, both in one file. An API needing a caller-supplied object in its body is not writable, and
+joins §13.
+
+`hyper` sets `Content-Type: application/json` because it serialised JSON, and the bytes it sends are
+compact — no insignificant whitespace, keys in the order they were authored, and a number written as
+the shortest decimal that round-trips, which is §7's own encoding rule reused rather than a second one
+minted beside it.
+
+```yaml
+      body:
+        description: "{description}"          # string in, JSON string out
+        expirySeconds: "{expiry_seconds}"     # integer in, JSON number out
+        label: "ci-{description}"             # a composition, so a JSON string
+        capabilities:
+          devices:
+            create:
+              reusable: false                 # spelled a boolean, sent a boolean
+              tags: ["tag:ci"]
+    input:
+      type: object
+      required: [description, expiry_seconds]
+      properties:
+        description: {type: string}
+        expiry_seconds: {type: integer}
+```
+
+reaching the wire, against `description: ci-runner` and `expiry_seconds: 2592000`, as:
+
+```json
+{"description":"ci-runner","expirySeconds":2592000,"label":"ci-ci-runner","capabilities":{"devices":{"create":{"reusable":false,"tags":["tag:ci"]}}}}
+```
+
+Every difference between those two blocks is readable from them: `expirySeconds` loses its quotes
+because the schema three lines down says `integer`, `label` keeps them because a hole beside other
+characters is a composition, and `reusable` keeps its type because nobody parameterised it.
+
+None of this reaches whether the API wants the type the schema declares. That is the absence §4 states
+and §13 names, and what this changes is its symptom rather than its existence: the Manifest now says
+what it sends, so an API refusing a stringified integer is a wrong `type:` a reviewer reads beside the
+body rather than bytes no surface shows.
 
 ### The command
 
@@ -919,8 +1006,9 @@ Naming a header is not choosing a position. The position class is the scheme's �
 both members — and what a parameter supplies is which header inside that class, which leaves suppression
 exactly as mechanical as it was: `hyper` wrote the header and knows it by name. What it may not name is a
 header `hyper` computes for itself. There are five — `Host`, `Content-Length`, `Content-Type`,
-`Transfer-Encoding`, `Connection` — and a scheme naming one is refused at load as
-`auth-header-reserved` (§4). `Host` is the reason the check is not merely tidiness: `hyper` derives it
+`Transfer-Encoding`, `Connection` — and a scheme naming one is refused at load as `header-reserved`
+(§4), which is the same code a `headers:` entry naming one carries above: one rule with two writers,
+not two rules. `Host` is the reason the check is not merely tidiness: `hyper` derives it
 from `host:`, which is the value the Target's grant was checked against, so a scheme setting it would
 dial a granted host while claiming another.
 

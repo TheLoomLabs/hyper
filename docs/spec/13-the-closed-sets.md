@@ -370,7 +370,9 @@ variable each of that scheme's credential slots resolves from (§3), and no Mani
 slot — a Provider author can no more invent either than invent an `error_code` (§9, ADR-0004). Closure
 is what lets a secret be suppressed by the position it occupies rather than by scanning a rendering for
 something that looks like one (§7, ADR-0007). A scheme naming a header `hyper` computes is refused
-(`auth-header-reserved`, §4), and a scheme's parameters carry literals and admit no hole (§3).
+(`header-reserved`, §4) — the same code an ordinary `headers:` entry naming one carries, the rule being
+about what `hyper` derives rather than about auth — and a scheme's parameters carry literals and admit
+no hole (§3).
 
 `auth:` is optional and its absence means no credential is sent, rendered as `none` wherever a
 Provider's auth renders (§3, §9). Absence is not a third member: a scheme is a way of authenticating a
@@ -426,7 +428,10 @@ invocation's `procedure:` — which is a check with a file and a line rather tha
 declares rather than what the repository holds — a Step's `operation:`, a Definition's `destroy:`
 member, a `field:` at either Record root, and the `step:` half of a reference (§3);
 `capability-mismatch`, `manifest-inconsistent`,
-`target-inconsistent`, `auth-header-reserved`, `local-reserved`, `identity-undeclared`,
+`target-inconsistent`, `header-reserved`, a header `hyper` computes for itself named by an Auth
+scheme's parameters or by an ordinary `headers:` entry — one rule with two writers rather than two
+rules, and named for what it reserves rather than for who wrote it (§3, §4);
+`local-reserved`, `identity-undeclared`,
 `target-class-mismatch`, `definition-kinds-mixed`,
 `kind-not-granted`, `capability-not-granted`, `operation-not-claimed`, `target-not-claimed`, a Step
 binding a Target its Definition does not claim, which is `operation-not-claimed`'s shape one key over
@@ -766,8 +771,16 @@ a response after the call went out, so what applies there is §6's *when a proje
   there is nothing for a hole to stand in for (§3, ADR-0031). This is the one position where a hole is
   refused outright rather than restricted to a source.
 
-A hole resolving to none of these, or one filled from the wrong source for its position, is a load
-error.
+A hole resolving to none of these, one filled from the wrong source for its position, or one written in
+a position not on this list at all — a mapping key inside a `body:` is the case that arises (§3) — is a
+load error.
+
+The positions above fix a hole's **source**. Its **type** is fixed by one further rule, and it has one
+site: **a hole carries the declared type of the Operation input it resolves to**, and the only position
+that can receive a type is a `body:`, every other being text on the wire (§3). A hole is the whole of
+its value or it is a composition and therefore a string. A hole naming an input declared `object` or
+`array` is refused wherever it stands, on the rule a reference already carries — a hole fills a scalar
+position (§3, `manifest-inconsistent`).
 
 An Auth scheme's parameters were a Capability-relevant position while a scheme might name a host of its
 own — a token endpoint to exchange against. ADR-0031 removed that possibility rather than constraining
@@ -1011,6 +1024,26 @@ domain forces: `duration` (one integer and one unit from `s m h d`, no compoundi
 a month is not a duration) and `timestamp` (RFC 3339, UTC, `Z` mandatory). There is no `null`: a
 field's presence is a fact stated by the `exists` / `absent` predicate operators, never by a nullable
 type.
+
+A value of one of these types reaches a request through a template hole (above), and there are two
+sinks. A `body:` position takes a JSON value; every other position is text on the wire.
+
+| type | in a `body:` | in `path:`, `query:`, `headers:`, `command:` |
+| --- | --- | --- |
+| `string` | JSON string | itself |
+| `integer` | JSON number | decimal digits, no leading zero, no exponent |
+| `number` | JSON number | the shortest decimal that round-trips |
+| `boolean` | JSON `true` / `false` | `true` / `false` |
+| `duration` | JSON string | the authored form, byte-identical — `14d` |
+| `timestamp` | JSON string | RFC 3339, UTC, `Z` |
+| `object`, `array` | refused | refused |
+
+`number`'s text form is §7's canonical-JSON rule read out here rather than a second rule minted beside
+it, `1.0` and `1` and `1e0` being one value and needing one spelling wherever `hyper` writes it. The
+text column is what a composition renders through too, `"preview-{n}"` being a string however `n` is
+declared (§3). `duration` is nearly unreachable in a body and that is not a gap: an API taking seconds
+takes an `integer`, and `duration` earns its place on `retention:` and `deadline:`, which never leave
+the repository.
 
 ## The artefact `kind:` values
 

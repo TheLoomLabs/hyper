@@ -25,8 +25,9 @@ define is `unknown-key`; a `kind:` disagreeing with its directory or filename, a
 `kind-mismatch`; an artefact's name disagreeing with its file's basename is `name-mismatch` (§3); an
 input schema outside the closed subset is `schema-unsupported`; a malformed or
 misplaced credential slot is `credential-slot-malformed`; a hole resolving outside its position's legal
-source is `hole-illegal`, which covers a hole written inside an Auth scheme's parameters, the one
-position with no legal source at all (§3); a reference naming an earlier Step of `series` cardinality is
+source, or written in a position §12 does not list, is `hole-illegal`, which covers a hole inside an
+Auth scheme's parameters, the one position with no legal source at all, and a hole in a `body:` mapping
+key, which is no position at all (§3); a reference naming an earlier Step of `series` cardinality is
 `series-reference`; a reference naming a field no Operation of that Provider projects is
 `reference-unresolvable` (§3); and a shell Step's `command:` that is empty, or whose first member is a
 reference rather than a literal, is `command-malformed` (§3, ADR-0051).
@@ -90,13 +91,15 @@ Target-class type-check get their names here: an Operation projecting a Record a
 identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
 
-Ten further checks are one fact wearing ten shapes — a Manifest whose own declarations disagree with
-each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an Operation
-whose `record:` carries no collection path, a `host-input:` naming a property the Operation's input
-schema does not define, a `headers:` entry taking the request position its Auth scheme owns, a Provider
-declaring only the `shell` Capability while carrying an `auth:` block, a
+Eleven further checks are one fact wearing eleven shapes — a Manifest whose own declarations disagree
+with each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an
+Operation whose `record:` carries no collection path, a `host-input:` naming a property the Operation's
+input schema does not define, a `headers:` entry taking the request position its Auth scheme owns, a
+Provider declaring only the `shell` Capability while carrying an `auth:` block, a
 Target declaration's credential slots not covering the scheme's slots for a binding a Definition makes
-(§3), a `read` or `mutate` Operation carrying no `record:`, a `destroy` Operation carrying one,
+(§3), a template hole naming an input the same file declares `object` or `array` — a hole fills a
+scalar position, and a whole object is no more interpolable than it is referenceable (§3, ADR-0078) —
+a `read` or `mutate` Operation carrying no `record:`, a `destroy` Operation carrying one,
 `skip-if-recorded` declared on an Operation that is not a `mutate` (ADR-0037), a `concurrency:`
 limit declared on an Operation that is not a `read` (ADR-0045), and a `skip-if-recorded` Operation whose
 `identity:` resolves only from the response, which is a test that cannot run before the call it decides
@@ -125,13 +128,18 @@ holds that rather than slot coverage: coverage compares what an author wrote aga
 declared, and the author of this artefact could write a scheme's slots into it. A Probe therefore resolves
 no credential, which is the ground ADR-0017 stands on.
 
-A separate check refuses a Manifest naming something reserved rather than disagreeing with itself. An
-Auth scheme may not name a header `hyper` computes — `Host`, `Content-Length`, `Content-Type`,
-`Transfer-Encoding`, `Connection` — and one that does is `auth-header-reserved`, compared
-case-insensitively as an HTTP header name is. It is its own code on `capability-reserved`'s shape (§11):
-what is refused is drawing on a name the tool holds, not an internal contradiction. `Host` is what makes
-it a guardrail rather than hygiene, being the one header whose value decides which service a granted
-host answers as (§3).
+A separate check refuses a Manifest naming something reserved rather than disagreeing with itself. Five
+headers are `hyper`'s own — `Host`, `Content-Length`, `Content-Type`, `Transfer-Encoding`, `Connection`
+— and neither an Auth scheme's parameters nor an ordinary `headers:` entry may name one:
+`header-reserved`, compared case-insensitively as an HTTP header name is. It is its own code on
+`capability-reserved`'s shape (§11): what is refused is drawing on a name the tool holds, not an
+internal contradiction. It is **one** code across both writers because it is one check — `hyper`
+derives this header, and a second writer would make it disagree with what `hyper` did — and it is named
+for what it reserves rather than for who wrote it, a reader handed it on a `headers:` line having no
+`auth:` block to go looking at. `Host` is what makes it a guardrail rather than hygiene, being the one
+header whose value decides which service a granted host answers as (§3); `Content-Type` is what makes
+it load-bearing on the body, an author able to overwrite it reaching a serialisation §13 refuses by
+mislabelling the one `hyper` sent.
 
 ## The two keys
 
@@ -312,3 +320,10 @@ available, an unauthenticated Probe against the real response, only narrows the 
 closing it (ADR-0017). What a Run does when a projection path does not resolve against a real response
 is §6's, that being the only place the question can be put. This is not a gap `check` closes by
 growing; it is named here and carried forward as a limit in §13.
+
+One face of it has a **legible** symptom and is worth telling apart from the rest, because the artefact
+now states the fact it is wrong about. A `body:` position's wire type is the input schema's declared
+type (§3, ADR-0078), so an API that wanted a number and received a string is a `type:` a reviewer reads
+a few lines below the body rather than bytes no surface shows. `check` still cannot decide it — nothing
+here knows what the API accepts — but the edit it would take is on the page, which the projection-path
+and Kind faults beside it are not.
