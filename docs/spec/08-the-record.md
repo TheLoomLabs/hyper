@@ -178,7 +178,7 @@ ADR-0011 requires the working tree to describe itself.
 {
   "definition": "preview-dns",
   "fields": {
-    "created_on": "2026-08-06T11:03:19Z",
+    "created_on": "2026-08-06T09:41:14Z",
     "id": "372e67954025e0ba6aaa6d586b9e0b59",
     "name": "preview-42.example.com"
   },
@@ -192,11 +192,11 @@ ADR-0011 requires the working tree to describe itself.
     "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
   },
   "record_type": "asset",
-  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+  "run_id": "01991e21-3c9f-7b04-9d18-5c7e2a94f083",
   "schema_version": 1,
   "step": 1,
   "target": "cloudflare-prod",
-  "written_at": "2026-08-06T11:03:19.914Z"
+  "written_at": "2026-08-06T09:41:14.221Z"
 }
 ```
 
@@ -302,12 +302,12 @@ one version whose `fields` can be missing for no other reason, so the absence ne
     "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
   },
   "record_type": "asset",
-  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+  "run_id": "01991e21-3c9f-7b04-9d18-5c7e2a94f083",
   "schema_version": 1,
-  "step": 2,
+  "step": 3,
   "target": "cloudflare-prod",
   "tombstone": true,
-  "written_at": "2026-08-06T11:05:41.302Z"
+  "written_at": "2026-08-06T09:43:36.512Z"
 }
 ```
 
@@ -341,9 +341,9 @@ it.
     "procedure_revision": "2f81ac4b6e05d3971c8a4f2b0e63d75a91c4e087",
     "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
   },
-  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+  "run_id": "01991e21-3c9f-7b04-9d18-5c7e2a94f083",
   "schema_version": 1,
-  "started_at": "2026-08-06T11:03:18.204Z",
+  "started_at": "2026-08-06T09:41:12.508Z",
   "trigger": {
     "actor": "igor",
     "cause": "manual",
@@ -372,7 +372,7 @@ carries none.
 {
   "definition": "preview-dns",
   "disposition": "ran",
-  "ended_at": "2026-08-06T11:05:44.117Z",
+  "ended_at": "2026-08-06T09:43:38.105Z",
   "id": "retire",
   "identities": {
     "digest": "sha256:6f1c8d0a4b93e527f10c6ba8d34e79521f0badc6e84397b210f5cd6e0a4b7f38",
@@ -404,8 +404,8 @@ carries none.
       "preview-8.example.com"
     ]
   },
-  "started_at": "2026-08-06T11:05:41.902Z",
-  "step": 2,
+  "started_at": "2026-08-06T09:43:35.890Z",
+  "step": 3,
   "target": "cloudflare-prod"
 }
 ```
@@ -437,7 +437,7 @@ below.
 
 ```json
 {
-  "ended_at": "2026-08-06T11:05:49.331Z",
+  "ended_at": "2026-08-06T09:43:43.319Z",
   "outcome": "completed",
   "schema_version": 1
 }
