@@ -1155,6 +1155,15 @@ reason it holds in the Store: what a reader that takes its absence for `false` g
 unrecoverable. The line renders the marker only where it is true, an eye reading a line rather than
 scanning it for an absent key.
 
+**No id and no digest is abbreviated anywhere on the wire.** Every revision, every digest and every
+Run id goes out whole — a `provenance` row's `definition_revision`, `manifest_digest` and
+`origin_digest`, an `artefact` row's `baseline`, a `window` row's `procedure_revision`, a `code` row's
+`from` and `to`. The page abbreviates a fact to be recognised (ADR-0047), and this surface carries
+none to be recognised: a consumer resolves what it is handed against a git object or a `sha256sum`,
+and a shortened value is one it has to go somewhere else to complete. The one string that keeps the
+page's abbreviation is the catch-all row's `command`, which is a command a reader runs rather than an
+id the row reports, and which `git` resolves short.
+
 Consumers filter rows rather than queries. There is no expression language over the stream and none
 behind it (ADR-0013): `hyper changes --json | jq 'select(.type=="asset")'` is the shape of every
 arbitrary predicate.
@@ -1224,7 +1233,7 @@ line.
 
 ```
 $ hyper review procedures/retire-preview-envs.yaml --json
-{"type":"artefact","kind":"procedure","path":"procedures/retire-preview-envs.yaml","baseline":"a91f0c2","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3,"last_run":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","ended":"2026-07-01T03:01:44Z"}}
+{"type":"artefact","kind":"procedure","path":"procedures/retire-preview-envs.yaml","baseline":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3,"last_run":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","ended":"2026-07-01T03:01:44Z"}}
 {"type":"gutter","line":3,"marker":"envelope ok"}
 {"type":"gutter","line":6,"marker":"read local"}
 {"type":"gutter","line":15,"marker":"mutate! staging"}
@@ -1241,7 +1250,7 @@ $ hyper review procedures/retire-preview-envs.yaml --json
 
 ```
 $ hyper changes --since 2026-08-04T09:12:00Z --json
-{"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","outcome":"completed","procedure_revision":"a91f0c2"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","outcome":"completed","procedure_revision":"b0c94f1"}}
+{"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","outcome":"completed","procedure_revision":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","outcome":"completed","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_ordinal":4,"to_ordinal":5,"confirmed_at":"2026-08-06T11:02:41Z","fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_ordinal":3,"to_ordinal":4,"confirmed_at":"2026-08-06T11:02:52Z","fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_ordinal":7,"to_ordinal":8,"confirmed_at":"2026-08-06T11:03:09Z","fields":{"region":"fsn1","server_type":"cx22"}}
@@ -1249,9 +1258,9 @@ $ hyper changes --since 2026-08-04T09:12:00Z --json
 {"type":"asset","change":"created","target":"staging","definition":"hetzner-staging","name":"preview-8821","to_ordinal":1,"fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"observation","change":"changed","target":"local","definition":"uptime","name":"cert.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"days_left":[41,34]}}
 {"type":"observation","change":"changed","target":"local","definition":"uptime","name":"status.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"status":[200,503]}}
-{"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2","to":"b0c94f1"}
+{"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1","to":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}
 {"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"step retire · bound","from":3,"to":5}
-{"type":"code","fact":"repository revision","from":"1f0a3d7","to":"88bc402"}
+{"type":"code","fact":"repository revision","from":"1f0a3d78c2e5b91467af03d28b5c9e610473fa8d","to":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"}
 {"type":"code","fact":"other lines changed","count":2,"command":"git diff 1f0a3d7 88bc402"}
 {"type":"result","truncated":false}
 ```
@@ -1278,10 +1287,10 @@ $ hyper run retire-preview-envs --json
 {"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","operation":"delete_server","target":"staging","declared":5,"observed":23,"file":"procedures/retire-preview-envs.yaml","line":34,"field":"steps[2].bound","message":"expansion resolved 23 assets on staging","resolved":{"14d":"2026-07-23T11:03:18Z"}}
 {"type":"remediation","file":"procedures/retire-preview-envs.yaml","line":34,"field":"steps[2].bound","from":5,"to":23}
 {"type":"remediation","file":"procedures/retire-preview-envs.yaml","line":33,"field":"steps[2].over","hint":"narrow the selector","example_expansion":4,"resolved":{"30d":"2026-07-07T11:03:18Z"}}
-{"type":"provenance","procedure_revision":"b0c94f1","repo_revision":"88bc402","hyper_version":"1.4.0"}
-{"type":"provenance","step":1,"definition_revision":"c3a17b0","manifest_digest":"sha256:2b7e…"}
-{"type":"provenance","step":2,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
-{"type":"provenance","step":3,"definition_revision":"4d7e118","manifest_digest":"sha256:9c1f…","origin_digest":"sha256:e40a…"}
+{"type":"provenance","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe","repo_revision":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12","hyper_version":"1.4.0"}
+{"type":"provenance","step":1,"definition_revision":"c3a17b09e4d582f61b7c0a94d3e85f207c6b1d43","manifest_digest":"sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1"}
+{"type":"provenance","step":2,"definition_revision":"4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a","manifest_digest":"sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1","origin_digest":"sha256:e40a91c73f5b28d604e1a7c95b038f26d417ea5390c62b81f7d045a3e926c8b7"}
+{"type":"provenance","step":3,"definition_revision":"4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a","manifest_digest":"sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1","origin_digest":"sha256:e40a91c73f5b28d604e1a7c95b038f26d417ea5390c62b81f7d045a3e926c8b7"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded","dry_run":false,"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}
 ```
 
@@ -1304,7 +1313,7 @@ on the `provenance` row beside them.
 $ hyper run retire-preview-envs --json
 {"type":"refusal","error_code":"credential-absent","file":"targets/staging.yaml","line":12,"field":"auth.token","message":"the environment does not hold STAGING_TOKEN"}
 {"type":"refusal","error_code":"credential-absent","file":"targets/cloudflare-prod.yaml","line":9,"field":"auth.token","message":"the environment does not hold CLOUDFLARE_API_TOKEN"}
-{"type":"provenance","procedure_revision":"b0c94f1","repo_revision":"88bc402","hyper_version":"1.4.0"}
+{"type":"provenance","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe","repo_revision":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12","hyper_version":"1.4.0"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"credential-absent","dry_run":false,"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}
 ```
 
