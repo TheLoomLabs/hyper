@@ -1,0 +1,3 @@
+{"type":"problem","file":"definitions/broken.yaml","line":3,"column":7,"field":"base","error_code":"strict-yaml-violation","message":"an anchor is not part of the authoring format"}
+{"type":"problem","file":"definitions/broken.yaml","line":5,"column":10,"field":"targets","error_code":"strict-yaml-violation","message":"an alias is not part of the authoring format"}
+{"type":"result","truncated":false}

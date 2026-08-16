@@ -1,0 +1,8 @@
+kind: procedure
+procedure: deploy
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: check
+    target: local

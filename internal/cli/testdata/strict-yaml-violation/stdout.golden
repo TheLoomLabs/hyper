@@ -1,0 +1,3 @@
+FILE                     LINE  FIELD    ERROR_CODE             MESSAGE
+definitions/broken.yaml  3     base     strict-yaml-violation  an anchor is not part of the authoring format
+definitions/broken.yaml  5     targets  strict-yaml-violation  an alias is not part of the authoring format
