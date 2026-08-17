@@ -1,12 +1,15 @@
-// Package artefact holds each of the five artefacts' own schema and the
-// checks that read one artefact against itself: kind: against its
-// directory, an artefact's own name against its file's basename, the
-// credential slot's shape, the Target declaration's own two cross-field
-// rules, and the Manifest's request, input-schema and path grammars
-// (§3, §4, §12). The Repository declaration, the Target declaration and the
-// Manifest's schemas exist so far — a Definition and a Procedure each
-// arrive in their own ticket and grow this package the same way, one
-// artefact at a time (issues #89, #90, #91).
+// Package artefact holds each of the five artefacts' own schema, the checks
+// that read one artefact against itself — kind: against its directory, an
+// artefact's own name against its file's basename, the credential slot's
+// shape, the Target declaration's own two cross-field rules, and the
+// Manifest's request, input-schema and path grammars (§3, §4, §12) — and,
+// starting with the Definition, the first checks that read more than one
+// artefact at a time: whether a name an artefact writes for another
+// resolves, and the two checks a (Definition, Target) binding decides that
+// neither artefact alone can (§4, §5, issue #93). The Repository
+// declaration, the Target declaration, the Manifest and the Definition's
+// schemas exist so far — a Procedure arrives in its own ticket and grows
+// this package the same way (issues #89, #90, #91, #93).
 package artefact
 
 import (
@@ -25,9 +28,9 @@ import (
 const CodeKindMismatch = "kind-mismatch"
 
 // CodeNameMismatch is the code an artefact's own name disagreeing with its
-// file's basename is refused under — a Target declaration's target:, and,
-// as those artefacts arrive, a Definition's definition:, a Procedure's
-// procedure: and a Manifest's provider: (§4, §12). It is never widened into
+// file's basename is refused under — a Target declaration's target:, a
+// Manifest's provider:, a Definition's definition:, and, as that artefact
+// arrives, a Procedure's procedure: (§4, §12). It is never widened into
 // kind-mismatch: the two disagreements send a reader to different edits.
 const CodeNameMismatch = "name-mismatch"
 

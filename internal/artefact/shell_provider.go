@@ -113,6 +113,14 @@ operations:
 // with no exemption: a Provider is data, and data check may not read is an
 // advisory analyzer wearing the tool's own badge.
 func CheckBuiltinShellProvider() []problem.Problem {
+	return checkManifestBody(BuiltinShellProviderPath, builtinShellProviderRoot())
+}
+
+// builtinShellProviderRoot parses BuiltinShellProviderYAML and returns its
+// document root, shared by CheckBuiltinShellProvider and
+// builtinShellProviderInfo (issue #93) so hyper's own bytes are decoded
+// once per caller rather than reimplemented at each.
+func builtinShellProviderRoot() *yaml.Node {
 	var doc yaml.Node
 	if err := yaml.Unmarshal([]byte(BuiltinShellProviderYAML), &doc); err != nil {
 		// hyper's own bytes, never touched by a repository author — a
@@ -123,5 +131,5 @@ func CheckBuiltinShellProvider() []problem.Problem {
 	if len(doc.Content) == 0 {
 		panic("artefact: the built-in shell Provider parsed to no document")
 	}
-	return checkManifestBody(BuiltinShellProviderPath, doc.Content[0])
+	return doc.Content[0]
 }

@@ -10,9 +10,9 @@
 // file shapes of one fact sharing one code; header-reserved refuses a name
 // the tool holds rather than an internal contradiction. One further shape
 // of manifest-inconsistent — Target slot coverage — needs a (Definition,
-// Target) binding neither this file nor this milestone's artefacts yet
-// supply, and is #93's, alongside target-class-mismatch, a code of its own
-// that needs the same binding.
+// Target) binding neither this file nor this milestone's artefacts supplied
+// on their own, and is definition.go's, alongside target-class-mismatch, a
+// code of its own that needs the same binding (issue #93).
 //
 // opaque is not among the keys any schema here admits — it is never a
 // writable key at all, being a property of the Capability an Operation's

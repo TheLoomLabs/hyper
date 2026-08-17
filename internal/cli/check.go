@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/pin"
 	"github.com/TheLoomLabs/hyper/internal/problem"
@@ -75,27 +77,45 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 		return ExitUsage
 	}
 
-	var problems []problem.Problem
+	// check loads every artefact before evaluating a single rule, in two
+	// passes: parsing every file first is what lets a Definition's
+	// provider: and targets: resolve against the whole repository's names
+	// rather than only the files loaded before it in artefactDirs' own
+	// order (issue #93). A failed load does not stop the pass: reading or
+	// parsing one file stops every check after it for that file — never
+	// for the repository (issue #88). An artefact hyper cannot even read is
+	// judged the same way as one that will not parse: exactly one problem,
+	// on its own line, and every other artefact is untouched.
+	loadedFiles := make([]loadedFile, 0, len(files))
 	for _, rel := range files {
 		data, err := os.ReadFile(filepath.Join(repoRoot, rel))
 		if err != nil {
-			// A failed load does not stop the pass: check loads every
-			// artefact and evaluates every rule together, and failing to
-			// load one stops every check after it for that file — never
-			// for the repository (issue #88). An artefact hyper cannot
-			// even read is judged the same way as one that will not parse:
-			// exactly one problem, on its own line, and every other
-			// artefact is untouched.
-			problems = append(problems, problem.Problem{
+			loadedFiles = append(loadedFiles, loadedFile{rel: rel, problems: []problem.Problem{{
 				File:      rel,
 				Line:      1,
 				Column:    1,
 				ErrorCode: yamlsubset.ErrorCode,
 				Message:   err.Error(),
-			})
+			}}})
 			continue
 		}
-		problems = append(problems, checkArtefact(rel, data)...)
+		root, probs, ok := yamlsubset.Parse(rel, data)
+		if ok && root != nil {
+			probs = append(probs, yamlsubset.Violations(root, rel)...)
+		}
+		loadedFiles = append(loadedFiles, loadedFile{rel: rel, root: root, problems: probs, ok: ok})
+	}
+
+	providers := artefact.BuildProviderIndex(rootsUnder(loadedFiles, "providers/"))
+	targets := artefact.BuildTargetIndex(rootsUnder(loadedFiles, "targets/"))
+
+	var problems []problem.Problem
+	for _, lf := range loadedFiles {
+		problems = append(problems, lf.problems...)
+		if !lf.ok {
+			continue
+		}
+		problems = append(problems, checkArtefact(lf.rel, lf.root, providers, targets)...)
 	}
 
 	if len(paths) > 0 {
@@ -190,31 +210,55 @@ func resolveRepoRoot(repoDirFlag string, getenv func(string) string, wd string, 
 	return root, 0
 }
 
-// checkArtefact loads one artefact's problems from its bytes: the strict
-// YAML subset first (issue #88), and — for hyper.yaml, a file in targets/
-// and a file in providers/, the three artefacts this milestone's schema
-// reaches so far — that artefact's own schema and the checks that read it
-// against itself (issues #89, #90, #91). All three read the one parse
-// yamlsubset.Parse produces rather than decoding the file twice. A file
-// that will not parse at all stops here, on the same "loading a file is
-// the first check" rule yamlsubset.Parse's own ok return states (§4).
-func checkArtefact(rel string, data []byte) []problem.Problem {
-	root, problems, ok := yamlsubset.Parse(rel, data)
-	if !ok {
-		return problems
+// loadedFile is one artefact file's own parse, kept between check's two
+// passes: root is what the second pass's schema and resolution checks read,
+// and problems already holds whatever the read itself or yamlsubset's own
+// grammar found. ok is false where the read failed or the file will not
+// parse at all — the one case the second pass skips entirely, on the same
+// "loading a file is the first check" rule yamlsubset.Parse's own ok return
+// states (§4). A file that read and parsed but supplied no document at all
+// (an empty file) is ok with root nil, which every check below reads the
+// same way schema.Check already does: a required key nothing supplied.
+type loadedFile struct {
+	rel      string
+	root     *yaml.Node
+	problems []problem.Problem
+	ok       bool
+}
+
+// rootsUnder returns the root of every loaded file whose path starts with
+// prefix and that parsed at all — the roots BuildProviderIndex and
+// BuildTargetIndex read the repository's provider and Target namespaces off
+// of (issue #93). A file that failed to parse contributes no root and
+// therefore no name to either namespace, on ADR-0064's own rule.
+func rootsUnder(files []loadedFile, prefix string) []*yaml.Node {
+	var roots []*yaml.Node
+	for _, lf := range files {
+		if lf.ok && strings.HasPrefix(lf.rel, prefix) {
+			roots = append(roots, lf.root)
+		}
 	}
-	if root != nil {
-		problems = append(problems, yamlsubset.Violations(root, rel)...)
-	}
+	return roots
+}
+
+// checkArtefact runs one already-parsed artefact's own schema and the
+// checks that read it against itself or against the repository: hyper.yaml,
+// a file in targets/, a file in providers/ and, since issue #93, a file in
+// definitions/ — the four artefacts this milestone's schema reaches so far.
+// providers and targets are the repository-wide namespaces a Definition's
+// provider: and targets: resolve against.
+func checkArtefact(rel string, root *yaml.Node, providers artefact.ProviderIndex, targets artefact.TargetIndex) []problem.Problem {
 	switch {
 	case rel == "hyper.yaml":
-		problems = append(problems, artefact.CheckRepositoryDeclaration(rel, root)...)
+		return artefact.CheckRepositoryDeclaration(rel, root)
 	case strings.HasPrefix(rel, "targets/"):
-		problems = append(problems, artefact.CheckTargetDeclaration(rel, root)...)
+		return artefact.CheckTargetDeclaration(rel, root)
 	case strings.HasPrefix(rel, "providers/"):
-		problems = append(problems, artefact.CheckManifest(rel, root)...)
+		return artefact.CheckManifest(rel, root)
+	case strings.HasPrefix(rel, "definitions/"):
+		return artefact.CheckDefinition(rel, root, providers, targets)
 	}
-	return problems
+	return nil
 }
 
 // absPath resolves p against wd if p is not already absolute — the one rule

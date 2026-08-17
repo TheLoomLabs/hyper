@@ -1,3 +1,6 @@
+{"type":"problem","file":"definitions/broken.yaml","line":1,"column":1,"field":"provider","error_code":"schema-mismatch","message":"the schema at this position declares \"provider\", and this file does not supply it"}
+{"type":"problem","file":"definitions/broken.yaml","line":3,"column":1,"field":"base","error_code":"unknown-key","message":"\"base\" is not a key the schema at this position admits"}
 {"type":"problem","file":"definitions/broken.yaml","line":3,"column":7,"field":"base","error_code":"strict-yaml-violation","message":"an anchor is not part of the authoring format"}
+{"type":"problem","file":"definitions/broken.yaml","line":5,"column":10,"field":"targets","error_code":"schema-mismatch","message":"expected an array at this position"}
 {"type":"problem","file":"definitions/broken.yaml","line":5,"column":10,"field":"targets","error_code":"strict-yaml-violation","message":"an alias is not part of the authoring format"}
 {"type":"result","truncated":false}

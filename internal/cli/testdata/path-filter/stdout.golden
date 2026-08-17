@@ -1,3 +1,6 @@
-FILE                LINE  FIELD    ERROR_CODE             MESSAGE
-definitions/a.yaml  3     base     strict-yaml-violation  an anchor is not part of the authoring format
-definitions/a.yaml  5     targets  strict-yaml-violation  an alias is not part of the authoring format
+FILE                LINE  FIELD     ERROR_CODE             MESSAGE
+definitions/a.yaml  1     provider  schema-mismatch        the schema at this position declares "provider", and this file does not supply it
+definitions/a.yaml  3     base      unknown-key            "base" is not a key the schema at this position admits
+definitions/a.yaml  3     base      strict-yaml-violation  an anchor is not part of the authoring format
+definitions/a.yaml  5     targets   schema-mismatch        expected an array at this position
+definitions/a.yaml  5     targets   strict-yaml-violation  an alias is not part of the authoring format

@@ -1,0 +1,2 @@
+FILE                     LINE  FIELD       ERROR_CODE              MESSAGE
+definitions/uptime.yaml  5     targets[0]  capability-not-granted  local does not grant shell, and the bound Provider's Operations require it
