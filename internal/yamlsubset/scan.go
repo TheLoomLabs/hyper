@@ -2,9 +2,10 @@
 // subset §3 states. YAML is parsed strictly — an anchor, an alias, a merge
 // key, a tag, a multi-document file, or implicit type resolution is
 // strict-yaml-violation, positioned at the file, line and column it occurs on
-// (ADR-0023). This package knows nothing about any artefact schema: that
-// arrives with the five artefact schemas in a later ticket. It reads bytes at
-// a path and returns problems, nothing else.
+// (ADR-0023). This package knows nothing about any artefact schema — that is
+// internal/schema and internal/artefact's rule (issue #89) — but it exposes
+// the node its own decode produces, Parse, so a caller checking both this
+// package's grammar and an artefact's schema reads the file once.
 package yamlsubset
 
 import (
@@ -22,16 +23,23 @@ import (
 // ErrorCode is the one code this package emits.
 const ErrorCode = "strict-yaml-violation"
 
-// Scan reads data as YAML and returns one problem per construct the strict
-// subset rejects. A file that will not parse at all — a hard YAML syntax
-// error — yields exactly one problem and scanning stops there, since the
-// parser has nothing more to walk (issue #88's "an artefact whose own file
-// will not parse still declares its name and yields exactly one problem").
-// A syntactically valid file that uses a forbidden construct more than once
-// yields one problem per occurrence.
-func Scan(file string, data []byte) []problem.Problem {
-	var problems []problem.Problem
-
+// Parse decodes data as YAML and returns the first document's root content
+// node together with the load-time problems this package reports at that
+// granularity. ok is false where the file will not parse at all — a hard
+// YAML syntax error — which is the one case "loading a file is the first
+// check, and failing it stops every check after" names (§4): root is nil,
+// problems holds exactly one entry, and neither this package's own walk nor
+// the schema check that reads the same node (issue #89) runs. ok is true and
+// root is nil where the file is empty: zero documents is valid YAML, and
+// whether it is a valid artefact is a schema question this package does not
+// answer. A file holding more than one YAML document is ok, with a problem
+// for the second document and the first document's node returned all the
+// same.
+//
+// Parse walks nothing itself, so a caller that needs both this package's
+// grammar rules and the schema check reads the file once rather than twice:
+// Scan below calls Violations on the node it returns.
+func Parse(file string, data []byte) (root *yaml.Node, problems []problem.Problem, ok bool) {
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	var docs []*yaml.Node
 	for {
@@ -41,16 +49,13 @@ func Scan(file string, data []byte) []problem.Problem {
 			break
 		}
 		if err != nil {
-			return append(problems, parseErrorProblem(file, err))
+			return nil, []problem.Problem{parseErrorProblem(file, err)}, false
 		}
 		docs = append(docs, &doc)
 	}
 
 	if len(docs) == 0 {
-		// An empty file has nothing for this rule to find. Whether it is a
-		// valid artefact at all is a schema question this package does not
-		// answer (issue #89 and later).
-		return problems
+		return nil, nil, true
 	}
 
 	if len(docs) > 1 {
@@ -64,10 +69,38 @@ func Scan(file string, data []byte) []problem.Problem {
 		})
 	}
 
-	if root := docs[0]; len(root.Content) > 0 {
-		walk(root.Content[0], "", file, &problems)
+	first := docs[0]
+	if len(first.Content) == 0 {
+		return nil, problems, true
 	}
+	return first.Content[0], problems, true
+}
 
+// Violations walks root for the strict-subset grammar and returns one
+// problem per rejected construct — Scan's own walk, exposed so a caller that
+// already holds root from Parse does not decode the file a second time
+// (issue #89).
+func Violations(root *yaml.Node, file string) []problem.Problem {
+	var problems []problem.Problem
+	walk(root, "", file, &problems)
+	return problems
+}
+
+// Scan reads data as YAML and returns one problem per construct the strict
+// subset rejects. A file that will not parse at all — a hard YAML syntax
+// error — yields exactly one problem and scanning stops there, since the
+// parser has nothing more to walk (issue #88's "an artefact whose own file
+// will not parse still declares its name and yields exactly one problem").
+// A syntactically valid file that uses a forbidden construct more than once
+// yields one problem per occurrence.
+func Scan(file string, data []byte) []problem.Problem {
+	root, problems, ok := Parse(file, data)
+	if !ok {
+		return problems
+	}
+	if root != nil {
+		problems = append(problems, Violations(root, file)...)
+	}
 	return problems
 }
 

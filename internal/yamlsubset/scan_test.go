@@ -3,6 +3,8 @@ package yamlsubset
 import (
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/TheLoomLabs/hyper/internal/problem"
 )
 
@@ -141,6 +143,68 @@ func TestScan_EmptyFileHasNoProblems(t *testing.T) {
 	got := Scan("hyper.yaml", []byte(""))
 	if len(got) != 0 {
 		t.Fatalf("Scan() = %v, want no problems for an empty file", got)
+	}
+}
+
+func TestParse_UnparseableFileIsNotOK(t *testing.T) {
+	root, problems, ok := Parse("definitions/broken.yaml", []byte("a: [1, 2\n"))
+	if ok {
+		t.Fatalf("Parse() ok = true, want false for a hard syntax error")
+	}
+	if root != nil {
+		t.Errorf("Parse() root = %v, want nil", root)
+	}
+	if len(problems) != 1 || problems[0].ErrorCode != ErrorCode {
+		t.Fatalf("Parse() problems = %v, want exactly one strict-yaml-violation", problems)
+	}
+}
+
+func TestParse_EmptyFileIsOKWithNilRoot(t *testing.T) {
+	root, problems, ok := Parse("hyper.yaml", []byte(""))
+	if !ok {
+		t.Fatalf("Parse() ok = false, want true for an empty file")
+	}
+	if root != nil {
+		t.Errorf("Parse() root = %v, want nil", root)
+	}
+	if len(problems) != 0 {
+		t.Errorf("Parse() problems = %v, want none", problems)
+	}
+}
+
+func TestParse_ReturnsTheDecodedRoot(t *testing.T) {
+	root, problems, ok := Parse("hyper.yaml", []byte("kind: repository-declaration\n"))
+	if !ok || root == nil {
+		t.Fatalf("Parse() = %v, %v, %v, want a root node and ok", root, problems, ok)
+	}
+	if root.Kind != yaml.MappingNode {
+		t.Errorf("Parse() root.Kind = %v, want a mapping", root.Kind)
+	}
+}
+
+func TestParse_MultiDocumentIsOKWithTheFirstDocumentsRoot(t *testing.T) {
+	root, problems, ok := Parse("hyper.yaml", []byte("kind: repository-declaration\n---\nkind: definition\n"))
+	if !ok {
+		t.Fatalf("Parse() ok = false, want true")
+	}
+	if root == nil || root.Kind != yaml.MappingNode {
+		t.Fatalf("Parse() root = %v, want the first document's mapping", root)
+	}
+	if len(problems) != 1 || problems[0].Line != 2 {
+		t.Fatalf("Parse() problems = %v, want one problem at line 2", problems)
+	}
+}
+
+func TestViolations_MatchesWhatScanWalksFor(t *testing.T) {
+	data := []byte("base: &b\n  x: 1\nderived: *b\n")
+	root, parseProblems, ok := Parse("definitions/x.yaml", data)
+	if !ok {
+		t.Fatal("Parse() ok = false")
+	}
+	got := append(append([]problem.Problem{}, parseProblems...), Violations(root, "definitions/x.yaml")...)
+	want := Scan("definitions/x.yaml", data)
+	if len(got) != len(want) {
+		t.Fatalf("Parse+Violations = %v, want the same problems Scan finds: %v", got, want)
 	}
 }
 

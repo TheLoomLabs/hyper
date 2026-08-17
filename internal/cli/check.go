@@ -1,8 +1,8 @@
 // Package cli is the third seam #87's Implementation Decisions name: argument
 // handling, path stats, the two renderings, ordering, filtering, exit codes,
 // stream discipline. It owns no rule of its own — every problem it prints
-// comes from the loader (internal/yamlsubset) and the pin gate
-// (internal/pin).
+// comes from the loader (internal/yamlsubset), the pin gate (internal/pin),
+// and an artefact's own schema (internal/artefact).
 package cli
 
 import (
@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/pin"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/render"
@@ -94,7 +95,7 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 			})
 			continue
 		}
-		problems = append(problems, yamlsubset.Scan(rel, data)...)
+		problems = append(problems, checkArtefact(rel, data)...)
 	}
 
 	if len(paths) > 0 {
@@ -187,6 +188,27 @@ func resolveRepoRoot(repoDirFlag string, getenv func(string) string, wd string, 
 		return "", ExitUsage
 	}
 	return root, 0
+}
+
+// checkArtefact loads one artefact's problems from its bytes: the strict
+// YAML subset first (issue #88), and — for hyper.yaml, the one artefact
+// this milestone's schema reaches so far — the Repository declaration's own
+// schema and its kind: (issue #89). Both read the one parse yamlsubset.Parse
+// produces rather than decoding the file twice. A file that will not parse
+// at all stops here, on the same "loading a file is the first check" rule
+// yamlsubset.Parse's own ok return states (§4).
+func checkArtefact(rel string, data []byte) []problem.Problem {
+	root, problems, ok := yamlsubset.Parse(rel, data)
+	if !ok {
+		return problems
+	}
+	if root != nil {
+		problems = append(problems, yamlsubset.Violations(root, rel)...)
+	}
+	if rel == "hyper.yaml" {
+		problems = append(problems, artefact.CheckRepositoryDeclaration(rel, root)...)
+	}
+	return problems
 }
 
 // absPath resolves p against wd if p is not already absolute — the one rule

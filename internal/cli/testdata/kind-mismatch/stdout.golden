@@ -1,0 +1,2 @@
+FILE        LINE  FIELD  ERROR_CODE     MESSAGE
+hyper.yaml  1     kind   kind-mismatch  kind: definition does not agree with hyper.yaml — want repository-declaration

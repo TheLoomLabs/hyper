@@ -1,0 +1,2 @@
+FILE        LINE  FIELD  ERROR_CODE   MESSAGE
+hyper.yaml  4     name   unknown-key  "name" is not a key the schema at this position admits
