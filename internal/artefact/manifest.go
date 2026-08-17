@@ -1,11 +1,18 @@
-// This file is the Manifest's own schema and the checks that read it against
-// itself: kind: against providers/, provider: against the file's basename,
+// This file is the Manifest's own schema, the checks that read it against
+// itself — kind: against providers/, provider: against the file's basename,
 // the request written under exactly one Capability, the input-schema
-// subset, and the path and template-hole grammars (§3, §4, §12, issue #91).
-// It does not check a Manifest's declarations against each other —
-// capability-mismatch, manifest-inconsistent and the rest of §4's "Manifest's
-// oracle" cross-check what an Operation's own request and input schema
-// imply against what the Manifest declares elsewhere, which is #92's.
+// subset, and the path and template-hole grammars (§3, §4, §12, issue #91)
+// — and the Manifest's oracle: the checks that read a Manifest's own
+// declarations against each other, with nothing but the file in hand
+// (§4, issue #92). capability-mismatch and identity-undeclared read what an
+// Operation's own request and record: imply against what the Manifest
+// declares elsewhere; manifest-inconsistent is eleven decidable-from-one-
+// file shapes of one fact sharing one code; header-reserved refuses a name
+// the tool holds rather than an internal contradiction. One further shape
+// of manifest-inconsistent — Target slot coverage — needs a (Definition,
+// Target) binding neither this file nor this milestone's artefacts yet
+// supply, and is #93's, alongside target-class-mismatch, a code of its own
+// that needs the same binding.
 //
 // opaque is not among the keys any schema here admits — it is never a
 // writable key at all, being a property of the Capability an Operation's
@@ -36,6 +43,32 @@ const CodeSchemaUnsupported = "schema-unsupported"
 // no legal source at all, and a body: mapping key, which is no position at
 // all (§3, §4, §12).
 const CodeHoleIllegal = "hole-illegal"
+
+// CodeCapabilityMismatch is the code a Manifest's declared capabilities:
+// earns for disagreeing with what hyper derives from every Operation's own
+// request block — over-declared or under, either direction (§3, §4).
+const CodeCapabilityMismatch = "capability-mismatch"
+
+// CodeIdentityUndeclared is the code an Operation projecting a Record and
+// declaring no identity: for it earns — a Record's name is the value the
+// identity field holds, and a Record with none produces one nothing can
+// identify (§3, §4).
+const CodeIdentityUndeclared = "identity-undeclared"
+
+// CodeManifestInconsistent is the one code eleven decidable-from-one-
+// Manifest shapes of a Manifest disagreeing with itself share, each
+// pointing a reader at one file, one Operation, and two adjacent keys
+// rather than earning a code of its own (§3, §4). The twelfth shape —
+// Target slot coverage — needs a (Definition, Target) binding to decide
+// and is #93's.
+const CodeManifestInconsistent = "manifest-inconsistent"
+
+// CodeHeaderReserved is the code drawn on the five headers hyper computes
+// for itself — Host, Content-Length, Content-Type, Transfer-Encoding,
+// Connection — earns wherever a second writer names one, compared
+// case-insensitively: an Auth scheme's name: parameter and an ordinary
+// headers: entry alike, one check with two writers (§3, §4, §12).
+const CodeHeaderReserved = "header-reserved"
 
 // KindProvider is the one kind: value a file in providers/ may carry, and
 // the one the built-in shell Provider authors outright, having no file
@@ -224,6 +257,15 @@ var holePattern = regexp.MustCompile(`\{([^{}]+)\}`)
 // omission.
 var pathPattern = regexp.MustCompile(`^\$(?:\.[A-Za-z_][A-Za-z0-9_-]*|\["[^"]*"\])*$`)
 
+// reservedHeaders is the five headers hyper computes for itself, reserved
+// against every writer — an Auth scheme's name: parameter and an ordinary
+// headers: entry alike, compared case-insensitively as an HTTP header name
+// is (§4, §12).
+var reservedHeaders = map[string]bool{
+	"host": true, "content-length": true, "content-type": true,
+	"transfer-encoding": true, "connection": true,
+}
+
 // fieldNoRootPattern is the same grammar written without its root marker —
 // a polling Pattern's until: field:, which roots at the response object in
 // hand rather than at a Record, a response having paths and no declared
@@ -252,6 +294,8 @@ func checkManifestBody(file string, root *yaml.Node) []problem.Problem {
 	problems = append(problems, checkAuth(file, root)...)
 	problems = append(problems, checkEnumerations(file, root)...)
 	problems = append(problems, checkOperations(file, root)...)
+	problems = append(problems, checkCapabilityMismatch(file, root)...)
+	problems = append(problems, checkShellOnlyAuth(file, root)...)
 
 	// env: is reserved across every artefact, a Manifest included, even
 	// though a Manifest declares no credential slot of its own to carry it
@@ -260,6 +304,121 @@ func checkManifestBody(file string, root *yaml.Node) []problem.Problem {
 	problems = dropReservedEnvKey(problems)
 	problems = append(problems, findReservedEnvKeys(file, root, "", nil)...)
 	return problems
+}
+
+// checkCapabilityMismatch reads capabilities: against what hyper derives
+// from every Operation's own request block — the block's key *is* the
+// Capability, so this reads one key per Operation rather than inferring one
+// from shape (§3). A capability declared with no Operation naming it, or
+// named by an Operation the top level does not declare, is
+// capability-mismatch either way (§4). An Operation naming both http: and
+// shell:, or neither, has already earned schema-mismatch from
+// checkExactlyOneOf and contributes no Capability here, having named none
+// unambiguously.
+func checkCapabilityMismatch(file string, root *yaml.Node) []problem.Problem {
+	declaredVal := topLevelFields(root, "capabilities")["capabilities"]
+	declared := map[string]bool{}
+	if declaredVal != nil && declaredVal.Kind == yaml.SequenceNode {
+		for _, item := range declaredVal.Content {
+			if item.Kind == yaml.ScalarNode {
+				declared[item.Value] = true
+			}
+		}
+	}
+
+	opsVal := topLevelFields(root, "operations")["operations"]
+	derived := map[string]bool{}
+	var problems []problem.Problem
+	if opsVal != nil && opsVal.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(opsVal.Content); i += 2 {
+			nameNode, opNode := opsVal.Content[i], opsVal.Content[i+1]
+			if nameNode.Kind != yaml.ScalarNode || opNode.Kind != yaml.MappingNode {
+				continue
+			}
+			opFields := topLevelFields(opNode, "http", "shell")
+			httpVal, shellVal := opFields["http"], opFields["shell"]
+			var capability string
+			var node *yaml.Node
+			switch {
+			case httpVal != nil && shellVal == nil:
+				capability, node = "http", httpVal
+			case shellVal != nil && httpVal == nil:
+				capability, node = "shell", shellVal
+			default:
+				continue
+			}
+			derived[capability] = true
+			if declared[capability] {
+				continue
+			}
+			problems = append(problems, problem.Problem{
+				File: file, Line: node.Line, Column: node.Column,
+				Field:     "operations." + nameNode.Value + "." + capability,
+				ErrorCode: CodeCapabilityMismatch,
+				Message:   fmt.Sprintf("operations.%s uses %s, and capabilities: does not declare it", nameNode.Value, capability),
+			})
+		}
+	}
+
+	if declaredVal != nil && declaredVal.Kind == yaml.SequenceNode {
+		for _, item := range declaredVal.Content {
+			if item.Kind != yaml.ScalarNode || derived[item.Value] {
+				continue
+			}
+			problems = append(problems, problem.Problem{
+				File: file, Line: item.Line, Column: item.Column, Field: "capabilities",
+				ErrorCode: CodeCapabilityMismatch,
+				Message:   fmt.Sprintf("capabilities: declares %s, and no Operation's request block names it", item.Value),
+			})
+		}
+	}
+	return problems
+}
+
+// checkShellOnlyAuth reports manifest-inconsistent on a Manifest declaring
+// only the shell Capability while carrying an auth: block — auth is a
+// property of reaching a host, and shell reaches none (§3, §4).
+func checkShellOnlyAuth(file string, root *yaml.Node) []problem.Problem {
+	fields := topLevelFields(root, "capabilities", "auth")
+	capsVal, authVal := fields["capabilities"], fields["auth"]
+	if capsVal == nil || capsVal.Kind != yaml.SequenceNode || authVal == nil {
+		return nil
+	}
+	if len(capsVal.Content) != 1 || capsVal.Content[0].Kind != yaml.ScalarNode || capsVal.Content[0].Value != "shell" {
+		return nil
+	}
+	line, column := position(authVal)
+	return []problem.Problem{{
+		File: file, Line: line, Column: column, Field: "auth",
+		ErrorCode: CodeManifestInconsistent,
+		Message:   "a Provider declaring only the shell Capability carries no auth: block — auth is a property of reaching a host",
+	}}
+}
+
+// authOwnedHeaderName reads root's auth: scheme and returns the header
+// position it owns — header:'s own name: parameter, or basic:'s fixed
+// Authorization (§13) — the position an ordinary headers: entry may not
+// also name (manifest-inconsistent, §4). It returns "" where auth: is
+// absent or its scheme's own shape is too malformed to say.
+func authOwnedHeaderName(root *yaml.Node) string {
+	authVal := topLevelFields(root, "auth")["auth"]
+	if authVal == nil || authVal.Kind != yaml.MappingNode {
+		return ""
+	}
+	fields := topLevelFields(authVal, "header", "basic")
+	if headerVal := fields["header"]; headerVal != nil {
+		if headerVal.Kind != yaml.MappingNode {
+			return ""
+		}
+		if nameVal := topLevelFields(headerVal, "name")["name"]; nameVal != nil && nameVal.Kind == yaml.ScalarNode {
+			return nameVal.Value
+		}
+		return ""
+	}
+	if fields["basic"] != nil {
+		return "Authorization"
+	}
+	return ""
 }
 
 // checkOperations reads operations: — a mapping keyed by Operation name
@@ -272,6 +431,7 @@ func checkOperations(file string, root *yaml.Node) []problem.Problem {
 		return nil
 	}
 	enumNames := enumerationNames(root)
+	ownedHeader := authOwnedHeaderName(root)
 
 	var problems []problem.Problem
 	for i := 0; i+1 < len(opsVal.Content); i += 2 {
@@ -279,7 +439,7 @@ func checkOperations(file string, root *yaml.Node) []problem.Problem {
 		if nameNode.Kind != yaml.ScalarNode {
 			continue
 		}
-		problems = append(problems, checkOneOperation(file, "operations."+nameNode.Value, opNode, enumNames)...)
+		problems = append(problems, checkOneOperation(file, "operations."+nameNode.Value, opNode, enumNames, ownedHeader)...)
 	}
 	return problems
 }
@@ -288,7 +448,7 @@ func checkOperations(file string, root *yaml.Node) []problem.Problem {
 // exactly one request block between http: and shell:, the input-schema
 // subset, the three Patterns, and the record: projection's paths and holes
 // (§3, §4, §12).
-func checkOneOperation(file, field string, op *yaml.Node, enumNames map[string]bool) []problem.Problem {
+func checkOneOperation(file, field string, op *yaml.Node, enumNames map[string]bool, ownedHeader string) []problem.Problem {
 	problems := schema.CheckAt(op, operationDeclaration, field, file)
 	if op == nil || op.Kind != yaml.MappingNode {
 		return problems
@@ -296,11 +456,14 @@ func checkOneOperation(file, field string, op *yaml.Node, enumNames map[string]b
 
 	problems = append(problems, checkExactlyOneOf(file, field, op, []string{"http", "shell"})...)
 
-	fields := topLevelFields(op, "http", "input", "patterns", "record")
+	fields := topLevelFields(op, "kind", "repeatability", "concurrency", "http", "shell", "input", "patterns", "record")
 	inputProps := inputPropertyNames(fields["input"])
+	inputTypes := inputPropertyTypes(fields["input"])
+	isHTTP := fields["http"] != nil
+	isShell := fields["shell"] != nil
 
 	if httpVal := fields["http"]; httpVal != nil && httpVal.Kind == yaml.MappingNode {
-		problems = append(problems, checkHTTPRequest(file, field+".http", httpVal, enumNames, inputProps)...)
+		problems = append(problems, checkHTTPRequest(file, field+".http", httpVal, enumNames, inputProps, inputTypes, ownedHeader)...)
 	}
 	if inputVal := fields["input"]; inputVal != nil && inputVal.Kind == yaml.MappingNode {
 		problems = append(problems, checkInputSchema(file, field+".input", inputVal)...)
@@ -309,9 +472,218 @@ func checkOneOperation(file, field string, op *yaml.Node, enumNames map[string]b
 		problems = append(problems, checkPatterns(file, field+".patterns", patternsVal)...)
 	}
 	if recordVal := fields["record"]; recordVal != nil && recordVal.Kind == yaml.MappingNode {
-		problems = append(problems, checkRecord(file, field+".record", recordVal, inputProps)...)
+		problems = append(problems, checkRecord(file, field+".record", recordVal, inputProps, inputTypes)...)
+	}
+
+	// The remaining cross-checks read an Operation's own top-level keys
+	// against each other rather than against a nested block's shape, so
+	// they run unconditionally over fields rather than being gated on one
+	// sub-block's own Kind, the way the four calls above are (§3, §4).
+	problems = append(problems, checkKindProjection(file, field, fields)...)
+	problems = append(problems, checkPaginationOverRequirement(file, field, fields)...)
+	problems = append(problems, checkSkipIfRecordedIdentity(file, field, fields, isShell)...)
+	if isHTTP != isShell {
+		problems = append(problems, checkInputReachability(file, field, fields, isShell)...)
 	}
 	return problems
+}
+
+// checkKindProjection reports manifest-inconsistent on the four ways an
+// Operation's own Kind disagrees with what it projects or what its
+// Repeatability or its concurrency would have to mean (§3, §4): a read or
+// mutate carrying no record:, a destroy carrying one, skip-if-recorded
+// declared on an Operation that is not a mutate (ADR-0037), and a
+// concurrency: limit declared on an Operation that is not a read
+// (ADR-0045). Each earns no code of its own, pointing a reader at one file,
+// one Operation, and two adjacent keys instead.
+func checkKindProjection(file, field string, fields map[string]*yaml.Node) []problem.Problem {
+	kindVal := fields["kind"]
+	if kindVal == nil || kindVal.Kind != yaml.ScalarNode {
+		return nil
+	}
+	kind := kindVal.Value
+	recordVal := fields["record"]
+
+	var problems []problem.Problem
+	switch {
+	case (kind == "read" || kind == "mutate") && recordVal == nil:
+		problems = append(problems, problem.Problem{
+			File: file, Line: kindVal.Line, Column: kindVal.Column, Field: field,
+			ErrorCode: CodeManifestInconsistent,
+			Message:   fmt.Sprintf("kind: %s carries no record: — record: is mandatory on a read and a mutate", kind),
+		})
+	case kind == "destroy" && recordVal != nil:
+		line, column := position(recordVal)
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field + ".record",
+			ErrorCode: CodeManifestInconsistent,
+			Message:   "kind: destroy carries a record: — record: is forbidden on a destroy",
+		})
+	}
+
+	if repVal := fields["repeatability"]; repVal != nil && repVal.Kind == yaml.ScalarNode &&
+		repVal.Value == "skip-if-recorded" && kind != "mutate" {
+		problems = append(problems, problem.Problem{
+			File: file, Line: repVal.Line, Column: repVal.Column, Field: field + ".repeatability",
+			ErrorCode: CodeManifestInconsistent,
+			Message:   "repeatability: skip-if-recorded is declared on an Operation that is not a mutate",
+		})
+	}
+
+	if concVal := fields["concurrency"]; concVal != nil && kind != "read" {
+		problems = append(problems, problem.Problem{
+			File: file, Line: concVal.Line, Column: concVal.Column, Field: field + ".concurrency",
+			ErrorCode: CodeManifestInconsistent,
+			Message:   "concurrency: is declared on an Operation that is not a read",
+		})
+	}
+	return problems
+}
+
+// checkPaginationOverRequirement reports manifest-inconsistent on a
+// pagination Pattern declared on an Operation whose record: carries no
+// over: — pagination walks the collection record.over names, and no
+// collection means nothing for it to walk (§3, §4).
+func checkPaginationOverRequirement(file, field string, fields map[string]*yaml.Node) []problem.Problem {
+	patternsVal := fields["patterns"]
+	if patternsVal == nil || patternsVal.Kind != yaml.MappingNode {
+		return nil
+	}
+	paginationVal := topLevelFields(patternsVal, "pagination")["pagination"]
+	if paginationVal == nil {
+		return nil
+	}
+	if overVal := topLevelFields(fields["record"], "over")["over"]; overVal != nil {
+		return nil
+	}
+	line, column := position(paginationVal)
+	return []problem.Problem{{
+		File: file, Line: line, Column: column, Field: field + ".patterns.pagination",
+		ErrorCode: CodeManifestInconsistent,
+		Message:   "patterns.pagination is declared and record: carries no over:",
+	}}
+}
+
+// checkSkipIfRecordedIdentity reports manifest-inconsistent on a
+// skip-if-recorded Operation whose identity: resolves only from the
+// response. Its test reads the head of the series before deciding whether
+// to make the call, so identity: must resolve before the call: a template
+// hole does, and so does $.command on a shell Operation, sitting in the
+// response object precisely because it is a fact about the call rather than
+// about the answer; a response path anywhere else names a value that exists
+// only once the call has gone out (§3, §4, §12, ADR-0056).
+func checkSkipIfRecordedIdentity(file, field string, fields map[string]*yaml.Node, isShell bool) []problem.Problem {
+	repVal := fields["repeatability"]
+	if repVal == nil || repVal.Kind != yaml.ScalarNode || repVal.Value != "skip-if-recorded" {
+		return nil
+	}
+	identityVal := topLevelFields(fields["record"], "identity")["identity"]
+	if identityVal == nil || identityVal.Kind != yaml.ScalarNode || !strings.HasPrefix(identityVal.Value, "$") {
+		return nil
+	}
+	if isShell && identityVal.Value == "$.command" {
+		return nil
+	}
+	return []problem.Problem{{
+		File: file, Line: identityVal.Line, Column: identityVal.Column, Field: field + ".record.identity",
+		ErrorCode: CodeManifestInconsistent,
+		Message:   fmt.Sprintf("%q resolves only from the response — a skip-if-recorded test must resolve before the call", identityVal.Value),
+	}}
+}
+
+// checkInputReachability reports manifest-inconsistent on every input this
+// Operation declares that no position of its request reaches: no ordinary
+// hole, no host-input:, and — on a shell Operation, the one Capability
+// whose request has no shape of its own to carry a hole — not the argv the
+// shell Capability names, the Operation input named command by convention
+// rather than by any position (§3, §4). It is called only where the
+// Operation names exactly one of http:/shell:, an ambiguous or absent
+// request having already earned schema-mismatch and reaching no position at
+// all.
+func checkInputReachability(file, field string, fields map[string]*yaml.Node, isShell bool) []problem.Problem {
+	propsVal := topLevelFields(fields["input"], "properties")["properties"]
+	if propsVal == nil || propsVal.Kind != yaml.MappingNode || len(propsVal.Content) == 0 {
+		return nil
+	}
+
+	reached := map[string]bool{}
+	if isShell {
+		reached["command"] = true
+	} else {
+		collectReachedNames(fields["http"], reached)
+	}
+
+	var problems []problem.Problem
+	for i := 0; i+1 < len(propsVal.Content); i += 2 {
+		key := propsVal.Content[i]
+		if key.Kind != yaml.ScalarNode || reached[key.Value] {
+			continue
+		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: key.Line, Column: key.Column, Field: field + ".input.properties." + key.Value,
+			ErrorCode: CodeManifestInconsistent,
+			Message:   fmt.Sprintf("input %q is declared and no position of this Operation's request reaches it", key.Value),
+		})
+	}
+	return problems
+}
+
+// collectReachedNames marks, in reached, every input name an http: block's
+// ordinary positions reach: every hole in method:, path:, query: and
+// headers: values, every hole in body:, and host-input:'s own value (§3,
+// §4). host: is deliberately excluded — it is Capability-relevant and never
+// resolves to an Operation input (§12).
+func collectReachedNames(httpVal *yaml.Node, reached map[string]bool) {
+	if httpVal == nil || httpVal.Kind != yaml.MappingNode {
+		return
+	}
+	fields := topLevelFields(httpVal, "method", "path", "query", "headers", "body", "host-input")
+	for _, key := range []string{"method", "path"} {
+		if v := fields[key]; v != nil && v.Kind == yaml.ScalarNode {
+			collectHoleNames(v.Value, reached)
+		}
+	}
+	for _, key := range []string{"query", "headers"} {
+		if m := fields[key]; m != nil && m.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(m.Content); i += 2 {
+				if val := m.Content[i+1]; val.Kind == yaml.ScalarNode {
+					collectHoleNames(val.Value, reached)
+				}
+			}
+		}
+	}
+	if b := fields["body"]; b != nil {
+		collectBodyHoleNames(b, reached)
+	}
+	if hi := fields["host-input"]; hi != nil && hi.Kind == yaml.ScalarNode {
+		reached[hi.Value] = true
+	}
+}
+
+// collectHoleNames marks every hole s carries in reached.
+func collectHoleNames(s string, reached map[string]bool) {
+	for _, m := range holePattern.FindAllStringSubmatch(s, -1) {
+		reached[m[1]] = true
+	}
+}
+
+// collectBodyHoleNames walks a body: value tree marking every hole its
+// values carry in reached. A mapping key is never a legal hole position
+// (hole-illegal catches one that tries), so only values are read here
+// (§3, §4).
+func collectBodyHoleNames(node *yaml.Node, reached map[string]bool) {
+	switch node.Kind {
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			collectBodyHoleNames(node.Content[i+1], reached)
+		}
+	case yaml.SequenceNode:
+		for _, item := range node.Content {
+			collectBodyHoleNames(item, reached)
+		}
+	case yaml.ScalarNode:
+		collectHoleNames(node.Value, reached)
+	}
 }
 
 // checkExactlyOneOf reports schema-mismatch where node carries none, or
@@ -346,29 +718,98 @@ func checkExactlyOneOf(file, field string, node *yaml.Node, keys []string) []pro
 // and its holes resolve only against a declared enumerations: entry or
 // from-target; every other position resolves only against this Operation's
 // own input (§3, §12).
-func checkHTTPRequest(file, field string, node *yaml.Node, enumNames, inputProps map[string]bool) []problem.Problem {
+func checkHTTPRequest(file, field string, node *yaml.Node, enumNames, inputProps map[string]bool, inputTypes map[string]string, ownedHeader string) []problem.Problem {
 	problems := schema.CheckAt(node, httpRequestDeclaration, field, file)
-	fields := topLevelFields(node, "method", "host", "path", "query", "headers", "body")
+	fields := topLevelFields(node, "method", "host", "path", "query", "headers", "body", "host-input")
 
 	if methodVal := fields["method"]; methodVal != nil && methodVal.Kind == yaml.ScalarNode {
-		problems = append(problems, checkOrdinaryHoles(file, field+".method", methodVal, inputProps)...)
+		problems = append(problems, checkOrdinaryHoles(file, field+".method", methodVal, inputProps, inputTypes)...)
 	}
 	if hostVal := fields["host"]; hostVal != nil && hostVal.Kind == yaml.ScalarNode {
 		problems = append(problems, checkCapabilityHoles(file, field+".host", hostVal, enumNames)...)
 	}
 	if pathVal := fields["path"]; pathVal != nil && pathVal.Kind == yaml.ScalarNode {
-		problems = append(problems, checkOrdinaryHoles(file, field+".path", pathVal, inputProps)...)
+		problems = append(problems, checkOrdinaryHoles(file, field+".path", pathVal, inputProps, inputTypes)...)
 	}
-	problems = append(problems, checkStringMapping(file, field+".query", fields["query"], inputProps)...)
-	problems = append(problems, checkStringMapping(file, field+".headers", fields["headers"], inputProps)...)
-	problems = append(problems, checkBody(file, field+".body", fields["body"], inputProps)...)
+	problems = append(problems, checkStringMapping(file, field+".query", fields["query"], inputProps, inputTypes)...)
+	problems = append(problems, checkStringMapping(file, field+".headers", fields["headers"], inputProps, inputTypes)...)
+	problems = append(problems, checkHeadersReserved(file, field+".headers", fields["headers"])...)
+	problems = append(problems, checkHeadersOwnedPosition(file, field+".headers", fields["headers"], ownedHeader)...)
+	problems = append(problems, checkBody(file, field+".body", fields["body"], inputProps, inputTypes)...)
+
+	if hostInputVal := fields["host-input"]; hostInputVal != nil && hostInputVal.Kind == yaml.ScalarNode && !inputProps[hostInputVal.Value] {
+		problems = append(problems, problem.Problem{
+			File: file, Line: hostInputVal.Line, Column: hostInputVal.Column, Field: field + ".host-input",
+			ErrorCode: CodeManifestInconsistent,
+			Message:   fmt.Sprintf("host-input: %s names no input this Operation declares", hostInputVal.Value),
+		})
+	}
+	return problems
+}
+
+// checkHeadersReserved reports header-reserved on every headers: entry
+// naming one of the five headers hyper computes for itself, compared
+// case-insensitively (§4, §12).
+func checkHeadersReserved(file, field string, node *yaml.Node) []problem.Problem {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+	var problems []problem.Problem
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key := node.Content[i]
+		if key.Kind != yaml.ScalarNode {
+			continue
+		}
+		problems = append(problems, reservedHeaderProblem(file, field+"."+key.Value, key)...)
+	}
+	return problems
+}
+
+// reservedHeaderProblem is the one check behind header-reserved's two
+// writers — an Auth scheme's name: parameter and an ordinary headers:
+// entry — reporting the same fault under the same code and message
+// wherever nameVal names one of the five headers hyper computes for itself,
+// compared case-insensitively (§4, §12).
+func reservedHeaderProblem(file, field string, nameVal *yaml.Node) []problem.Problem {
+	if nameVal.Kind != yaml.ScalarNode || !reservedHeaders[strings.ToLower(nameVal.Value)] {
+		return nil
+	}
+	return []problem.Problem{{
+		File: file, Line: nameVal.Line, Column: nameVal.Column, Field: field,
+		ErrorCode: CodeHeaderReserved,
+		Message:   fmt.Sprintf("%s: is one of the five headers hyper computes for itself", nameVal.Value),
+	}}
+}
+
+// checkHeadersOwnedPosition reports manifest-inconsistent on a headers:
+// entry naming the position this Manifest's own Auth scheme owns —
+// header:'s name: parameter, or basic:'s fixed Authorization — compared
+// case-insensitively: a second writer there would disagree with what hyper
+// places, auth being suppressed by the position it occupies rather than by
+// scanning a rendering for something that looks like one (§3, §4).
+func checkHeadersOwnedPosition(file, field string, node *yaml.Node, ownedHeader string) []problem.Problem {
+	if node == nil || node.Kind != yaml.MappingNode || ownedHeader == "" {
+		return nil
+	}
+	var problems []problem.Problem
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key := node.Content[i]
+		if key.Kind != yaml.ScalarNode || !strings.EqualFold(key.Value, ownedHeader) {
+			continue
+		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: key.Line, Column: key.Column, Field: field + "." + key.Value,
+			ErrorCode: CodeManifestInconsistent,
+			Message:   fmt.Sprintf("%s: takes the request position this Manifest's Auth scheme already owns", key.Value),
+		})
+	}
 	return problems
 }
 
 // checkStringMapping reads a query: or headers: mapping's members, which
 // are always name to string (§3): a non-scalar value is schema-mismatch,
 // and a scalar's holes are checked as an ordinary position's are.
-func checkStringMapping(file, field string, node *yaml.Node, inputProps map[string]bool) []problem.Problem {
+func checkStringMapping(file, field string, node *yaml.Node, inputProps map[string]bool, inputTypes map[string]string) []problem.Problem {
 	if node == nil || node.Kind != yaml.MappingNode {
 		return nil
 	}
@@ -387,7 +828,7 @@ func checkStringMapping(file, field string, node *yaml.Node, inputProps map[stri
 			})
 			continue
 		}
-		problems = append(problems, checkOrdinaryHoles(file, childField, val, inputProps)...)
+		problems = append(problems, checkOrdinaryHoles(file, childField, val, inputProps, inputTypes)...)
 	}
 	return problems
 }
@@ -398,14 +839,14 @@ func checkStringMapping(file, field string, node *yaml.Node, inputProps map[stri
 // this still checks is the two rules that hold regardless of the API's own
 // shape: a hole fills a value only, never a mapping key, and a hole in a
 // value resolves only against this Operation's own input.
-func checkBody(file, field string, node *yaml.Node, inputProps map[string]bool) []problem.Problem {
+func checkBody(file, field string, node *yaml.Node, inputProps map[string]bool, inputTypes map[string]string) []problem.Problem {
 	if node == nil || node.Kind != yaml.MappingNode {
 		return nil
 	}
-	return checkBodyValue(file, field, node, inputProps)
+	return checkBodyValue(file, field, node, inputProps, inputTypes)
 }
 
-func checkBodyValue(file, field string, node *yaml.Node, inputProps map[string]bool) []problem.Problem {
+func checkBodyValue(file, field string, node *yaml.Node, inputProps map[string]bool, inputTypes map[string]string) []problem.Problem {
 	var problems []problem.Problem
 	switch node.Kind {
 	case yaml.MappingNode:
@@ -419,14 +860,14 @@ func checkBodyValue(file, field string, node *yaml.Node, inputProps map[string]b
 					Message:   "a hole fills a value position only — a mapping key is no position at all",
 				})
 			}
-			problems = append(problems, checkBodyValue(file, childField, val, inputProps)...)
+			problems = append(problems, checkBodyValue(file, childField, val, inputProps, inputTypes)...)
 		}
 	case yaml.SequenceNode:
 		for i, item := range node.Content {
-			problems = append(problems, checkBodyValue(file, fmt.Sprintf("%s[%d]", field, i), item, inputProps)...)
+			problems = append(problems, checkBodyValue(file, fmt.Sprintf("%s[%d]", field, i), item, inputProps, inputTypes)...)
 		}
 	case yaml.ScalarNode:
-		problems = append(problems, checkOrdinaryHoles(file, field, node, inputProps)...)
+		problems = append(problems, checkOrdinaryHoles(file, field, node, inputProps, inputTypes)...)
 	}
 	return problems
 }
@@ -453,19 +894,30 @@ func checkCapabilityHoles(file, field string, node *yaml.Node, enumNames map[str
 // checkOrdinaryHoles reads every hole in an ordinary scalar — every
 // request position but host: and an Auth scheme's parameters — and reports
 // one naming anything but this Operation's own input as hole-illegal
-// (§3, §12).
-func checkOrdinaryHoles(file, field string, node *yaml.Node, inputProps map[string]bool) []problem.Problem {
+// (§3, §12). One naming an input the same file declares object or array is
+// manifest-inconsistent instead: the name exists, so the fault is a
+// Manifest disagreeing with itself rather than a name resolving to nothing
+// — a hole fills a scalar position, and a whole object is no more
+// interpolable than it is referenceable (§3, §4, ADR-0078).
+func checkOrdinaryHoles(file, field string, node *yaml.Node, inputProps map[string]bool, inputTypes map[string]string) []problem.Problem {
 	var problems []problem.Problem
 	for _, m := range holePattern.FindAllStringSubmatch(node.Value, -1) {
 		name := m[1]
-		if inputProps[name] {
+		if !inputProps[name] {
+			problems = append(problems, problem.Problem{
+				File: file, Line: node.Line, Column: node.Column, Field: field,
+				ErrorCode: CodeHoleIllegal,
+				Message:   fmt.Sprintf("{%s} names no input this Operation declares", name),
+			})
 			continue
 		}
-		problems = append(problems, problem.Problem{
-			File: file, Line: node.Line, Column: node.Column, Field: field,
-			ErrorCode: CodeHoleIllegal,
-			Message:   fmt.Sprintf("{%s} names no input this Operation declares", name),
-		})
+		if t := inputTypes[name]; t == "object" || t == "array" {
+			problems = append(problems, problem.Problem{
+				File: file, Line: node.Line, Column: node.Column, Field: field,
+				ErrorCode: CodeManifestInconsistent,
+				Message:   fmt.Sprintf("{%s} names an input declared %s — a hole fills a scalar position only", name, t),
+			})
+		}
 	}
 	return problems
 }
@@ -521,6 +973,32 @@ func inputPropertyNames(inputVal *yaml.Node) map[string]bool {
 		}
 	}
 	return names
+}
+
+// inputPropertyTypes reads the top-level type: an input: schema declares
+// for each of its properties, keyed by property name, omitted where the
+// property's own schema omits type: — the set checkOrdinaryHoles compares a
+// hole's name against, object and array being the two a hole may never
+// fill (§3, §4, §12).
+func inputPropertyTypes(inputVal *yaml.Node) map[string]string {
+	types := map[string]string{}
+	if inputVal == nil || inputVal.Kind != yaml.MappingNode {
+		return types
+	}
+	propsVal := topLevelFields(inputVal, "properties")["properties"]
+	if propsVal == nil || propsVal.Kind != yaml.MappingNode {
+		return types
+	}
+	for i := 0; i+1 < len(propsVal.Content); i += 2 {
+		key, val := propsVal.Content[i], propsVal.Content[i+1]
+		if key.Kind != yaml.ScalarNode || val.Kind != yaml.MappingNode {
+			continue
+		}
+		if typeVal := topLevelFields(val, "type")["type"]; typeVal != nil && typeVal.Kind == yaml.ScalarNode {
+			types[key.Value] = typeVal.Value
+		}
+	}
+	return types
 }
 
 // enumerationNames reads the top-level enumerations: mapping's own names —
@@ -592,6 +1070,11 @@ func checkAuth(file string, root *yaml.Node) []problem.Problem {
 	if headerVal := fields["header"]; headerVal != nil {
 		problems = append(problems, schema.CheckAt(headerVal, authHeaderDeclaration, "auth.header", file)...)
 		problems = append(problems, checkAuthHoles(file, "auth.header", headerVal)...)
+		if headerVal.Kind == yaml.MappingNode {
+			if nameVal := topLevelFields(headerVal, "name")["name"]; nameVal != nil {
+				problems = append(problems, reservedHeaderProblem(file, "auth.header.name", nameVal)...)
+			}
+		}
 	}
 	if basicVal := fields["basic"]; basicVal != nil {
 		problems = append(problems, schema.CheckAt(basicVal, authBasicDeclaration, "auth.basic", file)...)
@@ -695,15 +1178,24 @@ func checkPredicate(file, field string, node *yaml.Node) []problem.Problem {
 // identity: that is either a response path or a template hole, an over:
 // that is always a response path, and every fields: entry, a response path
 // (§3, §12).
-func checkRecord(file, field string, node *yaml.Node, inputProps map[string]bool) []problem.Problem {
+func checkRecord(file, field string, node *yaml.Node, inputProps map[string]bool, inputTypes map[string]string) []problem.Problem {
 	problems := schema.CheckAt(node, recordDeclaration, field, file)
 	if node == nil || node.Kind != yaml.MappingNode {
 		return problems
 	}
 	fields := topLevelFields(node, "identity", "fields", "over")
 
+	if fields["identity"] == nil {
+		line, column := position(node)
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: CodeIdentityUndeclared,
+			Message:   "record: projects a Record and declares no identity: for it",
+		})
+	}
+
 	if identityVal := fields["identity"]; identityVal != nil && identityVal.Kind == yaml.ScalarNode {
-		problems = append(problems, checkIdentity(file, field+".identity", identityVal, inputProps)...)
+		problems = append(problems, checkIdentity(file, field+".identity", identityVal, inputProps, inputTypes)...)
 	}
 	if overVal := fields["over"]; overVal != nil && overVal.Kind == yaml.ScalarNode {
 		problems = append(problems, checkPathValue(file, field+".over", overVal)...)
@@ -726,12 +1218,12 @@ func checkRecord(file, field string, node *yaml.Node, inputProps map[string]bool
 // before the call — a hole naming an Operation input (§3, §12). The two
 // forms are told apart by the first character, the way every scalar in
 // this grammar is.
-func checkIdentity(file, field string, node *yaml.Node, inputProps map[string]bool) []problem.Problem {
+func checkIdentity(file, field string, node *yaml.Node, inputProps map[string]bool, inputTypes map[string]string) []problem.Problem {
 	switch {
 	case strings.HasPrefix(node.Value, "$"):
 		return checkPathValue(file, field, node)
 	case strings.HasPrefix(node.Value, "{"):
-		return checkOrdinaryHoles(file, field, node, inputProps)
+		return checkOrdinaryHoles(file, field, node, inputProps, inputTypes)
 	default:
 		return []problem.Problem{{
 			File: file, Line: node.Line, Column: node.Column, Field: field,

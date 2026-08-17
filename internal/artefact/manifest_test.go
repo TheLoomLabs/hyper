@@ -293,11 +293,15 @@ operations:
     input:
       type: object
       properties:
-        tags:
+        command:
           type: array
           items:
             type: string
             enum: [a, b]
+    record:
+      identity: $.command
+      fields:
+        exit_code: $.exit_code
 `
 	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
 }
@@ -679,6 +683,10 @@ operations:
       method: GET
       host: "{from-target}"
       path: /
+    record:
+      identity: $.id
+      fields:
+        id: $.id
 `
 	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
 }
@@ -774,4 +782,612 @@ func TestCheckManifest_BuiltinShellProviderHasNoNameOrKindMismatchExposure(t *te
 	got := CheckBuiltinShellProvider()
 	mustNoCode(t, got, CodeKindMismatch)
 	mustNoCode(t, got, CodeNameMismatch)
+}
+
+// TestCheckManifest_BuiltinShellProviderPassesEveryCheck is issue #92's own
+// acceptance criterion: the built-in shell Provider passes every check this
+// ticket adds, with no exemption of any kind (§3, §11).
+func TestCheckManifest_BuiltinShellProviderPassesEveryCheck(t *testing.T) {
+	mustNone(t, CheckBuiltinShellProvider())
+}
+
+// The Manifest's oracle (§4, issue #92): the checks that read a Manifest's
+// own declarations against each other, with nothing but the file in hand.
+
+func TestCheckManifest_CapabilityMismatchOverDeclared(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http, shell]
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeCapabilityMismatch)
+	if p.Field != "capabilities" {
+		t.Errorf("Field = %q, want capabilities", p.Field)
+	}
+}
+
+func TestCheckManifest_CapabilityMismatchUnderDeclared(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  run:
+    kind: read
+    deadline: 1h
+    shell: {}
+    input:
+      type: object
+      properties:
+        command: {type: array, items: {type: string}}
+    record:
+      identity: $.command
+      fields:
+        exit_code: $.exit_code
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeCapabilityMismatch)
+	if p.Field != "operations.run.shell" {
+		t.Errorf("Field = %q, want operations.run.shell", p.Field)
+	}
+}
+
+func TestCheckManifest_IdentityUndeclared(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    record:
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeIdentityUndeclared)
+	if p.Field != "operations.noop.record" {
+		t.Errorf("Field = %q, want operations.noop.record", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentPaginationWithoutOver(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  list:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    patterns:
+      pagination:
+        cursor: {from: $.body.cursor, into: {query: cursor}}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.list.patterns.pagination" {
+		t.Errorf("Field = %q, want operations.list.patterns.pagination", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentHostInputUnknownProperty(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: aws
+capabilities: [http]
+enumerations:
+  region: [us-east-1, eu-central-1]
+operations:
+  list:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "s3.{region}.amazonaws.com"
+      path: /
+      host-input: endpoint
+    input:
+      type: object
+      properties: {}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.list.http.host-input" {
+		t.Errorf("Field = %q, want operations.list.http.host-input", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentHeadersEntryOwnedByAuthScheme(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: cloudflare
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+      headers: {authorization: "{token}"}
+    input:
+      type: object
+      properties:
+        token: {type: string}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.noop.http.headers.authorization" {
+		t.Errorf("Field = %q, want operations.noop.http.headers.authorization", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentShellOnlyWithAuth(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [shell]
+auth:
+  basic: {}
+operations:
+  run:
+    kind: read
+    deadline: 1h
+    shell: {}
+    input:
+      type: object
+      properties:
+        command: {type: array, items: {type: string}}
+    record:
+      identity: $.command
+      fields:
+        exit_code: $.exit_code
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "auth" {
+		t.Errorf("Field = %q, want auth", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentHoleNamesObjectOrArrayInput(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: mutate
+    deadline: 1h
+    http:
+      method: POST
+      host: "{from-target}"
+      path: "/widgets/{tags}"
+    input:
+      type: object
+      properties:
+        tags: {type: array, items: {type: string}}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.noop.http.path" {
+		t.Errorf("Field = %q, want operations.noop.http.path", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentInputUnreached(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    input:
+      type: object
+      properties:
+        unused: {type: string}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.noop.input.properties.unused" {
+		t.Errorf("Field = %q, want operations.noop.input.properties.unused", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentReadOrMutateWithoutRecord(t *testing.T) {
+	for _, kind := range []string{"read", "mutate"} {
+		t.Run(kind, func(t *testing.T) {
+			doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: ` + kind + `
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+`
+			got := CheckManifest("providers/broken.yaml", parse(t, doc))
+			p := mustCode(t, got, CodeManifestInconsistent)
+			if p.Field != "operations.noop" {
+				t.Errorf("Field = %q, want operations.noop", p.Field)
+			}
+		})
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentDestroyWithRecord(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: destroy
+    deadline: 1h
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /widgets/{id}
+    input:
+      type: object
+      properties:
+        id: {type: string}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.noop.record" {
+		t.Errorf("Field = %q, want operations.noop.record", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentSkipIfRecordedNotMutate(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: read
+    repeatability: skip-if-recorded
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: "/widgets/{id}"
+    input:
+      type: object
+      properties:
+        id: {type: string}
+    record:
+      identity: "{id}"
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.noop.repeatability" {
+		t.Errorf("Field = %q, want operations.noop.repeatability", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentConcurrencyNotRead(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: mutate
+    concurrency: 2
+    deadline: 1h
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /widgets
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.noop.concurrency" {
+		t.Errorf("Field = %q, want operations.noop.concurrency", p.Field)
+	}
+}
+
+func TestCheckManifest_ManifestInconsistentSkipIfRecordedIdentityFromResponse(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 1h
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /widgets
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.noop.record.identity" {
+		t.Errorf("Field = %q, want operations.noop.record.identity", p.Field)
+	}
+}
+
+// TestCheckManifest_SkipIfRecordedIdentityResolvingBeforeCallIsLegal is the
+// acceptance criterion's other half: a template hole and $.command on a
+// shell Operation both resolve before the call, so neither draws a code.
+func TestCheckManifest_SkipIfRecordedIdentityResolvingBeforeCallIsLegal(t *testing.T) {
+	t.Run("hole", func(t *testing.T) {
+		doc := `kind: provider
+provider: broken
+schema-version: 1
+class: cloudflare
+capabilities: [http]
+operations:
+  create:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 1h
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /widgets
+      body: {name: "{name}"}
+    input:
+      type: object
+      properties:
+        name: {type: string}
+    record:
+      identity: "{name}"
+      fields:
+        id: $.id
+`
+		mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	})
+	t.Run("shell-command", func(t *testing.T) {
+		doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [shell]
+operations:
+  run:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 1h
+    shell: {}
+    input:
+      type: object
+      properties:
+        command: {type: array, items: {type: string}}
+    record:
+      identity: $.command
+      fields:
+        exit_code: $.exit_code
+`
+		mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	})
+}
+
+// reservedHeaderNames is the five headers §12 and §4 name — Host,
+// Content-Length, Content-Type, Transfer-Encoding, Connection — each
+// written here in a case that differs from its canonical spelling, proving
+// header-reserved's comparison is case-insensitive across the whole set and
+// not just the one name a single fixture happens to pick.
+var reservedHeaderNames = []string{"host", "Content-Length", "content-type", "TRANSFER-ENCODING", "Connection"}
+
+func TestCheckManifest_HeaderReserved(t *testing.T) {
+	t.Run("auth scheme name", func(t *testing.T) {
+		for _, name := range reservedHeaderNames {
+			t.Run(name, func(t *testing.T) {
+				doc := `kind: provider
+provider: broken
+schema-version: 1
+class: cloudflare
+capabilities: [http]
+auth:
+  header: {name: ` + name + `}
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+				got := CheckManifest("providers/broken.yaml", parse(t, doc))
+				p := mustCode(t, got, CodeHeaderReserved)
+				if p.Field != "auth.header.name" {
+					t.Errorf("Field = %q, want auth.header.name", p.Field)
+				}
+			})
+		}
+	})
+
+	t.Run("headers entry", func(t *testing.T) {
+		for _, name := range reservedHeaderNames {
+			t.Run(name, func(t *testing.T) {
+				doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+      headers: {` + name + `: example.com}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+				got := CheckManifest("providers/broken.yaml", parse(t, doc))
+				p := mustCode(t, got, CodeHeaderReserved)
+				if p.Field != "operations.noop.http.headers."+name {
+					t.Errorf("Field = %q, want operations.noop.http.headers.%s", p.Field, name)
+				}
+			})
+		}
+	})
+}
+
+func TestCheckManifest_ConcurrencyOneOnReadIsLegal(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  list:
+    kind: read
+    concurrency: 1
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+}
+
+func TestCheckManifest_EmptyInputSchemaIsLegal(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    input: {}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+}
+
+func TestCheckManifest_DestroyWithNoRecordAndNoIdentityDrawsNoCode(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  delete:
+    kind: destroy
+    deadline: 1h
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /widgets/{id}
+    input:
+      type: object
+      properties:
+        id: {type: string}
+`
+	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
 }
