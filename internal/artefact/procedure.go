@@ -32,10 +32,27 @@
 // the offline half decided from an `over: values:` list's authored length
 // alone, the run-time half over `assets:`/`observations:` left to a Run
 // that needs the Store to count them.
+//
+// Issue #98 lands the host grant and the one Expansion-identity fault
+// decidable with no Store: an Operation's host: template expanded at load
+// into its finite candidate set — {from-target} to the bound Target's
+// grant, an enumeration hole against the enumerations: entry it names,
+// the cross-product where a template carries more than one hole — and
+// compared against the grant, a member absent earning host-not-granted;
+// the intersection deciding whether host-input: is required at all; an
+// over: values: list wired {item: $} into the Operation's host-input:
+// compared against the same grant under the same code, host-list-ness
+// read off the wiring and never off a declaration; and
+// record-identity-collision for an authored two-or-more-member values:
+// list whose members can only ever project one identity, the Operation's
+// identity: resolving before the call with no {item:} reference reaching
+// the value that fills it — the same code the duplicate-member load site
+// fires, found against the wiring rather than against the list.
 package artefact
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -137,6 +154,15 @@ const CodeSkipIfRecordedUnreachable = "skip-if-recorded-unreachable"
 // observations:, needs the Store to count and is left to a Run (§4, §5,
 // §6, §12, issue #97).
 const CodeBoundExceeded = "bound-exceeded"
+
+// CodeHostNotGranted is the one code over the two comparisons of a host
+// set against the bound Target's grant (§3, §4, ADR-0024, ADR-0029,
+// issue #98): a member of the candidate set an Operation's host: template
+// expands to at load, and a member of an over: values: list the Step's
+// wiring makes a host list, are the same comparison and carry the same
+// name — a member absent from the grant, from either origin, is
+// host-not-granted.
+const CodeHostNotGranted = "host-not-granted"
 
 // KindProcedure is the one kind: value a file in procedures/ may carry
 // (§12's kind table).
@@ -416,13 +442,14 @@ func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yam
 
 	if haveOp {
 		problems = append(problems, checkStepArgs(file, field+".args", entry, fields["args"], op, stepIndex)...)
+		problems = append(problems, checkExpansionIdentity(file, field, fields, op)...)
 	}
 	problems = append(problems, checkOverValuesDuplicates(file, field+".over", fields["over"])...)
 	problems = append(problems, checkOverForm(file, field+".over", fields["over"], op, haveOp, provider, haveProvider)...)
 	problems = append(problems, checkBoundExceeded(file, field+".over.values", fields["bound"], fields["over"])...)
 	problems = append(problems, checkConditionPredicate(file, field+".when", fields["when"], stepIndex)...)
 	if haveDef {
-		problems = append(problems, checkStepAuthority(file, field, entry, fields, defInfo, op, haveOp)...)
+		problems = append(problems, checkStepAuthority(file, field, entry, fields, provider, defInfo, op, haveOp)...)
 	}
 	problems = append(problems, checkStepEnvelope(file, field, entry, fields, declaredTargets, declaredKinds, op, haveOp)...)
 
@@ -472,11 +499,14 @@ func checkStepEnvelope(file, field string, entry *yaml.Node, fields map[string]*
 // Definition's claimed Kind against the bound Target's accepted Kinds, and,
 // for a destroy Step, its Operation against the Definition's destroy:
 // claim by name — the Bound a destroy Step carries or must not, and, for an
-// opaque destroy Step, the over: selector it must carry. It is called only
-// where the Definition itself resolved; an unresolved definition: has
-// already earned artefact-absent and there is no claim here to check a
-// binding against.
-func checkStepAuthority(file, field string, entry *yaml.Node, fields map[string]*yaml.Node, defInfo DefinitionInfo, op OperationInfo, haveOp bool) []problem.Problem {
+// opaque destroy Step, the over: selector it must carry. The host grant is
+// the same binding's reach half (§3, §4, issue #98): the candidate set the
+// bound Operation's host: expands to, and any values: list the wiring makes
+// a host list, each compared against the bound Target's hosts:. It is
+// called only where the Definition itself resolved; an unresolved
+// definition: has already earned artefact-absent and there is no claim
+// here to check a binding against.
+func checkStepAuthority(file, field string, entry *yaml.Node, fields map[string]*yaml.Node, provider ProviderInfo, defInfo DefinitionInfo, op OperationInfo, haveOp bool) []problem.Problem {
 	var problems []problem.Problem
 
 	targetName, targetOK := resolveScalar(fields["target"])
@@ -516,9 +546,170 @@ func checkStepAuthority(file, field string, entry *yaml.Node, fields map[string]
 		}
 	}
 
+	if haveTarget {
+		problems = append(problems, checkHostCandidateGrant(file, field, entry, provider, op, targetName, targetInfo)...)
+		problems = append(problems, checkHostIntersection(file, field, entry, provider, op, targetName, targetInfo)...)
+		problems = append(problems, checkValuesHostGrant(file, field, fields, op, targetName, targetInfo)...)
+	}
 	problems = append(problems, checkStepBound(file, field, entry, fields["bound"], fields["over"], op)...)
 	problems = append(problems, checkSkipIfRecordedReachability(file, field, entry, fields["over"], op)...)
 	return problems
+}
+
+// checkHostCandidateGrant compares the candidate set the bound Operation's
+// host: template expands to at load against the bound Target's hosts:
+// grant, a member absent from it earning host-not-granted (§3, §4,
+// ADR-0024, ADR-0029, issue #98). The comparison is one of the two that
+// share the code; the other — an over: values: list the Step's own wiring
+// makes a host list — is checkValuesHostGrant's. Where a hole names
+// neither from-target nor a declared enumerations: entry the Manifest has
+// already earned hole-illegal on its own line, and nothing is added here.
+func checkHostCandidateGrant(file, field string, entry *yaml.Node, provider ProviderInfo, op OperationInfo, targetName string, targetInfo TargetInfo) []problem.Problem {
+	if op.HostTemplate == "" {
+		return nil
+	}
+	candidates, ok := expandHostTemplate(op.HostTemplate, provider.Enumerations, targetInfo.Hosts)
+	if !ok {
+		return nil
+	}
+	var problems []problem.Problem
+	line, column := position(entry)
+	for _, candidate := range candidates {
+		if targetInfo.Hosts[candidate] {
+			continue
+		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: CodeHostNotGranted,
+			Message:   fmt.Sprintf("%q is a member of the candidate set the bound Operation's host: expands to, and is absent from %s's hosts: grant", candidate, targetName),
+		})
+	}
+	return problems
+}
+
+// checkHostIntersection reads the third of ADR-0029's three steps off the
+// same expansion (§3, issue #98): what a Run may reach is the candidates
+// intersected with the grant — where that is one host hyper fills it and
+// host-input: is not required, and where it is several the Operation's
+// host-input: names which input carries one. A several-member
+// intersection under an Operation declaring none leaves which host a
+// request reaches undecidable — manifest-inconsistent, the one code a
+// Manifest disagreeing with itself carries, found here at the binding
+// that makes it decidable.
+func checkHostIntersection(file, field string, entry *yaml.Node, provider ProviderInfo, op OperationInfo, targetName string, targetInfo TargetInfo) []problem.Problem {
+	if op.HostTemplate == "" || op.HostInput != "" {
+		return nil
+	}
+	candidates, ok := expandHostTemplate(op.HostTemplate, provider.Enumerations, targetInfo.Hosts)
+	if !ok {
+		return nil
+	}
+	granted := 0
+	for _, candidate := range candidates {
+		if targetInfo.Hosts[candidate] {
+			granted++
+		}
+	}
+	if granted <= 1 {
+		return nil
+	}
+	line, column := position(entry)
+	return []problem.Problem{{
+		File: file, Line: line, Column: column, Field: field,
+		ErrorCode: CodeManifestInconsistent,
+		Message:   fmt.Sprintf("the candidate set and %s's hosts: grant intersect to several hosts, and the bound Operation declares no host-input:", targetName),
+	}}
+}
+
+// checkValuesHostGrant is the second of the two comparisons
+// CodeHostNotGranted covers (§3, §4, ADR-0024, issue #98): an over:
+// values: list the Step wires into the bound Operation's host-input: —
+// {item: $} at that input's args: position, and not otherwise — is a host
+// list, and every member is compared against the bound Target's grant,
+// the case where the Run-time membership check has nothing left to find.
+// Which lists are host lists is read off the wiring rather than off an
+// author's word for it: a list wired into any other input is a list of
+// identifiers, compared against no grant, and a shell Operation has no
+// host-input: at all, so a values: list on a shell Step is never one.
+func checkValuesHostGrant(file, field string, fields map[string]*yaml.Node, op OperationInfo, targetName string, targetInfo TargetInfo) []problem.Problem {
+	if op.HostInput == "" {
+		return nil
+	}
+	argsVal := fields["args"]
+	if argsVal == nil || argsVal.Kind != yaml.MappingNode {
+		return nil
+	}
+	wired := parseReference(topLevelFields(argsVal, op.HostInput)[op.HostInput])
+	if wired.kind != refItem || wired.path != "$" {
+		return nil
+	}
+	valuesVal := overValuesList(fields["over"])
+	if valuesVal == nil {
+		return nil
+	}
+
+	var problems []problem.Problem
+	for _, item := range valuesVal.Content {
+		if item.Kind != yaml.ScalarNode || targetInfo.Hosts[item.Value] {
+			continue
+		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: item.Line, Column: item.Column, Field: field + ".over.values",
+			ErrorCode: CodeHostNotGranted,
+			Message:   fmt.Sprintf("%q is wired into the bound Operation's host-input: and is absent from %s's hosts: grant", item.Value, targetName),
+		})
+	}
+	return problems
+}
+
+// expandHostTemplate expands template's holes at load into the finite
+// candidate set ADR-0029 names: {from-target} expands to the bound
+// Target's granted host set, an enumeration hole against the
+// enumerations: entry it names, and the cross-product where a template
+// carries more than one hole. The set comes back deduplicated in first-
+// expanded order, with from-target's own members sorted so the expansion
+// does not depend on map iteration. ok is false where a hole names
+// neither from-target nor a declared enumeration — a Manifest fault
+// checkCapabilityHoles has already named, leaving nothing here to expand.
+func expandHostTemplate(template string, enumerations map[string][]string, grant map[string]bool) ([]string, bool) {
+	sets := []string{""}
+	prev := 0
+	for _, m := range holePattern.FindAllStringSubmatchIndex(template, -1) {
+		var members []string
+		switch name := template[m[2]:m[3]]; {
+		case name == "from-target":
+			for host := range grant {
+				members = append(members, host)
+			}
+			sort.Strings(members)
+		default:
+			declared, ok := enumerations[name]
+			if !ok {
+				return nil, false
+			}
+			members = declared
+		}
+		literal := template[prev:m[0]]
+		var next []string
+		for _, prefix := range sets {
+			for _, member := range members {
+				next = append(next, prefix+literal+member)
+			}
+		}
+		sets = next
+		prev = m[1]
+	}
+
+	seen := map[string]bool{}
+	var candidates []string
+	for _, prefix := range sets {
+		candidate := prefix + template[prev:]
+		if !seen[candidate] {
+			seen[candidate] = true
+			candidates = append(candidates, candidate)
+		}
+	}
+	return candidates, true
 }
 
 // checkSkipIfRecordedReachability reports skip-if-recorded-unreachable on a
@@ -695,6 +886,21 @@ func checkShellCommand(file, field string, node *yaml.Node, stepIndex map[string
 	return problems
 }
 
+// overValuesList reads over:'s values: member where both are present and
+// well-formed, nil where either is absent or misshapen — the one preamble
+// every values:-reading check shares, each such fault being the shape
+// checks' own to name rather than a reader's to repeat (§3, §12).
+func overValuesList(overVal *yaml.Node) *yaml.Node {
+	if overVal == nil || overVal.Kind != yaml.MappingNode {
+		return nil
+	}
+	valuesVal := topLevelFields(overVal, "values")["values"]
+	if valuesVal == nil || valuesVal.Kind != yaml.SequenceNode {
+		return nil
+	}
+	return valuesVal
+}
+
 // checkOverValuesDuplicates reports record-identity-collision on two
 // members of one over: values: list that are one identity under a
 // case-insensitive fold — the Store's own check, fired here at load because
@@ -703,11 +909,8 @@ func checkShellCommand(file, field string, node *yaml.Node, stepIndex map[string
 // the shape #97 checks — and skips a non-scalar member, which carries no
 // identity of its own for this check to read.
 func checkOverValuesDuplicates(file, field string, overVal *yaml.Node) []problem.Problem {
-	if overVal == nil || overVal.Kind != yaml.MappingNode {
-		return nil
-	}
-	valuesVal := topLevelFields(overVal, "values")["values"]
-	if valuesVal == nil || valuesVal.Kind != yaml.SequenceNode {
+	valuesVal := overValuesList(overVal)
+	if valuesVal == nil {
 		return nil
 	}
 
@@ -729,6 +932,110 @@ func checkOverValuesDuplicates(file, field string, overVal *yaml.Node) []problem
 		seen[fold] = item.Value
 	}
 	return problems
+}
+
+// checkExpansionIdentity reports record-identity-collision on the one
+// Expansion-identity fault decidable with no Store (§4, issue #98): an
+// over: values: list of two or more — the member count must be authored,
+// a one-member Expansion having no sibling to collide with and an
+// assets:/observations: selector's size being on no file — on an
+// Operation whose identity: resolves before the call, with no {item:}
+// reference reaching the value that fills it. A literal there, or a
+// reference to another Step's output, is one value for the whole
+// Expansion by construction, so every member projects one name however
+// the Run goes. It is the same code the load site fires for a duplicate
+// values: member — checkOverValuesDuplicates — found here against the
+// wiring rather than against the list, and the same code §6 carries at
+// Expansion over the identities that actually resolved. Where a filling
+// input's args: entry is absent or malformed the Step has already earned
+// its own fault there, and nothing is added here.
+func checkExpansionIdentity(file, field string, fields map[string]*yaml.Node, op OperationInfo) []problem.Problem {
+	valuesVal := overValuesList(fields["over"])
+	if valuesVal == nil {
+		return nil
+	}
+	members := 0
+	for _, item := range valuesVal.Content {
+		if item.Kind == yaml.ScalarNode {
+			members++
+		}
+	}
+	if members < 2 {
+		return nil
+	}
+	fillers, ok := identityFillers(op)
+	if !ok {
+		return nil
+	}
+
+	var supplied map[string]*yaml.Node
+	if argsVal := fields["args"]; argsVal != nil && argsVal.Kind == yaml.MappingNode {
+		supplied = topLevelFields(argsVal, fillers...)
+	}
+	for _, filler := range fillers {
+		entry := supplied[filler]
+		if entry == nil || parseReference(entry).kind == refMalformed || containsItemReference(entry) {
+			return nil
+		}
+	}
+
+	line, column := position(valuesVal)
+	return []problem.Problem{{
+		File: file, Line: line, Column: column, Field: field + ".over.values",
+		ErrorCode: CodeRecordIdentityCollision,
+		Message:   "every member of this values: list resolves to one Record identity — the bound Operation's identity: resolves before the call and no {item:} reference reaches the value that fills it; wire the member into the input identity: reads, or write the calls out as Steps",
+	}}
+}
+
+// identityFillers reports whether op's identity: resolves before the call
+// — the property the offline collision check needs (§3, §4, issue #98) —
+// and, where it does, the inputs whose args: entries fill the identity's
+// value. A template hole resolves to an Operation input like any hole
+// (§12), and $.command on a shell Operation sits in the response object
+// precisely because it is a fact about the call rather than about the
+// answer. Any other response path names a value that exists only once the
+// call has gone out, and an Operation with no identity: at all — a
+// destroy, projecting nothing — has the member as the name, so distinct
+// members are distinct identities by construction.
+func identityFillers(op OperationInfo) ([]string, bool) {
+	switch {
+	case op.Identity == "":
+		return nil, false
+	case strings.HasPrefix(op.Identity, "{"):
+		var fillers []string
+		for _, m := range holePattern.FindAllStringSubmatch(op.Identity, -1) {
+			if _, declared := op.Inputs[m[1]]; !declared {
+				// The Manifest's own hole-illegal has already named a
+				// hole naming no input; there is no identity here left
+				// to read.
+				return nil, false
+			}
+			fillers = append(fillers, m[1])
+		}
+		return fillers, len(fillers) > 0
+	case op.IsShell && op.Identity == "$.command":
+		return []string{"command"}, true
+	default:
+		return nil, false
+	}
+}
+
+// containsItemReference reports whether an {item:} reference stands
+// anywhere in an args: entry — the entry itself for a scalar input, or
+// any member of the argv for the array-typed command — the wiring that
+// makes an Expansion's identity member-dependent (§4, issue #98).
+func containsItemReference(node *yaml.Node) bool {
+	switch node.Kind {
+	case yaml.MappingNode:
+		return parseReference(node).kind == refItem
+	case yaml.SequenceNode:
+		for _, item := range node.Content {
+			if containsItemReference(item) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // overFormKeys is the closed three-member key set over: admits (§12,
@@ -863,11 +1170,8 @@ func checkBoundExceeded(file, field string, boundVal, overVal *yaml.Node) []prob
 	if err != nil {
 		return nil
 	}
-	if overVal == nil || overVal.Kind != yaml.MappingNode {
-		return nil
-	}
-	valuesVal := topLevelFields(overVal, "values")["values"]
-	if valuesVal == nil || valuesVal.Kind != yaml.SequenceNode || len(valuesVal.Content) <= bound {
+	valuesVal := overValuesList(overVal)
+	if valuesVal == nil || len(valuesVal.Content) <= bound {
 		return nil
 	}
 	return []problem.Problem{{

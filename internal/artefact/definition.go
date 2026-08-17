@@ -123,6 +123,11 @@ type ProviderInfo struct {
 	AuthSlots    []string
 	RecordFields map[string]bool
 	SecretFields map[string]bool
+	// Enumerations is the Manifest's own enumerations: block, name to
+	// members — the one source a Capability-relevant hole in an
+	// Operation's host: may resolve to, and half the candidate set
+	// expansion the host grant is checked against (§3, §12, issue #98).
+	Enumerations map[string][]string
 }
 
 // OperationInfo is what checking a Step against the Operation it binds
@@ -152,6 +157,24 @@ type OperationInfo struct {
 	Repeatability string
 	HasSecret     bool
 	SecretFields  map[string]bool
+	// HostTemplate is the raw host: scalar an http: block carries — ""
+	// on a shell Operation, which has no host: at all — the template
+	// whose at-load expansion is the candidate set the bound Target's
+	// grant is checked against (§3, ADR-0029, issue #98).
+	HostTemplate string
+	// HostInput is the raw host-input: scalar — "" where the Operation
+	// declares none — naming the one input that carries a whole host
+	// where the candidate set and the grant intersect to several, and
+	// the position that makes an over: values: list a host list where a
+	// Step wires {item: $} into it (§3, §4, issue #98).
+	HostInput string
+	// Identity is the raw identity: scalar record: carries — "" on a
+	// destroy, which projects nothing — read to decide whether an
+	// Expansion's members can be shown to project one identity before
+	// any call goes out: a template hole or $.command on a shell
+	// Operation resolve before the call, and any response path does not
+	// (§3, §4, issue #98).
+	Identity string
 }
 
 // IsOpaqueDestroy reports whether this Operation is the one Step §5's Bound
@@ -184,14 +207,17 @@ type InputInfo struct {
 // TargetInfo is what checking a Definition against a Target it binds needs:
 // the class it declares, the Capabilities it grants, the credential slot
 // names its auth: mapping supplies, the Kinds it accepts — the grant half of
-// the two keys, a Step's bound Definition supplying the claim — and whether
-// it has opted into opaque-destroy: (§3, §4, §5, issue #95).
+// the two keys, a Step's bound Definition supplying the claim — whether
+// it has opted into opaque-destroy: (§3, §4, §5, issue #95), and the granted
+// host set its hosts: enumerates — the comparand both host-not-granted
+// comparisons run against (§3, §4, ADR-0024, ADR-0029, issue #98).
 type TargetInfo struct {
 	Class         string
 	Capabilities  map[string]bool
 	AuthSlots     map[string]bool
 	Kinds         map[string]bool
 	OpaqueDestroy bool
+	Hosts         map[string]bool
 }
 
 // ProviderIndex maps a Provider's own name — a built-in or a providers/
@@ -328,10 +354,11 @@ func BuildDefinitionIndex(definitionRoots []*yaml.Node, targets TargetIndex) Def
 // auth: scheme requires, and RecordFields and SecretFields, each the union
 // of every Operation's own set of the same name (§3, §4, §12, issue #97).
 func providerInfoFromManifest(root *yaml.Node) ProviderInfo {
-	fields := topLevelFields(root, "class", "capabilities", "operations")
+	fields := topLevelFields(root, "class", "capabilities", "operations", "enumerations")
 	info := ProviderInfo{
 		Capabilities: map[string]bool{}, Operations: map[string]OperationInfo{},
 		RecordFields: map[string]bool{}, SecretFields: map[string]bool{},
+		Enumerations: map[string][]string{},
 	}
 	if classVal := fields["class"]; classVal != nil && classVal.Kind == yaml.ScalarNode {
 		info.Class = classVal.Value
@@ -360,16 +387,33 @@ func providerInfoFromManifest(root *yaml.Node) ProviderInfo {
 		}
 	}
 	info.AuthSlots = authSlotNames(root)
+	if enumVal := fields["enumerations"]; enumVal != nil && enumVal.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(enumVal.Content); i += 2 {
+			key, val := enumVal.Content[i], enumVal.Content[i+1]
+			if key.Kind != yaml.ScalarNode || val.Kind != yaml.SequenceNode {
+				continue
+			}
+			var members []string
+			for _, item := range val.Content {
+				if item.Kind == yaml.ScalarNode {
+					members = append(members, item.Value)
+				}
+			}
+			info.Enumerations[key.Value] = members
+		}
+	}
 	return info
 }
 
-// targetInfoFromDeclaration reads the five facts CheckDefinition and the
+// targetInfoFromDeclaration reads the six facts CheckDefinition and the
 // Step-level authority checks need off a Target declaration's own root:
 // class:, capabilities:, the credential slot names its auth: mapping's own
-// keys are, the Kinds it accepts, and whether it opts into opaque-destroy:
-// (§3, §4, §5, issue #95).
+// keys are, the Kinds it accepts, whether it opts into opaque-destroy:
+// (§3, §4, §5, issue #95), and the granted host set hosts: enumerates —
+// nil where the declaration grants no http and so carries none (§3,
+// issue #98).
 func targetInfoFromDeclaration(root *yaml.Node) TargetInfo {
-	fields := topLevelFields(root, "class", "capabilities", "auth", "kinds", "opaque-destroy")
+	fields := topLevelFields(root, "class", "capabilities", "auth", "kinds", "opaque-destroy", "hosts")
 	info := TargetInfo{Capabilities: map[string]bool{}, AuthSlots: map[string]bool{}, Kinds: map[string]bool{}}
 	if classVal := fields["class"]; classVal != nil && classVal.Kind == yaml.ScalarNode {
 		info.Class = classVal.Value
@@ -397,6 +441,14 @@ func targetInfoFromDeclaration(root *yaml.Node) TargetInfo {
 	}
 	if opaqueVal := fields["opaque-destroy"]; opaqueVal != nil && opaqueVal.Kind == yaml.ScalarNode {
 		info.OpaqueDestroy = opaqueVal.Value == "true"
+	}
+	if hostsVal := fields["hosts"]; hostsVal != nil && hostsVal.Kind == yaml.SequenceNode {
+		info.Hosts = map[string]bool{}
+		for _, item := range hostsVal.Content {
+			if item.Kind == yaml.ScalarNode {
+				info.Hosts[item.Value] = true
+			}
+		}
 	}
 	return info
 }

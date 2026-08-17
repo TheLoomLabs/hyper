@@ -60,7 +60,10 @@ const CodeIdentityUndeclared = "identity-undeclared"
 // pointing a reader at one file, one Operation, and two adjacent keys
 // rather than earning a code of its own (§3, §4). The twelfth shape —
 // Target slot coverage — needs a (Definition, Target) binding to decide
-// and is #93's.
+// and is #93's, and the thirteenth — a candidate set and a bound Target's
+// grant intersecting to several hosts under an Operation declaring no
+// host-input: — needs a Step's binding and is #98's, emitted from
+// procedure.go where that binding is read.
 const CodeManifestInconsistent = "manifest-inconsistent"
 
 // CodeHeaderReserved is the code drawn on the five headers hyper computes
@@ -1011,8 +1014,17 @@ func inputPropertyTypes(inputVal *yaml.Node) map[string]string {
 // read once per Manifest pass, alongside the rest of ProviderInfo, rather
 // than reparsed per Step that names this Operation.
 func operationInfoFromNode(op *yaml.Node) OperationInfo {
-	fields := topLevelFields(op, "kind", "shell", "input", "record", "repeatability", "secret")
+	fields := topLevelFields(op, "kind", "shell", "http", "input", "record", "repeatability", "secret")
 	info := OperationInfo{IsShell: fields["shell"] != nil, Inputs: map[string]InputInfo{}}
+	if httpVal := fields["http"]; httpVal != nil && httpVal.Kind == yaml.MappingNode {
+		httpFields := topLevelFields(httpVal, "host", "host-input")
+		if hostVal := httpFields["host"]; hostVal != nil && hostVal.Kind == yaml.ScalarNode {
+			info.HostTemplate = hostVal.Value
+		}
+		if hostInputVal := httpFields["host-input"]; hostInputVal != nil && hostInputVal.Kind == yaml.ScalarNode {
+			info.HostInput = hostInputVal.Value
+		}
+	}
 	if kindVal := fields["kind"]; kindVal != nil && kindVal.Kind == yaml.ScalarNode {
 		info.Kind = kindVal.Value
 	}
@@ -1038,8 +1050,11 @@ func operationInfoFromNode(op *yaml.Node) OperationInfo {
 	}
 
 	if recordVal := fields["record"]; recordVal != nil && recordVal.Kind == yaml.MappingNode {
-		recordFields := topLevelFields(recordVal, "over", "fields")
+		recordFields := topLevelFields(recordVal, "over", "fields", "identity")
 		info.HasSeries = recordFields["over"] != nil
+		if identityVal := recordFields["identity"]; identityVal != nil && identityVal.Kind == yaml.ScalarNode {
+			info.Identity = identityVal.Value
+		}
 		info.RecordFields = map[string]bool{}
 		if fieldsVal := recordFields["fields"]; fieldsVal != nil && fieldsVal.Kind == yaml.MappingNode {
 			for i := 0; i+1 < len(fieldsVal.Content); i += 2 {
