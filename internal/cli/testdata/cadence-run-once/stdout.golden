@@ -1,0 +1,2 @@
+FILE                     LINE  FIELD    ERROR_CODE        MESSAGE
+procedures/nightly.yaml  4     cadence  cadence-run-once  cadence: reaches a run-once Step at some depth — a Cadence over a run-once Step declares a recurrence with a lifespan of one occurrence

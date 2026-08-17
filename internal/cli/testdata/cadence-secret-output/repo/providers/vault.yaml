@@ -1,0 +1,19 @@
+kind: provider
+provider: vault
+schema-version: 1
+class: vault
+capabilities: [http]
+operations:
+  issue_token:
+    kind: mutate
+    repeatability: repeatable
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /issue
+    record:
+      identity: $.id
+      fields:
+        token: $.token
+    secret: [token]

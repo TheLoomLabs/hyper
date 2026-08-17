@@ -1,0 +1,6 @@
+kind: procedure
+procedure: middle
+targets: [local]
+steps:
+  - id: call-inner
+    procedure: inner

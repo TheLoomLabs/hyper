@@ -88,6 +88,14 @@ const CodeBoundIllegal = "bound-illegal"
 // issue #95).
 const CodeOpaqueDestroyUnscoped = "opaque-destroy-unscoped"
 
+// CodeEnvelopeExceeded is the code a Step outside its own Procedure's
+// declared Target and Kind envelope earns, and the code an invoked
+// Procedure's transitive envelope reaching outside its caller's declared one
+// earns too — one code for both shapes, checked before the first Step of
+// either runs so composition cannot widen blast radius by accident (§4, §5,
+// issue #96).
+const CodeEnvelopeExceeded = "envelope-exceeded"
+
 // KindProcedure is the one kind: value a file in procedures/ may carry
 // (§12's kind table).
 const KindProcedure = "procedure"
@@ -178,19 +186,73 @@ func BuildProcedureIndex(procedureRoots []*yaml.Node) ProcedureIndex {
 // procedure: against the file's basename, and each steps: entry against
 // whichever shape it turns out to be. providers, definitions and procedures
 // are the repository-wide namespaces a Step's operation: and definition:,
-// and a nested invocation's procedure:, resolve against. root is nil where
-// the file parsed to no document at all; the schema check still runs and
-// reports every required key the file never supplied.
-func CheckProcedure(file string, root *yaml.Node, providers ProviderIndex, definitions DefinitionIndex, procedures ProcedureIndex) []problem.Problem {
+// and a nested invocation's procedure:, resolve against; targets is the
+// namespace this Procedure's own declared targets: list resolves against,
+// read here into the declared Target and Kind envelope every Step directly
+// in this file is checked against (envelope-exceeded, §4, §5, issue #96).
+// The transitive half of that same walk — an invoked Procedure's own
+// envelope against its caller's, and the two Cadence rules that ride the
+// same walk — needs every procedures/ file at once and is CheckProcedureGraph's
+// (issue #96). root is nil where the file parsed to no document at all; the
+// schema check still runs and reports every required key the file never
+// supplied.
+func CheckProcedure(file string, root *yaml.Node, providers ProviderIndex, definitions DefinitionIndex, targets TargetIndex, procedures ProcedureIndex) []problem.Problem {
 	problems := schema.Check(root, ProcedureDeclaration, file)
 	problems = append(problems, checkKind(file, root, KindProcedure)...)
 	problems = append(problems, checkName(file, root, "procedure")...)
 
+	declaredTargets, declaredKinds := procedureEnvelope(root, targets)
 	stepsVal := topLevelFields(root, "steps")["steps"]
 	if stepsVal != nil && stepsVal.Kind == yaml.SequenceNode {
-		problems = append(problems, checkSteps(file, stepsVal, providers, definitions, procedures)...)
+		problems = append(problems, checkSteps(file, stepsVal, providers, definitions, procedures, declaredTargets, declaredKinds)...)
 	}
 	return problems
+}
+
+// procedureEnvelope reads a Procedure's own top-level targets: list — the
+// full set the Procedure and everything it invokes may touch, authored
+// rather than derived (§3, §4) — into the two sets a Step directly in this
+// file is checked against: declaredTargets, the raw names as written,
+// whether or not each one resolves; and declaredKinds, the Kind envelope
+// those names imply for free, the union of every resolved Target's own
+// accepted Kinds. A name that does not resolve against targets contributes
+// nothing to declaredKinds — it names no accepted Kinds for a union to
+// read — the same way an unresolved reference contributes nothing
+// elsewhere in this package (issue #96). It says nothing about whether
+// targets: itself is present or well-formed — the schema check above has
+// already named that fault — and returns two empty sets where it is
+// absent or not a sequence.
+func procedureEnvelope(root *yaml.Node, targets TargetIndex) (declaredTargets, declaredKinds map[string]bool) {
+	declaredTargets = readDeclaredTargetNames(root)
+	declaredKinds = map[string]bool{}
+	for name := range declaredTargets {
+		if info, found := targets[name]; found {
+			for kind := range info.Kinds {
+				declaredKinds[kind] = true
+			}
+		}
+	}
+	return declaredTargets, declaredKinds
+}
+
+// readDeclaredTargetNames reads root's own top-level targets: list into the
+// raw names it names, whether or not each one resolves — the one walk
+// procedureEnvelope and buildProcedureGraphInfo both need off a
+// procedures/ file's targets: and would otherwise duplicate (§4, §5,
+// issue #96). It returns an empty, non-nil set where targets: is absent or
+// not a sequence.
+func readDeclaredTargetNames(root *yaml.Node) map[string]bool {
+	names := map[string]bool{}
+	targetsVal := topLevelFields(root, "targets")["targets"]
+	if targetsVal == nil || targetsVal.Kind != yaml.SequenceNode {
+		return names
+	}
+	for _, item := range targetsVal.Content {
+		if name, ok := resolveScalar(item); ok {
+			names[name] = true
+		}
+	}
+	return names
 }
 
 // stepRefInfo is what a later reference's step: half resolves an earlier
@@ -207,7 +269,7 @@ type stepRefInfo struct {
 // the same list — never against one written later, and never across a
 // nested invocation's own boundary, Procedures composing by invoking one
 // another rather than by sharing a Step namespace (ADR-0002, §3, §4).
-func checkSteps(file string, stepsVal *yaml.Node, providers ProviderIndex, definitions DefinitionIndex, procedures ProcedureIndex) []problem.Problem {
+func checkSteps(file string, stepsVal *yaml.Node, providers ProviderIndex, definitions DefinitionIndex, procedures ProcedureIndex, declaredTargets, declaredKinds map[string]bool) []problem.Problem {
 	var problems []problem.Problem
 	stepIndex := map[string]stepRefInfo{}
 
@@ -229,7 +291,7 @@ func checkSteps(file string, stepsVal *yaml.Node, providers ProviderIndex, defin
 			problems = append(problems, schema.CheckAt(entry, invocationDeclaration, field, file)...)
 			problems = append(problems, checkInvocationResolution(file, field, fields["procedure"], procedures)...)
 		default:
-			problems = append(problems, checkStepEntry(file, field, entry, fields, providers, definitions, stepIndex)...)
+			problems = append(problems, checkStepEntry(file, field, entry, fields, providers, definitions, stepIndex, declaredTargets, declaredKinds)...)
 		}
 	}
 	return problems
@@ -263,7 +325,7 @@ func checkInvocationResolution(file, field string, procVal *yaml.Node, procedure
 // later reference naming this id: finds an empty OperationInfo and fails
 // its own resolution once, rather than this entry's own fault being
 // reported a second time under a different code.
-func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yaml.Node, providers ProviderIndex, definitions DefinitionIndex, stepIndex map[string]stepRefInfo) []problem.Problem {
+func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yaml.Node, providers ProviderIndex, definitions DefinitionIndex, stepIndex map[string]stepRefInfo, declaredTargets, declaredKinds map[string]bool) []problem.Problem {
 	problems := schema.CheckAt(entry, stepDeclaration, field, file)
 
 	defName, defOK := resolveScalar(fields["definition"])
@@ -304,9 +366,44 @@ func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yam
 	if haveDef {
 		problems = append(problems, checkStepAuthority(file, field, entry, fields, defInfo, op, haveOp)...)
 	}
+	problems = append(problems, checkStepEnvelope(file, field, entry, fields, declaredTargets, declaredKinds, op, haveOp)...)
 
 	if idVal, idOK := resolveScalar(fields["id"]); idOK {
 		stepIndex[idVal] = stepRefInfo{op: op}
+	}
+	return problems
+}
+
+// checkStepEnvelope reports envelope-exceeded on a Step reaching outside its
+// own Procedure's declared Target and Kind envelope (§4, §5, issue #96): a
+// bound Target absent from declaredTargets — the raw targets: names this
+// file itself wrote, whatever else about the Step failed to resolve — or,
+// where the Operation resolved, a Kind absent from declaredKinds — the
+// union of accepted Kinds every declaredTargets member's own Target
+// declaration grants. It is the file-local half of the walk: composition
+// cannot widen a Procedure's reach past what it declares, and neither can a
+// Step written past the envelope its own file declares. The transitive
+// half — an invoked Procedure's own envelope reaching outside its caller's —
+// needs every procedures/ file at once and is CheckProcedureGraph's.
+func checkStepEnvelope(file, field string, entry *yaml.Node, fields map[string]*yaml.Node, declaredTargets, declaredKinds map[string]bool, op OperationInfo, haveOp bool) []problem.Problem {
+	var problems []problem.Problem
+
+	if targetName, targetOK := resolveScalar(fields["target"]); targetOK && !declaredTargets[targetName] {
+		targetVal := fields["target"]
+		problems = append(problems, problem.Problem{
+			File: file, Line: targetVal.Line, Column: targetVal.Column, Field: field + ".target",
+			ErrorCode: CodeEnvelopeExceeded,
+			Message:   fmt.Sprintf("target: %s is outside this Procedure's own declared targets: envelope", targetName),
+		})
+	}
+
+	if haveOp && !declaredKinds[op.Kind] {
+		line, column := position(entry)
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: CodeEnvelopeExceeded,
+			Message:   fmt.Sprintf("%s is outside the Kind envelope this Procedure's own declared targets: imply", op.Kind),
+		})
 	}
 	return problems
 }

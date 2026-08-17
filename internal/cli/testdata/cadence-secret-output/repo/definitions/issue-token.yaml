@@ -1,0 +1,5 @@
+kind: definition
+definition: issue-token
+provider: vault
+kinds: [mutate]
+targets: [vault-prod]

@@ -1,0 +1,2 @@
+FILE                    LINE  FIELD    ERROR_CODE             MESSAGE
+procedures/rotate.yaml  4     cadence  cadence-secret-output  cadence: reaches a Step whose Operation declares secret: output at some depth — the workflow project generates supplies no Secret sink, so the Refusal would land at every occurrence

@@ -1,0 +1,6 @@
+kind: target-declaration
+target: vault-prod
+class: vault
+kinds: [mutate]
+capabilities: [http]
+hosts: [vault.example.com]

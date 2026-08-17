@@ -1,0 +1,10 @@
+kind: procedure
+procedure: deploy
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: other
+    args:
+      command: [uptime]

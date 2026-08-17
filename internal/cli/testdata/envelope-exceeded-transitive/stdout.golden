@@ -1,0 +1,2 @@
+FILE                    LINE  FIELD               ERROR_CODE         MESSAGE
+procedures/middle.yaml  6     steps[0].procedure  envelope-exceeded  procedure: inner's transitive envelope reaches other, outside this Procedure's own declared targets:

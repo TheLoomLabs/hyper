@@ -1,0 +1,9 @@
+kind: procedure
+procedure: rotate
+targets: [vault-prod]
+cadence: "0 4 * * *"
+steps:
+  - id: issue
+    definition: issue-token
+    operation: issue_token
+    target: vault-prod

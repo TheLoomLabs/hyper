@@ -127,14 +127,19 @@ type ProviderInfo struct {
 // record: carries an over: and one otherwise — the fact a reference's step:
 // half is refused against (series-reference); the field names its record:
 // projects, nil on an Operation with no record: at all — the namespace a
-// reference's path: half resolves against; and every input its input:
-// schema declares, by name.
+// reference's path: half resolves against; every input its input: schema
+// declares, by name; its own Repeatability, "" where undeclared — the fact
+// IsRunOnce reads, and the two Cadence rules' own walk with it (issue #96);
+// and whether its own secret: is present and names at least one field — the
+// other fact that same walk reads.
 type OperationInfo struct {
-	IsShell      bool
-	Kind         string
-	HasSeries    bool
-	RecordFields map[string]bool
-	Inputs       map[string]InputInfo
+	IsShell       bool
+	Kind          string
+	HasSeries     bool
+	RecordFields  map[string]bool
+	Inputs        map[string]InputInfo
+	Repeatability string
+	HasSecret     bool
 }
 
 // IsOpaqueDestroy reports whether this Operation is the one Step §5's Bound
@@ -142,6 +147,16 @@ type OperationInfo struct {
 // request is opaque, the shell Capability (§4, §5, §13, issue #95).
 func (o OperationInfo) IsOpaqueDestroy() bool {
 	return o.Kind == "destroy" && o.IsShell
+}
+
+// IsRunOnce reports whether this Operation is the effectful default the
+// Cadence walk refuses at any depth (§4, §5, issue #96): its repeatability:
+// is omitted and its Kind is mutate or destroy — the one combination with
+// no spelling of its own, run-once having none. A read's undeclared
+// Repeatability is always repeatable rather than run-once (§12), so a read
+// is never run-once whatever its Repeatability reads.
+func (o OperationInfo) IsRunOnce() bool {
+	return o.Repeatability == "" && (o.Kind == "mutate" || o.Kind == "destroy")
 }
 
 // InputInfo is what checking a Step's args: value against one Operation

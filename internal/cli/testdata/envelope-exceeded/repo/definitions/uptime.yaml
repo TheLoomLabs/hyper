@@ -1,0 +1,5 @@
+kind: definition
+definition: uptime
+provider: shell
+kinds: [read]
+targets: [local, other]

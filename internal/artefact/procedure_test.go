@@ -24,6 +24,13 @@ func fullyGrantedTarget() TargetInfo {
 	return TargetInfo{Kinds: map[string]bool{"read": true, "mutate": true, "destroy": true}, OpaqueDestroy: true}
 }
 
+// localTargets is the TargetIndex uptimeDefinitions' own Targets pairs with —
+// the namespace a Procedure's own targets: envelope resolves against wherever
+// a test does not need a narrower grant of its own (issue #96).
+func localTargets() TargetIndex {
+	return TargetIndex{"local": fullyGrantedTarget()}
+}
+
 func uptimeDefinitions() DefinitionIndex {
 	return DefinitionIndex{"uptime": DefinitionInfo{
 		ProviderName: "shell",
@@ -64,7 +71,7 @@ steps:
 `
 
 func TestCheckProcedure_Clean(t *testing.T) {
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems", got)
 	}
@@ -72,7 +79,7 @@ func TestCheckProcedure_Clean(t *testing.T) {
 
 func TestCheckProcedure_CommentsAreIgnored(t *testing.T) {
 	doc := "# a comment above the document\n" + minimalProcedure + "    # a comment beside a Step's own lines\n"
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems", got)
 	}
@@ -80,7 +87,7 @@ func TestCheckProcedure_CommentsAreIgnored(t *testing.T) {
 
 func TestCheckProcedure_KindMismatch(t *testing.T) {
 	doc := "kind: definition\nprocedure: deploy\ntargets: [local]\nsteps: []\n"
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeKindMismatch)
 	if p.Field != "kind" {
 		t.Errorf("Field = %q, want kind", p.Field)
@@ -89,7 +96,7 @@ func TestCheckProcedure_KindMismatch(t *testing.T) {
 
 func TestCheckProcedure_NameMismatch(t *testing.T) {
 	doc := "kind: procedure\nprocedure: not-the-filename\ntargets: [local]\nsteps: []\n"
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeNameMismatch)
 	if p.Field != "procedure" {
 		t.Errorf("Field = %q, want procedure", p.Field)
@@ -98,7 +105,7 @@ func TestCheckProcedure_NameMismatch(t *testing.T) {
 
 func TestCheckProcedure_CadenceIsAStringAndUnvalidated(t *testing.T) {
 	doc := "kind: procedure\nprocedure: deploy\ntargets: [local]\ncadence: \"whatever hyper likes\"\nsteps: []\n"
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems — cadence:'s grammar is not validated this milestone", got)
 	}
@@ -106,7 +113,7 @@ func TestCheckProcedure_CadenceIsAStringAndUnvalidated(t *testing.T) {
 
 func TestCheckProcedure_UnknownTopLevelKeyIsUnknownKey(t *testing.T) {
 	doc := "kind: procedure\nprocedure: deploy\ntargets: [local]\nsteps: []\nowner: someone\n"
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "owner" {
 		t.Errorf("Field = %q, want owner", p.Field)
@@ -124,7 +131,7 @@ steps:
     operation: read
     target: local
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "steps[0]" {
 		t.Errorf("Field = %q, want steps[0]", p.Field)
@@ -140,7 +147,7 @@ steps:
     procedure: deploy
     bound: 3
 `
-	got := CheckProcedure("procedures/outer.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{"deploy": true})
+	got := CheckProcedure("procedures/outer.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{"deploy": true})
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "steps[0].bound" {
 		t.Errorf("Field = %q, want steps[0].bound", p.Field)
@@ -155,7 +162,7 @@ steps:
   - id: inner
     procedure: deploy
 `
-	got := CheckProcedure("procedures/outer.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{"deploy": true})
+	got := CheckProcedure("procedures/outer.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{"deploy": true})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems", got)
 	}
@@ -169,7 +176,7 @@ steps:
   - id: inner
     procedure: nowhere
 `
-	got := CheckProcedure("procedures/outer.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/outer.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeArtefactAbsent)
 	if p.Field != "steps[0].procedure" {
 		t.Errorf("Field = %q, want steps[0].procedure", p.Field)
@@ -188,7 +195,7 @@ steps:
     args:
       command: [uptime]
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeArtefactAbsent)
 	if p.Field != "steps[0].definition" {
 		t.Errorf("Field = %q, want steps[0].definition", p.Field)
@@ -205,7 +212,7 @@ steps:
     operation: nonexistent
     target: local
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeReferenceUnresolvable)
 	if p.Field != "steps[0].operation" {
 		t.Errorf("Field = %q, want steps[0].operation", p.Field)
@@ -226,7 +233,7 @@ steps:
       name: preview-42.example.com
       type: A
 `
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "steps[0].args.content" {
 		t.Errorf("Field = %q, want steps[0].args.content", p.Field)
@@ -248,7 +255,7 @@ steps:
       type: MX
       content: 203.0.113.10
 `
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "steps[0].args.type" {
 		t.Errorf("Field = %q, want steps[0].args.type", p.Field)
@@ -292,7 +299,7 @@ steps:
     args:
       foo: bar
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), providers, definitions, ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), providers, definitions, localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "steps[0].args.foo" {
 		t.Errorf("Field = %q, want steps[0].args.foo", p.Field)
@@ -314,7 +321,7 @@ steps:
       type: A
       content: 203.0.113.10
 `
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "steps[0].args.name" {
 		t.Errorf("Field = %q, want steps[0].args.name", p.Field)
@@ -336,7 +343,7 @@ steps:
       type: A
       content: 203.0.113.10
 `
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	p := mustCode(t, got, CodeReferenceUnresolvable)
 	if p.Field != "steps[0].args.name.step" {
 		t.Errorf("Field = %q, want steps[0].args.name.step", p.Field)
@@ -362,7 +369,7 @@ steps:
       type: A
       content: 203.0.113.10
 `
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	p := mustCode(t, got, CodeReferenceUnresolvable)
 	if p.Field != "steps[0].args.name.step" {
 		t.Errorf("Field = %q, want steps[0].args.name.step", p.Field)
@@ -391,7 +398,7 @@ steps:
       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
       record_id: {step: publish, path: $.bogus}
 `
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	p := mustCode(t, got, CodeReferenceUnresolvable)
 	if p.Field != "steps[1].args.record_id.path" {
 		t.Errorf("Field = %q, want steps[1].args.record_id.path", p.Field)
@@ -421,7 +428,7 @@ steps:
       record_id: {step: publish, path: $.id}
     bound: 1
 `
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems", got)
 	}
@@ -448,7 +455,7 @@ steps:
       type: A
       content: 203.0.113.10
 `
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	p := mustCode(t, got, CodeSeriesReference)
 	if p.Field != "steps[1].args.name" {
 		t.Errorf("Field = %q, want steps[1].args.name", p.Field)
@@ -473,7 +480,7 @@ steps:
     args:
       command: {step: earlier, path: $.exit_code}
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "steps[1].args.command" {
 		t.Errorf("Field = %q, want steps[1].args.command", p.Field)
@@ -492,7 +499,7 @@ steps:
     args:
       command: []
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeCommandMalformed)
 	if p.Field != "steps[0].args.command" {
 		t.Errorf("Field = %q, want steps[0].args.command", p.Field)
@@ -514,7 +521,7 @@ steps:
     args:
       command: uptime
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeCommandMalformed)
 	if p.Field != "steps[0].args.command" {
 		t.Errorf("Field = %q, want steps[0].args.command", p.Field)
@@ -542,7 +549,7 @@ steps:
     args:
       command: [{step: earlier, path: $.exit_code}, uptime]
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeCommandMalformed)
 	if p.Field != "steps[1].args.command[0]" {
 		t.Errorf("Field = %q, want steps[1].args.command[0]", p.Field)
@@ -568,7 +575,7 @@ steps:
     args:
       command: [ssh, {item: $}, df, -h, /srv]
 `
-	got := CheckProcedure("procedures/disk-free.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/disk-free.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems", got)
 	}
@@ -588,7 +595,7 @@ steps:
     args:
       command: [ssh, {item: $}, df, -h, /srv]
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeRecordIdentityCollision)
 	if p.Field != "steps[0].over.values" {
 		t.Errorf("Field = %q, want steps[0].over.values", p.Field)
@@ -609,7 +616,7 @@ steps:
     args:
       command: [ssh, {item: $}, df, -h, /srv]
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems", got)
 	}
@@ -686,14 +693,14 @@ steps:
 `
 
 func TestCheckProcedure_RetirePreviewDNSIsClean(t *testing.T) {
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, retirePreviewDNS), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, retirePreviewDNS), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems", got)
 	}
 }
 
 func TestCheckProcedure_RetirePreviewDNSLegacyVariantIsClean(t *testing.T) {
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, retirePreviewDNSLegacy), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, retirePreviewDNSLegacy), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems", got)
 	}
@@ -708,7 +715,7 @@ func TestCheckProcedure_KindNotGrantedWhereDefinitionClaimsNothing(t *testing.T)
 		Destroy:      map[string]bool{},
 		Targets:      map[string]TargetInfo{"local": fullyGrantedTarget()},
 	}}
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure), shellProviders(), definitions, ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure), shellProviders(), definitions, localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeKindNotGranted)
 	if p.Field != "steps[0]" {
 		t.Errorf("Field = %q, want steps[0]", p.Field)
@@ -743,7 +750,7 @@ steps:
     args:
       command: [uptime]
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), definitions, ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), definitions, localTargets(), ProcedureIndex{})
 	var kindNotGranted int
 	for _, p := range got {
 		if p.ErrorCode == CodeKindNotGranted {
@@ -772,12 +779,12 @@ steps:
     args:
       command: [uptime]
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), definitions, ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), definitions, TargetIndex{"local": {Kinds: map[string]bool{"read": true}}}, ProcedureIndex{})
 	mustCode(t, got, CodeKindNotGranted)
 }
 
 func TestCheckProcedure_KindGrantedDrawsNoCode(t *testing.T) {
-	mustNoCode(t, CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure), shellProviders(), uptimeDefinitions(), ProcedureIndex{}), CodeKindNotGranted)
+	mustNoCode(t, CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{}), CodeKindNotGranted)
 }
 
 // TestCheckProcedure_MutateOperationNeedsNoNamedClaimOnlyKind proves issue
@@ -796,7 +803,7 @@ steps:
     args:
       command: [uptime]
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems — mutate checks at Kind level and needs no per-Operation claim", got)
 	}
@@ -822,7 +829,7 @@ steps:
     args:
       command: [rm, -rf, {item: $}]
 `
-	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), definitions, ProcedureIndex{})
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), definitions, localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeOperationNotClaimed)
 	if p.Field != "steps[0].operation" {
 		t.Errorf("Field = %q, want steps[0].operation", p.Field)
@@ -843,7 +850,7 @@ steps:
     args:
       command: [rm, -rf, {item: $}]
 `
-	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	mustNoCode(t, got, CodeOperationNotClaimed)
 }
 
@@ -873,7 +880,7 @@ steps:
     args:
       command: [rm, -rf, {item: $}]
 `
-	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), definitions, ProcedureIndex{})
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), definitions, localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeTargetNotClaimed)
 	if p.Field != "steps[0].target" {
 		t.Errorf("Field = %q, want steps[0].target", p.Field)
@@ -898,7 +905,7 @@ steps:
       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
       record_id: some-record-id
 `
-	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
 	p := mustCode(t, got, CodeBoundMissing)
 	if p.Field != "steps[0].bound" {
 		t.Errorf("Field = %q, want steps[0].bound", p.Field)
@@ -920,7 +927,7 @@ steps:
     args:
       command: [rm, -rf, {item: $}]
 `
-	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeBoundIllegal)
 	if p.Field != "steps[0].bound" {
 		t.Errorf("Field = %q, want steps[0].bound", p.Field)
@@ -945,7 +952,7 @@ steps:
     args:
       command: [rm, -rf, {item: $}]
 `
-	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems — an opaque destroy Step carries no Bound and this one carries none", got)
 	}
@@ -964,7 +971,7 @@ steps:
     args:
       command: [uptime]
 `
-	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "steps[0].bound" {
 		t.Errorf("Field = %q, want steps[0].bound", p.Field)
@@ -983,7 +990,7 @@ steps:
     args:
       command: [rm, -rf, /srv/app/releases/r41]
 `
-	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
 	p := mustCode(t, got, CodeOpaqueDestroyUnscoped)
 	if p.Field != "steps[0]" {
 		t.Errorf("Field = %q, want steps[0]", p.Field)
@@ -1003,5 +1010,103 @@ steps:
       values: [/srv/app/releases/r41]
     args:
       command: [rm, -rf, {item: $}]
-`), shellProviders(), uptimeDefinitions(), ProcedureIndex{}), CodeOpaqueDestroyUnscoped)
+`), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{}), CodeOpaqueDestroyUnscoped)
+}
+
+// --- issue #96: the transitive walks — the envelope and the two Cadence rules ---
+
+// TestCheckProcedure_StepTargetOutsideDeclaredTargetsIsEnvelopeExceeded
+// proves the file-local half of the envelope rule: a Step whose bound
+// Target the Procedure's own targets: never named is envelope-exceeded,
+// whether or not the binding is otherwise authorised.
+func TestCheckProcedure_StepTargetOutsideDeclaredTargetsIsEnvelopeExceeded(t *testing.T) {
+	definitions := DefinitionIndex{"uptime": DefinitionInfo{
+		ProviderName: "shell",
+		Kinds:        map[string]bool{"read": true, "mutate": true},
+		Destroy:      map[string]bool{"destroy": true, "destroy_once": true},
+		Targets:      map[string]TargetInfo{"local": fullyGrantedTarget(), "other": fullyGrantedTarget()},
+	}}
+	targets := TargetIndex{"local": fullyGrantedTarget(), "other": fullyGrantedTarget()}
+	doc := `kind: procedure
+procedure: deploy
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: other
+    args:
+      command: [uptime]
+`
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), definitions, targets, ProcedureIndex{})
+	p := mustCode(t, got, CodeEnvelopeExceeded)
+	if p.Field != "steps[0].target" {
+		t.Errorf("Field = %q, want steps[0].target", p.Field)
+	}
+}
+
+// TestCheckProcedure_StepTargetInsideDeclaredTargetsDrawsNoEnvelopeExceeded
+// proves the clean side of the same rule: a Step bound to a Target the
+// Procedure's own targets: does name draws no envelope-exceeded.
+func TestCheckProcedure_StepTargetInsideDeclaredTargetsDrawsNoEnvelopeExceeded(t *testing.T) {
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
+	mustNoCode(t, got, CodeEnvelopeExceeded)
+}
+
+// TestCheckProcedure_StepKindOutsideDeclaredKindEnvelopeIsEnvelopeExceeded
+// proves the Kind half of the same file-local rule: a Step whose Operation's
+// Kind no declared target's own accepted Kinds grant is envelope-exceeded —
+// read here off a Target the Procedure's targets: does name, so the Target
+// envelope half of the rule stays clean and only the Kind half fires.
+func TestCheckProcedure_StepKindOutsideDeclaredKindEnvelopeIsEnvelopeExceeded(t *testing.T) {
+	definitions := DefinitionIndex{"uptime": DefinitionInfo{
+		ProviderName: "shell",
+		Kinds:        map[string]bool{"read": true, "mutate": true},
+		Targets:      map[string]TargetInfo{"local": fullyGrantedTarget()},
+	}}
+	targets := TargetIndex{"local": {Kinds: map[string]bool{"read": true}}}
+	doc := `kind: procedure
+procedure: deploy
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: mutate
+    target: local
+    args:
+      command: [uptime]
+`
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), definitions, targets, ProcedureIndex{})
+	p := mustCode(t, got, CodeEnvelopeExceeded)
+	if p.Field != "steps[0]" {
+		t.Errorf("Field = %q, want steps[0]", p.Field)
+	}
+}
+
+// TestCheckProcedure_UnresolvedDeclaredTargetContributesNoKind proves an
+// unresolved targets: member contributes no accepted Kinds to the Kind
+// envelope — it names no Target declaration for a union to read, the same
+// way an unresolved name is read absent everywhere else in this package.
+func TestCheckProcedure_UnresolvedDeclaredTargetContributesNoKind(t *testing.T) {
+	doc := `kind: procedure
+procedure: deploy
+targets: [nowhere]
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: nowhere
+    args:
+      command: [uptime]
+`
+	definitions := DefinitionIndex{"uptime": DefinitionInfo{
+		ProviderName: "shell",
+		Kinds:        map[string]bool{"read": true},
+		Targets:      map[string]TargetInfo{"nowhere": fullyGrantedTarget()},
+	}}
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), definitions, TargetIndex{}, ProcedureIndex{})
+	p := mustCode(t, got, CodeEnvelopeExceeded)
+	if p.Field != "steps[0]" {
+		t.Errorf("Field = %q, want steps[0]", p.Field)
+	}
 }

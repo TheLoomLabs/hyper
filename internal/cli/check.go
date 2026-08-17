@@ -120,6 +120,13 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 		problems = append(problems, checkArtefact(lf.rel, lf.root, providers, targets, definitions, procedures)...)
 	}
 
+	// The transitive walk — an invoked Procedure's own envelope against its
+	// caller's, and the two Cadence rules that ride the same walk — needs
+	// every procedures/ file at once, so it runs once here rather than per
+	// file inside checkArtefact (issue #96).
+	graph := artefact.BuildProcedureGraph(procedureRootsUnder(loadedFiles), providers, definitions)
+	problems = append(problems, artefact.CheckProcedureGraph(graph)...)
+
 	if len(paths) > 0 {
 		problems = filterByPaths(problems, paths, repoRoot, wd)
 	}
@@ -243,6 +250,19 @@ func rootsUnder(files []loadedFile, prefix string) []*yaml.Node {
 	return roots
 }
 
+// procedureRootsUnder is rootsUnder's own rule for procedures/, keeping
+// each root paired with its own file — what BuildProcedureGraph needs to
+// cite a fault against the file that carries it (issue #96).
+func procedureRootsUnder(files []loadedFile) []artefact.ProcedureRoot {
+	var roots []artefact.ProcedureRoot
+	for _, lf := range files {
+		if lf.ok && strings.HasPrefix(lf.rel, "procedures/") {
+			roots = append(roots, artefact.ProcedureRoot{File: lf.rel, Root: lf.root})
+		}
+	}
+	return roots
+}
+
 // checkArtefact runs one already-parsed artefact's own schema and the
 // checks that read it against itself or against the repository: hyper.yaml,
 // a file in targets/, a file in providers/, a file in definitions/ and,
@@ -262,7 +282,7 @@ func checkArtefact(rel string, root *yaml.Node, providers artefact.ProviderIndex
 	case strings.HasPrefix(rel, "definitions/"):
 		return artefact.CheckDefinition(rel, root, providers, targets)
 	case strings.HasPrefix(rel, "procedures/"):
-		return artefact.CheckProcedure(rel, root, providers, definitions, procedures)
+		return artefact.CheckProcedure(rel, root, providers, definitions, targets, procedures)
 	}
 	return nil
 }
