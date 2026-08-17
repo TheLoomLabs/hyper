@@ -1,0 +1,2 @@
+FILE                LINE  FIELD  ERROR_CODE      MESSAGE
+targets/local.yaml  8     auth   local-reserved  a declaration named local carries no auth: block — the reserved name leaves a Probe no credential to resolve

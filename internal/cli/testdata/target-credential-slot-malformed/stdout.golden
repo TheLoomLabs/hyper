@@ -1,0 +1,2 @@
+FILE                          LINE  FIELD       ERROR_CODE                 MESSAGE
+targets/cloudflare-prod.yaml  8     auth.token  credential-slot-malformed  auth.token: a credential slot's value must be a mapping whose sole key is env:

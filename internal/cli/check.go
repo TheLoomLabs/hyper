@@ -191,12 +191,13 @@ func resolveRepoRoot(repoDirFlag string, getenv func(string) string, wd string, 
 }
 
 // checkArtefact loads one artefact's problems from its bytes: the strict
-// YAML subset first (issue #88), and — for hyper.yaml, the one artefact
-// this milestone's schema reaches so far — the Repository declaration's own
-// schema and its kind: (issue #89). Both read the one parse yamlsubset.Parse
-// produces rather than decoding the file twice. A file that will not parse
-// at all stops here, on the same "loading a file is the first check" rule
-// yamlsubset.Parse's own ok return states (§4).
+// YAML subset first (issue #88), and — for hyper.yaml and a file in
+// targets/, the two artefacts this milestone's schema reaches so far — that
+// artefact's own schema and the checks that read it against itself (issues
+// #89, #90). Both read the one parse yamlsubset.Parse produces rather than
+// decoding the file twice. A file that will not parse at all stops here, on
+// the same "loading a file is the first check" rule yamlsubset.Parse's own
+// ok return states (§4).
 func checkArtefact(rel string, data []byte) []problem.Problem {
 	root, problems, ok := yamlsubset.Parse(rel, data)
 	if !ok {
@@ -205,8 +206,11 @@ func checkArtefact(rel string, data []byte) []problem.Problem {
 	if root != nil {
 		problems = append(problems, yamlsubset.Violations(root, rel)...)
 	}
-	if rel == "hyper.yaml" {
+	switch {
+	case rel == "hyper.yaml":
 		problems = append(problems, artefact.CheckRepositoryDeclaration(rel, root)...)
+	case strings.HasPrefix(rel, "targets/"):
+		problems = append(problems, artefact.CheckTargetDeclaration(rel, root)...)
 	}
 	return problems
 }

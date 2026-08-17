@@ -1,0 +1,6 @@
+kind: target-declaration
+target: shell-only
+class: local
+kinds: [mutate]
+capabilities: [shell]
+hosts: [example.com]

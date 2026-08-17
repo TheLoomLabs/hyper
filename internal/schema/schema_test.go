@@ -201,6 +201,30 @@ func TestCheck_NilRootReportsEveryRequiredKey(t *testing.T) {
 	}
 }
 
+func TestCheck_OpenObjectAdmitsAnyKeys(t *testing.T) {
+	// A mapping keyed by name — a Target declaration's auth: — is not
+	// enumerated here; the generic engine only checks it is a mapping and
+	// leaves its members to whatever reads a name-keyed mapping's own rule.
+	s := Schema{
+		Type: Object,
+		Properties: []Property{
+			{Name: "auth", Required: false, Schema: Schema{Type: Object, Open: true}},
+		},
+	}
+	mustNone(t, Check(parse(t, "auth:\n  token: {env: TOKEN}\n  second: {env: OTHER}\n"), s, "f.yaml"))
+}
+
+func TestCheck_OpenObjectStillRejectsANonMapping(t *testing.T) {
+	s := Schema{
+		Type: Object,
+		Properties: []Property{
+			{Name: "auth", Required: false, Schema: Schema{Type: Object, Open: true}},
+		},
+	}
+	got := Check(parse(t, "auth: nope\n"), s, "f.yaml")
+	mustOne(t, got, CodeMismatch, "auth")
+}
+
 func TestCheck_NonObjectRoot(t *testing.T) {
 	s := Schema{Type: Object, Properties: []Property{{Name: "kind", Required: true, Schema: Schema{Type: String}}}}
 	got := Check(parse(t, "- a\n- b\n"), s, "f.yaml")

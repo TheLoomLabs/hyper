@@ -1,0 +1,2 @@
+FILE                     LINE  FIELD  ERROR_CODE           MESSAGE
+targets/shell-only.yaml  6     hosts  target-inconsistent  hosts: is present and capabilities: does not grant http

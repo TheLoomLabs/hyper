@@ -1,0 +1,6 @@
+kind: target-declaration
+target: cloudflare-prod
+class: cloudflare
+kinds: [read]
+capabilities: [http]
+hosts: [api.cloudflare.com]

@@ -1,0 +1,2 @@
+FILE                          LINE  FIELD  ERROR_CODE     MESSAGE
+targets/cloudflare-prod.yaml  1     kind   kind-mismatch  kind: definition does not agree with targets/cloudflare-prod.yaml — want target-declaration

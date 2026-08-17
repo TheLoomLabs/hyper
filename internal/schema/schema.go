@@ -63,6 +63,15 @@ type Schema struct {
 	Properties []Property
 	// Items is legal only where Type == Array, and describes every member.
 	Items *Schema
+	// Open marks an Object position that is a mapping keyed by name rather
+	// than a fixed shape — a Target declaration's auth: mapping, whose
+	// members are credential slots the repository names itself, is the
+	// first of these (§4). The generic engine still admits exactly one key
+	// at the position that holds it and still requires the value to be a
+	// mapping; it stops there. Reading what a name-keyed mapping's members
+	// must look like is that position's own rule and its own code, the way
+	// artefact.checkCredentialSlots reads a credential slot's shape.
+	Open bool
 }
 
 // Property is one named member of an Object schema.
@@ -102,6 +111,9 @@ func read(n *yaml.Node, s Schema, field, file string, problems *[]problem.Proble
 func readObject(n *yaml.Node, s Schema, field, file string, problems *[]problem.Problem) {
 	if n != nil && n.Kind != yaml.MappingNode {
 		emit(problems, file, field, n.Line, n.Column, CodeMismatch, "expected an object at this position")
+		return
+	}
+	if s.Open {
 		return
 	}
 

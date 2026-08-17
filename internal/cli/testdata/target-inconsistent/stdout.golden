@@ -1,0 +1,2 @@
+FILE                          LINE  FIELD  ERROR_CODE           MESSAGE
+targets/cloudflare-prod.yaml  5     hosts  target-inconsistent  capabilities: grants http and this declaration carries no hosts:
