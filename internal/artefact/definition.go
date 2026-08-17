@@ -106,14 +106,23 @@ var DefinitionDeclaration = schema.Schema{
 // needs, read once per repository pass rather than reparsed per Definition
 // that binds it (§4, §5): the class its Definitions may bind, the
 // Capabilities its Operations require, the Operations it declares — the
-// namespace a destroy: member and a Step's operation: resolve against — and
-// the credential slot names its Auth scheme requires, nil where it
-// authenticates nothing.
+// namespace a destroy: member and a Step's operation: resolve against — the
+// credential slot names its Auth scheme requires, nil where it
+// authenticates nothing, and RecordFields and SecretFields, the union of
+// every Operation's own two sets of the same name (§3, §4, §12, issue #97).
+// The union rather than one Operation's own set is what a selector's and a
+// condition's field: resolve against: assets:/observations: range over the
+// (Definition, Target) Record series a different Operation of the same
+// Provider may have written — a destroy Step's own Operation projects no
+// record: at all, and its selector still names the fields the mutate that
+// created what it destroys projected.
 type ProviderInfo struct {
 	Class        string
 	Capabilities map[string]bool
 	Operations   map[string]OperationInfo
 	AuthSlots    []string
+	RecordFields map[string]bool
+	SecretFields map[string]bool
 }
 
 // OperationInfo is what checking a Step against the Operation it binds
@@ -130,8 +139,10 @@ type ProviderInfo struct {
 // reference's path: half resolves against; every input its input: schema
 // declares, by name; its own Repeatability, "" where undeclared — the fact
 // IsRunOnce reads, and the two Cadence rules' own walk with it (issue #96);
-// and whether its own secret: is present and names at least one field — the
-// other fact that same walk reads.
+// whether its own secret: is present and names at least one field — the
+// other fact that same walk reads; and SecretFields, the field names
+// secret: itself names — the set a predicate's own field: is checked
+// against, nil where secret: is absent (§3, §4, §12, issue #97).
 type OperationInfo struct {
 	IsShell       bool
 	Kind          string
@@ -140,6 +151,7 @@ type OperationInfo struct {
 	Inputs        map[string]InputInfo
 	Repeatability string
 	HasSecret     bool
+	SecretFields  map[string]bool
 }
 
 // IsOpaqueDestroy reports whether this Operation is the one Step §5's Bound
@@ -310,12 +322,17 @@ func BuildDefinitionIndex(definitionRoots []*yaml.Node, targets TargetIndex) Def
 	return idx
 }
 
-// providerInfoFromManifest reads the four facts CheckDefinition needs off a
-// Manifest's own root: class:, capabilities:, the name set of operations:,
-// and the credential slots its auth: scheme requires.
+// providerInfoFromManifest reads the six facts CheckDefinition and a
+// predicate's own field: resolution need off a Manifest's own root: class:,
+// capabilities:, the name set of operations:, the credential slots its
+// auth: scheme requires, and RecordFields and SecretFields, each the union
+// of every Operation's own set of the same name (§3, §4, §12, issue #97).
 func providerInfoFromManifest(root *yaml.Node) ProviderInfo {
 	fields := topLevelFields(root, "class", "capabilities", "operations")
-	info := ProviderInfo{Capabilities: map[string]bool{}, Operations: map[string]OperationInfo{}}
+	info := ProviderInfo{
+		Capabilities: map[string]bool{}, Operations: map[string]OperationInfo{},
+		RecordFields: map[string]bool{}, SecretFields: map[string]bool{},
+	}
 	if classVal := fields["class"]; classVal != nil && classVal.Kind == yaml.ScalarNode {
 		info.Class = classVal.Value
 	}
@@ -329,8 +346,16 @@ func providerInfoFromManifest(root *yaml.Node) ProviderInfo {
 	if opsVal := fields["operations"]; opsVal != nil && opsVal.Kind == yaml.MappingNode {
 		for i := 0; i+1 < len(opsVal.Content); i += 2 {
 			key, opNode := opsVal.Content[i], opsVal.Content[i+1]
-			if key.Kind == yaml.ScalarNode {
-				info.Operations[key.Value] = operationInfoFromNode(opNode)
+			if key.Kind != yaml.ScalarNode {
+				continue
+			}
+			opInfo := operationInfoFromNode(opNode)
+			info.Operations[key.Value] = opInfo
+			for name := range opInfo.RecordFields {
+				info.RecordFields[name] = true
+			}
+			for name := range opInfo.SecretFields {
+				info.SecretFields[name] = true
 			}
 		}
 	}

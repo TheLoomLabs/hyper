@@ -230,9 +230,9 @@ var (
 )
 
 // predicateOperators is the closed eleven-member operator set a predicate
-// carries exactly one of (§12). checkPredicate reads only the shape — a
-// field: and exactly one operator key — and none of the operand-type rules
-// §4 and §6 state for it, which are #92's.
+// carries exactly one of (§12). checkPredicateCore, in procedure.go, reads
+// both this shape and each present operator's own operand-type rule; the
+// operand-type rules themselves are #97's.
 var predicateOperators = []string{
 	"equals", "not_equals", "in", "exists", "absent",
 	"starts_with", "ends_with", "greater_than", "less_than", "older_than", "newer_than",
@@ -1001,14 +1001,15 @@ func inputPropertyTypes(inputVal *yaml.Node) map[string]string {
 	return types
 }
 
-// operationInfoFromNode reads the four facts a Step checked against this
+// operationInfoFromNode reads the five facts a Step checked against this
 // Operation needs off the Operation's own node (§3, §4, issue #94): whether
 // its request is the shell Capability, its input: schema's own property
-// names, types and enums, and its record: cardinality and field names —
-// nil where it declares no record: at all, a destroy carrying none by
-// construction (checkKindProjection). It is read once per Manifest pass,
-// alongside the rest of ProviderInfo, rather than reparsed per Step that
-// names this Operation.
+// names, types and enums, its record: cardinality and field names — nil
+// where it declares no record: at all, a destroy carrying none by
+// construction (checkKindProjection) — and its own secret: field names, the
+// set a predicate's own field: is checked against (§12, issue #97). It is
+// read once per Manifest pass, alongside the rest of ProviderInfo, rather
+// than reparsed per Step that names this Operation.
 func operationInfoFromNode(op *yaml.Node) OperationInfo {
 	fields := topLevelFields(op, "kind", "shell", "input", "record", "repeatability", "secret")
 	info := OperationInfo{IsShell: fields["shell"] != nil, Inputs: map[string]InputInfo{}}
@@ -1020,6 +1021,12 @@ func operationInfoFromNode(op *yaml.Node) OperationInfo {
 	}
 	if secretVal := fields["secret"]; secretVal != nil && secretVal.Kind == yaml.SequenceNode {
 		info.HasSecret = len(secretVal.Content) > 0
+		info.SecretFields = map[string]bool{}
+		for _, item := range secretVal.Content {
+			if item.Kind == yaml.ScalarNode {
+				info.SecretFields[item.Value] = true
+			}
+		}
 	}
 
 	if inputVal := fields["input"]; inputVal != nil && inputVal.Kind == yaml.MappingNode {
@@ -1227,27 +1234,17 @@ func checkPolling(file, field string, node *yaml.Node) []problem.Problem {
 	return problems
 }
 
-// checkPredicate validates one predicate's shape: a field: and exactly one
-// of the closed eleven-member operator set (§12). The operand-type rules
-// §4 and §6 state for each operator are #92's — this reads only the shape
-// a polling Pattern's until: needs to be well-formed at all.
+// checkPredicate validates one polling Pattern until: predicate: the shape
+// and operand types checkPredicateCore reads regardless of root (§12, issue
+// #97), and this root's own rule — field: is a path in the grammar, written
+// without the root marker, a response having paths and no declared names
+// (§12). It carries no step: — a polling Pattern's until: roots at the
+// response object in hand rather than at an earlier Step's Record.
 func checkPredicate(file, field string, node *yaml.Node) []problem.Problem {
-	problems := schema.CheckAt(node, schema.Schema{Type: schema.Object, Open: true}, field, file)
-	if node == nil || node.Kind != yaml.MappingNode {
-		return problems
-	}
-	fieldNameVal := topLevelFields(node, "field")["field"]
-	if fieldNameVal == nil || fieldNameVal.Kind != yaml.ScalarNode {
-		line, column := position(node)
-		problems = append(problems, problem.Problem{
-			File: file, Line: line, Column: column, Field: field + ".field",
-			ErrorCode: schema.CodeMismatch,
-			Message:   `the schema at this position declares "field", and this file does not supply it`,
-		})
-	} else {
+	problems, fieldNameVal, _ := checkPredicateCore(file, field, node, false)
+	if fieldNameVal != nil {
 		problems = append(problems, checkFieldPathNoRoot(file, field+".field", fieldNameVal)...)
 	}
-	problems = append(problems, checkExactlyOneOf(file, field, node, predicateOperators)...)
 	return problems
 }
 

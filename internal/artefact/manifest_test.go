@@ -595,6 +595,42 @@ func TestCheckManifest_PollingIsClean(t *testing.T) {
 	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
 }
 
+// TestCheckManifest_PollingUntilFieldIsAPathWithoutRoot proves until:'s own
+// root: a path in the grammar, written without the $ marker — status.code
+// resolves and $status does not, a response having paths and no declared
+// names (§12, issue #97).
+func TestCheckManifest_PollingUntilFieldWithRootMarkerIsSchemaMismatch(t *testing.T) {
+	doc := patternsDoc(`polling: {interval: 5s, until: [{field: $.status, equals: running}]}`)
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, schema.CodeMismatch)
+	if p.Field != "operations.list.patterns.polling.until[0].field" {
+		t.Errorf("Field = %q, want operations.list.patterns.polling.until[0].field", p.Field)
+	}
+}
+
+// TestCheckManifest_PollingUntilOperandFaultIsTypeMismatch proves the
+// operand-type rules apply to a polling Pattern's until: exactly as they do
+// to a selector or a condition — the fault is authored and knowable offline
+// wherever a predicate stands (§4, §5, §12, issue #97).
+func TestCheckManifest_PollingUntilOperandFaultIsTypeMismatch(t *testing.T) {
+	doc := patternsDoc(`polling: {interval: 5s, until: [{field: status, exists: false}]}`)
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	mustCode(t, got, CodePredicateTypeMismatch)
+}
+
+// TestCheckManifest_PollingUntilCarriesNoStep proves a polling Pattern's
+// until: roots at the response object in hand rather than at an earlier
+// Step's Record, so step: beside field: is unknown-key there and not the
+// closed shape a condition's own field: reads under (§12, issue #97).
+func TestCheckManifest_PollingUntilCarriesNoStep(t *testing.T) {
+	doc := patternsDoc(`polling: {interval: 5s, until: [{field: status, step: whatever, equals: running}]}`)
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, schema.CodeUnknownKey)
+	if p.Field != "operations.list.patterns.polling.until[0].step" {
+		t.Errorf("Field = %q, want operations.list.patterns.polling.until[0].step", p.Field)
+	}
+}
+
 func TestCheckManifest_RetryTakesOnlyAttempts(t *testing.T) {
 	doc := patternsDoc(`retry: {attempts: 3, backoff: 5s}`)
 	got := CheckManifest("providers/broken.yaml", parse(t, doc))

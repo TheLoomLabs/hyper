@@ -13,16 +13,30 @@
 // grant — are issue #95's, landed here: kind-not-granted,
 // operation-not-claimed, target-not-claimed, bound-missing, bound-illegal
 // and opaque-destroy-unscoped. A Capability its Target grants is checked
-// already, in definition.go, needing no Step to exist. A predicate's own
-// operand-type rules, the three `over:` forms themselves, and
-// bound-exceeded — the one Bound check a `values:` list's authored length
-// decides — are #97's. This file admits `over:` and `when:` as open shapes
-// beyond what opaque-destroy-unscoped and a repeated `values:` member read,
-// leaving the rest for the ticket that grows this package next.
+// already, in definition.go, needing no Step to exist.
+//
+// Issue #97 lands here too: the closed eleven-member operator set's own
+// operand-type rules (predicate-type-mismatch), checked wherever a
+// predicate stands — a selector, a condition, or a polling Pattern's
+// `until:` in manifest.go, which calls back into this file's
+// checkPredicateCore rather than duplicate it; the three `over:` forms
+// themselves, `assets:`, `observations:` and `values:`, closed to a fourth
+// and each checked against the Kind that may declare it; the two Record
+// roots' own `field:` rule — one declared field name, resolved against the
+// union of every Operation the bound Provider declares, since an
+// `assets:`/`observations:` selector ranges over a (Definition, Target)
+// series a different Operation of the same Provider may have written
+// (reference-unresolvable), and refused again where that field is one the
+// Manifest declares `secret:`; `skip-if-recorded-unreachable`, a
+// `skip-if-recorded` Step expanding over `assets:`; and `bound-exceeded`,
+// the offline half decided from an `over: values:` list's authored length
+// alone, the run-time half over `assets:`/`observations:` left to a Run
+// that needs the Store to count them.
 package artefact
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -96,6 +110,34 @@ const CodeOpaqueDestroyUnscoped = "opaque-destroy-unscoped"
 // issue #96).
 const CodeEnvelopeExceeded = "envelope-exceeded"
 
+// CodePredicateTypeMismatch is the code an operator handed a type it does
+// not take earns — a timestamp under greater_than or less_than, an in:
+// whose members are not all one type, exists: false, an in: of one member
+// or none, an empty starts_with: or ends_with:, and a predicate against a
+// field the Manifest declares secret, that field reaching the Store as a
+// constant no comparison can read. It is the same code §6 carries for a
+// stored value the same operator cannot compare, split on whether the fault
+// is authored and knowable offline — this file's half — or found against a
+// value only a Run has (§4, §6, §12, ADR-0035, issue #97).
+const CodePredicateTypeMismatch = "predicate-type-mismatch"
+
+// CodeSkipIfRecordedUnreachable is the code a skip-if-recorded Step
+// expanding over assets: earns: an effectful Expansion reaches only Assets
+// whose head stands, and the value's own test skips exactly while a head
+// stands, so every member skips on every Run and no call can ever go out —
+// a Step refused for what it can never do rather than for what it might
+// (§4, §5, §12, ADR-0056, issue #97).
+const CodeSkipIfRecordedUnreachable = "skip-if-recorded-unreachable"
+
+// CodeBoundExceeded is the code an over: values: list longer than the
+// Step's own declared bound: earns, decided offline: the list is authored
+// in the Procedure, so its length is read off the file, and it is an upper
+// bound on what the Expansion can reach — the Store only ever removes
+// members from it. The run-time half of the same check, over assets: and
+// observations:, needs the Store to count and is left to a Run (§4, §5,
+// §6, §12, issue #97).
+const CodeBoundExceeded = "bound-exceeded"
+
 // KindProcedure is the one kind: value a file in procedures/ may carry
 // (§12's kind table).
 const KindProcedure = "procedure"
@@ -130,13 +172,15 @@ var ProcedureDeclaration = schema.Schema{
 
 // stepDeclaration is a Step's own schema — the shape checkSteps validates
 // an entry against wherever it carries no procedure: (§3, §4). over: and
-// when: are Open here: a predicate's own operand-type rules and the three
-// over: forms themselves are #97's, and this file reads only what a
-// repeated over: values: member and, since issue #95, an opaque destroy
-// Step's over: presence need. bound: is a fixed Integer here regardless of
-// a Step's own Kind — the schema stops at "is this an integer" and
-// checkStepBound is what reads Kind into the question of whether one may
-// stand at all (§4, §5, issue #95).
+// when: are Open here — a mapping keyed by a closed set (assets:/
+// observations:/values:) rather than a fixed shape, and a single predicate
+// respectively — so the generic engine stops at "is this a mapping" and
+// checkOverForm and checkConditionPredicate read what is inside them, on
+// checkAuth's own rule for a Target declaration's auth: (§4, §12, issue
+// #97). bound: is a fixed Integer here regardless of a Step's own Kind —
+// the schema stops at "is this an integer" and checkStepBound is what reads
+// Kind into the question of whether one may stand at all (§4, §5, issue
+// #95).
 var stepDeclaration = schema.Schema{
 	Type: schema.Object,
 	Properties: []schema.Property{
@@ -258,9 +302,17 @@ func readDeclaredTargetNames(root *yaml.Node) map[string]bool {
 // stepRefInfo is what a later reference's step: half resolves an earlier
 // id: to: the OperationInfo its binding read, so a reference's path: and
 // cardinality check have something to read against without re-walking the
-// Definition and Provider chain a second time.
+// Definition and Provider chain a second time. provider and haveProvider
+// are the same walk's own Provider — the namespace a when: condition's
+// field: resolves against once step: has named this entry (§4, §5, §12,
+// issue #97) — haveProvider false where the Step's own definition: did not
+// resolve or named a provider: nothing in this pass's ProviderIndex holds,
+// in which case field: resolution is skipped rather than checked against an
+// empty Provider that was never really named.
 type stepRefInfo struct {
-	op OperationInfo
+	op           OperationInfo
+	provider     ProviderInfo
+	haveProvider bool
 }
 
 // checkSteps walks stepsVal in order, dispatching each entry to the Step or
@@ -314,17 +366,18 @@ func checkInvocationResolution(file, field string, procVal *yaml.Node, procedure
 // checkStepEntry validates one Step-shaped steps: entry: its own schema,
 // its definition:'s resolution against definitions/, its operation:'s
 // resolution against the bound Definition's Provider, its args: against
-// that Operation's input: schema, a repeated over: values: member, and the
-// authority a Step's binding needs — the two keys, the Bound and the
-// opaque destroy opt-ins (§4, §5, issue #95). It registers id: in
-// stepIndex only once this entry's own args: have been checked against
-// stepIndex as it stood before this entry — a Step may reference an id:
-// written earlier in the same Procedure and never its own, "earlier"
-// excluding the entry currently being read — and it registers id: whenever
-// id: is legible whatever else about the entry failed to resolve, so a
-// later reference naming this id: finds an empty OperationInfo and fails
-// its own resolution once, rather than this entry's own fault being
-// reported a second time under a different code.
+// that Operation's input: schema, a repeated over: values: member, the
+// three over: forms and the when: condition, and the authority a Step's
+// binding needs — the two keys, the Bound and the opaque destroy opt-ins
+// (§4, §5, issue #95, issue #97). It registers id: in stepIndex only once
+// this entry's own args: have been checked against stepIndex as it stood
+// before this entry — a Step may reference an id: written earlier in the
+// same Procedure and never its own, "earlier" excluding the entry currently
+// being read — and it registers id: whenever id: is legible whatever else
+// about the entry failed to resolve, so a later reference naming this id:
+// finds an empty OperationInfo and fails its own resolution once, rather
+// than this entry's own fault being reported a second time under a
+// different code.
 func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yaml.Node, providers ProviderIndex, definitions DefinitionIndex, stepIndex map[string]stepRefInfo, declaredTargets, declaredKinds map[string]bool) []problem.Problem {
 	problems := schema.CheckAt(entry, stepDeclaration, field, file)
 
@@ -342,10 +395,12 @@ func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yam
 		}
 	}
 
+	var provider ProviderInfo
+	haveProvider := false
 	var op OperationInfo
 	haveOp := false
 	if haveDef {
-		provider := providers[defInfo.ProviderName]
+		provider, haveProvider = providers[defInfo.ProviderName]
 		opName, opOK := resolveScalar(fields["operation"])
 		if opOK {
 			op, haveOp = provider.Operations[opName]
@@ -363,13 +418,16 @@ func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yam
 		problems = append(problems, checkStepArgs(file, field+".args", entry, fields["args"], op, stepIndex)...)
 	}
 	problems = append(problems, checkOverValuesDuplicates(file, field+".over", fields["over"])...)
+	problems = append(problems, checkOverForm(file, field+".over", fields["over"], op, haveOp, provider, haveProvider)...)
+	problems = append(problems, checkBoundExceeded(file, field+".over.values", fields["bound"], fields["over"])...)
+	problems = append(problems, checkConditionPredicate(file, field+".when", fields["when"], stepIndex)...)
 	if haveDef {
 		problems = append(problems, checkStepAuthority(file, field, entry, fields, defInfo, op, haveOp)...)
 	}
 	problems = append(problems, checkStepEnvelope(file, field, entry, fields, declaredTargets, declaredKinds, op, haveOp)...)
 
 	if idVal, idOK := resolveScalar(fields["id"]); idOK {
-		stepIndex[idVal] = stepRefInfo{op: op}
+		stepIndex[idVal] = stepRefInfo{op: op, provider: provider, haveProvider: haveProvider}
 	}
 	return problems
 }
@@ -459,7 +517,30 @@ func checkStepAuthority(file, field string, entry *yaml.Node, fields map[string]
 	}
 
 	problems = append(problems, checkStepBound(file, field, entry, fields["bound"], fields["over"], op)...)
+	problems = append(problems, checkSkipIfRecordedReachability(file, field, entry, fields["over"], op)...)
 	return problems
+}
+
+// checkSkipIfRecordedReachability reports skip-if-recorded-unreachable on a
+// skip-if-recorded Step expanding over assets: (§4, §5, §12, ADR-0056,
+// issue #97): an effectful Expansion reaches only Assets whose head stands,
+// and the value's own test skips exactly while a head stands, so every
+// member skips on every Run and no call can ever go out. The check needs no
+// Store and no credential — the selector form and the Operation's declared
+// Repeatability are both authored.
+func checkSkipIfRecordedReachability(file, field string, entry, overVal *yaml.Node, op OperationInfo) []problem.Problem {
+	if op.Repeatability != "skip-if-recorded" || overVal == nil || overVal.Kind != yaml.MappingNode {
+		return nil
+	}
+	if topLevelFields(overVal, "assets")["assets"] == nil {
+		return nil
+	}
+	line, column := position(entry)
+	return []problem.Problem{{
+		File: file, Line: line, Column: column, Field: field,
+		ErrorCode: CodeSkipIfRecordedUnreachable,
+		Message:   "a skip-if-recorded Step expands over assets: — every member skips on every Run and no call can ever go out",
+	}}
 }
 
 // checkStepBound validates bound: against op's own Kind (§4, §5,
@@ -648,6 +729,514 @@ func checkOverValuesDuplicates(file, field string, overVal *yaml.Node) []problem
 		seen[fold] = item.Value
 	}
 	return problems
+}
+
+// overFormKeys is the closed three-member key set over: admits (§12,
+// issue #97) — checkClosedKeySet's own comparand for checkOverForm, on
+// checkPredicateCore's rule for a predicate's own key set.
+var overFormKeys = map[string]bool{"assets": true, "observations": true, "values": true}
+
+// checkClosedKeySet reports unknown-key on every one of node's own
+// top-level keys absent from allowed — the one walk checkOverForm and
+// checkPredicateCore both need over a mapping keyed by a closed set rather
+// than a fixed schema, so this file has it once (§3, §4, §12, issue #97).
+// messageFor builds each problem's own message from the offending key,
+// since the two callers point a reader at different remedies for the same
+// shape of fault.
+func checkClosedKeySet(file, field string, node *yaml.Node, allowed map[string]bool, messageFor func(key string) string) []problem.Problem {
+	var problems []problem.Problem
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key := node.Content[i]
+		if key.Kind != yaml.ScalarNode || allowed[key.Value] {
+			continue
+		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: key.Line, Column: key.Column, Field: field + "." + key.Value,
+			ErrorCode: schema.CodeUnknownKey,
+			Message:   messageFor(key.Value),
+		})
+	}
+	return problems
+}
+
+// checkOverForm validates over: itself (§3, §4, §5, §12, issue #97): the
+// closed three-form set — assets:, observations: and values:, and no
+// fourth — each form's own structural shape, observations: legal only on a
+// read Step (Expansion is scoped by Kind rather than by Record type), and
+// each assets:/observations: predicate's own field: against the union of
+// every Operation the bound Provider declares. It says nothing where
+// overVal is absent or not a mapping — a Step declaring no over: is invoked
+// once and draws no code here, and a malformed over: has already earned
+// schema-mismatch from stepDeclaration's own schema check, which this does
+// not repeat. haveProvider is false wherever the Definition or its
+// provider: did not resolve, in which case field: resolution is skipped
+// rather than checked against a Provider that was never really named.
+func checkOverForm(file, field string, overVal *yaml.Node, op OperationInfo, haveOp bool, provider ProviderInfo, haveProvider bool) []problem.Problem {
+	if overVal == nil || overVal.Kind != yaml.MappingNode {
+		return nil
+	}
+	problems := checkExactlyOneOf(file, field, overVal, []string{"assets", "observations", "values"})
+	problems = append(problems, checkClosedKeySet(file, field, overVal, overFormKeys, func(key string) string {
+		return fmt.Sprintf("%q is not a key over: admits — assets:, observations: and values: are the whole of it", key)
+	})...)
+
+	forms := topLevelFields(overVal, "assets", "observations", "values")
+	if assetsVal := forms["assets"]; assetsVal != nil {
+		problems = append(problems, checkPredicateList(file, field+".assets", assetsVal, provider, haveProvider)...)
+	}
+	if obsVal := forms["observations"]; obsVal != nil {
+		problems = append(problems, checkPredicateList(file, field+".observations", obsVal, provider, haveProvider)...)
+		if haveOp && op.Kind != "read" {
+			line, column := position(obsVal)
+			problems = append(problems, problem.Problem{
+				File: file, Line: line, Column: column, Field: field + ".observations",
+				ErrorCode: schema.CodeMismatch,
+				Message:   "observations: is legal only on a read Step — Expansion is scoped by Kind rather than by Record type",
+			})
+		}
+	}
+	if valuesVal := forms["values"]; valuesVal != nil {
+		problems = append(problems, checkOverValuesShape(file, field+".values", valuesVal)...)
+	}
+	return problems
+}
+
+// checkPredicateList validates one assets: or observations: block: a
+// sequence of predicates, each read by checkRecordPredicate against the
+// Provider's own declared field set (§3, §4, §12, issue #97). A predicate
+// list is always AND; there is no disjunction key anywhere in this format
+// for a non-sequence to be mistaken for.
+func checkPredicateList(file, field string, node *yaml.Node, provider ProviderInfo, haveProvider bool) []problem.Problem {
+	if node.Kind != yaml.SequenceNode {
+		line, column := position(node)
+		return []problem.Problem{{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: schema.CodeMismatch,
+			Message:   "a selector's predicate list is a sequence of predicates, always AND",
+		}}
+	}
+	var problems []problem.Problem
+	for i, item := range node.Content {
+		problems = append(problems, checkRecordPredicate(file, fmt.Sprintf("%s[%d]", field, i), item, provider, haveProvider)...)
+	}
+	return problems
+}
+
+// checkOverValuesShape validates a values: block's own shape: a sequence
+// of bare scalars (§3, §4, §12, issue #97). A member is not a mapping — a
+// mapping in a scalar position means a reference elsewhere in this format,
+// and a compound identity needs none, the shared half of it being an
+// argument and only the varying half a population.
+func checkOverValuesShape(file, field string, node *yaml.Node) []problem.Problem {
+	if node.Kind != yaml.SequenceNode {
+		line, column := position(node)
+		return []problem.Problem{{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: schema.CodeMismatch,
+			Message:   "values: is a list of bare scalars",
+		}}
+	}
+	var problems []problem.Problem
+	for i, item := range node.Content {
+		if item.Kind != yaml.ScalarNode {
+			problems = append(problems, problem.Problem{
+				File: file, Line: item.Line, Column: item.Column, Field: fmt.Sprintf("%s[%d]", field, i),
+				ErrorCode: schema.CodeMismatch,
+				Message:   "a values: member is a bare scalar — a mapping there means a reference, and a compound identity needs none",
+			})
+		}
+	}
+	return problems
+}
+
+// checkBoundExceeded reports bound-exceeded on an over: values: list longer
+// than the Step's own declared bound: — the offline half of the check,
+// decided from the list's authored length alone (§4, §5, §6, §12, issue
+// #97). It says nothing where bound: or over: values: is absent or
+// illegible, or where over: is assets:/observations: — no file can count
+// what an Expansion over the Store resolves to, and that half is a Run's.
+func checkBoundExceeded(file, field string, boundVal, overVal *yaml.Node) []problem.Problem {
+	if boundVal == nil || boundVal.Kind != yaml.ScalarNode {
+		return nil
+	}
+	bound, err := strconv.Atoi(boundVal.Value)
+	if err != nil {
+		return nil
+	}
+	if overVal == nil || overVal.Kind != yaml.MappingNode {
+		return nil
+	}
+	valuesVal := topLevelFields(overVal, "values")["values"]
+	if valuesVal == nil || valuesVal.Kind != yaml.SequenceNode || len(valuesVal.Content) <= bound {
+		return nil
+	}
+	return []problem.Problem{{
+		File: file, Line: valuesVal.Line, Column: valuesVal.Column, Field: field,
+		ErrorCode: CodeBoundExceeded,
+		Message:   fmt.Sprintf("over: values: carries %d members, which exceeds bound: %d — the authored length is an upper bound the Expansion can only shrink", len(valuesVal.Content), bound),
+	}}
+}
+
+// checkPredicateCore validates the shape and operand types every predicate
+// carries regardless of its root — a selector, a condition, or a polling
+// Pattern's until: in manifest.go, which calls back into this function
+// rather than duplicate it (§3, §4, §5, §12, issue #97): a field: is
+// present, exactly one of the closed eleven-member operator set is present,
+// each present operator's own operand reads as one of the types §12 fixes
+// for it, and no key beyond field:, the operator set and — where allowStep
+// is true — step: is written at all, a predicate list being always AND
+// with no disjunction key anywhere in it to admit. It returns the resolved
+// field: and step: value nodes, nil wherever either is absent or not a
+// plain scalar, leaving their own further rules — resolution, the root's
+// own path-or-name shape — to each root's own caller.
+func checkPredicateCore(file, field string, node *yaml.Node, allowStep bool) (problems []problem.Problem, fieldNameVal, stepVal *yaml.Node) {
+	problems = schema.CheckAt(node, schema.Schema{Type: schema.Object, Open: true}, field, file)
+	if node == nil || node.Kind != yaml.MappingNode {
+		return problems, nil, nil
+	}
+
+	allowed := map[string]bool{"field": true}
+	for _, opName := range predicateOperators {
+		allowed[opName] = true
+	}
+	if allowStep {
+		allowed["step"] = true
+	}
+	problems = append(problems, checkClosedKeySet(file, field, node, allowed, func(key string) string {
+		if key == "step" {
+			return "step: is declared here, and only a condition (when:) carries step: beside field: — a selector and a polling Pattern's until: root elsewhere and carry no step:"
+		}
+		return fmt.Sprintf("%q is not a key a predicate admits — a predicate list is always AND, and there is no disjunction key", key)
+	})...)
+
+	if val := topLevelFields(node, "field")["field"]; val != nil && val.Kind == yaml.ScalarNode {
+		fieldNameVal = val
+	}
+	if allowStep {
+		if val := topLevelFields(node, "step")["step"]; val != nil && val.Kind == yaml.ScalarNode {
+			stepVal = val
+		}
+	}
+
+	if fieldNameVal == nil {
+		line, column := position(node)
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field + ".field",
+			ErrorCode: schema.CodeMismatch,
+			Message:   `the schema at this position declares "field", and this file does not supply it`,
+		})
+	}
+	problems = append(problems, checkExactlyOneOf(file, field, node, predicateOperators)...)
+	problems = append(problems, checkPredicateOperand(file, field, node)...)
+	return problems, fieldNameVal, stepVal
+}
+
+// checkRecordPredicate validates one assets:/observations: entry: the
+// shape and operand types checkPredicateCore reads regardless of root, and
+// this root's own two rules — field: is one declared field name and never
+// a path, and it carries no step:, a selector rooting at the Record being
+// filtered rather than at an earlier Step's (§3, §4, §12, issue #97).
+func checkRecordPredicate(file, field string, node *yaml.Node, provider ProviderInfo, haveProvider bool) []problem.Problem {
+	problems, fieldNameVal, _ := checkPredicateCore(file, field, node, false)
+	if fieldNameVal != nil {
+		problems = append(problems, checkRecordFieldName(file, field+".field", fieldNameVal, provider, haveProvider)...)
+	}
+	return problems
+}
+
+// checkConditionPredicate validates a when: condition: the shape and
+// operand types checkPredicateCore reads regardless of root, step:'s own
+// resolution against an id: this Procedure declares earlier, and field:'s
+// own two rules read against that earlier Step's own bound Provider — one
+// declared field name and never a path, resolved against the union of
+// every Operation that Provider declares (§3, §4, §12, issue #97). It says
+// nothing where whenVal is absent — a Step declaring no when: carries no
+// condition and draws no code here.
+func checkConditionPredicate(file, field string, whenVal *yaml.Node, stepIndex map[string]stepRefInfo) []problem.Problem {
+	if whenVal == nil {
+		return nil
+	}
+	problems, fieldNameVal, stepVal := checkPredicateCore(file, field, whenVal, true)
+
+	var provider ProviderInfo
+	haveProvider := false
+	if stepVal == nil {
+		if whenVal.Kind == yaml.MappingNode {
+			line, column := position(whenVal)
+			problems = append(problems, problem.Problem{
+				File: file, Line: line, Column: column, Field: field + ".step",
+				ErrorCode: schema.CodeMismatch,
+				Message:   `the schema at this position declares "step", and this file does not supply it — a condition roots at a named earlier Step's Record and carries step: beside field:`,
+			})
+		}
+	} else if ref, ok := stepIndex[stepVal.Value]; !ok {
+		problems = append(problems, problem.Problem{
+			File: file, Line: stepVal.Line, Column: stepVal.Column, Field: field + ".step",
+			ErrorCode: CodeReferenceUnresolvable,
+			Message:   fmt.Sprintf("step: %s names no id: this Procedure declares earlier", stepVal.Value),
+		})
+	} else {
+		provider, haveProvider = ref.provider, ref.haveProvider
+	}
+
+	if fieldNameVal != nil {
+		problems = append(problems, checkRecordFieldName(file, field+".field", fieldNameVal, provider, haveProvider)...)
+	}
+	return problems
+}
+
+// checkRecordFieldName validates a Record root's own field: value against
+// §12's rule: one declared field name and nothing else — no descent, no
+// brackets, no path (§3, §4, §12, issue #97). A value written as a path —
+// told apart by its first character, the way every scalar in this grammar
+// is — is schema-mismatch; a bare name resolving to nothing an Operation of
+// the bound Provider projects is reference-unresolvable, the same code and
+// the same check a reference already carries; and a bare name that
+// resolves but is one the Manifest declares secret: is
+// predicate-type-mismatch, that field reaching the Store as a constant no
+// comparison can read. It says nothing about resolution where haveProvider
+// is false — the Provider this field: would resolve against was never
+// really named, and that fault is reported once, where the name itself was
+// written.
+func checkRecordFieldName(file, field string, node *yaml.Node, provider ProviderInfo, haveProvider bool) []problem.Problem {
+	if strings.HasPrefix(node.Value, "$") {
+		return []problem.Problem{{
+			File: file, Line: node.Line, Column: node.Column, Field: field,
+			ErrorCode: schema.CodeMismatch,
+			Message:   "field: at a Record root is one declared field name — no descent, no brackets, no path",
+		}}
+	}
+	if !haveProvider {
+		return nil
+	}
+	if !provider.RecordFields[node.Value] {
+		return []problem.Problem{{
+			File: file, Line: node.Line, Column: node.Column, Field: field,
+			ErrorCode: CodeReferenceUnresolvable,
+			Message:   fmt.Sprintf("field: %s names what no Operation of the Provider projects", node.Value),
+		}}
+	}
+	if provider.SecretFields[node.Value] {
+		return []problem.Problem{{
+			File: file, Line: node.Line, Column: node.Column, Field: field,
+			ErrorCode: CodePredicateTypeMismatch,
+			Message:   fmt.Sprintf("field: %s is declared secret: — it reaches the Store as a constant no comparison can read", node.Value),
+		}}
+	}
+	return nil
+}
+
+// checkPredicateOperand validates every operator key node carries against
+// the closed operand-type table (§12, issue #97) — every key, not merely
+// the one checkExactlyOneOf would have picked, so a malformed entry
+// carrying two operators still names every operand fault it carries rather
+// than only the first.
+func checkPredicateOperand(file, field string, node *yaml.Node) []problem.Problem {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+	var problems []problem.Problem
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key, val := node.Content[i], node.Content[i+1]
+		if key.Kind != yaml.ScalarNode {
+			continue
+		}
+		problems = append(problems, checkOneOperandType(file, field+"."+key.Value, key.Value, val)...)
+	}
+	return problems
+}
+
+// checkOneOperandType dispatches operator to the operand rule §12 fixes for
+// it; a name outside the closed set draws nothing here, checkExactlyOneOf
+// already having named that fault under unknown-key.
+func checkOneOperandType(file, field, operator string, val *yaml.Node) []problem.Problem {
+	switch operator {
+	case "equals", "not_equals":
+		return checkScalarOperandType(file, field, val, []schema.Type{schema.String})
+	case "in":
+		return checkInOperand(file, field, val)
+	case "exists", "absent":
+		return checkBooleanTrueOperand(file, field, operator, val)
+	case "starts_with", "ends_with":
+		return checkNonEmptyStringOperand(file, field, operator, val)
+	case "greater_than", "less_than":
+		return checkScalarOperandType(file, field, val, []schema.Type{schema.Integer, schema.Number, schema.Duration})
+	case "older_than", "newer_than":
+		return checkScalarOperandType(file, field, val, []schema.Type{schema.Duration, schema.Timestamp})
+	default:
+		return nil
+	}
+}
+
+// checkScalarOperandType reports predicate-type-mismatch on val being
+// neither a scalar nor readable as any member of allowed — equals and
+// not_equals pass String, which reads any scalar's characters unconditionally
+// and so never refuses one; greater_than, less_than, older_than and
+// newer_than each pass their own narrower pair, which is what refuses a
+// timestamp under the first two and everything but a duration or a
+// timestamp under the last two (§12, issue #97).
+func checkScalarOperandType(file, field string, val *yaml.Node, allowed []schema.Type) []problem.Problem {
+	if val == nil || val.Kind != yaml.ScalarNode {
+		line, column := position(val)
+		return []problem.Problem{{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: CodePredicateTypeMismatch,
+			Message:   "this operator's operand is a scalar, and this is neither one nor a reference — a predicate operand is always a literal",
+		}}
+	}
+	for _, t := range allowed {
+		if operandReadsAs(t, val) {
+			return nil
+		}
+	}
+	return []problem.Problem{{
+		File: file, Line: val.Line, Column: val.Column, Field: field,
+		ErrorCode: CodePredicateTypeMismatch,
+		Message:   fmt.Sprintf("%q is not one of the operand types this operator takes", val.Value),
+	}}
+}
+
+// checkBooleanTrueOperand reports predicate-type-mismatch on exists: or
+// absent: carrying anything but true — negation lives in the operator's
+// name and never in its operand, which is why exists: false is refused
+// rather than read as a second spelling of absent: true (§12, issue #97).
+func checkBooleanTrueOperand(file, field, operator string, val *yaml.Node) []problem.Problem {
+	if val != nil && val.Kind == yaml.ScalarNode && val.Value == "true" {
+		return nil
+	}
+	line, column := position(val)
+	return []problem.Problem{{
+		File: file, Line: line, Column: column, Field: field,
+		ErrorCode: CodePredicateTypeMismatch,
+		Message:   fmt.Sprintf("%s: takes only true — negation lives in the operator's name and never in its operand", operator),
+	}}
+}
+
+// checkNonEmptyStringOperand reports predicate-type-mismatch on starts_with:
+// or ends_with: carrying anything but a non-empty string — an empty one is
+// refused as a predicate whose truth cannot depend on the value, a
+// starts_with: "" being a destroy selector that reaches the whole series
+// and reads like a filter (§12, issue #97).
+func checkNonEmptyStringOperand(file, field, operator string, val *yaml.Node) []problem.Problem {
+	if val == nil || val.Kind != yaml.ScalarNode {
+		line, column := position(val)
+		return []problem.Problem{{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: CodePredicateTypeMismatch,
+			Message:   fmt.Sprintf("%s: takes a non-empty string", operator),
+		}}
+	}
+	if val.Value != "" {
+		return nil
+	}
+	return []problem.Problem{{
+		File: file, Line: val.Line, Column: val.Column, Field: field,
+		ErrorCode: CodePredicateTypeMismatch,
+		Message:   fmt.Sprintf("%s: \"\" reaches the whole series and reads like a filter — its truth cannot depend on the value", operator),
+	}}
+}
+
+// checkInOperand reports predicate-type-mismatch on in: carrying anything
+// but a list of two or more literals, all one type: empty, being a
+// predicate whose truth cannot depend on the value; one member, being
+// equals spelled twice; and a mixed-type list, which disjoins the values of
+// one field over one population rather than reopening AND into OR (§12,
+// issue #97).
+func checkInOperand(file, field string, val *yaml.Node) []problem.Problem {
+	if val == nil || val.Kind != yaml.SequenceNode {
+		line, column := position(val)
+		return []problem.Problem{{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: CodePredicateTypeMismatch,
+			Message:   "in: is a list of two or more literals, all one type",
+		}}
+	}
+	switch len(val.Content) {
+	case 0:
+		return []problem.Problem{{
+			File: file, Line: val.Line, Column: val.Column, Field: field,
+			ErrorCode: CodePredicateTypeMismatch,
+			Message:   "an empty in: cannot depend on the value — its truth is fixed before any Record is read",
+		}}
+	case 1:
+		item := val.Content[0]
+		return []problem.Problem{{
+			File: file, Line: item.Line, Column: item.Column, Field: fmt.Sprintf("%s[0]", field),
+			ErrorCode: CodePredicateTypeMismatch,
+			Message:   "a one-member in: is equals spelled twice — one filter, two ways to write it",
+		}}
+	}
+
+	var problems []problem.Problem
+	var firstCategory operandCategory
+	for i, item := range val.Content {
+		if item.Kind != yaml.ScalarNode {
+			problems = append(problems, problem.Problem{
+				File: file, Line: item.Line, Column: item.Column, Field: fmt.Sprintf("%s[%d]", field, i),
+				ErrorCode: CodePredicateTypeMismatch,
+				Message:   "an in: member is a bare literal",
+			})
+			continue
+		}
+		category := classifyOperand(item)
+		if firstCategory == "" {
+			firstCategory = category
+			continue
+		}
+		if category != firstCategory {
+			problems = append(problems, problem.Problem{
+				File: file, Line: item.Line, Column: item.Column, Field: fmt.Sprintf("%s[%d]", field, i),
+				ErrorCode: CodePredicateTypeMismatch,
+				Message:   "in:'s members are not all one type",
+			})
+		}
+	}
+	return problems
+}
+
+// operandCategory is the type category classifyOperand reads a predicate
+// operand's own characters into — its own small type rather than a bare
+// string, on the rule that a domain concept with more than one caller earns
+// one (§12, issue #97).
+type operandCategory string
+
+const (
+	operandBoolean   operandCategory = "boolean"
+	operandTimestamp operandCategory = "timestamp"
+	operandDuration  operandCategory = "duration"
+	// operandNumeric merges schema.Integer and schema.Number into one
+	// domain — the rule that makes equals: 1 hold against 1.0, applied here
+	// to in:'s own all-one-type check (§12, ADR-0081).
+	operandNumeric operandCategory = "numeric"
+	// operandString is the fallback every scalar reads as regardless of its
+	// content — equals and not_equals' own operand rule, and in:'s own
+	// category for anything the four above do not claim.
+	operandString operandCategory = "string"
+)
+
+// classifyOperand reads node's own characters into the operandCategory
+// checkInOperand compares an in: list's members by (§12, issue #97).
+func classifyOperand(node *yaml.Node) operandCategory {
+	switch {
+	case operandReadsAs(schema.Boolean, node):
+		return operandBoolean
+	case operandReadsAs(schema.Timestamp, node):
+		return operandTimestamp
+	case operandReadsAs(schema.Duration, node):
+		return operandDuration
+	case operandReadsAs(schema.Integer, node) || operandReadsAs(schema.Number, node):
+		return operandNumeric
+	default:
+		return operandString
+	}
+}
+
+// operandReadsAs reports whether node's own characters read as t at an
+// otherwise unconstrained position, reusing schema.CheckAt against a bare
+// Schema{Type: t} rather than duplicating its own text-form rules here
+// (§12, ADR-0081, issue #97).
+func operandReadsAs(t schema.Type, node *yaml.Node) bool {
+	return len(schema.CheckAt(node, schema.Schema{Type: t}, "", "")) == 0
 }
 
 // reference is one parsed value-position mapping — the two legal forms a
