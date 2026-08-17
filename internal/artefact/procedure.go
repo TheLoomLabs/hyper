@@ -8,12 +8,17 @@
 // `record-identity-collision` fired one Run earlier, against an artefact
 // rather than a branch (§3, §4, §12).
 //
-// The authority a Step's binding needs — a Target its Definition claims, a
-// Kind its Definition grants, a Capability its Target grants — is #95's,
-// and a predicate's own operand-type rules and the three `over:` forms
-// themselves are #97's. This file admits `over:` and `when:` as open shapes
-// for that reason: it reads only what a repeated `values:` member needs,
-// and leaves the rest for the tickets that grow this package next.
+// The two keys, the Bound and the opaque `destroy` opt-ins — the authority
+// a Step's binding needs against its Definition's claim and its Target's
+// grant — are issue #95's, landed here: kind-not-granted,
+// operation-not-claimed, target-not-claimed, bound-missing, bound-illegal
+// and opaque-destroy-unscoped. A Capability its Target grants is checked
+// already, in definition.go, needing no Step to exist. A predicate's own
+// operand-type rules, the three `over:` forms themselves, and
+// bound-exceeded — the one Bound check a `values:` list's authored length
+// decides — are #97's. This file admits `over:` and `when:` as open shapes
+// beyond what opaque-destroy-unscoped and a repeated `values:` member read,
+// leaving the rest for the ticket that grows this package next.
 package artefact
 
 import (
@@ -45,6 +50,43 @@ const CodeCommandMalformed = "command-malformed"
 // the Store's own check and the Store's own code, fired here one Run
 // earlier, against an artefact rather than a branch (§3, §4, §8).
 const CodeRecordIdentityCollision = "record-identity-collision"
+
+// CodeKindNotGranted is the code a Step whose bound Operation's own Kind is
+// not in the intersection of its Definition's claimed Kind and its bound
+// Target's accepted Kinds earns — both authored, neither derived, so a
+// claim of "never destroys" is a fact the reviewer can trust rather than
+// the Manifest's word for it (§4, §5, issue #95).
+const CodeKindNotGranted = "kind-not-granted"
+
+// CodeOperationNotClaimed is the code a destroy Step whose Operation is not
+// named among its Definition's destroy: claims earns — granularity follows
+// severity, so read and mutate check at Kind level (kind-not-granted) and
+// destroy checks by name (§4, §5, issue #95).
+const CodeOperationNotClaimed = "operation-not-claimed"
+
+// CodeTargetNotClaimed is the code a Step binding a Target its Definition's
+// targets: list does not name earns — its own member rather than a
+// widening of operation-not-claimed, since a reader handed that code on a
+// target: line would go looking at destroy:, which is the wrong edit
+// (§3, §4, issue #95).
+const CodeTargetNotClaimed = "target-not-claimed"
+
+// CodeBoundMissing is the code a destroy Step carrying no bound: earns — an
+// absent Bound means unbounded, and unbounded is refused before anything
+// runs (§4, §5, issue #95).
+const CodeBoundMissing = "bound-missing"
+
+// CodeBoundIllegal is the code an opaque destroy Step carrying a bound:
+// earns — the one Step that carries no Bound, a count of the commands it
+// ran saying nothing about what any of them did (§4, §5, issue #95).
+const CodeBoundIllegal = "bound-illegal"
+
+// CodeOpaqueDestroyUnscoped is the code an opaque destroy Step carrying no
+// over: selector earns: without one it is invoked once, has no Expansion
+// to write a Tombstone under and declares no identity, so it would reach
+// the world and leave nothing in the record at all (§4, §5, ADR-0053,
+// issue #95).
+const CodeOpaqueDestroyUnscoped = "opaque-destroy-unscoped"
 
 // KindProcedure is the one kind: value a file in procedures/ may carry
 // (§12's kind table).
@@ -79,9 +121,14 @@ var ProcedureDeclaration = schema.Schema{
 }
 
 // stepDeclaration is a Step's own schema — the shape checkSteps validates
-// an entry against wherever it carries no procedure: (§3, §4). over:, args:
-// and when: are Open here: what may stand inside each is #97's and #95's,
-// and this file reads only what a repeated over: values: member needs.
+// an entry against wherever it carries no procedure: (§3, §4). over: and
+// when: are Open here: a predicate's own operand-type rules and the three
+// over: forms themselves are #97's, and this file reads only what a
+// repeated over: values: member and, since issue #95, an opaque destroy
+// Step's over: presence need. bound: is a fixed Integer here regardless of
+// a Step's own Kind — the schema stops at "is this an integer" and
+// checkStepBound is what reads Kind into the question of whether one may
+// stand at all (§4, §5, issue #95).
 var stepDeclaration = schema.Schema{
 	Type: schema.Object,
 	Properties: []schema.Property{
@@ -205,22 +252,25 @@ func checkInvocationResolution(file, field string, procVal *yaml.Node, procedure
 // checkStepEntry validates one Step-shaped steps: entry: its own schema,
 // its definition:'s resolution against definitions/, its operation:'s
 // resolution against the bound Definition's Provider, its args: against
-// that Operation's input: schema, and a repeated over: values: member. It
-// registers id: in stepIndex only once this entry's own args: have been
-// checked against stepIndex as it stood before this entry — a Step may
-// reference an id: written earlier in the same Procedure and never its
-// own, "earlier" excluding the entry currently being read — and it
-// registers id: whenever id: is legible whatever else about the entry
-// failed to resolve, so a later reference naming this id: finds an empty
-// OperationInfo and fails its own resolution once, rather than this
-// entry's own fault being reported a second time under a different code.
+// that Operation's input: schema, a repeated over: values: member, and the
+// authority a Step's binding needs — the two keys, the Bound and the
+// opaque destroy opt-ins (§4, §5, issue #95). It registers id: in
+// stepIndex only once this entry's own args: have been checked against
+// stepIndex as it stood before this entry — a Step may reference an id:
+// written earlier in the same Procedure and never its own, "earlier"
+// excluding the entry currently being read — and it registers id: whenever
+// id: is legible whatever else about the entry failed to resolve, so a
+// later reference naming this id: finds an empty OperationInfo and fails
+// its own resolution once, rather than this entry's own fault being
+// reported a second time under a different code.
 func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yaml.Node, providers ProviderIndex, definitions DefinitionIndex, stepIndex map[string]stepRefInfo) []problem.Problem {
 	problems := schema.CheckAt(entry, stepDeclaration, field, file)
 
 	defName, defOK := resolveScalar(fields["definition"])
-	providerName, haveDef := "", false
+	var defInfo DefinitionInfo
+	haveDef := false
 	if defOK {
-		providerName, haveDef = definitions[defName]
+		defInfo, haveDef = definitions[defName]
 		if !haveDef {
 			problems = append(problems, problem.Problem{
 				File: file, Line: fields["definition"].Line, Column: fields["definition"].Column, Field: field + ".definition",
@@ -233,7 +283,7 @@ func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yam
 	var op OperationInfo
 	haveOp := false
 	if haveDef {
-		provider := providers[providerName]
+		provider := providers[defInfo.ProviderName]
 		opName, opOK := resolveScalar(fields["operation"])
 		if opOK {
 			op, haveOp = provider.Operations[opName]
@@ -251,9 +301,114 @@ func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yam
 		problems = append(problems, checkStepArgs(file, field+".args", entry, fields["args"], op, stepIndex)...)
 	}
 	problems = append(problems, checkOverValuesDuplicates(file, field+".over", fields["over"])...)
+	if haveDef {
+		problems = append(problems, checkStepAuthority(file, field, entry, fields, defInfo, op, haveOp)...)
+	}
 
 	if idVal, idOK := resolveScalar(fields["id"]); idOK {
 		stepIndex[idVal] = stepRefInfo{op: op}
+	}
+	return problems
+}
+
+// checkStepAuthority runs the checks that need a Step's binding rather than
+// either the Definition or the Operation alone (§4, §5, issue #95): its
+// target: against the Definition's own targets: claim, the two keys — the
+// Definition's claimed Kind against the bound Target's accepted Kinds, and,
+// for a destroy Step, its Operation against the Definition's destroy:
+// claim by name — the Bound a destroy Step carries or must not, and, for an
+// opaque destroy Step, the over: selector it must carry. It is called only
+// where the Definition itself resolved; an unresolved definition: has
+// already earned artefact-absent and there is no claim here to check a
+// binding against.
+func checkStepAuthority(file, field string, entry *yaml.Node, fields map[string]*yaml.Node, defInfo DefinitionInfo, op OperationInfo, haveOp bool) []problem.Problem {
+	var problems []problem.Problem
+
+	targetName, targetOK := resolveScalar(fields["target"])
+	targetInfo, haveTarget := TargetInfo{}, false
+	if targetOK {
+		targetInfo, haveTarget = defInfo.Targets[targetName]
+		if !haveTarget {
+			problems = append(problems, problem.Problem{
+				File: file, Line: fields["target"].Line, Column: fields["target"].Column, Field: field + ".target",
+				ErrorCode: CodeTargetNotClaimed,
+				Message:   fmt.Sprintf("target: %s is not a member of the bound Definition's targets:", targetName),
+			})
+		}
+	}
+
+	if !haveOp {
+		return problems
+	}
+
+	if haveTarget && !(defInfo.ClaimsKind(op.Kind) && targetInfo.Kinds[op.Kind]) {
+		line, column := position(entry)
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: CodeKindNotGranted,
+			Message:   fmt.Sprintf("%s is not in the intersection of the bound Definition's claimed Kind and %s's accepted Kinds", op.Kind, targetName),
+		})
+	}
+
+	if op.Kind == "destroy" {
+		opName, _ := resolveScalar(fields["operation"])
+		if !defInfo.Destroy[opName] {
+			problems = append(problems, problem.Problem{
+				File: file, Line: fields["operation"].Line, Column: fields["operation"].Column, Field: field + ".operation",
+				ErrorCode: CodeOperationNotClaimed,
+				Message:   fmt.Sprintf("operation: %s is not named among the bound Definition's destroy: claims", opName),
+			})
+		}
+	}
+
+	problems = append(problems, checkStepBound(file, field, entry, fields["bound"], fields["over"], op)...)
+	return problems
+}
+
+// checkStepBound validates bound: against op's own Kind (§4, §5,
+// issue #95): a read Step carries no Bound at all, so one present is
+// unknown-key; a destroy Step's Bound is mandatory unless op is opaque, in
+// which case one present is bound-illegal and one absent is the correct
+// combination; a mutate Step's Bound is optional either way and draws no
+// code. Where op is an opaque destroy Operation this also fires
+// opaque-destroy-unscoped for a Step carrying no over: selector — the third
+// requirement the Bound's own place stands in for (§5, ADR-0053).
+func checkStepBound(file, field string, entry, boundVal, overVal *yaml.Node, op OperationInfo) []problem.Problem {
+	var problems []problem.Problem
+	line, column := position(entry)
+	if boundVal != nil {
+		line, column = position(boundVal)
+	}
+
+	opaqueDestroy := op.IsOpaqueDestroy()
+	switch {
+	case op.Kind == "read" && boundVal != nil:
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field + ".bound",
+			ErrorCode: schema.CodeUnknownKey,
+			Message:   "bound: is declared on a read Step — a read carries no Bound at all, having nothing for one to guard",
+		})
+	case opaqueDestroy && boundVal != nil:
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field + ".bound",
+			ErrorCode: CodeBoundIllegal,
+			Message:   "bound: is declared on an opaque destroy Step — a count of the commands it ran says nothing about what any of them did",
+		})
+	case op.Kind == "destroy" && !opaqueDestroy && boundVal == nil:
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field + ".bound",
+			ErrorCode: CodeBoundMissing,
+			Message:   "a destroy Step carries no bound: — an absent Bound means unbounded, and unbounded is refused before anything runs",
+		})
+	}
+
+	if opaqueDestroy && overVal == nil {
+		entryLine, entryColumn := position(entry)
+		problems = append(problems, problem.Problem{
+			File: file, Line: entryLine, Column: entryColumn, Field: field,
+			ErrorCode: CodeOpaqueDestroyUnscoped,
+			Message:   "an opaque destroy Step carries no over: selector — it would reach the world once and leave nothing in the record",
+		})
 	}
 	return problems
 }

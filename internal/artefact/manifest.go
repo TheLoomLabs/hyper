@@ -1010,8 +1010,11 @@ func inputPropertyTypes(inputVal *yaml.Node) map[string]string {
 // alongside the rest of ProviderInfo, rather than reparsed per Step that
 // names this Operation.
 func operationInfoFromNode(op *yaml.Node) OperationInfo {
-	fields := topLevelFields(op, "shell", "input", "record")
+	fields := topLevelFields(op, "kind", "shell", "input", "record")
 	info := OperationInfo{IsShell: fields["shell"] != nil, Inputs: map[string]InputInfo{}}
+	if kindVal := fields["kind"]; kindVal != nil && kindVal.Kind == yaml.ScalarNode {
+		info.Kind = kindVal.Value
+	}
 
 	if inputVal := fields["input"]; inputVal != nil && inputVal.Kind == yaml.MappingNode {
 		types := inputPropertyTypes(inputVal)

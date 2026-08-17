@@ -1,0 +1,2 @@
+FILE                    LINE  FIELD     ERROR_CODE        MESSAGE
+procedures/deploy.yaml  5     steps[0]  kind-not-granted  read is not in the intersection of the bound Definition's claimed Kind and local's accepted Kinds

@@ -108,7 +108,7 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 
 	providers := artefact.BuildProviderIndex(rootsUnder(loadedFiles, "providers/"))
 	targets := artefact.BuildTargetIndex(rootsUnder(loadedFiles, "targets/"))
-	definitions := artefact.BuildDefinitionIndex(rootsUnder(loadedFiles, "definitions/"))
+	definitions := artefact.BuildDefinitionIndex(rootsUnder(loadedFiles, "definitions/"), targets)
 	procedures := artefact.BuildProcedureIndex(rootsUnder(loadedFiles, "procedures/"))
 
 	var problems []problem.Problem

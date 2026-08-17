@@ -60,6 +60,14 @@ const CodeTargetClassMismatch = "target-class-mismatch"
 // only be asked once a binding exists (§3, §4).
 const CodeCapabilityNotGranted = "capability-not-granted"
 
+// CodeOpaqueDestroyNotGranted is the code a Definition claiming an opaque
+// destroy Operation against a Target whose declaration has not opted into
+// opaque-destroy: earns, checked per (Definition, Target) pair on
+// CodeCapabilityNotGranted's own rule — the artefact half of the check; the
+// credential half is resolved at Run start and belongs to §5 (§4, §5,
+// issue #95).
+const CodeOpaqueDestroyNotGranted = "opaque-destroy-not-granted"
+
 // KindDefinition is the one kind: value a file in definitions/ may carry
 // (§12's kind table).
 const KindDefinition = "definition"
@@ -112,17 +120,28 @@ type ProviderInfo struct {
 // needs, read once per repository pass alongside the rest of ProviderInfo
 // rather than reparsed per Step that names it (§3, §4, issue #94): whether
 // its request is the shell Capability, the one hyper's own Provider may
-// declare and the one whose argv arrives as the input named command; its
-// Record cardinality, series where its record: carries an over: and one
-// otherwise — the fact a reference's step: half is refused against
-// (series-reference); the field names its record: projects, nil on an
-// Operation with no record: at all — the namespace a reference's path: half
-// resolves against; and every input its input: schema declares, by name.
+// declare and the one whose argv arrives as the input named command, and
+// the same fact by which opacity is read rather than declared (§5, §13,
+// issue #95); its own Kind — read, mutate or destroy — the two keys and the
+// Bound both check against; its Record cardinality, series where its
+// record: carries an over: and one otherwise — the fact a reference's step:
+// half is refused against (series-reference); the field names its record:
+// projects, nil on an Operation with no record: at all — the namespace a
+// reference's path: half resolves against; and every input its input:
+// schema declares, by name.
 type OperationInfo struct {
 	IsShell      bool
+	Kind         string
 	HasSeries    bool
 	RecordFields map[string]bool
 	Inputs       map[string]InputInfo
+}
+
+// IsOpaqueDestroy reports whether this Operation is the one Step §5's Bound
+// rule and its over: requirement both turn on — a destroy Operation whose
+// request is opaque, the shell Capability (§4, §5, §13, issue #95).
+func (o OperationInfo) IsOpaqueDestroy() bool {
+	return o.Kind == "destroy" && o.IsShell
 }
 
 // InputInfo is what checking a Step's args: value against one Operation
@@ -136,12 +155,16 @@ type InputInfo struct {
 }
 
 // TargetInfo is what checking a Definition against a Target it binds needs:
-// the class it declares, the Capabilities it grants, and the credential
-// slot names its auth: mapping supplies.
+// the class it declares, the Capabilities it grants, the credential slot
+// names its auth: mapping supplies, the Kinds it accepts — the grant half of
+// the two keys, a Step's bound Definition supplying the claim — and whether
+// it has opted into opaque-destroy: (§3, §4, §5, issue #95).
 type TargetInfo struct {
-	Class        string
-	Capabilities map[string]bool
-	AuthSlots    map[string]bool
+	Class         string
+	Capabilities  map[string]bool
+	AuthSlots     map[string]bool
+	Kinds         map[string]bool
+	OpaqueDestroy bool
 }
 
 // ProviderIndex maps a Provider's own name — a built-in or a providers/
@@ -187,33 +210,87 @@ func BuildTargetIndex(declarationRoots []*yaml.Node) TargetIndex {
 	return idx
 }
 
-// DefinitionIndex maps a definitions/ file's own definition: to the
-// provider: it names, unresolved — a Step's definition: resolves against
-// this namespace, and what its operation: and args: are checked against is
-// reached by a second lookup, into ProviderIndex, once the Definition's own
-// provider: has resolved (§3, §4, issue #94).
-type DefinitionIndex map[string]string
+// DefinitionInfo is what checking a Step against the Definition it binds
+// needs, read once per repository pass rather than reparsed per Step that
+// names it (§3, §4, §5, issue #95): the provider: it names, unresolved — a
+// Step's operation: and args: are checked against a second lookup, into
+// ProviderIndex, once ProviderName has resolved; the Kinds it claims via
+// kinds: — read and/or mutate, the claim half of the two keys; the
+// Operations it claims for destroy:, by name — the same set both
+// operation-not-claimed and the destroy half of ClaimsKind read; and the
+// targets: it claims, resolved against TargetIndex and keyed by name — the
+// namespace a Step's target: resolves against and nothing wider (§4), and
+// the source of the Kinds a Step's bound Target grants.
+type DefinitionInfo struct {
+	ProviderName string
+	Kinds        map[string]bool
+	Destroy      map[string]bool
+	Targets      map[string]TargetInfo
+}
+
+// ClaimsKind reports whether this Definition's own claim covers kind —
+// membership in kinds: for read and mutate, and a non-empty destroy: for
+// destroy, granularity following severity the same way the Step-level check
+// against it does (§4, §5, issue #95).
+func (d DefinitionInfo) ClaimsKind(kind string) bool {
+	if kind == "destroy" {
+		return len(d.Destroy) > 0
+	}
+	return d.Kinds[kind]
+}
+
+// DefinitionIndex maps a definitions/ file's own definition: to what a Step
+// binding it is checked against — a Step's definition: resolves against
+// this namespace (§3, §4, issue #94).
+type DefinitionIndex map[string]DefinitionInfo
 
 // BuildDefinitionIndex adds one entry per definitions/ root whose
-// definition: is a legible scalar, on BuildProviderIndex's own rule. An
-// entry whose provider: is absent or illegible carries "" — CheckDefinition
-// has already named that fault on the Definition's own line, and a Step
-// naming this Definition resolves no Operation against an empty provider
-// name, which is reference-unresolvable on the same rule as any other name
-// that does not resolve.
-func BuildDefinitionIndex(definitionRoots []*yaml.Node) DefinitionIndex {
+// definition: is a legible scalar, on BuildProviderIndex's own rule. targets
+// is the namespace a targets: member resolves against — the same
+// TargetIndex CheckDefinition's own per-pair checks read — so a member that
+// does not resolve there contributes nothing to DefinitionInfo.Targets,
+// CheckDefinition having already named that fault on the Definition's own
+// line (ADR-0064). An entry whose provider: is absent or illegible carries
+// ProviderName "" — a Step naming this Definition resolves no Operation
+// against an empty provider name, which is reference-unresolvable on the
+// same rule as any other name that does not resolve.
+func BuildDefinitionIndex(definitionRoots []*yaml.Node, targets TargetIndex) DefinitionIndex {
 	idx := DefinitionIndex{}
 	for _, root := range definitionRoots {
-		fields := topLevelFields(root, "definition", "provider")
+		fields := topLevelFields(root, "definition", "provider", "kinds", "destroy", "targets")
 		nameVal := fields["definition"]
 		if nameVal == nil || nameVal.Kind != yaml.ScalarNode {
 			continue
 		}
-		providerName := ""
+		info := DefinitionInfo{Kinds: map[string]bool{}, Destroy: map[string]bool{}, Targets: map[string]TargetInfo{}}
 		if providerVal := fields["provider"]; providerVal != nil && providerVal.Kind == yaml.ScalarNode {
-			providerName = providerVal.Value
+			info.ProviderName = providerVal.Value
 		}
-		idx[nameVal.Value] = providerName
+		if kindsVal := fields["kinds"]; kindsVal != nil && kindsVal.Kind == yaml.SequenceNode {
+			for _, item := range kindsVal.Content {
+				if item.Kind == yaml.ScalarNode {
+					info.Kinds[item.Value] = true
+				}
+			}
+		}
+		if destroyVal := fields["destroy"]; destroyVal != nil && destroyVal.Kind == yaml.SequenceNode {
+			for _, item := range destroyVal.Content {
+				if item.Kind == yaml.ScalarNode {
+					info.Destroy[item.Value] = true
+				}
+			}
+		}
+		if targetsVal := fields["targets"]; targetsVal != nil && targetsVal.Kind == yaml.SequenceNode {
+			for _, item := range targetsVal.Content {
+				if item.Kind != yaml.ScalarNode {
+					continue
+				}
+				if t, ok := targets[item.Value]; ok {
+					info.Targets[item.Value] = t
+				}
+			}
+		}
+		idx[nameVal.Value] = info
 	}
 	return idx
 }
@@ -246,12 +323,14 @@ func providerInfoFromManifest(root *yaml.Node) ProviderInfo {
 	return info
 }
 
-// targetInfoFromDeclaration reads the three facts CheckDefinition needs off
-// a Target declaration's own root: class:, capabilities:, and the
-// credential slot names its auth: mapping's own keys are.
+// targetInfoFromDeclaration reads the five facts CheckDefinition and the
+// Step-level authority checks need off a Target declaration's own root:
+// class:, capabilities:, the credential slot names its auth: mapping's own
+// keys are, the Kinds it accepts, and whether it opts into opaque-destroy:
+// (§3, §4, §5, issue #95).
 func targetInfoFromDeclaration(root *yaml.Node) TargetInfo {
-	fields := topLevelFields(root, "class", "capabilities", "auth")
-	info := TargetInfo{Capabilities: map[string]bool{}, AuthSlots: map[string]bool{}}
+	fields := topLevelFields(root, "class", "capabilities", "auth", "kinds", "opaque-destroy")
+	info := TargetInfo{Capabilities: map[string]bool{}, AuthSlots: map[string]bool{}, Kinds: map[string]bool{}}
 	if classVal := fields["class"]; classVal != nil && classVal.Kind == yaml.ScalarNode {
 		info.Class = classVal.Value
 	}
@@ -268,6 +347,16 @@ func targetInfoFromDeclaration(root *yaml.Node) TargetInfo {
 				info.AuthSlots[key.Value] = true
 			}
 		}
+	}
+	if kindsVal := fields["kinds"]; kindsVal != nil && kindsVal.Kind == yaml.SequenceNode {
+		for _, item := range kindsVal.Content {
+			if item.Kind == yaml.ScalarNode {
+				info.Kinds[item.Value] = true
+			}
+		}
+	}
+	if opaqueVal := fields["opaque-destroy"]; opaqueVal != nil && opaqueVal.Kind == yaml.ScalarNode {
+		info.OpaqueDestroy = opaqueVal.Value == "true"
 	}
 	return info
 }
@@ -336,11 +425,36 @@ func CheckDefinition(file string, root *yaml.Node, providers ProviderIndex, targ
 
 	if haveProvider {
 		problems = append(problems, checkDestroyResolution(file, fields["destroy"], provider)...)
+		claimsOpaqueDestroy := definitionClaimsOpaqueDestroy(fields["destroy"], provider)
 		for _, rt := range resolved {
-			problems = append(problems, checkDefinitionTargetPair(file, rt, provider)...)
+			problems = append(problems, checkDefinitionTargetPair(file, rt, provider, claimsOpaqueDestroy)...)
 		}
 	}
 	return problems
+}
+
+// definitionClaimsOpaqueDestroy reports whether destroyVal names at least
+// one Operation among provider's own that is opaque — the shell Capability,
+// the one Capability behind an opaque Operation (§5, §13) — which is what
+// decides whether opaque-destroy-not-granted applies to a (Definition,
+// Target) pair below. It says nothing where destroyVal is absent or not a
+// sequence, or where a member does not resolve — checkDestroyResolution has
+// already named that fault, and there is no Operation here to read Kind or
+// opacity off.
+func definitionClaimsOpaqueDestroy(destroyVal *yaml.Node, provider ProviderInfo) bool {
+	if destroyVal == nil || destroyVal.Kind != yaml.SequenceNode {
+		return false
+	}
+	for _, item := range destroyVal.Content {
+		name, ok := resolveScalar(item)
+		if !ok {
+			continue
+		}
+		if op, declared := provider.Operations[name]; declared && op.IsShell {
+			return true
+		}
+	}
+	return false
 }
 
 // checkDefinitionKindsMixed reports definition-kinds-mixed on read standing
@@ -462,16 +576,19 @@ func checkDestroyResolution(file string, destroyVal *yaml.Node, provider Provide
 	return problems
 }
 
-// checkDefinitionTargetPair runs the three checks that need a (Definition,
+// checkDefinitionTargetPair runs the four checks that need a (Definition,
 // Target) binding rather than either artefact alone (§3, §4, §5): a Target
 // outside the bound Provider's declared class is target-class-mismatch; a
 // Capability the Provider's Operations require and the Target does not
-// grant is capability-not-granted; and a Target whose credential slots do
-// not cover the Provider's Auth scheme is manifest-inconsistent — the
-// twelfth shape, decidable only once a binding exists. Each points a reader
-// at the targets: member that made the binding, since that is the line
-// whose edit — bind a different Target, or widen the one bound — fixes it.
-func checkDefinitionTargetPair(file string, rt resolvedTarget, provider ProviderInfo) []problem.Problem {
+// grant is capability-not-granted; a Target whose credential slots do not
+// cover the Provider's Auth scheme is manifest-inconsistent — the twelfth
+// shape, decidable only once a binding exists; and, where claimsOpaqueDestroy
+// is true, a Target that has not opted into opaque-destroy: is
+// opaque-destroy-not-granted — the artefact half of the check, the credential
+// half needing a Run to resolve and belonging to §5. Each points a reader at
+// the targets: member that made the binding, since that is the line whose
+// edit — bind a different Target, or widen the one bound — fixes it.
+func checkDefinitionTargetPair(file string, rt resolvedTarget, provider ProviderInfo, claimsOpaqueDestroy bool) []problem.Problem {
 	var problems []problem.Problem
 	line, column := rt.node.Line, rt.node.Column
 	field := fmt.Sprintf("targets[%d]", rt.index)
@@ -511,6 +628,14 @@ func checkDefinitionTargetPair(file string, rt resolvedTarget, provider Provider
 			File: file, Line: line, Column: column, Field: field,
 			ErrorCode: CodeManifestInconsistent,
 			Message:   fmt.Sprintf("%s's credential slots do not cover the bound Provider's Auth scheme — missing %s", rt.name, strings.Join(missingSlots, ", ")),
+		})
+	}
+
+	if claimsOpaqueDestroy && !rt.info.OpaqueDestroy {
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field,
+			ErrorCode: CodeOpaqueDestroyNotGranted,
+			Message:   fmt.Sprintf("%s has not opted into opaque-destroy:, and this Definition claims an opaque destroy Operation", rt.name),
 		})
 	}
 	return problems

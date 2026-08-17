@@ -330,3 +330,49 @@ func TestCheckDefinition_OneTargetServesAHeaderProviderAndABasicProviderDrawsNoC
 		t.Fatalf("CheckDefinition(basic) = %+v, want no problems", got2)
 	}
 }
+
+// --- issue #95: the two keys, the Bound, and the opaque destroy opt-ins ---
+
+func TestCheckDefinition_OpaqueDestroyNotGranted(t *testing.T) {
+	// shell's destroy Operation is opaque — its request is the shell
+	// Capability — and localTarget2 (definition_test.go's own fixture)
+	// carries no opaque-destroy: opt-in.
+	doc := "kind: definition\ndefinition: cleanup\nprovider: shell\ndestroy: [destroy]\ntargets: [local]\n"
+	targets := BuildTargetIndex([]*yaml.Node{parse(t, localTarget2)})
+	got := CheckDefinition("definitions/cleanup.yaml", parse(t, doc), ProviderIndex{"shell": builtinShellProviderInfo()}, targets)
+	p := mustCode(t, got, CodeOpaqueDestroyNotGranted)
+	if p.Field != "targets[0]" {
+		t.Errorf("Field = %q, want targets[0]", p.Field)
+	}
+}
+
+func TestCheckDefinition_OpaqueDestroyGrantedDrawsNoCode(t *testing.T) {
+	doc := "kind: definition\ndefinition: cleanup\nprovider: shell\ndestroy: [destroy]\ntargets: [local]\n"
+	localOptedIn := "kind: target-declaration\ntarget: local\nclass: local\nkinds: [read]\ncapabilities: [shell]\nopaque-destroy: true\n"
+	targets := BuildTargetIndex([]*yaml.Node{parse(t, localOptedIn)})
+	got := CheckDefinition("definitions/cleanup.yaml", parse(t, doc), ProviderIndex{"shell": builtinShellProviderInfo()}, targets)
+	if len(got) != 0 {
+		t.Fatalf("CheckDefinition() = %+v, want no problems", got)
+	}
+}
+
+// TestCheckDefinition_NonOpaqueDestroyDrawsNoOpaqueDestroyCode proves
+// opaque-destroy-not-granted reads opacity off the Capability an Operation's
+// request uses rather than off destroy: alone — delete_dns_record is an
+// http Operation, and cloudflare-prod (artefact_test.go's own fixture)
+// carries no opaque-destroy: opt-in either.
+func TestCheckDefinition_NonOpaqueDestroyDrawsNoOpaqueDestroyCode(t *testing.T) {
+	mustNoCode(t, CheckDefinition("definitions/preview-dns.yaml", parse(t, previewDNS), cloudflareProviders(t), cloudflareTargets(t)), CodeOpaqueDestroyNotGranted)
+}
+
+// TestCheckDefinition_ClaimingNoKindsAndNoDestroyLoadsClean proves issue
+// #95's acceptance criterion: "A Definition claiming no Kinds and no
+// destroy: Operations loads clean" — the Step-level consequence, that every
+// Step through it draws kind-not-granted, is procedure_test.go's own.
+func TestCheckDefinition_ClaimingNoKindsAndNoDestroyLoadsClean(t *testing.T) {
+	doc := "kind: definition\ndefinition: uptime\nprovider: shell\ntargets: [local]\n"
+	got := CheckDefinition("definitions/uptime.yaml", parse(t, doc), ProviderIndex{"shell": builtinShellProviderInfo()}, BuildTargetIndex([]*yaml.Node{parse(t, localTarget2)}))
+	if len(got) != 0 {
+		t.Fatalf("CheckDefinition() = %+v, want no problems", got)
+	}
+}

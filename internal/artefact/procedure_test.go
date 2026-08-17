@@ -15,8 +15,22 @@ func shellProviders() ProviderIndex {
 	return ProviderIndex{"shell": builtinShellProviderInfo()}
 }
 
+// fullyGrantedTarget is a synthetic TargetInfo accepting every Kind and
+// opted into opaque-destroy: — the two-keys, Bound and opaque-opt-in checks
+// are not what most of this file's tests exercise, so their fixtures grant
+// everything a Definition might claim (issue #95); the tests that exercise
+// those checks build their own narrower TargetInfo instead.
+func fullyGrantedTarget() TargetInfo {
+	return TargetInfo{Kinds: map[string]bool{"read": true, "mutate": true, "destroy": true}, OpaqueDestroy: true}
+}
+
 func uptimeDefinitions() DefinitionIndex {
-	return DefinitionIndex{"uptime": "shell"}
+	return DefinitionIndex{"uptime": DefinitionInfo{
+		ProviderName: "shell",
+		Kinds:        map[string]bool{"read": true, "mutate": true},
+		Destroy:      map[string]bool{"destroy": true, "destroy_once": true},
+		Targets:      map[string]TargetInfo{"local": fullyGrantedTarget()},
+	}}
 }
 
 // cloudflareProcedureProviders and previewDNSDefinitions are the namespaces
@@ -29,7 +43,12 @@ func cloudflareProcedureProviders(t *testing.T) ProviderIndex {
 }
 
 func previewDNSDefinitions() DefinitionIndex {
-	return DefinitionIndex{"preview-dns": "cloudflare-dns"}
+	return DefinitionIndex{"preview-dns": DefinitionInfo{
+		ProviderName: "cloudflare-dns",
+		Kinds:        map[string]bool{"read": true, "mutate": true},
+		Destroy:      map[string]bool{"delete_dns_record": true},
+		Targets:      map[string]TargetInfo{"cloudflare-prod": fullyGrantedTarget()},
+	}}
 }
 
 const minimalProcedure = `kind: procedure
@@ -257,7 +276,11 @@ operations:
 
 func TestCheckProcedure_ArgsWhereOperationDeclaresNoInputIsUnknownKey(t *testing.T) {
 	providers := BuildProviderIndex([]*yaml.Node{parse(t, noInputProvider)})
-	definitions := DefinitionIndex{"noop-def": "noop"}
+	definitions := DefinitionIndex{"noop-def": DefinitionInfo{
+		ProviderName: "noop",
+		Kinds:        map[string]bool{"read": true},
+		Targets:      map[string]TargetInfo{"local": fullyGrantedTarget()},
+	}}
 	doc := `kind: procedure
 procedure: deploy
 targets: [local]
@@ -396,6 +419,7 @@ steps:
     args:
       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
       record_id: {step: publish, path: $.id}
+    bound: 1
 `
 	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
 	if len(got) != 0 {
@@ -673,4 +697,311 @@ func TestCheckProcedure_RetirePreviewDNSLegacyVariantIsClean(t *testing.T) {
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedure() = %+v, want no problems", got)
 	}
+}
+
+// --- issue #95: the two keys, the Bound, and the opaque destroy opt-ins ---
+
+func TestCheckProcedure_KindNotGrantedWhereDefinitionClaimsNothing(t *testing.T) {
+	definitions := DefinitionIndex{"uptime": DefinitionInfo{
+		ProviderName: "shell",
+		Kinds:        map[string]bool{},
+		Destroy:      map[string]bool{},
+		Targets:      map[string]TargetInfo{"local": fullyGrantedTarget()},
+	}}
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure), shellProviders(), definitions, ProcedureIndex{})
+	p := mustCode(t, got, CodeKindNotGranted)
+	if p.Field != "steps[0]" {
+		t.Errorf("Field = %q, want steps[0]", p.Field)
+	}
+}
+
+// TestCheckProcedure_DefinitionClaimingNothingDrawsKindNotGrantedOnEveryStep
+// proves issue #95's acceptance criterion: "A Definition claiming no Kinds
+// and no destroy: Operations loads clean, and every Step through it draws
+// kind-not-granted."
+func TestCheckProcedure_DefinitionClaimingNothingDrawsKindNotGrantedOnEveryStep(t *testing.T) {
+	definitions := DefinitionIndex{"uptime": DefinitionInfo{
+		ProviderName: "shell",
+		Kinds:        map[string]bool{},
+		Destroy:      map[string]bool{},
+		Targets:      map[string]TargetInfo{"local": fullyGrantedTarget()},
+	}}
+	doc := `kind: procedure
+procedure: deploy
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]
+  - id: change
+    definition: uptime
+    operation: mutate
+    target: local
+    args:
+      command: [uptime]
+`
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), definitions, ProcedureIndex{})
+	var kindNotGranted int
+	for _, p := range got {
+		if p.ErrorCode == CodeKindNotGranted {
+			kindNotGranted++
+		}
+	}
+	if kindNotGranted != 2 {
+		t.Errorf("kind-not-granted rows = %d, want 2 — a Definition claiming nothing grants no Step through it", kindNotGranted)
+	}
+}
+
+func TestCheckProcedure_KindNotGrantedWhereTargetDoesNotAcceptIt(t *testing.T) {
+	definitions := DefinitionIndex{"uptime": DefinitionInfo{
+		ProviderName: "shell",
+		Kinds:        map[string]bool{"read": true, "mutate": true},
+		Targets:      map[string]TargetInfo{"local": {Kinds: map[string]bool{"read": true}}},
+	}}
+	doc := `kind: procedure
+procedure: deploy
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: mutate
+    target: local
+    args:
+      command: [uptime]
+`
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), definitions, ProcedureIndex{})
+	mustCode(t, got, CodeKindNotGranted)
+}
+
+func TestCheckProcedure_KindGrantedDrawsNoCode(t *testing.T) {
+	mustNoCode(t, CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure), shellProviders(), uptimeDefinitions(), ProcedureIndex{}), CodeKindNotGranted)
+}
+
+// TestCheckProcedure_MutateOperationNeedsNoNamedClaimOnlyKind proves issue
+// #95's acceptance criterion: "A read or mutate Step checks at Kind level
+// and needs no named-Operation claim" — mutate_once names no member of any
+// claim by name, and the Kind claim alone is enough.
+func TestCheckProcedure_MutateOperationNeedsNoNamedClaimOnlyKind(t *testing.T) {
+	doc := `kind: procedure
+procedure: deploy
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: mutate_once
+    target: local
+    args:
+      command: [uptime]
+`
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	if len(got) != 0 {
+		t.Fatalf("CheckProcedure() = %+v, want no problems — mutate checks at Kind level and needs no per-Operation claim", got)
+	}
+}
+
+func TestCheckProcedure_DestroyOperationNotClaimedIsOperationNotClaimed(t *testing.T) {
+	definitions := DefinitionIndex{"uptime": DefinitionInfo{
+		ProviderName: "shell",
+		Kinds:        map[string]bool{"read": true, "mutate": true},
+		Destroy:      map[string]bool{"destroy_once": true},
+		Targets:      map[string]TargetInfo{"local": fullyGrantedTarget()},
+	}}
+	doc := `kind: procedure
+procedure: cleanup
+targets: [local]
+steps:
+  - id: purge
+    definition: uptime
+    operation: destroy
+    target: local
+    over:
+      values: [/tmp/a]
+    args:
+      command: [rm, -rf, {item: $}]
+`
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), definitions, ProcedureIndex{})
+	p := mustCode(t, got, CodeOperationNotClaimed)
+	if p.Field != "steps[0].operation" {
+		t.Errorf("Field = %q, want steps[0].operation", p.Field)
+	}
+}
+
+func TestCheckProcedure_DestroyOperationClaimedDrawsNoOperationNotClaimed(t *testing.T) {
+	doc := `kind: procedure
+procedure: cleanup
+targets: [local]
+steps:
+  - id: purge
+    definition: uptime
+    operation: destroy
+    target: local
+    over:
+      values: [/tmp/a]
+    args:
+      command: [rm, -rf, {item: $}]
+`
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	mustNoCode(t, got, CodeOperationNotClaimed)
+}
+
+// TestCheckProcedure_TargetNotClaimedIsItsOwnCodeNotOperationNotClaimed
+// proves issue #95's acceptance criterion: target-not-claimed is its own
+// code and is never folded into operation-not-claimed — a reader handed
+// that code on a target: line would go looking at destroy:, which is the
+// wrong edit. The Definition here claims the destroy: Operation by name and
+// no Target at all, so operation-not-claimed has nothing left to fire on.
+func TestCheckProcedure_TargetNotClaimedIsItsOwnCodeNotOperationNotClaimed(t *testing.T) {
+	definitions := DefinitionIndex{"uptime": DefinitionInfo{
+		ProviderName: "shell",
+		Kinds:        map[string]bool{},
+		Destroy:      map[string]bool{"destroy": true},
+		Targets:      map[string]TargetInfo{},
+	}}
+	doc := `kind: procedure
+procedure: cleanup
+targets: [local]
+steps:
+  - id: purge
+    definition: uptime
+    operation: destroy
+    target: local
+    over:
+      values: [/tmp/a]
+    args:
+      command: [rm, -rf, {item: $}]
+`
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), definitions, ProcedureIndex{})
+	p := mustCode(t, got, CodeTargetNotClaimed)
+	if p.Field != "steps[0].target" {
+		t.Errorf("Field = %q, want steps[0].target", p.Field)
+	}
+	for _, prob := range got {
+		if prob.ErrorCode == CodeOperationNotClaimed {
+			t.Errorf("got operation-not-claimed for a target: line, want only target-not-claimed — the wrong edit")
+		}
+	}
+}
+
+func TestCheckProcedure_DestroyWithNoBoundIsBoundMissing(t *testing.T) {
+	doc := `kind: procedure
+procedure: retire-preview-dns
+targets: [cloudflare-prod]
+steps:
+  - id: retire
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: some-record-id
+`
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), ProcedureIndex{})
+	p := mustCode(t, got, CodeBoundMissing)
+	if p.Field != "steps[0].bound" {
+		t.Errorf("Field = %q, want steps[0].bound", p.Field)
+	}
+}
+
+func TestCheckProcedure_OpaqueDestroyWithBoundIsBoundIllegal(t *testing.T) {
+	doc := `kind: procedure
+procedure: cleanup
+targets: [local]
+steps:
+  - id: purge
+    definition: uptime
+    operation: destroy
+    target: local
+    over:
+      values: [/srv/app/releases/r41]
+    bound: 1
+    args:
+      command: [rm, -rf, {item: $}]
+`
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	p := mustCode(t, got, CodeBoundIllegal)
+	if p.Field != "steps[0].bound" {
+		t.Errorf("Field = %q, want steps[0].bound", p.Field)
+	}
+}
+
+// TestCheckProcedure_OpaqueDestroyWithNoBoundIsClean proves the worked
+// example §5 states, byte for byte for its Steps' shape: two Tombstones,
+// each opening the series it ends, and no Bound anywhere in sight — the one
+// combination the Bound rule and its opaque exception both agree on.
+func TestCheckProcedure_OpaqueDestroyWithNoBoundIsClean(t *testing.T) {
+	doc := `kind: procedure
+procedure: cleanup
+targets: [local]
+steps:
+  - id: purge-releases
+    definition: uptime
+    operation: destroy
+    target: local
+    over:
+      values: [/srv/app/releases/r41, /srv/app/releases/r42]
+    args:
+      command: [rm, -rf, {item: $}]
+`
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	if len(got) != 0 {
+		t.Fatalf("CheckProcedure() = %+v, want no problems — an opaque destroy Step carries no Bound and this one carries none", got)
+	}
+}
+
+func TestCheckProcedure_ReadWithBoundIsUnknownKey(t *testing.T) {
+	doc := `kind: procedure
+procedure: deploy
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    bound: 1
+    args:
+      command: [uptime]
+`
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	p := mustCode(t, got, schema.CodeUnknownKey)
+	if p.Field != "steps[0].bound" {
+		t.Errorf("Field = %q, want steps[0].bound", p.Field)
+	}
+}
+
+func TestCheckProcedure_OpaqueDestroyWithNoOverIsUnscoped(t *testing.T) {
+	doc := `kind: procedure
+procedure: cleanup
+targets: [local]
+steps:
+  - id: purge
+    definition: uptime
+    operation: destroy
+    target: local
+    args:
+      command: [rm, -rf, /srv/app/releases/r41]
+`
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), ProcedureIndex{})
+	p := mustCode(t, got, CodeOpaqueDestroyUnscoped)
+	if p.Field != "steps[0]" {
+		t.Errorf("Field = %q, want steps[0]", p.Field)
+	}
+}
+
+func TestCheckProcedure_OpaqueDestroyWithOverIsScoped(t *testing.T) {
+	mustNoCode(t, CheckProcedure("procedures/cleanup.yaml", parse(t, `kind: procedure
+procedure: cleanup
+targets: [local]
+steps:
+  - id: purge
+    definition: uptime
+    operation: destroy
+    target: local
+    over:
+      values: [/srv/app/releases/r41]
+    args:
+      command: [rm, -rf, {item: $}]
+`), shellProviders(), uptimeDefinitions(), ProcedureIndex{}), CodeOpaqueDestroyUnscoped)
 }
