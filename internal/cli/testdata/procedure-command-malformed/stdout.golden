@@ -1,0 +1,2 @@
+FILE                    LINE  FIELD                  ERROR_CODE         MESSAGE
+procedures/deploy.yaml  10    steps[0].args.command  command-malformed  a shell Step's command: is empty — there is no executable to name

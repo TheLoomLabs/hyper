@@ -1001,6 +1001,74 @@ func inputPropertyTypes(inputVal *yaml.Node) map[string]string {
 	return types
 }
 
+// operationInfoFromNode reads the four facts a Step checked against this
+// Operation needs off the Operation's own node (§3, §4, issue #94): whether
+// its request is the shell Capability, its input: schema's own property
+// names, types and enums, and its record: cardinality and field names —
+// nil where it declares no record: at all, a destroy carrying none by
+// construction (checkKindProjection). It is read once per Manifest pass,
+// alongside the rest of ProviderInfo, rather than reparsed per Step that
+// names this Operation.
+func operationInfoFromNode(op *yaml.Node) OperationInfo {
+	fields := topLevelFields(op, "shell", "input", "record")
+	info := OperationInfo{IsShell: fields["shell"] != nil, Inputs: map[string]InputInfo{}}
+
+	if inputVal := fields["input"]; inputVal != nil && inputVal.Kind == yaml.MappingNode {
+		types := inputPropertyTypes(inputVal)
+		enums := inputPropertyEnums(inputVal)
+		for name := range inputPropertyNames(inputVal) {
+			info.Inputs[name] = InputInfo{Type: types[name], Enum: enums[name]}
+		}
+	}
+
+	if recordVal := fields["record"]; recordVal != nil && recordVal.Kind == yaml.MappingNode {
+		recordFields := topLevelFields(recordVal, "over", "fields")
+		info.HasSeries = recordFields["over"] != nil
+		info.RecordFields = map[string]bool{}
+		if fieldsVal := recordFields["fields"]; fieldsVal != nil && fieldsVal.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(fieldsVal.Content); i += 2 {
+				if key := fieldsVal.Content[i]; key.Kind == yaml.ScalarNode {
+					info.RecordFields[key.Value] = true
+				}
+			}
+		}
+	}
+	return info
+}
+
+// inputPropertyEnums reads the top-level enum: an input: schema declares
+// for each of its properties, keyed by property name, omitted where the
+// property's own schema omits enum: — the set a Step's args: value is
+// checked against, on inputPropertyTypes's own rule (§3, §4, issue #94).
+func inputPropertyEnums(inputVal *yaml.Node) map[string][]string {
+	enums := map[string][]string{}
+	if inputVal == nil || inputVal.Kind != yaml.MappingNode {
+		return enums
+	}
+	propsVal := topLevelFields(inputVal, "properties")["properties"]
+	if propsVal == nil || propsVal.Kind != yaml.MappingNode {
+		return enums
+	}
+	for i := 0; i+1 < len(propsVal.Content); i += 2 {
+		key, val := propsVal.Content[i], propsVal.Content[i+1]
+		if key.Kind != yaml.ScalarNode || val.Kind != yaml.MappingNode {
+			continue
+		}
+		enumVal := topLevelFields(val, "enum")["enum"]
+		if enumVal == nil || enumVal.Kind != yaml.SequenceNode {
+			continue
+		}
+		var values []string
+		for _, item := range enumVal.Content {
+			if item.Kind == yaml.ScalarNode {
+				values = append(values, item.Value)
+			}
+		}
+		enums[key.Value] = values
+	}
+	return enums
+}
+
 // enumerationNames reads the top-level enumerations: mapping's own names —
 // the set a Capability-relevant hole may resolve against beside
 // from-target (§3, §12).

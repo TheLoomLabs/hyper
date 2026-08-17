@@ -7,4 +7,4 @@ steps:
     operation: read
     target: local
     args:
-      command: [uptime]
+      command: []

@@ -98,13 +98,41 @@ var DefinitionDeclaration = schema.Schema{
 // needs, read once per repository pass rather than reparsed per Definition
 // that binds it (§4, §5): the class its Definitions may bind, the
 // Capabilities its Operations require, the Operations it declares — the
-// namespace a destroy: member resolves against — and the credential slot
-// names its Auth scheme requires, nil where it authenticates nothing.
+// namespace a destroy: member and a Step's operation: resolve against — and
+// the credential slot names its Auth scheme requires, nil where it
+// authenticates nothing.
 type ProviderInfo struct {
 	Class        string
 	Capabilities map[string]bool
-	Operations   map[string]bool
+	Operations   map[string]OperationInfo
 	AuthSlots    []string
+}
+
+// OperationInfo is what checking a Step against the Operation it binds
+// needs, read once per repository pass alongside the rest of ProviderInfo
+// rather than reparsed per Step that names it (§3, §4, issue #94): whether
+// its request is the shell Capability, the one hyper's own Provider may
+// declare and the one whose argv arrives as the input named command; its
+// Record cardinality, series where its record: carries an over: and one
+// otherwise — the fact a reference's step: half is refused against
+// (series-reference); the field names its record: projects, nil on an
+// Operation with no record: at all — the namespace a reference's path: half
+// resolves against; and every input its input: schema declares, by name.
+type OperationInfo struct {
+	IsShell      bool
+	HasSeries    bool
+	RecordFields map[string]bool
+	Inputs       map[string]InputInfo
+}
+
+// InputInfo is what checking a Step's args: value against one Operation
+// input needs: the type: it declares, read the way an argument's own type
+// is — object and array are the two a reference may never fill (§3, §4) —
+// and the enum: its value is checked against, nil where the input declares
+// none.
+type InputInfo struct {
+	Type string
+	Enum []string
 }
 
 // TargetInfo is what checking a Definition against a Target it binds needs:
@@ -159,12 +187,43 @@ func BuildTargetIndex(declarationRoots []*yaml.Node) TargetIndex {
 	return idx
 }
 
+// DefinitionIndex maps a definitions/ file's own definition: to the
+// provider: it names, unresolved — a Step's definition: resolves against
+// this namespace, and what its operation: and args: are checked against is
+// reached by a second lookup, into ProviderIndex, once the Definition's own
+// provider: has resolved (§3, §4, issue #94).
+type DefinitionIndex map[string]string
+
+// BuildDefinitionIndex adds one entry per definitions/ root whose
+// definition: is a legible scalar, on BuildProviderIndex's own rule. An
+// entry whose provider: is absent or illegible carries "" — CheckDefinition
+// has already named that fault on the Definition's own line, and a Step
+// naming this Definition resolves no Operation against an empty provider
+// name, which is reference-unresolvable on the same rule as any other name
+// that does not resolve.
+func BuildDefinitionIndex(definitionRoots []*yaml.Node) DefinitionIndex {
+	idx := DefinitionIndex{}
+	for _, root := range definitionRoots {
+		fields := topLevelFields(root, "definition", "provider")
+		nameVal := fields["definition"]
+		if nameVal == nil || nameVal.Kind != yaml.ScalarNode {
+			continue
+		}
+		providerName := ""
+		if providerVal := fields["provider"]; providerVal != nil && providerVal.Kind == yaml.ScalarNode {
+			providerName = providerVal.Value
+		}
+		idx[nameVal.Value] = providerName
+	}
+	return idx
+}
+
 // providerInfoFromManifest reads the four facts CheckDefinition needs off a
 // Manifest's own root: class:, capabilities:, the name set of operations:,
 // and the credential slots its auth: scheme requires.
 func providerInfoFromManifest(root *yaml.Node) ProviderInfo {
 	fields := topLevelFields(root, "class", "capabilities", "operations")
-	info := ProviderInfo{Capabilities: map[string]bool{}, Operations: map[string]bool{}}
+	info := ProviderInfo{Capabilities: map[string]bool{}, Operations: map[string]OperationInfo{}}
 	if classVal := fields["class"]; classVal != nil && classVal.Kind == yaml.ScalarNode {
 		info.Class = classVal.Value
 	}
@@ -177,8 +236,9 @@ func providerInfoFromManifest(root *yaml.Node) ProviderInfo {
 	}
 	if opsVal := fields["operations"]; opsVal != nil && opsVal.Kind == yaml.MappingNode {
 		for i := 0; i+1 < len(opsVal.Content); i += 2 {
-			if key := opsVal.Content[i]; key.Kind == yaml.ScalarNode {
-				info.Operations[key.Value] = true
+			key, opNode := opsVal.Content[i], opsVal.Content[i+1]
+			if key.Kind == yaml.ScalarNode {
+				info.Operations[key.Value] = operationInfoFromNode(opNode)
 			}
 		}
 	}
@@ -387,7 +447,10 @@ func checkDestroyResolution(file string, destroyVal *yaml.Node, provider Provide
 	var problems []problem.Problem
 	for i, item := range destroyVal.Content {
 		name, ok := resolveScalar(item)
-		if !ok || provider.Operations[name] {
+		if !ok {
+			continue
+		}
+		if _, declared := provider.Operations[name]; declared {
 			continue
 		}
 		problems = append(problems, problem.Problem{

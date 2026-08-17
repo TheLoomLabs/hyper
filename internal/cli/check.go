@@ -108,6 +108,8 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 
 	providers := artefact.BuildProviderIndex(rootsUnder(loadedFiles, "providers/"))
 	targets := artefact.BuildTargetIndex(rootsUnder(loadedFiles, "targets/"))
+	definitions := artefact.BuildDefinitionIndex(rootsUnder(loadedFiles, "definitions/"))
+	procedures := artefact.BuildProcedureIndex(rootsUnder(loadedFiles, "procedures/"))
 
 	var problems []problem.Problem
 	for _, lf := range loadedFiles {
@@ -115,7 +117,7 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 		if !lf.ok {
 			continue
 		}
-		problems = append(problems, checkArtefact(lf.rel, lf.root, providers, targets)...)
+		problems = append(problems, checkArtefact(lf.rel, lf.root, providers, targets, definitions, procedures)...)
 	}
 
 	if len(paths) > 0 {
@@ -243,11 +245,13 @@ func rootsUnder(files []loadedFile, prefix string) []*yaml.Node {
 
 // checkArtefact runs one already-parsed artefact's own schema and the
 // checks that read it against itself or against the repository: hyper.yaml,
-// a file in targets/, a file in providers/ and, since issue #93, a file in
-// definitions/ — the four artefacts this milestone's schema reaches so far.
-// providers and targets are the repository-wide namespaces a Definition's
-// provider: and targets: resolve against.
-func checkArtefact(rel string, root *yaml.Node, providers artefact.ProviderIndex, targets artefact.TargetIndex) []problem.Problem {
+// a file in targets/, a file in providers/, a file in definitions/ and,
+// since issue #94, a file in procedures/ — the five artefacts this
+// milestone's schema reaches. providers and targets are the repository-wide
+// namespaces a Definition's provider: and targets: resolve against;
+// definitions and procedures are the namespaces a Step's definition: and a
+// nested invocation's procedure: resolve against.
+func checkArtefact(rel string, root *yaml.Node, providers artefact.ProviderIndex, targets artefact.TargetIndex, definitions artefact.DefinitionIndex, procedures artefact.ProcedureIndex) []problem.Problem {
 	switch {
 	case rel == "hyper.yaml":
 		return artefact.CheckRepositoryDeclaration(rel, root)
@@ -257,6 +261,8 @@ func checkArtefact(rel string, root *yaml.Node, providers artefact.ProviderIndex
 		return artefact.CheckManifest(rel, root)
 	case strings.HasPrefix(rel, "definitions/"):
 		return artefact.CheckDefinition(rel, root, providers, targets)
+	case strings.HasPrefix(rel, "procedures/"):
+		return artefact.CheckProcedure(rel, root, providers, definitions, procedures)
 	}
 	return nil
 }
