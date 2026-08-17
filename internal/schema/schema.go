@@ -87,8 +87,17 @@ type Property struct {
 // property is schema-mismatch there like anywhere else, at the file's own
 // position for lack of a line of its own to name.
 func Check(root *yaml.Node, s Schema, file string) []problem.Problem {
+	return CheckAt(root, s, "", file)
+}
+
+// CheckAt is Check, starting the walk at field rather than at the document
+// root. A name-keyed mapping's own members — a Manifest's operations:, an
+// Operation's http: block — each read their own value against a fixed
+// schema of their own, and the problems they report need the full dotted
+// path to that position rather than one relative to it.
+func CheckAt(root *yaml.Node, s Schema, field, file string) []problem.Problem {
 	var problems []problem.Problem
-	read(root, s, "", file, &problems)
+	read(root, s, field, file, &problems)
 	return problems
 }
 

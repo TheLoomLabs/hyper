@@ -1,0 +1,2 @@
+FILE                  LINE  FIELD     ERROR_CODE     MESSAGE
+providers/other.yaml  2     provider  name-mismatch  provider: uptime does not agree with providers/other.yaml's basename — want other

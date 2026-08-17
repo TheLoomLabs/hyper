@@ -1,11 +1,12 @@
 // Package artefact holds each of the five artefacts' own schema and the
 // checks that read one artefact against itself: kind: against its
 // directory, an artefact's own name against its file's basename, the
-// credential slot's shape, and the Target declaration's own two
-// cross-field rules (§3, §4, §12). The Repository declaration and the
-// Target declaration's schemas exist so far — a Definition, a Procedure
-// and a Manifest each arrive in their own ticket and grow this package the
-// same way, one artefact at a time (issues #89, #90).
+// credential slot's shape, the Target declaration's own two cross-field
+// rules, and the Manifest's request, input-schema and path grammars
+// (§3, §4, §12). The Repository declaration, the Target declaration and the
+// Manifest's schemas exist so far — a Definition and a Procedure each
+// arrive in their own ticket and grow this package the same way, one
+// artefact at a time (issues #89, #90, #91).
 package artefact
 
 import (
