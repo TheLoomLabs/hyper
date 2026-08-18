@@ -120,17 +120,44 @@ instead of guessed at by a check. Nothing here resolves a credential or reaches 
 marker is §7's one constant rather than a second one.
 
 `operation <provider> <operation>` writes the Manifest lines declaring that Operation, verbatim, and
-beside them the facts the source does not carry in that form: the Capabilities `hyper` derives from it,
-whether a Bound is mandatory, the Patterns it resolves to, its Record cardinality and declared identity
-field, its Repeatability, its deadline, and its concurrency limit. The source verbatim, because a
-Manifest is written in the format the caller is expected to author Definitions in (§3); the derived
-facts beside it, because making the caller re-derive what `hyper` already computed is waste.
+beside them the facts the source does not carry in that form: the one Capability `hyper` derives from
+it, whether a Bound is mandatory, illegal or neither, the Patterns it resolves to, its Record
+cardinality and declared identity field, its Repeatability, its deadline, and its concurrency limit.
+The source verbatim, because a Manifest is written in the format the caller is expected to author
+Definitions in (§3); the derived facts beside it, because making the caller re-derive what `hyper` has
+already computed is waste.
+
+**The Bound fact has three members and is not a boolean.** §5 gives it three states: a `destroy` Step's
+Bound is mandatory, an `opaque` `destroy` Step is the one Step that carries no Bound — writing one there
+is refused (`bound-missing`, `bound-illegal`) — and on the rest none is mandatory, a `read` Step having
+nothing for one to guard and a `mutate` Step's being its author's to write or leave out. `false` would
+carry both *you need not write one* and *writing one is refused* under one value, on the most severe
+Operation the tool runs, so the member is named `bound` and renders `mandatory`, `illegal` or `none`.
+The MCP tool below carries the same name and the same set.
+
+`patterns_resolved` goes out as a list and is empty rather than absent where the Operation declares no
+Pattern: a caller asking which Patterns run around this call is answered *none of them*, which is a
+fact, where an absent member would say the question was not asked. The page states the same thing by
+having no line, which is the rule every labelled value on it follows. The three members `hyper` derives
+from a declaration — the Capability, the Bound and the Repeatability — are absent only where the
+Manifest states nothing legible to derive them from, which is a fault `check` reports and not a value
+this row may substitute for (§4).
+
+**The Repeatability reported there is the effective one**, on the same ground as the limit below: an
+Operation whose Manifest omits `repeatability:` is run-once where it effects and `repeatable` where it
+reads (§12). Run-once is rendered even though no artefact may write that word, which makes it exactly
+parallel to `opaque` — a fact no artefact declares and every surface renders.
 
 The concurrency limit reported there is the effective one and is always present: 1 for a `read` whose
 Manifest omits the key, and 1 for every `mutate` and `destroy`, whose Expansion is serial and which may
 not declare the key at all (§3, §6). A caller asking *how many at once* gets a number for every
 Operation, and the rule about what may be **authored** stays where authoring rules live rather than
 being inferred from a field that came back empty.
+
+The deadline goes out as `deadline_seconds` and renders on the page as the duration the Manifest wrote —
+`30s`, not `30`. The wire fixes a unit so nothing downstream parses a suffix; the page stands directly
+beneath the source, and a second spelling of one fact on one screen is what the verbatim lines are there
+to prevent.
 
 ## The repository
 
@@ -782,10 +809,11 @@ operation(provider, operation)
 //            source,                     // the Manifest lines declaring this Operation, verbatim
 //            derived: {
 //              capabilities: [ … ],      // derived from the Manifest, never declared beside it
-//              bound_required,
+//              bound,                    // three members: mandatory | illegal | none
 //              patterns_resolved: [ … ],
-//              record_cardinality, record_identity,
-//              repeatability,            // §12
+//              record_cardinality, record_identity,   // both absent on a destroy, which projects
+//                                                     // no Record of its own (§3)
+//              repeatability,            // §12, and effective: run-once where the Manifest omits it
 //              deadline_seconds,
 //              concurrency_limit } }]    // effective: 1 where absent, and on every effectful Operation
 ```
