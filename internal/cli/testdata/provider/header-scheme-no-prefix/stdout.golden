@@ -1,0 +1,7 @@
+AUTH SCHEME     X-Api-Key: <secret>
+CAPABILITIES    http
+DIGEST          sha256:60f570f317ddf7c022b133154dadf94f1cf2b3f0e7bf1a2556c82335b23c22e8
+SCHEMA VERSION  1
+
+NAME          KIND  OPAQUE  SUMMARY
+list_widgets  read  false   GET /widgets; repeatable; projects a Record series

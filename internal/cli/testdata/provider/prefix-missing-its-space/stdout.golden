@@ -1,0 +1,7 @@
+AUTH SCHEME     Authorization: Bearer<secret>
+CAPABILITIES    http
+DIGEST          sha256:adf5c85db14a24eec8c393bbbdbff54750ab9dfb24f20a3afb084e4e856e035c
+SCHEMA VERSION  1
+
+NAME          KIND  OPAQUE  SUMMARY
+list_widgets  read  false   GET /widgets; repeatable; projects a Record series

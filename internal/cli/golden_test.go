@@ -517,3 +517,41 @@ func TestGoldenCorpora_AJSONStreamIsTypedRowsEndingInItsTerminalRow(t *testing.T
 		t.Fatal("no case in any corpus wrote a --json stream; the invariant held vacuously")
 	}
 }
+
+// corpusReportsFactsNotProblems holds one command's corpus against a rule three
+// of the discovery commands share: they report facts rather than problems
+// found, so exit 1 is unreachable from them however faulty the repository they
+// read, and whatever name they were handed (ADR-0064).
+//
+// It reads the recorded exits rather than driving anything, on the same footing
+// as the corpus-wide assertions above: a case is found by the shape of its
+// directory, and a case added to any of the three corpora is judged by having
+// been written. command is both the subtree the corpus sits in and the name the
+// failure reads back, those being one string by the convention a case
+// directory says which command it exercises (issue #101, issue #108).
+func corpusReportsFactsNotProblems(t *testing.T, command string) {
+	t.Helper()
+
+	corpus := filepath.Join("testdata", command)
+	cases, err := os.ReadDir(corpus)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cases) == 0 {
+		t.Fatalf("the %s corpus is empty; the invariant would hold vacuously", command)
+	}
+
+	for _, entry := range cases {
+		if !entry.IsDir() {
+			continue
+		}
+		path := filepath.Join(corpus, entry.Name(), "exit.golden")
+		recorded, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if exit := strings.TrimSpace(string(recorded)); exit == strconv.Itoa(cli.ExitProblems) {
+			t.Errorf("%s records exit %s; `hyper %s` reports facts, not problems found", path, exit, command)
+		}
+	}
+}

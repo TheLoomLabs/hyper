@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -575,27 +574,7 @@ func TestRunProviders_TheRowSetIsTheProviderNamespace(t *testing.T) {
 // states: `hyper providers` reports facts, not problems found, so exit 1 is
 // unreachable from it however faulty the repository it read.
 func TestProvidersCorpus_NoCaseExitsOne(t *testing.T) {
-	cases, err := os.ReadDir(filepath.Join("testdata", "providers"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cases) == 0 {
-		t.Fatal("the providers corpus is empty; the invariant would hold vacuously")
-	}
-
-	for _, entry := range cases {
-		if !entry.IsDir() {
-			continue
-		}
-		path := filepath.Join("testdata", "providers", entry.Name(), "exit.golden")
-		recorded, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if exit := strings.TrimSpace(string(recorded)); exit == strconv.Itoa(cli.ExitProblems) {
-			t.Errorf("%s records exit %s; `hyper providers` reports facts, not problems found", path, exit)
-		}
-	}
+	corpusReportsFactsNotProblems(t, "providers")
 }
 
 // TestRunProviders_ResolvesNoCredentialAndReadsNothingButTheTwoGlobals is the

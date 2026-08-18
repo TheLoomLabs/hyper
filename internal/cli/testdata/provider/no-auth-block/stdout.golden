@@ -1,0 +1,7 @@
+AUTH SCHEME     none
+CAPABILITIES    http
+DIGEST          sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7
+SCHEMA VERSION  1
+
+NAME        KIND  OPAQUE  SUMMARY
+check_http  read  false   GET /; repeatable; projects one Record

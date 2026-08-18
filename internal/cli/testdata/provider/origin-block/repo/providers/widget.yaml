@@ -1,0 +1,22 @@
+kind: provider
+provider: widget
+schema-version: 1
+class: widgetco
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+origin:
+  ref: ghcr.io/widgetco/widget:1.2.0
+  digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+operations:
+  list_widgets:
+    kind: read
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /widgets
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id}

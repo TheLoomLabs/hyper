@@ -1,0 +1,3 @@
+{"type":"manifest","auth_scheme":"Authorization: Bearer <secret>","capabilities_required":["http"],"digest":"sha256:83542189b936b128ac4070775c7c721e2c375d646e3168935d317475822ad71c","schema_version":1,"origin_ref":"ghcr.io/widgetco/widget:1.2.0","origin_digest":"sha256:1111111111111111111111111111111111111111111111111111111111111111"}
+{"type":"operation","name":"list_widgets","kind":"read","opaque":false,"summary":"GET /widgets; repeatable; projects a Record series"}
+{"type":"result","truncated":false}

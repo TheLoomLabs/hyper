@@ -169,3 +169,20 @@ func resolveRepoRoot(command, repoDirFlag string, lookupenv func(string) (string
 	}
 	return root, 0
 }
+
+// arityFault says which of the two arity faults happened where a command takes
+// exactly one positional. Both are usage errors decided from the argument list
+// alone, and the difference is worth a clause because the remedies differ: one
+// caller forgot the argument and the other named the thing twice or slipped a
+// flag past it (ADR-0060).
+//
+// noun is what the command takes one of, spelled as its own messages spell it —
+// a shell for `completions`, a Provider for `provider`. It is a parameter for
+// the reason parseArgs's own command is one: the fault is spelled in a single
+// place, and a caller still reads a message in their own command's words.
+func arityFault(noun string, args []string) string {
+	if len(args) == 0 {
+		return "names no " + noun
+	}
+	return fmt.Sprintf("takes one %s, got %d", noun, len(args))
+}

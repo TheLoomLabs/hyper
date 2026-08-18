@@ -1,0 +1,38 @@
+kind: provider
+provider: widget
+schema-version: 1
+class: widgetco
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  zulu_widget:
+    kind: read
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /widgets/zulu
+    record:
+      identity: $.id
+      fields: {id: $.id}
+  alpha_widget:
+    kind: read
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /widgets/alpha
+    record:
+      identity: $.id
+      fields: {id: $.id}
+  mike_widget:
+    kind: read
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /widgets/mike
+    record:
+      identity: $.id
+      fields: {id: $.id}

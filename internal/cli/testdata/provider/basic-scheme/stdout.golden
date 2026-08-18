@@ -1,0 +1,7 @@
+AUTH SCHEME     Authorization: Basic <secret>
+CAPABILITIES    http
+DIGEST          sha256:9ba6b0ac65295f3383e4be5284fe824893bdddcb37ed2a7578e03f0eeab46538
+SCHEMA VERSION  1
+
+NAME          KIND  OPAQUE  SUMMARY
+list_widgets  read  false   GET /widgets; repeatable; projects a Record series

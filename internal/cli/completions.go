@@ -22,7 +22,7 @@ import (
 // the tool is matched (§9): `hyper completions BASH` exits 2.
 func RunCompletions(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		fmt.Fprintf(stderr, "hyper completions: %s\n  known shells: %s\n", arityFault(args), strings.Join(shells, ", "))
+		fmt.Fprintf(stderr, "hyper completions: %s\n  known shells: %s\n", arityFault("shell", args), strings.Join(shells, ", "))
 		return ExitUsage
 	}
 
@@ -37,17 +37,6 @@ func RunCompletions(args []string, stdout, stderr io.Writer) int {
 		return ExitUsage
 	}
 	return ExitClean
-}
-
-// arityFault says which of the two arity faults happened. Both are usage
-// errors carrying the same known-shells line, and the difference is worth a
-// clause because the remedies differ: one caller forgot the argument and the
-// other typed a shell twice or slipped a flag past it.
-func arityFault(args []string) string {
-	if len(args) == 0 {
-		return "names no shell"
-	}
-	return fmt.Sprintf("takes one shell, got %d", len(args))
 }
 
 // completionScripts is the three scripts, one per shell, assembled once from

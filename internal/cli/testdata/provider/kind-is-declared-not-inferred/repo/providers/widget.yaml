@@ -1,0 +1,25 @@
+kind: provider
+provider: widget
+schema-version: 1
+class: widgetco
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  delete_widget:
+    kind: mutate
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: "/widgets/{id}/archive"
+    record:
+      identity: "{id}"
+      fields: {id: $.body.id}
+  create_widget:
+    kind: destroy
+    deadline: 30s
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: "/widgets/{id}"

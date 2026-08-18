@@ -100,5 +100,6 @@ type repositoryCommand func(args []string, stdout, stderr io.Writer, lookupenv f
 var repositoryCommands = map[string]repositoryCommand{
 	"check":     RunCheck,
 	"providers": RunProviders,
+	"provider":  RunProvider,
 	"targets":   RunTargets,
 }

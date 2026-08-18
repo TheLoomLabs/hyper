@@ -1,0 +1,9 @@
+AUTH SCHEME     Authorization: Bearer <secret>
+CAPABILITIES    http
+DIGEST          sha256:a31fd1ba83df51ec10dcb8a274ac9ce3834a3889c2ced9b4bcf83291a910f338
+SCHEMA VERSION  1
+
+NAME          KIND  OPAQUE  SUMMARY
+alpha_widget  read  false   GET /widgets/alpha; repeatable; projects one Record
+mike_widget   read  false   GET /widgets/mike; repeatable; projects one Record
+zulu_widget   read  false   GET /widgets/zulu; repeatable; projects one Record

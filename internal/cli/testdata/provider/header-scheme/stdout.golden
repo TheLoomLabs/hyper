@@ -1,0 +1,9 @@
+AUTH SCHEME     Authorization: Bearer <secret>
+CAPABILITIES    http
+DIGEST          sha256:bdcb1f6ca78d449dcebfead665b363e70ca68a80d14fea354ad94af340ead1c8
+SCHEMA VERSION  1
+
+NAME               KIND     OPAQUE  SUMMARY
+create_dns_record  mutate   false   POST /client/v4/zones/{zone_id}/dns_records; skip-if-recorded; projects one Record
+delete_dns_record  destroy  false   DELETE /client/v4/zones/{zone_id}/dns_records/{record_id}; repeatable; projects no Record
+list_dns_records   read     false   GET /client/v4/zones/{zone_id}/dns_records; repeatable; projects a Record series

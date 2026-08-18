@@ -1,0 +1,6 @@
+CAPABILITIES    http
+DIGEST          sha256:759e98289ab0d3210389c07b2422c5fb33d13a223967c2496a81ac2d0e977443
+SCHEMA VERSION  1
+
+NAME          KIND  OPAQUE  SUMMARY
+list_widgets  read  false   GET /widgets; repeatable; projects a Record series

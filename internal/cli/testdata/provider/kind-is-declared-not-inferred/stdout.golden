@@ -1,0 +1,8 @@
+AUTH SCHEME     Authorization: Bearer <secret>
+CAPABILITIES    http
+DIGEST          sha256:23c5da49af8398618362a66c9eb8586671d5f7ac06187c58515f6b7dc520fc59
+SCHEMA VERSION  1
+
+NAME           KIND     OPAQUE  SUMMARY
+create_widget  destroy  false   DELETE /widgets/{id}; run-once; projects no Record
+delete_widget  mutate   false   POST /widgets/{id}/archive; run-once; projects one Record

@@ -1,0 +1,12 @@
+AUTH SCHEME     none
+CAPABILITIES    shell
+DIGEST          sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4
+SCHEMA VERSION  1
+
+NAME                     KIND     OPAQUE  SUMMARY
+destroy                  destroy  true    shell; repeatable; projects no Record
+destroy_once             destroy  true    shell; run-once; projects no Record
+mutate                   mutate   true    shell; repeatable; projects one Record
+mutate_once              mutate   true    shell; run-once; projects one Record
+mutate_skip_if_recorded  mutate   true    shell; skip-if-recorded; projects one Record
+read                     read     true    shell; repeatable; projects one Record

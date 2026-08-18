@@ -1,0 +1,19 @@
+kind: provider
+provider: widget
+schema-version: 1
+class: widgetco
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer"}
+operations:
+  list_widgets:
+    kind: read
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /widgets
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id}
