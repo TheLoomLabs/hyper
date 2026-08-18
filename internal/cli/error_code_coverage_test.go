@@ -1,12 +1,18 @@
 package cli_test
 
 import (
-	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"testing"
 )
+
+// checkCorpus is the check command's own slice of testdata/ — its cases, and no
+// sibling's. Nothing here drives them: the one harness in golden_test.go does
+// that, from each case's argv (issue #108). What is read here is what the check
+// corpus's golden files say, which is a question about this milestone's closed
+// set of error codes and not about how a command runs.
+const checkCorpus = "testdata/check"
 
 // milestoneOneErrorCodes is the closed set issue #87 fixes for this
 // milestone: thirty-six error_code members, and no others, reach `hyper
@@ -75,16 +81,12 @@ var milestoneOneErrorCodes = []string{
 // fixture set can never drift apart silently (issue #99).
 func TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
 	var haystack []byte
-	for _, name := range checkCases(t) {
+	for _, c := range goldenCases(t) {
+		if filepath.Dir(c.dir) != checkCorpus {
+			continue
+		}
 		for _, golden := range []string{"stdout.golden", "stderr.golden"} {
-			data, err := os.ReadFile(filepath.Join(checkCorpus, name, golden))
-			if err != nil {
-				if os.IsNotExist(err) {
-					continue
-				}
-				t.Fatal(err)
-			}
-			haystack = append(haystack, data...)
+			haystack = append(haystack, readFile(t, filepath.Join(c.dir, golden))...)
 			haystack = append(haystack, '\n')
 		}
 	}

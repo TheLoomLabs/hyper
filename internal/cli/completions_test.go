@@ -16,34 +16,14 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/cli"
 )
 
-// completionsCorpus is the completions command's own slice of testdata/, a
-// sibling of check/ and version/ rather than a directory inside either: a case
-// belongs to exactly one harness, and no harness runs another's cases (issue
-// #101). What is here is how a completions case is driven — everything else it
-// inherits from golden_test.go.
-const completionsCorpus = "testdata/completions"
-
-// TestCompletionsGolden drives cli.RunCompletions end to end, one directory
-// per case under testdata/completions/ (issue #104). Each case supplies argv —
-// the complete command line as typed — and its golden files (stdout, stderr,
-// exit) are compared byte-for-byte and regenerated behind -update.
-//
-// Three of the cases hold a whole script, which is what makes a change to any
-// of the three shells a diff a reviewer reads rather than a behaviour only a
-// shell could show them.
-func TestCompletionsGolden(t *testing.T) {
-	for _, name := range corpusCases(t, completionsCorpus) {
-		t.Run(name, func(t *testing.T) {
-			dir := filepath.Join(completionsCorpus, name)
-			args := readArgv(t, filepath.Join(dir, "argv"), "completions")
-
-			var stdout, stderr bytes.Buffer
-			exit := cli.RunCompletions(args, &stdout, &stderr)
-
-			compareGolden(t, dir, stdout.Bytes(), stderr.Bytes(), exit)
-		})
-	}
-}
+// The completions command's golden cases live under testdata/completions/, a
+// sibling of check/ and version/ rather than a directory inside either: a
+// case's directory says which command it exercises (issue #101). They are
+// driven like every other case, by the one harness in golden_test.go, from
+// their own argv (issue #108) — three of them holding a whole script, which is
+// what makes a change to any of the three shells a diff a reviewer reads rather
+// than a behaviour only a shell could show them. What is here is what a corpus
+// cannot say.
 
 // TestCompletions_EveryScriptNamesTheWholeSurface is the acceptance criterion
 // that the three scripts describe one surface: each names all eighteen

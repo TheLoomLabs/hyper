@@ -2,11 +2,8 @@ package cli_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"go/parser"
 	"go/token"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,79 +11,11 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
 
-// versionCorpus is the version command's own slice of testdata/, a sibling of
-// testdata/check/ rather than a directory inside it: a case belongs to exactly
-// one harness, and no harness runs another's cases (issue #101). How a case is
-// found and how its golden files are compared are golden_test.go's, shared with
-// every other corpus; what is here is how a version case is driven.
-const versionCorpus = "testdata/version"
-
-// TestVersionGolden drives cli.RunVersion end to end, one directory per case
-// under testdata/version/ (issue #103). Each case supplies argv — the complete
-// command line as typed, `hyper version` and everything after it — and
-// facts.json, the build facts the entry point is handed. Its golden files
-// (stdout, stderr, exit) are compared byte-for-byte and regenerated behind
-// -update.
-//
-// The facts come from the case rather than from the running binary, which is
-// the whole reason this corpus can exist: a page assembled from the real build
-// carries the commit of the tree it was built from and changes with every
-// commit made to it.
-func TestVersionGolden(t *testing.T) {
-	for _, name := range corpusCases(t, versionCorpus) {
-		t.Run(name, func(t *testing.T) {
-			dir := filepath.Join(versionCorpus, name)
-			args := readArgv(t, filepath.Join(dir, "argv"), "version")
-			facts := readFacts(t, filepath.Join(dir, "facts.json"))
-
-			var stdout, stderr bytes.Buffer
-			exit := cli.RunVersion(args, &stdout, &stderr, facts)
-
-			compareGolden(t, dir, stdout.Bytes(), stderr.Bytes(), exit)
-		})
-	}
-}
-
-// factsFixture is the on-disk shape of a case's facts.json, stated here rather
-// than by hanging json tags off version.Facts: the fixture format is the
-// harness's business, and a domain value should not carry a serialisation it
-// has no other use for. The tags are what make the file's keys a contract
-// instead of a coincidence of Go's case-insensitive field matching.
-type factsFixture struct {
-	Version   string `json:"version"`
-	Commit    string `json:"commit"`
-	Built     string `json:"built"`
-	Modified  bool   `json:"modified"`
-	Toolchain string `json:"toolchain"`
-	OS        string `json:"os"`
-	Arch      string `json:"arch"`
-}
-
-// readFacts reads the build facts a case hands the entry point. Unknown fields
-// are an error: a fixture with a misspelt key would otherwise render `unknown`
-// and be frozen into a golden file as the very rendering it meant to avoid.
-func readFacts(t *testing.T, path string) version.Facts {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	var fixture factsFixture
-	if err := dec.Decode(&fixture); err != nil {
-		t.Fatalf("%s: %v", path, err)
-	}
-	return version.Facts{
-		Version:   fixture.Version,
-		Commit:    fixture.Commit,
-		Built:     fixture.Built,
-		Modified:  fixture.Modified,
-		Toolchain: fixture.Toolchain,
-		OS:        fixture.OS,
-		Arch:      fixture.Arch,
-	}
-}
+// The version command's golden cases live under testdata/version/, a sibling of
+// testdata/check/ rather than a directory inside it: a case's directory says
+// which command it exercises (issue #101). They are driven like every other
+// case, by the one harness in golden_test.go, from their own argv (issue #108).
+// What is here is what a corpus cannot say.
 
 // TestRunVersion_TakesNoArgumentAtAll pins the rule the two rejection cases
 // above stand for, over the argument shapes a corpus cannot enumerate: every
