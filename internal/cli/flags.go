@@ -47,11 +47,16 @@ type commandArgs struct {
 // is wrong with a repository is a repository that looks less wrong than it is.
 const takesNoLimit = 0
 
-// defaultProviderLimit is the modest default §9 leaves to the implementation.
+// defaultListLimit is the modest default §9 leaves to the implementation, and
+// it is one number for every command that enumerates a namespace rather than
+// one per command: a caller who has learnt what an unnamed --limit does on
+// `providers` has learnt what it does on `targets`, and two constants holding
+// one number is where the day comes that they stop holding it.
+//
 // It is deliberately not a fact any artefact, Record or check depends on:
-// nothing reads it back, and a repository whose Provider count crosses it gets
-// a truncation marker and a stderr line rather than a different answer.
-const defaultProviderLimit = 50
+// nothing reads it back, and a repository whose row count crosses it gets a
+// truncation marker and a stderr line rather than a different answer.
+const defaultListLimit = 50
 
 // parseArgs reads one command's arguments: the three globals — --json,
 // --repo-dir (also spelled --repo-dir=), --no-color — plus --limit where
@@ -65,13 +70,22 @@ const defaultProviderLimit = 50
 // parameter: one parser, and a caller still reads `hyper providers: unknown
 // flag --sicne`.
 //
-// getenv is here for --no-color's environment spelling, NO_COLOR, which any
+// lookupenv is here for --no-color's environment spelling, NO_COLOR, which any
 // non-empty value sets: flags → environment → defaults is the precedence, so
 // the flag alone can turn it on and the variable cannot turn it off (§9,
 // ADR-0014). --repo-dir's spelling is resolved by resolveRepoRoot below, where
 // the value it produces is a path and not a presentation flag.
-func parseArgs(command string, args []string, defaultLimit int, getenv func(string) string, stderr io.Writer) (commandArgs, int) {
-	parsed := commandArgs{limit: defaultLimit, noColor: getenv("NO_COLOR") != ""}
+//
+// It answers a value *and whether the variable is set at all*, which is
+// os.LookupEnv's shape rather than os.Getenv's, because `targets` reports
+// whether the variable a credential slot names is present and an empty string
+// is present (issue #112). Both globals here read the value and neither reads
+// the presence — but one environment reader is threaded through the whole
+// dispatch, so no two commands can disagree about what reading the environment
+// means, exactly as one repository.Load is what reading a repository means.
+func parseArgs(command string, args []string, defaultLimit int, lookupenv func(string) (string, bool), stderr io.Writer) (commandArgs, int) {
+	noColor, _ := lookupenv("NO_COLOR")
+	parsed := commandArgs{limit: defaultLimit, noColor: noColor != ""}
 	takesLimit := defaultLimit != takesNoLimit
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -133,10 +147,10 @@ func (c *commandArgs) readLimit(command, value string, stderr io.Writer) int {
 // --repo-dir, then HYPER_REPO_DIR, then walking up from wd bounded by the
 // git root. command names the command in its two messages, both of which are
 // usage errors: there is no repository to refuse on behalf of.
-func resolveRepoRoot(command, repoDirFlag string, getenv func(string) string, wd string, stderr io.Writer) (string, int) {
+func resolveRepoRoot(command, repoDirFlag string, lookupenv func(string) (string, bool), wd string, stderr io.Writer) (string, int) {
 	repoDir := repoDirFlag
 	if repoDir == "" {
-		repoDir = getenv("HYPER_REPO_DIR")
+		repoDir, _ = lookupenv("HYPER_REPO_DIR")
 	}
 	if repoDir != "" {
 		resolved := absPath(wd, repoDir)

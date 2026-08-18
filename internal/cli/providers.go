@@ -27,8 +27,8 @@ import (
 // Its parameters are RunCheck's, for the reason RunCheck's are what they are:
 // everything the command reads from the process arrives as an argument, so the
 // whole of it is exercisable without a subprocess.
-func RunProviders(args []string, stdout, stderr io.Writer, getenv func(string) string, wd, binaryVersion string) int {
-	parsed, code := parseArgs("providers", args, defaultProviderLimit, getenv, stderr)
+func RunProviders(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
+	parsed, code := parseArgs("providers", args, defaultListLimit, lookupenv, stderr)
 	if code != 0 {
 		return code
 	}
@@ -41,7 +41,7 @@ func RunProviders(args []string, stdout, stderr io.Writer, getenv func(string) s
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot("providers", parsed.repoDir, getenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("providers", parsed.repoDir, lookupenv, wd, stderr)
 	if code != 0 {
 		return code
 	}
@@ -77,7 +77,7 @@ func RunProviders(args []string, stdout, stderr io.Writer, getenv func(string) s
 	// result must never look complete, and a table that simply stopped after
 	// the last row it was allowed would.
 	if dropped > 0 {
-		fmt.Fprintf(stderr, "hyper providers: %s\n", truncationLine(len(kept), len(rows), parsed))
+		fmt.Fprintf(stderr, "hyper providers: %s\n", truncationLine("Providers", len(kept), len(rows), parsed))
 	}
 
 	return ExitClean
@@ -145,38 +145,4 @@ func providerRows(loaded repository.Loaded) []render.Row {
 		})
 	}
 	return rows
-}
-
-// truncate keeps the first N of the order above and says how many it dropped.
-// The first N of a normative order is the answer to a question rather than an
-// arbitrary sample of one, which is what makes a bounded return usable at all
-// (§9, ADR-0065). There is no cursor, no page parameter and no way to ask for
-// the next N: the remedy for a truncated result is a narrower question, and on
-// a namespace with no narrowing parameter it is a larger --limit.
-func truncate(rows []render.Row, limit int) (kept []render.Row, dropped int) {
-	if limit <= 0 || len(rows) <= limit {
-		return rows, 0
-	}
-	return rows[:limit], len(rows) - limit
-}
-
-// truncationLine is what a truncated result says to a human: what came back,
-// out of what, and what did not. Which of the two forms it takes turns on
-// whether the caller named the cap, because the two send a reader somewhere
-// different — a caller who wrote --limit 2 is told what their own number cut,
-// and one who wrote nothing is told there is a default at all and what widens
-// it. Naming a flag the caller never typed would point the remedy at an
-// argument they would go looking for in their own command line.
-//
-// Neither form names an axis, and neither offers a next page: there is no
-// cursor behind this stream, and a Provider namespace has no narrowing
-// parameter to suggest (§9, §12).
-func truncationLine(returned, found int, parsed commandArgs) string {
-	dropped := found - returned
-	if parsed.limitNamed {
-		return fmt.Sprintf("returned %d of %d Providers; %d dropped by --limit %d",
-			returned, found, dropped, parsed.limit)
-	}
-	return fmt.Sprintf("returned %d of %d Providers; %d dropped by the default limit of %d — name a larger --limit for the rest",
-		returned, found, dropped, parsed.limit)
 }

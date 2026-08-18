@@ -21,18 +21,18 @@ import (
 )
 
 // RunCheck implements `hyper check [path...]`. wd is the working directory
-// repository-root resolution walks up from; getenv reads HYPER_REPO_DIR and
+// repository-root resolution walks up from; lookupenv reads HYPER_REPO_DIR and
 // NO_COLOR; binaryVersion is what the pin gate compares against hyper.yaml's
 // pin. All four are passed in rather than read from the process directly, so
 // the whole command is exercisable without a subprocess.
-func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) string, wd, binaryVersion string) int {
-	parsed, code := parseArgs("check", args, takesNoLimit, getenv, stderr)
+func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
+	parsed, code := parseArgs("check", args, takesNoLimit, lookupenv, stderr)
 	if code != 0 {
 		return code
 	}
 	paths := parsed.positional
 
-	repoRoot, code := resolveRepoRoot("check", parsed.repoDir, getenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("check", parsed.repoDir, lookupenv, wd, stderr)
 	if code != 0 {
 		return code
 	}

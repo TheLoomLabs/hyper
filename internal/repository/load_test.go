@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
@@ -317,6 +318,64 @@ func TestLoad_ManifestsAreTheProviderNamespacesOtherHalf(t *testing.T) {
 	}
 	if want := "kind: provider\nprovider: hetzner\n"; string(hetzner.Bytes) != want {
 		t.Errorf("Bytes = %q, want the file's own bytes %q", hetzner.Bytes, want)
+	}
+}
+
+// TestLoad_TargetDeclarationsAreTheTargetNamespacesOtherHalf is the fold issue
+// #112 needs, on the shape #111 gave the Provider namespace: every name in
+// Targets has the declaration it was read from here, which is what `hyper
+// targets` states a row off and what the index — a membership set per name —
+// cannot answer.
+func TestLoad_TargetDeclarationsAreTheTargetNamespacesOtherHalf(t *testing.T) {
+	root := fiveArtefacts(t)
+	write(t, root, "targets/staging.yaml", "kind: target-declaration\ntarget: staging\ncapabilities: [http]\nhosts: [b.example, a.example]\n")
+
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name := range loaded.Targets {
+		if _, ok := loaded.TargetDeclarations[name]; !ok {
+			t.Errorf("%s is in the Target namespace and has no declaration; the two are one fold", name)
+		}
+	}
+	for name := range loaded.TargetDeclarations {
+		if _, ok := loaded.Targets[name]; !ok {
+			t.Errorf("%s has a declaration and is not in the Target namespace; the two are one fold", name)
+		}
+	}
+
+	// The declaration itself and not a reading of it: the row's own facts
+	// are read off this root, in the order the file states them.
+	facts := artefact.ReadTargetFacts(loaded.TargetDeclarations["staging"])
+	if got, want := facts.Hosts, []string{"b.example", "a.example"}; !slices.Equal(got, want) {
+		t.Errorf("hosts = %v, want %v — the declaration's own order", got, want)
+	}
+}
+
+// TestLoad_ATargetDeclarationThatNamesNothingIsInNoNamespace is ADR-0064's rule
+// at the Target fold, exactly as it stands at the Provider one: a file that
+// will not parse, and one that parses without naming itself, each contribute no
+// name — so neither is a row `hyper targets` writes and neither is a name a
+// targets: member resolves to.
+func TestLoad_ATargetDeclarationThatNamesNothingIsInNoNamespace(t *testing.T) {
+	root := fiveArtefacts(t)
+	write(t, root, "targets/broken.yaml", "kind: target-declaration\ntarget: broken\n  bad: [\n")
+	write(t, root, "targets/nameless.yaml", "kind: target-declaration\nclass: local\n")
+
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, name := range []string{"broken", "nameless"} {
+		if _, ok := loaded.TargetDeclarations[name]; ok {
+			t.Errorf("%s named itself into the Target namespace; a file that names nothing is in no namespace", name)
+		}
+	}
+	if _, ok := loaded.TargetDeclarations["prod"]; !ok {
+		t.Error("the declaration that does name itself is missing; one faulty file stops nothing else")
 	}
 }
 

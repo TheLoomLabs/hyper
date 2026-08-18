@@ -36,7 +36,7 @@ import (
 // facts is threaded whole rather than the bare version string it carries:
 // RunVersion needs all of it, the gate needs the version out of it, and passing
 // the value keeps Main deterministic under test.
-func Main(args []string, stdout, stderr io.Writer, getenv func(string) string, getwd func() (string, error), facts version.Facts) int {
+func Main(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), getwd func() (string, error), facts version.Facts) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: hyper <command> [args...]")
 		return ExitUsage
@@ -64,7 +64,7 @@ func Main(args []string, stdout, stderr io.Writer, getenv func(string) string, g
 			fmt.Fprintf(stderr, "hyper: %s\n", err)
 			return ExitProblems
 		}
-		return run(args[1:], stdout, stderr, getenv, wd, facts.Version)
+		return run(args[1:], stdout, stderr, lookupenv, wd, facts.Version)
 	}
 
 	switch args[0] {
@@ -90,7 +90,7 @@ func Main(args []string, stdout, stderr io.Writer, getenv func(string) string, g
 // is handed rather than makes, and the version the pin gate compares. Every one
 // of §9's sixteen takes it — the gate is stated once for all of them, and
 // nothing else about a command is Main's business.
-type repositoryCommand func(args []string, stdout, stderr io.Writer, getenv func(string) string, wd, binaryVersion string) int
+type repositoryCommand func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int
 
 // repositoryCommands is the dispatch: which command runs, for the commands that
 // stand behind the pin gate. It is not §9's tree — tree.go holds that, and a
@@ -100,4 +100,5 @@ type repositoryCommand func(args []string, stdout, stderr io.Writer, getenv func
 var repositoryCommands = map[string]repositoryCommand{
 	"check":     RunCheck,
 	"providers": RunProviders,
+	"targets":   RunTargets,
 }

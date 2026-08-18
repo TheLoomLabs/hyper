@@ -1,0 +1,2 @@
+{"type":"target","name":"alpha","hosts":["status.hyper.dev","cert.hyper.dev"],"accepts_kinds":["read"],"grants_capabilities":["http"]}
+{"type":"result","truncated":true}

@@ -18,6 +18,13 @@ func newRepo(t *testing.T) string {
 	return root
 }
 
+// emptyEnvironment is an environment with nothing in it: every variable
+// answers absent, which is what a case that names no variable means. It is the
+// shape os.LookupEnv has — the value, and whether the variable is set at all —
+// because an empty value and an unset variable are two different answers
+// wherever presence is the question (issue #112).
+func emptyEnvironment(string) (string, bool) { return "", false }
+
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -32,15 +39,15 @@ func TestRunCheck_HYPER_REPO_DIR_IsUsedWhenNoFlagGiven(t *testing.T) {
 	root := newRepo(t)
 	elsewhere := t.TempDir() // wd has no repository of its own
 
-	getenv := func(k string) string {
+	lookupenv := func(k string) (string, bool) {
 		if k == "HYPER_REPO_DIR" {
-			return root
+			return root, true
 		}
-		return ""
+		return "", false
 	}
 
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck(nil, &stdout, &stderr, getenv, elsewhere, "1.4.0")
+	exit := cli.RunCheck(nil, &stdout, &stderr, lookupenv, elsewhere, "1.4.0")
 	if exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitClean, stderr.String())
 	}
@@ -51,15 +58,15 @@ func TestRunCheck_RepoDirFlagOverridesEnv(t *testing.T) {
 	wrongEnvRoot := t.TempDir()
 	writeFile(t, filepath.Join(wrongEnvRoot, "hyper.yaml"), "kind: repository-declaration\nversion: 9.9.9\n")
 
-	getenv := func(k string) string {
+	lookupenv := func(k string) (string, bool) {
 		if k == "HYPER_REPO_DIR" {
-			return wrongEnvRoot
+			return wrongEnvRoot, true
 		}
-		return ""
+		return "", false
 	}
 
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck([]string{"--repo-dir", root}, &stdout, &stderr, getenv, t.TempDir(), "1.4.0")
+	exit := cli.RunCheck([]string{"--repo-dir", root}, &stdout, &stderr, lookupenv, t.TempDir(), "1.4.0")
 	if exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want %d (flag should win over HYPER_REPO_DIR); stderr=%q", exit, cli.ExitClean, stderr.String())
 	}
@@ -68,22 +75,22 @@ func TestRunCheck_RepoDirFlagOverridesEnv(t *testing.T) {
 func TestRunCheck_NoColorFlagAndEnvProduceIdenticalBytes(t *testing.T) {
 	root := newRepo(t)
 	writeFile(t, filepath.Join(root, "definitions", "broken.yaml"), "kind: definition\nbase: &b\n  x: 1\ntargets: *b\n")
-	getenv := func(string) string { return "" }
+	lookupenv := emptyEnvironment
 
 	var plain bytes.Buffer
-	cli.RunCheck([]string{"--repo-dir", root}, &plain, &plain, getenv, root, "1.4.0")
+	cli.RunCheck([]string{"--repo-dir", root}, &plain, &plain, lookupenv, root, "1.4.0")
 
 	var flagged bytes.Buffer
-	cli.RunCheck([]string{"--repo-dir", root, "--no-color"}, &flagged, &flagged, getenv, root, "1.4.0")
+	cli.RunCheck([]string{"--repo-dir", root, "--no-color"}, &flagged, &flagged, lookupenv, root, "1.4.0")
 
-	getenvNoColor := func(k string) string {
+	lookupenvNoColor := func(k string) (string, bool) {
 		if k == "NO_COLOR" {
-			return "1"
+			return "1", true
 		}
-		return ""
+		return "", false
 	}
 	var envd bytes.Buffer
-	cli.RunCheck([]string{"--repo-dir", root}, &envd, &envd, getenvNoColor, root, "1.4.0")
+	cli.RunCheck([]string{"--repo-dir", root}, &envd, &envd, lookupenvNoColor, root, "1.4.0")
 
 	if plain.String() != flagged.String() {
 		t.Errorf("--no-color changed the bytes:\n plain: %q\nflagged: %q", plain.String(), flagged.String())
@@ -96,10 +103,10 @@ func TestRunCheck_NoColorFlagAndEnvProduceIdenticalBytes(t *testing.T) {
 func TestRunCheck_MultiplePathsOneMissingExitsTwoAndReportsNothing(t *testing.T) {
 	root := newRepo(t)
 	writeFile(t, filepath.Join(root, "definitions", "broken.yaml"), "kind: definition\nbase: &b\n  x: 1\ntargets: *b\n")
-	getenv := func(string) string { return "" }
+	lookupenv := emptyEnvironment
 
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck([]string{"--repo-dir", root, "definitions/broken.yaml", "definitions/typo.yaml"}, &stdout, &stderr, getenv, root, "1.4.0")
+	exit := cli.RunCheck([]string{"--repo-dir", root, "definitions/broken.yaml", "definitions/typo.yaml"}, &stdout, &stderr, lookupenv, root, "1.4.0")
 
 	if exit != cli.ExitUsage {
 		t.Fatalf("exit = %d, want %d", exit, cli.ExitUsage)
@@ -116,10 +123,10 @@ func TestRunCheck_DirectoryPathFiltersToThatDirectory(t *testing.T) {
 	root := newRepo(t)
 	writeFile(t, filepath.Join(root, "definitions", "broken.yaml"), "kind: definition\nbase: &b\n  x: 1\ntargets: *b\n")
 	writeFile(t, filepath.Join(root, "procedures", "broken.yaml"), "kind: procedure\nbase: &c\n  x: 1\ntargets: *c\n")
-	getenv := func(string) string { return "" }
+	lookupenv := emptyEnvironment
 
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck([]string{"--repo-dir", root, "--json", "definitions"}, &stdout, &stderr, getenv, root, "1.4.0")
+	exit := cli.RunCheck([]string{"--repo-dir", root, "--json", "definitions"}, &stdout, &stderr, lookupenv, root, "1.4.0")
 
 	if exit != cli.ExitProblems {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitProblems, stderr.String())
@@ -145,9 +152,9 @@ func TestRunCheck_UnreadableArtefactDoesNotAbortThePass(t *testing.T) {
 	}
 	t.Cleanup(func() { os.Chmod(unreadable, 0o644) })
 
-	getenv := func(string) string { return "" }
+	lookupenv := emptyEnvironment
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, &stdout, &stderr, getenv, root, "1.4.0")
+	exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, &stdout, &stderr, lookupenv, root, "1.4.0")
 
 	if exit != cli.ExitProblems {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitProblems, stderr.String())

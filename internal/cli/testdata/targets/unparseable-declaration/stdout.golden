@@ -1,0 +1,2 @@
+NAME   HOSTS                             KINDS  CAPABILITIES  CREDENTIALS
+local  status.hyper.dev, cert.hyper.dev  read   http

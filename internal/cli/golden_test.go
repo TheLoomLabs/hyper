@@ -103,6 +103,11 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //   - repo/, optional: a fixture repository. A case that supplies one has
 //     --repo-dir resolved to it and stands in it; a case that supplies none is
 //     driven with its argv alone, from the case directory.
+//   - env, optional: the environment the invocation is read against, one
+//     NAME=value line per variable. A variable the file does not list is
+//     absent, and a line whose value is empty is a variable set to the empty
+//     string — two states a case must be able to tell apart, `targets`
+//     reporting whether a credential's variable is present (issue #112).
 //   - facts.json or version, optional: the build facts the entry point is
 //     handed. facts.json is the whole value, for a case whose subject is the
 //     page it renders; version is only the string the pin gate compares, for
@@ -118,9 +123,8 @@ func TestGolden(t *testing.T) {
 			args, wd := c.invocation(t)
 
 			var stdout, stderr bytes.Buffer
-			getenv := func(string) string { return "" }
 			getwd := func() (string, error) { return wd, nil }
-			exit := cli.Main(args, &stdout, &stderr, getenv, getwd, c.facts(t))
+			exit := cli.Main(args, &stdout, &stderr, c.environment(t), getwd, c.facts(t))
 
 			compareGolden(t, c.dir, stdout.Bytes(), stderr.Bytes(), exit)
 		})
@@ -168,6 +172,38 @@ func (c goldenCase) abs(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return resolved
+}
+
+// environment is the environment the case is driven against, read from its own
+// env file: one NAME=value line per variable, and everything past the first "="
+// is the value, empty included. A case that supplies no env file is driven
+// against an environment with nothing in it, which is what every case that
+// names no variable means.
+//
+// It answers presence as well as value, os.LookupEnv's shape rather than
+// os.Getenv's, because a variable set to the empty string and one that was
+// never set are two different answers on `targets`'s presence column and a
+// corpus that could not state the difference could not hold the rule (§9,
+// issue #112).
+func (c goldenCase) environment(t *testing.T) func(string) (string, bool) {
+	t.Helper()
+
+	env := map[string]string{}
+	for _, line := range strings.Split(readFile(t, filepath.Join(c.dir, "env")), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		name, value, named := strings.Cut(line, "=")
+		if !named {
+			t.Fatalf("env line %q names no value; a variable a case sets is written NAME=value, and one it leaves unset is a line it does not write", line)
+		}
+		env[name] = value
+	}
+
+	return func(name string) (string, bool) {
+		value, present := env[name]
+		return value, present
+	}
 }
 
 // defaultVersion is the version a case is driven with where it names none: the

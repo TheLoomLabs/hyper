@@ -66,7 +66,7 @@ func providersRepo(t *testing.T, manifests map[string]string) string {
 func runProviders(t *testing.T, root string, args ...string) (stdout, stderr string, exit int) {
 	t.Helper()
 	var out, errs bytes.Buffer
-	exit = cli.RunProviders(append([]string{"--repo-dir", root}, args...), &out, &errs, func(string) string { return "" }, root, "1.4.0")
+	exit = cli.RunProviders(append([]string{"--repo-dir", root}, args...), &out, &errs, emptyEnvironment, root, "1.4.0")
 	return out.String(), errs.String(), exit
 }
 
@@ -494,13 +494,13 @@ func TestRunProviders_TheThreeGlobalsAreTheOnesSectionNineCloses(t *testing.T) {
 	elsewhere := t.TempDir()
 
 	var viaEnv bytes.Buffer
-	getenv := func(k string) string {
+	lookupenv := func(k string) (string, bool) {
 		if k == "HYPER_REPO_DIR" {
-			return root
+			return root, true
 		}
-		return ""
+		return "", false
 	}
-	if exit := cli.RunProviders(nil, &viaEnv, &viaEnv, getenv, elsewhere, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunProviders(nil, &viaEnv, &viaEnv, lookupenv, elsewhere, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("HYPER_REPO_DIR: exit = %d, want %d; output=%q", exit, cli.ExitClean, viaEnv.String())
 	}
 
@@ -515,11 +515,11 @@ func TestRunProviders_TheThreeGlobalsAreTheOnesSectionNineCloses(t *testing.T) {
 	}
 
 	var noColorEnv bytes.Buffer
-	cli.RunProviders([]string{"--repo-dir", root}, &noColorEnv, &noColorEnv, func(k string) string {
+	cli.RunProviders([]string{"--repo-dir", root}, &noColorEnv, &noColorEnv, func(k string) (string, bool) {
 		if k == "NO_COLOR" {
-			return "1"
+			return "1", true
 		}
-		return ""
+		return "", false
 	}, root, "1.4.0")
 	if noColorEnv.String() != viaFlag {
 		t.Errorf("NO_COLOR changed the bytes:\n %q\n %q", viaFlag, noColorEnv.String())
@@ -618,13 +618,13 @@ auth:
 `)
 
 	var asked []string
-	getenv := func(key string) string {
+	lookupenv := func(key string) (string, bool) {
 		asked = append(asked, key)
-		return ""
+		return "", false
 	}
 
 	var stdout, stderr bytes.Buffer
-	if exit := cli.RunProviders([]string{"--repo-dir", root}, &stdout, &stderr, getenv, root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunProviders([]string{"--repo-dir", root}, &stdout, &stderr, lookupenv, root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitClean, stderr.String())
 	}
 

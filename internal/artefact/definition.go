@@ -265,15 +265,19 @@ func ManifestProviderName(root *yaml.Node) string {
 }
 
 // BuildTargetIndex adds one entry per targets/ root whose target: is a
-// legible scalar, on BuildProviderIndex's own rule.
+// legible scalar, on BuildProviderIndex's own rule. The name is read through
+// TargetDeclarationName, which is the same rule the load folds each name to its
+// declaration by: the namespace a targets: resolves against and the list `hyper
+// targets` writes cannot disagree about which declaration a name means (issue
+// #112).
 func BuildTargetIndex(declarationRoots []*yaml.Node) TargetIndex {
 	idx := TargetIndex{}
 	for _, root := range declarationRoots {
-		nameVal := topLevelFields(root, "target")["target"]
-		if nameVal == nil || nameVal.Kind != yaml.ScalarNode {
+		name := TargetDeclarationName(root)
+		if name == "" {
 			continue
 		}
-		idx[nameVal.Value] = targetInfoFromDeclaration(root)
+		idx[name] = targetInfoFromDeclaration(root)
 	}
 	return idx
 }
@@ -427,42 +431,38 @@ func providerInfoFromManifest(root *yaml.Node) ProviderInfo {
 // (§3, §4, §5, issue #95), and the granted host set hosts: enumerates —
 // nil where the declaration grants no http and so carries none (§3,
 // issue #98).
+//
+// Every one of them is a membership question, which is what a check asks: does
+// this Target grant that Capability, accept that Kind, supply that slot. What
+// the same declaration *states*, in its own order, is ReadTargetFacts's, and
+// the two share the scans below rather than each walking the node themselves.
 func targetInfoFromDeclaration(root *yaml.Node) TargetInfo {
 	fields := topLevelFields(root, "class", "capabilities", "auth", "kinds", "opaque-destroy", "hosts")
 	info := TargetInfo{Capabilities: map[string]bool{}, AuthSlots: map[string]bool{}, Kinds: map[string]bool{}}
 	if classVal := fields["class"]; classVal != nil && classVal.Kind == yaml.ScalarNode {
 		info.Class = classVal.Value
 	}
-	if capsVal := fields["capabilities"]; capsVal != nil && capsVal.Kind == yaml.SequenceNode {
-		for _, item := range capsVal.Content {
-			if item.Kind == yaml.ScalarNode {
-				info.Capabilities[item.Value] = true
-			}
-		}
+	for _, capability := range scalarSequence(fields["capabilities"]) {
+		info.Capabilities[capability] = true
 	}
-	if authVal := fields["auth"]; authVal != nil && authVal.Kind == yaml.MappingNode {
-		for i := 0; i+1 < len(authVal.Content); i += 2 {
-			if key := authVal.Content[i]; key.Kind == yaml.ScalarNode {
-				info.AuthSlots[key.Value] = true
-			}
-		}
+	for _, slot := range credentialSlots(fields["auth"]) {
+		info.AuthSlots[slot.Slot] = true
 	}
-	if kindsVal := fields["kinds"]; kindsVal != nil && kindsVal.Kind == yaml.SequenceNode {
-		for _, item := range kindsVal.Content {
-			if item.Kind == yaml.ScalarNode {
-				info.Kinds[item.Value] = true
-			}
-		}
+	for _, kind := range scalarSequence(fields["kinds"]) {
+		info.Kinds[kind] = true
 	}
 	if opaqueVal := fields["opaque-destroy"]; opaqueVal != nil && opaqueVal.Kind == yaml.ScalarNode {
 		info.OpaqueDestroy = opaqueVal.Value == "true"
 	}
+	// hosts: is read as a set here and as an enumeration by ReadTargetFacts,
+	// two readings of one key: a check asks whether a candidate is granted,
+	// and a row states what the grant is. The set stays nil where the
+	// declaration enumerates none, which is what says a Target granting no
+	// http has no host grant rather than an empty one.
 	if hostsVal := fields["hosts"]; hostsVal != nil && hostsVal.Kind == yaml.SequenceNode {
 		info.Hosts = map[string]bool{}
-		for _, item := range hostsVal.Content {
-			if item.Kind == yaml.ScalarNode {
-				info.Hosts[item.Value] = true
-			}
+		for _, host := range scalarSequence(hostsVal) {
+			info.Hosts[host] = true
 		}
 	}
 	return info

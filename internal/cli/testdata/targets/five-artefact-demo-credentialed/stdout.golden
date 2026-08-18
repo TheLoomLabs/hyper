@@ -1,0 +1,3 @@
+NAME             HOSTS                             KINDS                  CAPABILITIES  CREDENTIALS
+cloudflare-prod  api.cloudflare.com                read, mutate, destroy  http          token=CLOUDFLARE_API_TOKEN (present)
+local            status.hyper.dev, cert.hyper.dev  read                   http

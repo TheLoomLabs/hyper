@@ -1,0 +1,3 @@
+kind: target-declaration
+target: broken
+  bad indentation: [

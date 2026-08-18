@@ -12,6 +12,7 @@
 package render
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -104,6 +105,12 @@ func WriteJSON(w io.Writer, rows []Row, terminal Row) error {
 // included: what stands in place of an empty table — a confirmation line, a
 // count, a sentence naming what was looked for — is the command's own and is
 // not a header over no rows.
+//
+// No line ends in padding. A row whose last cell is empty is ordinary — a
+// Target that declares no credential is §9's own example — and the alignment it
+// leaves behind is whitespace no reader sees, noise in a diff, and a trailing
+// space in whatever the page is piped into. So the aligned page is written
+// through a buffer and each line ends where its last written cell does.
 func WriteTable(w io.Writer, header []string, rows []Row) error {
 	var lines [][]string
 	for _, row := range rows {
@@ -115,10 +122,20 @@ func WriteTable(w io.Writer, header []string, rows []Row) error {
 		return nil
 	}
 
-	tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+	var aligned bytes.Buffer
+	tw := tabwriter.NewWriter(&aligned, 0, 2, 2, ' ', 0)
 	fmt.Fprintln(tw, strings.Join(header, "\t"))
 	for _, cells := range lines {
 		fmt.Fprintln(tw, strings.Join(cells, "\t"))
 	}
-	return tw.Flush()
+	if err := tw.Flush(); err != nil {
+		return err
+	}
+
+	for _, line := range strings.Split(strings.TrimSuffix(aligned.String(), "\n"), "\n") {
+		if _, err := fmt.Fprintln(w, strings.TrimRight(line, " ")); err != nil {
+			return err
+		}
+	}
+	return nil
 }

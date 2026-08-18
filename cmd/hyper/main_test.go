@@ -15,7 +15,7 @@ import (
 // dispatch is the one line of main(), with the two streams redirected and
 // nothing else changed: the same entry point, handed the same four reads of
 // the same process. The cases below are about what the binary does when it is
-// standing somewhere in particular, so they drive the real os.Getenv,
+// standing somewhere in particular, so they drive the real os.LookupEnv,
 // os.Getwd and build facts rather than stand-ins — cli.Main's own behaviour
 // against a fabricated process is internal/cli/main_test.go's (issue #107).
 //
@@ -23,7 +23,7 @@ import (
 // not would be a second entry point, and these cases would stop testing the
 // binary.
 func dispatch(args []string, stdout, stderr io.Writer) int {
-	return cli.Main(args, stdout, stderr, os.Getenv, os.Getwd, version.Current())
+	return cli.Main(args, stdout, stderr, os.LookupEnv, os.Getwd, version.Current())
 }
 
 func TestDispatch_NoArgsIsUsageError(t *testing.T) {

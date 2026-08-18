@@ -72,6 +72,14 @@ type Loaded struct {
 	// answers which Manifest it resolved to, and they are built from one
 	// fold so the two can never mean different files by one name.
 	Manifests map[string]LoadedManifest
+	// TargetDeclarations is the Target namespace's other half, on the shape
+	// Manifests gives the Provider one: one entry per name in Targets,
+	// carrying the declaration that name was read from. Targets answers
+	// what a targets: member resolves to — a membership set per name, which
+	// is what a check asks — and this carries the declaration itself, which
+	// is what a surface states a row off (issue #112). They are built from
+	// one fold, so the two can never mean different files by one name.
+	TargetDeclarations map[string]*yaml.Node
 }
 
 // LoadedManifest is one member of the Provider namespace as the commands that
@@ -127,16 +135,44 @@ func Load(repoRoot string) (Loaded, error) {
 		artefacts = append(artefacts, loadFile(repoRoot, rel))
 	}
 
-	targets := artefact.BuildTargetIndex(rootsUnder(artefacts, "targets/"))
+	declarations := targetDeclarationsByName(artefacts)
+	targets := artefact.BuildTargetIndex(sortedByName(declarations))
 	manifests := manifestsByName(artefacts)
 	return Loaded{
-		Artefacts:   artefacts,
-		Providers:   artefact.BuildProviderIndex(manifestRoots(manifests)),
-		Targets:     targets,
-		Definitions: artefact.BuildDefinitionIndex(rootsUnder(artefacts, "definitions/"), targets),
-		Procedures:  artefact.BuildProcedureIndex(rootsUnder(artefacts, "procedures/")),
-		Manifests:   manifests,
+		Artefacts:          artefacts,
+		Providers:          artefact.BuildProviderIndex(manifestRoots(sortedByName(manifests))),
+		Targets:            targets,
+		Definitions:        artefact.BuildDefinitionIndex(rootsUnder(artefacts, "definitions/"), targets),
+		Procedures:         artefact.BuildProcedureIndex(rootsUnder(artefacts, "procedures/")),
+		Manifests:          manifests,
+		TargetDeclarations: declarations,
 	}, nil
+}
+
+// targetDeclarationsByName folds the loaded artefacts into the Target
+// namespace's members: every targets/ file that parsed and named itself. A file
+// that will not parse contributes nothing and neither does one whose target: is
+// absent or is not a plain scalar — ADR-0064's rule, the same one
+// manifestsByName folds the Provider namespace on.
+//
+// It is the one place a Target's name is decided to mean a declaration. Where
+// two files declare one name the later one wins, which is not a precedence rule
+// the tool is entitled to and which check will name once §11's collision code
+// reaches this artefact; until then the fold has to answer something, and
+// answering it once means the declaration `hyper targets` writes a row off and
+// the declaration a Definition's targets: resolves to are the same file rather
+// than two readings of one repository.
+func targetDeclarationsByName(artefacts []LoadedArtefact) map[string]*yaml.Node {
+	declarations := map[string]*yaml.Node{}
+	for _, a := range artefacts {
+		if !a.OK || !strings.HasPrefix(a.Path, "targets/") {
+			continue
+		}
+		if name := artefact.TargetDeclarationName(a.Root); name != "" {
+			declarations[name] = a.Root
+		}
+	}
+	return declarations
 }
 
 // manifestsByName folds the loaded artefacts into the Provider namespace's
@@ -182,15 +218,28 @@ func isManifest(path string) bool {
 	return path == artefact.BuiltinShellProviderPath || strings.HasPrefix(path, "providers/")
 }
 
-// manifestRoots is the folded members' roots, which is what the Provider
-// namespace is built from. Passing the fold's own output rather than the
-// providers/ roots is what makes the two views one: BuildProviderIndex sees one
-// root per name, so its own fold decides nothing this one has not already
-// decided, and the order it walks them in cannot matter.
-func manifestRoots(manifests map[string]LoadedManifest) []*yaml.Node {
+// sortedByName is a fold's members in name order, which is how both namespaces
+// are handed to the index built from them. Passing a fold's own output rather
+// than the directory's roots is what makes the two views one: the index sees
+// one member per name, so its own fold decides nothing the load has not already
+// decided, and the order it walks them in cannot matter — which is also why
+// sorting here is a courtesy to a reader of a failure rather than a rule
+// anything depends on.
+func sortedByName[T any](members map[string]T) []T {
+	sorted := make([]T, 0, len(members))
+	for _, name := range slices.Sorted(maps.Keys(members)) {
+		sorted = append(sorted, members[name])
+	}
+	return sorted
+}
+
+// manifestRoots is what the Provider namespace is built from: the roots of the
+// folded Manifests, whose other three members are the bytes and the origin no
+// index carries.
+func manifestRoots(manifests []LoadedManifest) []*yaml.Node {
 	roots := make([]*yaml.Node, 0, len(manifests))
-	for _, name := range slices.Sorted(maps.Keys(manifests)) {
-		roots = append(roots, manifests[name].Root)
+	for _, manifest := range manifests {
+		roots = append(roots, manifest.Root)
 	}
 	return roots
 }

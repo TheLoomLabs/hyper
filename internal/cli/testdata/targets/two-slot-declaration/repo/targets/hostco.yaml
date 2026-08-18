@@ -1,0 +1,9 @@
+kind: target-declaration
+target: hostco
+class: hostco
+kinds: [read, mutate]
+capabilities: [http]
+hosts: [api.hostco.dev]
+auth:
+  username: {env: HOSTCO_USERNAME}
+  password: {env: HOSTCO_PASSWORD}

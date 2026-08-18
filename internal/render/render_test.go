@@ -123,6 +123,33 @@ func TestWriteTable_WritesTheHeaderAndOneAlignedLinePerRow(t *testing.T) {
 	}
 }
 
+// TestWriteTable_NoLineEndsInPadding is what a cell a row does not carry looks
+// like on the page: the columns before it are aligned and the line stops where
+// its last written cell does. Padding a reader cannot see is noise in a diff
+// and a trailing space in a pipe, and a row whose last cell is empty is
+// ordinary — a Target declaring no credential is §9's own example.
+func TestWriteTable_NoLineEndsInPadding(t *testing.T) {
+	var buf bytes.Buffer
+	rows := []render.Row{cellRow{"cloudflare-prod", "token=CLOUDFLARE_API_TOKEN"}, cellRow{"local", ""}}
+
+	if err := render.WriteTable(&buf, []string{"NAME", "CREDENTIALS"}, rows); err != nil {
+		t.Fatal(err)
+	}
+
+	want := "NAME             CREDENTIALS\n" +
+		"cloudflare-prod  token=CLOUDFLARE_API_TOKEN\n" +
+		"local\n"
+	if got := buf.String(); got != want {
+		t.Errorf("WriteTable() =\n%q\nwant\n%q", got, want)
+	}
+}
+
+// cellRow is a row that is nothing but its cells, for the cases about the page
+// rather than about the wire.
+type cellRow []string
+
+func (r cellRow) Cells() []string { return r }
+
 func TestWriteTable_WritesNothingWhereNoRowHasALine(t *testing.T) {
 	var buf bytes.Buffer
 	if err := render.WriteTable(&buf, []string{"NAME", "OPERATIONS"}, nil); err != nil {

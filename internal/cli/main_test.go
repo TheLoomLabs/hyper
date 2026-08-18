@@ -31,10 +31,10 @@ var testFacts = version.Facts{
 // because they resolve no repository, and a branch that never asks where it is
 // standing cannot have reached one (§9, ADR-0020).
 type process struct {
-	wd     string
-	wdErr  error
-	getwd  int
-	getenv int
+	wd        string
+	wdErr     error
+	getwd     int
+	lookupenv int
 }
 
 func (p *process) Getwd() (string, error) {
@@ -42,12 +42,13 @@ func (p *process) Getwd() (string, error) {
 	return p.wd, p.wdErr
 }
 
-// Getenv answers an environment with nothing in it. No case here needs a
-// variable set — HYPER_REPO_DIR is resolveRepoRoot's, and check_test.go's — so
-// the whole of what this stands for is the count beside it.
-func (p *process) Getenv(string) string {
-	p.getenv++
-	return ""
+// LookupEnv answers an environment with nothing in it: every variable is
+// absent, which is what the second return says. No case here needs one set —
+// HYPER_REPO_DIR is resolveRepoRoot's, and check_test.go's — so the whole of
+// what this stands for is the count beside it.
+func (p *process) LookupEnv(string) (string, bool) {
+	p.lookupenv++
+	return "", false
 }
 
 // untouched says the process was never read, which is the shape of the
@@ -58,8 +59,8 @@ func (p *process) untouched(t *testing.T) {
 	if p.getwd != 0 {
 		t.Errorf("the working directory was resolved %d times, want it left alone", p.getwd)
 	}
-	if p.getenv != 0 {
-		t.Errorf("the environment was read %d times, want it left alone", p.getenv)
+	if p.lookupenv != 0 {
+		t.Errorf("the environment was read %d times, want it left alone", p.lookupenv)
 	}
 }
 
@@ -69,7 +70,7 @@ func TestMain_NoArgumentsIsUsageError(t *testing.T) {
 	p := &process{wd: t.TempDir()}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main(nil, &stdout, &stderr, p.Getenv, p.Getwd, testFacts); exit != cli.ExitUsage {
+	if exit := cli.Main(nil, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitUsage {
 		t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
 	}
 	if !strings.HasPrefix(stderr.String(), "usage: hyper ") {
@@ -89,7 +90,7 @@ func TestMain_UnknownCommandNamesWhatWasTyped(t *testing.T) {
 	p := &process{wd: t.TempDir()}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"bogus"}, &stdout, &stderr, p.Getenv, p.Getwd, testFacts); exit != cli.ExitUsage {
+	if exit := cli.Main([]string{"bogus"}, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitUsage {
 		t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
 	}
 	if got := stderr.String(); !strings.Contains(got, `"bogus"`) {
@@ -116,7 +117,7 @@ func TestMain_ExemptCommandsReadNothingOfTheProcess(t *testing.T) {
 			p := &process{wdErr: errors.New("getwd: no such file or directory")}
 			var stdout, stderr bytes.Buffer
 
-			exit := cli.Main(argv, &stdout, &stderr, p.Getenv, p.Getwd, testFacts)
+			exit := cli.Main(argv, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts)
 
 			if exit != cli.ExitClean {
 				t.Errorf("exit = %d, want 0; stderr=%q", exit, stderr.String())
@@ -140,7 +141,7 @@ func TestMain_VersionStatesTheFactsItWasHanded(t *testing.T) {
 	p := &process{wd: t.TempDir()}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"version"}, &stdout, &stderr, p.Getenv, p.Getwd, testFacts); exit != cli.ExitClean {
+	if exit := cli.Main([]string{"version"}, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want 0; stderr=%q", exit, stderr.String())
 	}
 	if got, want := stdout.String(), testFacts.Page(); got != want {
@@ -164,7 +165,7 @@ func TestMain_CheckIsGatedOnTheVersionInThoseFacts(t *testing.T) {
 	p := &process{wd: repo}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.Getenv, p.Getwd, testFacts); exit != cli.ExitRefused {
+	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitRefused {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitRefused, stderr.String())
 	}
 	if stdout.Len() != 0 {
@@ -187,7 +188,7 @@ func TestMain_CheckReportsAWorkingDirectoryItCannotRead(t *testing.T) {
 	p := &process{wdErr: errors.New("getwd: no such file or directory")}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.Getenv, p.Getwd, testFacts); exit != cli.ExitProblems {
+	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitProblems {
 		t.Errorf("exit = %d, want %d; stderr=%q", exit, cli.ExitProblems, stderr.String())
 	}
 	if got := stderr.String(); !strings.Contains(got, "getwd: no such file or directory") {
