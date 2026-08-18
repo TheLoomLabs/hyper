@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,33 +12,47 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
 
-func TestRun_NoArgsIsUsageError(t *testing.T) {
+// dispatch is the one line of main(), with the two streams redirected and
+// nothing else changed: the same entry point, handed the same four reads of
+// the same process. The cases below are about what the binary does when it is
+// standing somewhere in particular, so they drive the real os.Getenv,
+// os.Getwd and build facts rather than stand-ins — cli.Main's own behaviour
+// against a fabricated process is internal/cli/main_test.go's (issue #107).
+//
+// Keeping this a single call is the point: anything it did that main() does
+// not would be a second entry point, and these cases would stop testing the
+// binary.
+func dispatch(args []string, stdout, stderr io.Writer) int {
+	return cli.Main(args, stdout, stderr, os.Getenv, os.Getwd, version.Current())
+}
+
+func TestDispatch_NoArgsIsUsageError(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	got := run(nil, &stdout, &stderr)
+	got := dispatch(nil, &stdout, &stderr)
 	if got != 2 {
-		t.Errorf("run(nil) exit = %d, want 2", got)
+		t.Errorf("dispatch(nil) exit = %d, want 2", got)
 	}
 	if stderr.Len() == 0 {
-		t.Errorf("run(nil) wrote nothing to stderr, want a usage message")
+		t.Errorf("dispatch(nil) wrote nothing to stderr, want a usage message")
 	}
 }
 
-func TestRun_UnknownCommandIsUsageError(t *testing.T) {
+func TestDispatch_UnknownCommandIsUsageError(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	got := run([]string{"bogus"}, &stdout, &stderr)
+	got := dispatch([]string{"bogus"}, &stdout, &stderr)
 	if got != 2 {
-		t.Errorf(`run(["bogus"]) exit = %d, want 2`, got)
+		t.Errorf(`dispatch(["bogus"]) exit = %d, want 2`, got)
 	}
 }
 
-// TestRun_VersionAnswersFromAnyDirectory drives the real dispatch — the
+// TestDispatch_VersionAnswersFromAnyDirectory drives the real dispatch — the
 // facts read from the running build, the working directory whatever the
 // process is standing in — against the three repository contexts issue #103
 // requires `hyper version` to answer identically in: outside a git tree, inside
 // a repository with no hyper.yaml, and inside one whose pin is a different
 // version entirely. The last is the one that matters: every one of the sixteen
 // Refuses there with 77, and this command is exempt (§9, ADR-0020).
-func TestRun_VersionAnswersFromAnyDirectory(t *testing.T) {
+func TestDispatch_VersionAnswersFromAnyDirectory(t *testing.T) {
 	outsideAnyRepo := t.TempDir()
 
 	noDeclaration := t.TempDir()
@@ -56,7 +71,7 @@ func TestRun_VersionAnswersFromAnyDirectory(t *testing.T) {
 			t.Chdir(dir)
 
 			var stdout, stderr bytes.Buffer
-			exit := run([]string{"version"}, &stdout, &stderr)
+			exit := dispatch([]string{"version"}, &stdout, &stderr)
 
 			if exit != 0 {
 				t.Errorf("exit = %d, want 0; stderr=%q", exit, stderr.String())
@@ -74,24 +89,24 @@ func TestRun_VersionAnswersFromAnyDirectory(t *testing.T) {
 	}
 }
 
-// TestRun_VersionAndTheRefusalQuoteOneConstant is the acceptance criterion that
-// the two readings cannot drift: the version on `hyper version`'s first line is
-// byte-identical to the one the Refusal calls *this binary* when the pin gate
-// declines. One constant, read here through the two surfaces that quote it
-// (§9, §11, ADR-0020, issue #103).
-func TestRun_VersionAndTheRefusalQuoteOneConstant(t *testing.T) {
+// TestDispatch_VersionAndTheRefusalQuoteOneConstant is the acceptance
+// criterion that the two readings cannot drift: the version on `hyper
+// version`'s first line is byte-identical to the one the Refusal calls *this
+// binary* when the pin gate declines. One constant, read here through the two
+// surfaces that quote it (§9, §11, ADR-0020, issue #103).
+func TestDispatch_VersionAndTheRefusalQuoteOneConstant(t *testing.T) {
 	repo := t.TempDir()
 	writeFile(t, filepath.Join(repo, "hyper.yaml"), "kind: repository-declaration\nversion: 9.9.9\n")
 
 	var page, pageErr bytes.Buffer
-	if exit := run([]string{"version"}, &page, &pageErr); exit != 0 {
+	if exit := dispatch([]string{"version"}, &page, &pageErr); exit != 0 {
 		t.Fatalf("hyper version exit = %d; stderr=%q", exit, pageErr.String())
 	}
 	firstLine, _, _ := strings.Cut(page.String(), "\n")
 	stated := strings.TrimPrefix(firstLine, "hyper ")
 
 	var refusalOut, refusal bytes.Buffer
-	if exit := run([]string{"check", "--repo-dir", repo}, &refusalOut, &refusal); exit != 77 {
+	if exit := dispatch([]string{"check", "--repo-dir", repo}, &refusalOut, &refusal); exit != 77 {
 		t.Fatalf("hyper check exit = %d, want 77; stderr=%q", exit, refusal.String())
 	}
 
@@ -103,18 +118,19 @@ func TestRun_VersionAndTheRefusalQuoteOneConstant(t *testing.T) {
 	}
 }
 
-// TestRun_VersionNeedsNoWorkingDirectory pins the dispatch's own half of the
-// exemption: the working directory is resolved lazily, inside the commands that
-// read a repository, so a `version` invocation never depends on there being one.
-// The probe is a process standing in a directory that has been removed — the
-// one state where reading the working directory genuinely fails, and where a
-// `wd` resolved above the switch would take this command down with it.
+// TestDispatch_VersionNeedsNoWorkingDirectory pins the dispatch's own half
+// of the exemption: the working directory is resolved lazily, inside the
+// commands that read a repository, so a `version` invocation never depends on
+// there being one. The probe is a process standing in a directory that has
+// been removed — the one state where reading the working directory genuinely
+// fails, and where a `wd` resolved above the switch would take this command
+// down with it.
 //
 // The probe needs a platform where a process can outlive its own directory,
 // which is every one hyper targets. Where it cannot be built the test skips
 // rather than passes vacuously — a skip is visible in a test run, and a
 // criterion nothing asserts is not.
-func TestRun_VersionNeedsNoWorkingDirectory(t *testing.T) {
+func TestDispatch_VersionNeedsNoWorkingDirectory(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
 
@@ -125,7 +141,7 @@ func TestRun_VersionNeedsNoWorkingDirectory(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	if exit := run([]string{"version"}, &stdout, &stderr); exit != 0 {
+	if exit := dispatch([]string{"version"}, &stdout, &stderr); exit != 0 {
 		t.Fatalf("exit = %d, want 0; stderr=%q", exit, stderr.String())
 	}
 	if got, want := stdout.String(), version.Current().Page(); got != want {
@@ -133,12 +149,12 @@ func TestRun_VersionNeedsNoWorkingDirectory(t *testing.T) {
 	}
 }
 
-// TestRun_VersionRejectsAnArgument checks the rejection reaches the exit code
-// through the real dispatch; the argument shapes themselves are the cli
-// package's corpus and table.
-func TestRun_VersionRejectsAnArgument(t *testing.T) {
+// TestDispatch_VersionRejectsAnArgument checks the rejection reaches the
+// exit code through the real dispatch; the argument shapes themselves are
+// the cli package's corpus and table.
+func TestDispatch_VersionRejectsAnArgument(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	if exit := run([]string{"version", "--json"}, &stdout, &stderr); exit != 2 {
+	if exit := dispatch([]string{"version", "--json"}, &stdout, &stderr); exit != 2 {
 		t.Errorf("exit = %d, want 2", exit)
 	}
 	if stdout.Len() != 0 {
@@ -146,14 +162,15 @@ func TestRun_VersionRejectsAnArgument(t *testing.T) {
 	}
 }
 
-// TestRun_CompletionsAnswersFromAnyDirectory drives the real dispatch against
-// the three repository contexts issue #104 requires `hyper completions` to
-// answer identically in: outside a git tree, inside a repository with no
-// hyper.yaml, and inside one whose pin is a different version entirely. Every
-// one of the sixteen Refuses with 77 in the last of them, and this command is
-// exempt for the reason the whole criterion exists — shell setup in a dotfiles
-// bootstrap runs before any repository does (§9, ADR-0020).
-func TestRun_CompletionsAnswersFromAnyDirectory(t *testing.T) {
+// TestDispatch_CompletionsAnswersFromAnyDirectory drives the real dispatch
+// against the three repository contexts issue #104 requires `hyper
+// completions` to answer identically in: outside a git tree, inside a
+// repository with no hyper.yaml, and inside one whose pin is a different
+// version entirely. Every one of the sixteen Refuses with 77 in the last of
+// them, and this command is exempt for the reason the whole criterion exists
+// — shell setup in a dotfiles bootstrap runs before any repository does (§9,
+// ADR-0020).
+func TestDispatch_CompletionsAnswersFromAnyDirectory(t *testing.T) {
 	outsideAnyRepo := t.TempDir()
 
 	noDeclaration := t.TempDir()
@@ -173,7 +190,7 @@ func TestRun_CompletionsAnswersFromAnyDirectory(t *testing.T) {
 
 			for _, shell := range cli.Shells() {
 				var stdout, stderr bytes.Buffer
-				exit := run([]string{"completions", shell}, &stdout, &stderr)
+				exit := dispatch([]string{"completions", shell}, &stdout, &stderr)
 
 				if exit != 0 {
 					t.Errorf("%s: exit = %d, want 0; stderr=%q", shell, exit, stderr.String())
@@ -189,10 +206,10 @@ func TestRun_CompletionsAnswersFromAnyDirectory(t *testing.T) {
 	}
 }
 
-// TestRun_CompletionsRejectsWhatIsNotOneShell checks the rejection reaches the
-// exit code through the real dispatch; the argument shapes themselves are the
-// cli package's corpus and table.
-func TestRun_CompletionsRejectsWhatIsNotOneShell(t *testing.T) {
+// TestDispatch_CompletionsRejectsWhatIsNotOneShell checks the rejection
+// reaches the exit code through the real dispatch; the argument shapes
+// themselves are the cli package's corpus and table.
+func TestDispatch_CompletionsRejectsWhatIsNotOneShell(t *testing.T) {
 	for _, args := range [][]string{
 		{"completions"},
 		{"completions", "nushell"},
@@ -201,7 +218,7 @@ func TestRun_CompletionsRejectsWhatIsNotOneShell(t *testing.T) {
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			if exit := run(args, &stdout, &stderr); exit != 2 {
+			if exit := dispatch(args, &stdout, &stderr); exit != 2 {
 				t.Errorf("exit = %d, want 2", exit)
 			}
 			if stdout.Len() != 0 {

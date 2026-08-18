@@ -12,7 +12,7 @@ import "slices"
 // The first reader is the completion scripts, and it is the reason the list
 // exists at all: three shells describing one surface from three copies of it
 // would drift the day the seventeenth command lands. Nothing here is a
-// dispatch table — cmd/hyper's switch is what runs a command, and a name in
+// dispatch table — Main's switch is what runs a command, and a name in
 // this list is a name the spec fixes, not a claim that the binary implements
 // it yet.
 //

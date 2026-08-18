@@ -132,7 +132,8 @@ func TestRunVersion_TakesNoArgumentAtAll(t *testing.T) {
 // working directory nor an environment, so there is no repository reachable
 // from it to gate on (§9's exemption, ADR-0020). What a signature states, a
 // test can only restate; the behaviour those three criteria describe is
-// exercised against the real dispatch in cmd/hyper.
+// exercised against the real dispatch in Main, and against the real process in
+// cmd/hyper.
 func TestRunVersion_TakesNoRepositoryToRead(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	exit := cli.RunVersion(nil, &stdout, &stderr, version.Current())
