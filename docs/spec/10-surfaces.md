@@ -134,12 +134,19 @@ being inferred from a field that came back empty.
 
 ## The repository
 
-`targets` writes one row per Target declaration: its name, its endpoint, the Kinds it accepts, the
-Capabilities it grants, the environment variables its credentials resolve from — names only, never a
-value (§3, ADR-0007) — and whether each of those variables is present. Each variable is paired with the
-slot it fills, `token=CLOUDFLARE_API_TOKEN`, rather than listed bare: a declaration may carry slots for
-more than one scheme, and a list of names alone does not say which fills what. Presence is computed when
-the command runs; the value behind a present name is never read here, and never rendered anywhere.
+`targets` writes one row per Target declaration: its name, the hosts it grants, the Kinds it accepts,
+the Capabilities it grants, the environment variables its credentials resolve from — names only, never
+a value (§3, ADR-0007) — and whether each of those variables is present. Each variable is paired with
+the slot it fills, `token=CLOUDFLARE_API_TOKEN`, rather than listed bare: a declaration may carry slots
+for more than one scheme, and a list of names alone does not say which fills what. Presence is computed
+when the command runs; the value behind a present name is never read here, and never rendered anywhere.
+
+**The host grant renders as `hosts`, an array, in the declaration's own order.** §3's Target
+declaration has no `endpoint:` key: it has `hosts:`, glossed there as *one member where the Target is a
+single endpoint*, and never a grant without an enumeration (ADR-0024). A Target granting several hosts
+shows all of them — a candidate set, a grant and their intersection is how a host is decided, and a
+grant reduced to its first member is not a grant (ADR-0029). The MCP tool below names the field the
+same: one fact reaching two wires reaches them under one name (§12).
 
 Presence is reported for every slot the declaration carries, which is wider than what a Run checks. A
 Run resolves the slots its bindings require (§6), and this command has no Procedure in hand to narrow
@@ -791,7 +798,7 @@ format at the moment the caller needs it.
 
 ```jsonc
 targets()
-// → rows: [{ type: "target", name, endpoint,
+// → rows: [{ type: "target", name, hosts: [ … ],
 //            accepts_kinds: [ … ], grants_capabilities: [ … ],
 //            credential_env: [ "PROD_TOKEN" ],   // variable names, never values
 //            credentials_present }]
