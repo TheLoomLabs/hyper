@@ -15,20 +15,10 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
-	"github.com/TheLoomLabs/hyper/internal/pin"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/yamlsubset"
-)
-
-// Exit codes §12 defines. check uses four of the seven: 0 clean, 1 problems
-// found, 2 usage error, 77 a guardrail declined.
-const (
-	ExitClean    = 0
-	ExitProblems = 1
-	ExitUsage    = 2
-	ExitRefused  = 77
 )
 
 // RunCheck implements `hyper check [path...]`. wd is the working directory
@@ -47,19 +37,12 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 		return code
 	}
 
-	// The pin gate: every command compares itself against hyper.yaml's
-	// version: pin before reading a second file, and Refuses on mismatch in
-	// either direction (§9, §11, ADR-0020).
-	hyperYAML := filepath.Join(repoRoot, "hyper.yaml")
-	data, err := os.ReadFile(hyperYAML)
-	present := err == nil
-	if err != nil && !os.IsNotExist(err) {
-		fmt.Fprintf(stderr, "hyper check: %s\n", err)
-		return ExitUsage
-	}
-	if result := pin.Check(present, data, binaryVersion); result.Refused {
-		fmt.Fprintf(stderr, "refused: %s\n  %s\n", result.Code, result.Message)
-		return ExitRefused
+	// The gate, before check's own positionals and work: every command
+	// compares itself against hyper.yaml's version: pin before reading a
+	// second file, and Refuses on mismatch in either direction (§9, §11,
+	// ADR-0020). check calls it rather than carrying it.
+	if code := gateOnVersionPin("check", repoRoot, binaryVersion, stderr); code != 0 {
+		return code
 	}
 
 	// check stats its path arguments before loading a single artefact

@@ -24,9 +24,9 @@ import (
 //     envelope-exceeded's transitive walk.
 //
 // version-pin-mismatch and version-pin-absent are milestone 0's gate, which
-// `check` inherits rather than contributes; they are exercised by
-// testdata/check/version-pin-mismatch and testdata/check/version-pin-absent
-// but are deliberately not members of this set.
+// `check` inherits rather than contributes; they are exercised by the
+// version-pin-* cases under testdata/check/ but are deliberately not members
+// of this set.
 var milestoneOneErrorCodes = []string{
 	"strict-yaml-violation",
 	"unknown-key",
