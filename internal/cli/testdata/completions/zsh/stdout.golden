@@ -1,0 +1,67 @@
+#compdef hyper
+# zsh completion for hyper(1), written by: hyper completions zsh
+#
+# The script is a compiled-in constant — the same bytes on every machine and
+# every invocation. It never invokes hyper, reads no file of its own, and
+# reaches no network: a completion is a keypress, and no artefact name,
+# Provider name, Operation name or Run id is ever completed here.
+#
+# It describes the command surface the specification fixes rather than the
+# state of this build, so a name offered below may still answer 'unknown
+# command' until the release that carries it.
+#
+# Install: save as _hyper on $fpath, or source it after compinit has run
+
+_hyper() {
+    # The four lists carry the function's own name as a prefix because zsh
+    # gives several of these words to parameters of its own — commands is
+    # zsh/parameter's readonly map of every command on $path, and the
+    # completion system loads that module.
+    local -a _hyper_commands _hyper_globals _hyper_shells _hyper_store_sub_verbs
+    _hyper_commands=(providers provider operation targets check review run probe runs show changes records install project store compact version completions)
+    _hyper_globals=(--json --repo-dir --no-color)
+    _hyper_shells=(bash fish zsh)
+    _hyper_store_sub_verbs=(init)
+
+    # Position one: the command names, and never anything else.
+    if (( CURRENT == 2 )); then
+        compadd -- $_hyper_commands
+        return
+    fi
+
+    # The one path hyper ever completes. _path_files quotes what it inserts
+    # and marks a directory as one, so the precautions bash needs are zsh's
+    # own here.
+    if [[ ${words[CURRENT-1]} == --repo-dir ]]; then
+        _path_files -/
+        return
+    fi
+
+    case ${words[2]} in
+        store)
+            # store's sub-verb at position two, the globals after it.
+            if (( CURRENT == 3 )); then
+                compadd -- $_hyper_store_sub_verbs
+            fi
+            compadd -- $_hyper_globals
+            ;;
+        completions)
+            # The three shells, and no flag: this command takes none.
+            if (( CURRENT == 3 )); then
+                compadd -- $_hyper_shells
+            fi
+            ;;
+        providers|provider|operation|targets|check|review|run|probe|runs|show|changes|records|install|project|compact)
+            compadd -- $_hyper_globals
+            ;;
+    esac
+
+    # version and any word that names no command fall through to nothing:
+    # version takes no argument at all, and an unknown name has none to offer.
+}
+
+if [ "$funcstack[1]" = '_hyper' ]; then
+    _hyper "$@"
+else
+    compdef _hyper hyper
+fi

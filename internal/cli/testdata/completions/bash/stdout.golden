@@ -1,0 +1,79 @@
+# bash completion for hyper(1), written by: hyper completions bash
+#
+# The script is a compiled-in constant — the same bytes on every machine and
+# every invocation. It never invokes hyper, reads no file of its own, and
+# reaches no network: a completion is a keypress, and no artefact name,
+# Provider name, Operation name or Run id is ever completed here.
+#
+# It describes the command surface the specification fixes rather than the
+# state of this build, so a name offered below may still answer 'unknown
+# command' until the release that carries it.
+#
+# Install: source <(hyper completions bash)
+
+_hyper() {
+    local commands='providers provider operation targets check review run probe runs show changes records install project store compact version completions'
+    local globals='--json --repo-dir --no-color'
+    local shells='bash fish zsh'
+    local store_sub_verbs='init'
+    local cur prev
+
+    COMPREPLY=()
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev=${COMP_WORDS[COMP_CWORD-1]}
+
+    # Position one: the command names, and never anything else.
+    if [ "$COMP_CWORD" -eq 1 ]; then
+        COMPREPLY=($(compgen -W "$commands" -- "$cur"))
+        return
+    fi
+
+    # The one path hyper ever completes, and the only reply whose bytes are
+    # not hyper's own — which is what the three precautions are for. A
+    # directory named "my repo" is one completion and not two (IFS), a
+    # directory named "v*" is itself and not what it matches (noglob,
+    # restored rather than cleared), and what is inserted at the cursor is
+    # quoted for the shell to read back (filenames, where the bash running
+    # this is new enough to have compopt).
+    #
+    # The --repo-dir=DIR spelling is deliberately not completed: offering it
+    # would need the whole prefix rewritten into every reply, and the
+    # two-word spelling is the one the scripts show.
+    if [ "$prev" = '--repo-dir' ]; then
+        local reset
+        reset=$(shopt -po noglob)
+        set -o noglob
+        local IFS=$'\n'
+        COMPREPLY=($(compgen -d -- "$cur"))
+        $reset
+        if type compopt >/dev/null 2>&1; then
+            compopt -o filenames
+        fi
+        return
+    fi
+
+    case ${COMP_WORDS[1]} in
+        store)
+            # store's sub-verb at position two, the globals after it.
+            if [ "$COMP_CWORD" -eq 2 ]; then
+                COMPREPLY=($(compgen -W "$store_sub_verbs $globals" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "$globals" -- "$cur"))
+            fi
+            ;;
+        completions)
+            # The three shells, and no flag: this command takes none.
+            if [ "$COMP_CWORD" -eq 2 ]; then
+                COMPREPLY=($(compgen -W "$shells" -- "$cur"))
+            fi
+            ;;
+        providers|provider|operation|targets|check|review|run|probe|runs|show|changes|records|install|project|compact)
+            COMPREPLY=($(compgen -W "$globals" -- "$cur"))
+            ;;
+    esac
+
+    # version and any word that names no command fall through to nothing:
+    # version takes no argument at all, and an unknown name has none to offer.
+}
+
+complete -F _hyper hyper

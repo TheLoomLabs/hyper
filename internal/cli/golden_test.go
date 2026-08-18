@@ -23,6 +23,28 @@ var update = flag.Bool("update", false, "regenerate golden files")
 // share is how a case is driven, which is each command's own entry point and
 // each corpus's own input files.
 
+// readArgv reads a case's complete argv — `hyper <command>` and whatever
+// follows — and returns what the entry point receives, which is everything
+// past the command name. Storing the whole line rather than only the tail is
+// what makes a case directory readable as the invocation it stands for; the
+// two tokens it always starts with are asserted rather than assumed, so a case
+// that meant to test another command cannot be run as this one's.
+//
+// Tokens are whitespace-separated, so no case can express an argument that
+// carries whitespace of its own. That costs the corpora that use it nothing —
+// `version` rejects every argument by length before looking at one, and
+// `completions` matches its one positional against three words — and the day a
+// command needs such a case is the day the file becomes one token per line, as
+// testdata/check/'s args already is.
+func readArgv(t *testing.T, path, command string) []string {
+	t.Helper()
+	argv := strings.Fields(readFile(t, path))
+	if len(argv) < 2 || argv[0] != "hyper" || argv[1] != command {
+		t.Fatalf("argv is %q, want a complete argv beginning `hyper %s`", argv, command)
+	}
+	return argv[2:]
+}
+
 // corpusCases enumerates a corpus's case directories, in ReadDir order.
 // Sibling corpora live beside it rather than in it, so they are outside what
 // any one harness can see.

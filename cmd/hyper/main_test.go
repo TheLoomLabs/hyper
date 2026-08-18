@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
 
@@ -142,6 +143,74 @@ func TestRun_VersionRejectsAnArgument(t *testing.T) {
 	}
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want it untouched", stdout.String())
+	}
+}
+
+// TestRun_CompletionsAnswersFromAnyDirectory drives the real dispatch against
+// the three repository contexts issue #104 requires `hyper completions` to
+// answer identically in: outside a git tree, inside a repository with no
+// hyper.yaml, and inside one whose pin is a different version entirely. Every
+// one of the sixteen Refuses with 77 in the last of them, and this command is
+// exempt for the reason the whole criterion exists — shell setup in a dotfiles
+// bootstrap runs before any repository does (§9, ADR-0020).
+func TestRun_CompletionsAnswersFromAnyDirectory(t *testing.T) {
+	outsideAnyRepo := t.TempDir()
+
+	noDeclaration := t.TempDir()
+	fakeGitRoot(t, noDeclaration)
+
+	foreignPin := t.TempDir()
+	fakeGitRoot(t, foreignPin)
+	writeFile(t, filepath.Join(foreignPin, "hyper.yaml"), "kind: repository-declaration\nversion: 9.9.9\n")
+
+	for name, dir := range map[string]string{
+		"outside a git repository":   outsideAnyRepo,
+		"a repository with no pin":   noDeclaration,
+		"a repository pinning 9.9.9": foreignPin,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Chdir(dir)
+
+			for _, shell := range cli.Shells() {
+				var stdout, stderr bytes.Buffer
+				exit := run([]string{"completions", shell}, &stdout, &stderr)
+
+				if exit != 0 {
+					t.Errorf("%s: exit = %d, want 0; stderr=%q", shell, exit, stderr.String())
+				}
+				if stderr.Len() != 0 {
+					t.Errorf("%s: stderr = %q, want silence on the success path", shell, stderr.String())
+				}
+				if !strings.Contains(stdout.String(), "hyper") {
+					t.Errorf("%s: stdout = %q, want the completion script", shell, stdout.String())
+				}
+			}
+		})
+	}
+}
+
+// TestRun_CompletionsRejectsWhatIsNotOneShell checks the rejection reaches the
+// exit code through the real dispatch; the argument shapes themselves are the
+// cli package's corpus and table.
+func TestRun_CompletionsRejectsWhatIsNotOneShell(t *testing.T) {
+	for _, args := range [][]string{
+		{"completions"},
+		{"completions", "nushell"},
+		{"completions", "BASH"},
+		{"completions", "bash", "zsh"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if exit := run(args, &stdout, &stderr); exit != 2 {
+				t.Errorf("exit = %d, want 2", exit)
+			}
+			if stdout.Len() != 0 {
+				t.Errorf("stdout = %q, want it untouched", stdout.String())
+			}
+			if stderr.Len() == 0 {
+				t.Error("stderr is empty, want the usage error rendered on it")
+			}
+		})
 	}
 }
 

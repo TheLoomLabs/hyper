@@ -1,6 +1,7 @@
 // Command hyper is the CLI surface over hyper's core (§9). This binary
-// implements two of them so far: check, the command issue #88 cuts the whole
-// path for, and version, which stands outside the tree of sixteen (issue #103).
+// implements three of them so far: check, the command issue #88 cuts the whole
+// path for, and version and completions, the two that stand outside the tree
+// of sixteen (issues #103 and #104).
 package main
 
 import (
@@ -40,6 +41,11 @@ func run(args []string, stdout, stderr io.Writer) int {
 		// ADR-0020). The facts are read once, here, from Go's own build
 		// stamping.
 		return cli.RunVersion(args[1:], stdout, stderr, version.Current())
+	case "completions":
+		// The other command outside the tree, and exempt for the same
+		// reason: it reads no repository, so shell setup in a dotfiles
+		// bootstrap works before one exists (§9, ADR-0020, issue #104).
+		return cli.RunCompletions(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "hyper: unknown command %q\n", args[0])
 		return cli.ExitUsage

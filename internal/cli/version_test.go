@@ -36,7 +36,7 @@ func TestVersionGolden(t *testing.T) {
 	for _, name := range corpusCases(t, versionCorpus) {
 		t.Run(name, func(t *testing.T) {
 			dir := filepath.Join(versionCorpus, name)
-			args := readArgv(t, filepath.Join(dir, "argv"))
+			args := readArgv(t, filepath.Join(dir, "argv"), "version")
 			facts := readFacts(t, filepath.Join(dir, "facts.json"))
 
 			var stdout, stderr bytes.Buffer
@@ -45,27 +45,6 @@ func TestVersionGolden(t *testing.T) {
 			compareGolden(t, dir, stdout.Bytes(), stderr.Bytes(), exit)
 		})
 	}
-}
-
-// readArgv reads a case's complete argv — `hyper version` and whatever
-// follows — and returns what the entry point receives, which is everything past
-// the command name. Storing the whole line rather than only the tail is what
-// makes a case directory readable as the invocation it stands for; the two
-// tokens it always starts with are asserted rather than assumed, so a case that
-// meant to test another command cannot be run as a version case.
-//
-// Tokens are whitespace-separated, so no case can express an argument that
-// carries whitespace of its own. That costs this corpus nothing — `version`
-// rejects every argument by length before looking at one — and the day a
-// command needs such a case is the day the file becomes one token per line, as
-// testdata/check/'s args already is.
-func readArgv(t *testing.T, path string) []string {
-	t.Helper()
-	argv := strings.Fields(readFile(t, path))
-	if len(argv) < 2 || argv[0] != "hyper" || argv[1] != "version" {
-		t.Fatalf("argv is %q, want a complete argv beginning `hyper version`", argv)
-	}
-	return argv[2:]
 }
 
 // factsFixture is the on-disk shape of a case's facts.json, stated here rather

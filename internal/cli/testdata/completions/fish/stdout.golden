@@ -1,0 +1,32 @@
+# fish completion for hyper(1), written by: hyper completions fish
+#
+# The script is a compiled-in constant — the same bytes on every machine and
+# every invocation. It never invokes hyper, reads no file of its own, and
+# reaches no network: a completion is a keypress, and no artefact name,
+# Provider name, Operation name or Run id is ever completed here.
+#
+# It describes the command surface the specification fixes rather than the
+# state of this build, so a name offered below may still answer 'unknown
+# command' until the release that carries it.
+#
+# Install: hyper completions fish > ~/.config/fish/completions/hyper.fish
+
+# hyper completes no path of its own; --repo-dir's directory below is the one
+# exception, so file completion is off everywhere else.
+complete -c hyper -f
+
+# Position one: the command names, and never anything else.
+complete -c hyper -n __fish_use_subcommand -a 'providers provider operation targets check review run probe runs show changes records install project store compact version completions'
+
+# store's sub-verb, the whole of the tree's nesting, offered until it is there.
+complete -c hyper -n '__fish_seen_subcommand_from store; and not __fish_seen_subcommand_from init' -a 'init'
+
+# The three shells, and no flag: this command takes none. One is named at
+# most once, so the condition drops away as soon as one has been.
+complete -c hyper -n '__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from bash fish zsh' -a 'bash fish zsh'
+
+# The globals, offered after the tree's commands alone — version and
+# completions are outside it and take none.
+complete -c hyper -n '__fish_seen_subcommand_from providers provider operation targets check review run probe runs show changes records install project store compact' -l json
+complete -c hyper -n '__fish_seen_subcommand_from providers provider operation targets check review run probe runs show changes records install project store compact' -l repo-dir -r -a '(__fish_complete_directories)'
+complete -c hyper -n '__fish_seen_subcommand_from providers provider operation targets check review run probe runs show changes records install project store compact' -l no-color
