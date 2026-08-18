@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -409,5 +410,74 @@ func writeGolden(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestGoldenCorpora_AJSONStreamIsTypedRowsEndingInItsTerminalRow is §8's two
+// rules about the wire, asserted over every corpus at once: every row opens
+// with the type a consumer discriminates on, and the last row is the terminal
+// row, whose absence is what says the stream was cut off.
+//
+// It is the corpus that holds them rather than the renderer, and deliberately
+// (issue #110). Type-first is a property of how a row type declares itself, and
+// a writer that stopped mid-stream to report a row declared wrong would leave
+// the wire unterminated — the very thing the second rule says a consumer must
+// not trust. Held here, a row type declared wrong is a fixed cost paid once by
+// whoever wrote it, and nothing on the wire is cut off to say so.
+//
+// Like the stream-discipline test above it, it reads the checked-in golden
+// files rather than driving anything: a case is found by its argv carrying
+// --json and by whatever stdout.golden lies beside it, and tells this test
+// nothing about its own command. That is what makes it the assertion the row
+// stream needs — the invariant decays silently as row types are added, and a
+// command that added one and got either rule wrong would otherwise have a green
+// corpus.
+//
+// A case that wrote nothing to stdout opened no stream at all, which is what a
+// usage error and a Refusal do (§9, ADR-0060): there is no terminal row to be
+// missing where no row was written.
+func TestGoldenCorpora_AJSONStreamIsTypedRowsEndingInItsTerminalRow(t *testing.T) {
+	// The two terminal types, and the type is itself the discriminator (§8):
+	// a Run emits outcome and everything else emits result. They are named
+	// from the spec rather than read off the renderer, a fence that took its
+	// expectation from the code it fences being one that cannot disagree with
+	// it.
+	terminal := map[string]bool{"result": true, "outcome": true}
+
+	var judged int
+	for _, c := range goldenCases(t) {
+		if !slices.Contains(c.argv, "--json") {
+			continue
+		}
+		stdout := readFile(t, filepath.Join(c.dir, "stdout.golden"))
+		if stdout == "" {
+			continue
+		}
+
+		judged++
+		var last string
+		for i, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+			var row struct {
+				Type string `json:"type"`
+			}
+			if err := json.Unmarshal([]byte(line), &row); err != nil {
+				t.Errorf("%s: line %d is not one JSON object: %v", c.name, i+1, err)
+				continue
+			}
+			if !strings.HasPrefix(line, `{"type":`) {
+				t.Errorf("%s: line %d opens %.16q; every row carries its type as its first key, which is what a consumer discriminates on", c.name, i+1, line)
+			}
+			last = row.Type
+		}
+		if !terminal[last] {
+			t.Errorf("%s: the stream ends in a %q row; a stream ends in its terminal row, and its absence says the stream was cut off", c.name, last)
+		}
+	}
+
+	// A corpus with no --json case at all would hold this vacuously. The
+	// fence is that the walk found streams to judge, not how many: cases are
+	// added freely, and a number here would be a registration by another name.
+	if judged == 0 {
+		t.Fatal("no case in any corpus wrote a --json stream; the invariant held vacuously")
 	}
 }

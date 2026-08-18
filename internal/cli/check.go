@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
@@ -97,11 +98,17 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 	// #109).
 	checked := len(loaded.Artefacts)
 
+	// The two renderings are one list of rows written twice (ADR-0026): the
+	// page and the --json stream come out of the same ordered rows, so they
+	// cannot state different things. check takes no --limit and has no
+	// truncation axis, so its terminal row's marker is always false (issue
+	// #110).
+	rows := checkRows(problems)
 	var renderErr error
 	if flags.json {
-		renderErr = render.WriteJSON(stdout, problems)
+		renderErr = render.WriteJSON(stdout, rows, render.NewResultRow(false))
 	} else {
-		renderErr = render.WriteTable(stdout, problems, checked)
+		renderErr = writeCheckTable(stdout, rows, checked)
 	}
 	if renderErr != nil {
 		fmt.Fprintf(stderr, "hyper check: %s\n", renderErr)
@@ -265,4 +272,75 @@ func filterByPaths(problems []problem.Problem, paths []string, repoRoot, wd stri
 		}
 	}
 	return kept
+}
+
+// problemRow is check's row on the row stream, and its field order is §9's
+// example verbatim: {"type":"problem","file":...,"line":...,"column":...,
+// "field":...,"error_code":...,"message":...}. encoding/json marshals a
+// struct's fields in declaration order, which is what fixes a row's key order
+// on the wire, and the type declared first is what puts it first; the corpus
+// holds that rule against every stream any command writes.
+//
+// It lives here rather than in internal/render because a row type belongs to
+// the command that writes it: the renderer owns the stream, and check owns
+// what it puts on one.
+type problemRow struct {
+	Type      string `json:"type"`
+	File      string `json:"file"`
+	Line      int    `json:"line"`
+	Column    int    `json:"column"`
+	Field     string `json:"field"`
+	ErrorCode string `json:"error_code"`
+	Message   string `json:"message"`
+}
+
+// Cells is the row's line on check's page: the file, the line, the field, the
+// error_code and the message. column rides on the wire only (§9) — a row
+// carrying more than its page renders, which is not the two surfaces
+// disagreeing but one of them having no column for a fact a consumer filters
+// on.
+func (r problemRow) Cells() []string {
+	return []string{r.File, strconv.Itoa(r.Line), r.Field, r.ErrorCode, r.Message}
+}
+
+// checkRows is the sorted problems as the ordered list both surfaces are
+// written from. The order is the one problem.Sort fixed and neither rendering
+// is free to change it: on the wire the rows arrive one line at a time and a
+// consumer cannot re-sort what it has already printed (§9).
+func checkRows(problems []problem.Problem) []render.Row {
+	rows := make([]render.Row, 0, len(problems))
+	for _, p := range problems {
+		rows = append(rows, problemRow{
+			Type:      "problem",
+			File:      p.File,
+			Line:      p.Line,
+			Column:    p.Column,
+			Field:     p.Field,
+			ErrorCode: p.ErrorCode,
+			Message:   p.Message,
+		})
+	}
+	return rows
+}
+
+// checkColumns is check's header. The columns a page carries are the command's
+// own — one renderer means one path from rows to bytes, not one table layout
+// for every command.
+var checkColumns = []string{"FILE", "LINE", "FIELD", "ERROR_CODE", "MESSAGE"}
+
+// writeCheckTable is check's page: its five columns, and the line that stands
+// where there are no rows. A clean run is not silent (issue #99): it names how
+// many artefacts were checked and that nothing was found, checked being the
+// load's own count — every repository file `hyper check` read plus the built-in
+// shell Provider — rather than a header over no rows.
+func writeCheckTable(w io.Writer, rows []render.Row, checked int) error {
+	if len(rows) == 0 {
+		plural := "s"
+		if checked == 1 {
+			plural = ""
+		}
+		_, err := fmt.Fprintf(w, "checked %d artefact%s: no problems found\n", checked, plural)
+		return err
+	}
+	return render.WriteTable(w, checkColumns, rows)
 }

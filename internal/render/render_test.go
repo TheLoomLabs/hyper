@@ -1,87 +1,163 @@
-package render
+package render_test
 
 import (
 	"bytes"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/TheLoomLabs/hyper/internal/problem"
+	"github.com/TheLoomLabs/hyper/internal/render"
 )
 
-func TestWriteJSON_EmitsOneCompactRowPerProblemThenResult(t *testing.T) {
+// stubRow is a row type declared outside the renderer, which is where row types
+// live: a command owns the rows it writes and the renderer owns the stream they
+// go out on. It is named for being a stub rather than for anything §8 puts on
+// the wire — no row type in the tool is spelt "stub", so nothing here can be
+// mistaken for the shape of a row a command actually writes.
+//
+// It carries a member written only where the fact is there, which is the
+// ordinary absence rule (§7, §9), and it renders fewer members on the page than
+// it carries on the wire, which every row type in the tool is free to do.
+type stubRow struct {
+	Type  string `json:"type"`
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+	Note  string `json:"note,omitempty"`
+}
+
+func (r stubRow) Cells() []string { return []string{r.Name, strconv.Itoa(r.Count)} }
+
+func newStubRow(name string, count int) stubRow {
+	return stubRow{Type: "stub", Name: name, Count: count}
+}
+
+func TestWriteJSON_WritesOneCompactObjectPerRowAndTerminatesInTheTerminalRow(t *testing.T) {
 	var buf bytes.Buffer
-	problems := []problem.Problem{
-		{File: "procedures/retire.yaml", Line: 34, Column: 7, Field: "steps[2].bound", ErrorCode: "strict-yaml-violation", Message: "an anchor is not part of the authoring format"},
-	}
-	if err := WriteJSON(&buf, problems); err != nil {
+	rows := []render.Row{newStubRow("uptime", 2), newStubRow("shell", 6)}
+
+	if err := render.WriteJSON(&buf, rows, render.NewResultRow(false)); err != nil {
 		t.Fatal(err)
 	}
 
-	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("got %d lines, want 2: %q", len(lines), buf.String())
+	want := []string{
+		`{"type":"stub","name":"uptime","count":2}`,
+		`{"type":"stub","name":"shell","count":6}`,
+		`{"type":"result","truncated":false}`,
 	}
-
-	wantProblem := `{"type":"problem","file":"procedures/retire.yaml","line":34,"column":7,"field":"steps[2].bound","error_code":"strict-yaml-violation","message":"an anchor is not part of the authoring format"}`
-	if lines[0] != wantProblem {
-		t.Errorf("row 0 = %q, want %q", lines[0], wantProblem)
-	}
-
-	wantResult := `{"type":"result","truncated":false}`
-	if lines[1] != wantResult {
-		t.Errorf("row 1 = %q, want %q", lines[1], wantResult)
+	if got := lines(t, buf.String()); !slices.Equal(got, want) {
+		t.Errorf("WriteJSON() =\n%q\nwant\n%q", got, want)
 	}
 }
 
-func TestWriteJSON_EmitsTerminalRowEvenWhenClean(t *testing.T) {
+func TestWriteJSON_WritesTheTerminalRowAfterZeroRows(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteJSON(&buf, nil); err != nil {
+	if err := render.WriteJSON(&buf, nil, render.NewResultRow(false)); err != nil {
 		t.Fatal(err)
 	}
-	got := strings.TrimRight(buf.String(), "\n")
-	want := `{"type":"result","truncated":false}`
-	if got != want {
+	if got, want := buf.String(), `{"type":"result","truncated":false}`+"\n"; got != want {
 		t.Errorf("WriteJSON() = %q, want %q", got, want)
 	}
 }
 
-func TestWriteTable_CleanRunNamesWhatWasCheckedAndThatNothingWasFound(t *testing.T) {
+func TestWriteJSON_OmitsAMemberTheRowDoesNotCarryRatherThanWritingItEmpty(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteTable(&buf, nil, 8); err != nil {
+	carried := newStubRow("uptime", 2)
+	carried.Note = "installed"
+	absent := newStubRow("shell", 6)
+
+	if err := render.WriteJSON(&buf, []render.Row{carried, absent}, render.NewResultRow(false)); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := buf.String(), "checked 8 artefacts: no problems found\n"; got != want {
-		t.Errorf("WriteTable() = %q, want %q", got, want)
+
+	want := []string{
+		`{"type":"stub","name":"uptime","count":2,"note":"installed"}`,
+		`{"type":"stub","name":"shell","count":6}`,
+		`{"type":"result","truncated":false}`,
+	}
+	if got := lines(t, buf.String()); !slices.Equal(got, want) {
+		t.Errorf("WriteJSON() =\n%q\nwant\n%q\nan absent member is absent, not null and not empty", got, want)
 	}
 }
 
-func TestWriteTable_CleanRunSingularArtefact(t *testing.T) {
+func TestWriteJSON_LeavesHTMLPunctuationAsItWasWritten(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteTable(&buf, nil, 1); err != nil {
+	rows := []render.Row{newStubRow(`a <b> & c`, 1)}
+
+	if err := render.WriteJSON(&buf, rows, render.NewResultRow(false)); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := buf.String(), "checked 1 artefact: no problems found\n"; got != want {
-		t.Errorf("WriteTable() = %q, want %q", got, want)
+
+	want := []string{
+		`{"type":"stub","name":"a <b> & c","count":1}`,
+		`{"type":"result","truncated":false}`,
+	}
+	if got := lines(t, buf.String()); !slices.Equal(got, want) {
+		t.Errorf("WriteJSON() =\n%q\nwant\n%q", got, want)
 	}
 }
 
-func TestWriteTable_CarriesFileLineFieldCodeMessageNotColumn(t *testing.T) {
+func TestNewResultRow_CarriesTheTruncationMarkerItWasGiven(t *testing.T) {
 	var buf bytes.Buffer
-	problems := []problem.Problem{
-		{File: "procedures/retire.yaml", Line: 34, Column: 7, Field: "steps[2].bound", ErrorCode: "strict-yaml-violation", Message: "boom"},
-	}
-	if err := WriteTable(&buf, problems, 1); err != nil {
+	if err := render.WriteJSON(&buf, nil, render.NewResultRow(true)); err != nil {
 		t.Fatal(err)
 	}
-	out := buf.String()
-	if !strings.Contains(out, "procedures/retire.yaml") ||
-		!strings.Contains(out, "34") ||
-		!strings.Contains(out, "steps[2].bound") ||
-		!strings.Contains(out, "strict-yaml-violation") ||
-		!strings.Contains(out, "boom") {
-		t.Fatalf("WriteTable() = %q, missing an expected field", out)
+	if got, want := buf.String(), `{"type":"result","truncated":true}`+"\n"; got != want {
+		t.Errorf("WriteJSON() = %q, want %q", got, want)
 	}
-	if strings.Contains(out, "\t7\t") {
-		t.Errorf("WriteTable() rendered the column, want it wire-only: %q", out)
+}
+
+func TestWriteTable_WritesTheHeaderAndOneAlignedLinePerRow(t *testing.T) {
+	var buf bytes.Buffer
+	rows := []render.Row{newStubRow("uptime", 2), newStubRow("cloudflare-dns", 11)}
+
+	if err := render.WriteTable(&buf, []string{"NAME", "OPERATIONS"}, rows); err != nil {
+		t.Fatal(err)
 	}
+
+	want := "NAME            OPERATIONS\n" +
+		"uptime          2\n" +
+		"cloudflare-dns  11\n"
+	if got := buf.String(); got != want {
+		t.Errorf("WriteTable() =\n%q\nwant\n%q", got, want)
+	}
+}
+
+func TestWriteTable_WritesNothingWhereNoRowHasALine(t *testing.T) {
+	var buf bytes.Buffer
+	if err := render.WriteTable(&buf, []string{"NAME", "OPERATIONS"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := buf.String(); got != "" {
+		t.Errorf("WriteTable() = %q, want nothing: what stands where a page has no rows is its command's own line", got)
+	}
+}
+
+func TestWriteTable_SkipsARowThatContributesNoLine(t *testing.T) {
+	var buf bytes.Buffer
+	rows := []render.Row{newStubRow("uptime", 2), render.NewResultRow(false)}
+
+	if err := render.WriteTable(&buf, []string{"NAME", "OPERATIONS"}, rows); err != nil {
+		t.Fatal(err)
+	}
+
+	want := "NAME    OPERATIONS\nuptime  2\n"
+	if got := buf.String(); got != want {
+		t.Errorf("WriteTable() =\n%q\nwant\n%q", got, want)
+	}
+}
+
+// lines is the stream as the lines a consumer reads off it, which is the one
+// shape every assertion above holds the wire in: NDJSON is a line-oriented
+// format, and a stream that does not end in a newline has a last row nothing
+// terminated.
+func lines(t *testing.T, stream string) []string {
+	t.Helper()
+	if stream == "" {
+		return nil
+	}
+	if !strings.HasSuffix(stream, "\n") {
+		t.Fatalf("the stream does not end in a newline: %q", stream)
+	}
+	return strings.Split(strings.TrimSuffix(stream, "\n"), "\n")
 }
