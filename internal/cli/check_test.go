@@ -2,43 +2,27 @@ package cli_test
 
 import (
 	"bytes"
-	"flag"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
 )
 
-// update regenerates the golden files of the check corpus instead of
-// checking against them (issue #88: "Golden files are checked in and
-// regenerated behind an -update flag").
-var update = flag.Bool("update", false, "regenerate golden files")
-
 // checkCorpus is the check command's slice of testdata/. Each command that
 // owns a golden corpus gets its own subtree beside it — testdata/version/,
 // testdata/completions/ — so that a case directory belongs to exactly one
-// harness and no harness runs another's cases (issue #101).
+// harness and no harness runs another's cases (issue #101). What every corpus
+// shares is in golden_test.go.
 const checkCorpus = "testdata/check"
 
-// checkCases enumerates the check corpus's case directories, in ReadDir
-// order. Sibling corpora live beside checkCorpus rather than in it, so they
-// are outside what this can see.
+// checkCases enumerates the check corpus's case directories. Sibling corpora
+// live beside checkCorpus rather than in it, so they are outside what this can
+// see.
 func checkCases(t *testing.T) []string {
 	t.Helper()
-	entries, err := os.ReadDir(checkCorpus)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var names []string
-	for _, e := range entries {
-		if e.IsDir() {
-			names = append(names, e.Name())
-		}
-	}
-	return names
+	return corpusCases(t, checkCorpus)
 }
 
 // TestCheckGolden_IgnoresSiblingCorpora pins the property the check corpus
@@ -106,63 +90,7 @@ func TestCheckGolden(t *testing.T) {
 			getenv := func(string) string { return "" }
 			exit := cli.RunCheck(args, &stdout, &stderr, getenv, wd, version)
 
-			if *update {
-				writeGolden(t, filepath.Join(dir, "stdout.golden"), stdout.Bytes())
-				writeGolden(t, filepath.Join(dir, "stderr.golden"), stderr.Bytes())
-				writeGolden(t, filepath.Join(dir, "exit.golden"), []byte(strconv.Itoa(exit)+"\n"))
-				return
-			}
-
-			wantStdout := readFile(t, filepath.Join(dir, "stdout.golden"))
-			wantStderr := readFile(t, filepath.Join(dir, "stderr.golden"))
-			wantExit, convErr := strconv.Atoi(strings.TrimSpace(readFile(t, filepath.Join(dir, "exit.golden"))))
-			if convErr != nil {
-				t.Fatalf("exit.golden: %v", convErr)
-			}
-
-			if stdout.String() != wantStdout {
-				t.Errorf("stdout mismatch:\n got:  %q\n want: %q", stdout.String(), wantStdout)
-			}
-			if stderr.String() != wantStderr {
-				t.Errorf("stderr mismatch:\n got:  %q\n want: %q", stderr.String(), wantStderr)
-			}
-			if exit != wantExit {
-				t.Errorf("exit = %d, want %d", exit, wantExit)
-			}
+			compareGolden(t, dir, stdout.Bytes(), stderr.Bytes(), exit)
 		})
-	}
-}
-
-func readFile(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return ""
-		}
-		t.Fatal(err)
-	}
-	return string(data)
-}
-
-func readLines(t *testing.T, path string) []string {
-	t.Helper()
-	data := readFile(t, path)
-	if data == "" {
-		return nil
-	}
-	var lines []string
-	for _, l := range strings.Split(strings.TrimRight(data, "\n"), "\n") {
-		if l != "" {
-			lines = append(lines, l)
-		}
-	}
-	return lines
-}
-
-func writeGolden(t *testing.T, path string, data []byte) {
-	t.Helper()
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		t.Fatal(err)
 	}
 }

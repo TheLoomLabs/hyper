@@ -1,0 +1,6 @@
+{
+  "version": "1.4.0",
+  "toolchain": "go1.25.0",
+  "os": "linux",
+  "arch": "amd64"
+}
