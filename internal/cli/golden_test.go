@@ -142,10 +142,14 @@ func TestGolden(t *testing.T) {
 // name, which the dispatch reads first and which nothing may precede; the
 // case's own arguments follow it, as they would on a real command line.
 //
-// A case that carries no repo/ is driven with its argv alone, which is how the
-// exemption corpus's three invocations share one repository between them: the
-// one that can reach a repository at all names it in its own argv, with the
-// --repo-dir an operator would type.
+// A case that carries no repo/ is driven with its argv alone, which is how one
+// repository is shared between cases: the case names it in its own argv, with
+// the --repo-dir an operator would type, resolved against the case's own
+// directory like every other path a case writes. The exemption corpus's three
+// invocations share one that way, only the one that can reach a repository at
+// all naming it (issue #105); the twelve cases against the five-artefact
+// demonstration repository share testdata/five-artefact-demo/repo the same way,
+// across five corpora, each of them naming it (issue #116).
 func (c goldenCase) invocation(t *testing.T) (args []string, wd string) {
 	t.Helper()
 

@@ -1,0 +1,19 @@
+  delete_dns_record:
+    kind: destroy
+    repeatability: repeatable
+    deadline: 30s
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /client/v4/zones/{zone_id}/dns_records/{record_id}
+    input:
+      type: object
+      properties:
+        zone_id: {type: string}
+        record_id: {type: string}
+
+CAPABILITIES       http
+BOUND              mandatory
+REPEATABILITY      repeatable
+DEADLINE           30s
+CONCURRENCY LIMIT  1

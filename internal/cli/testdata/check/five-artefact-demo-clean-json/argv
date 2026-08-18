@@ -1,1 +1,1 @@
-hyper check --json
+hyper check --repo-dir ../../five-artefact-demo/repo --json

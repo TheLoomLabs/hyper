@@ -1,1 +1,1 @@
-hyper providers --json
+hyper providers --repo-dir ../../five-artefact-demo/repo --json

@@ -1,1 +1,1 @@
-hyper targets --json
+hyper targets --repo-dir ../../five-artefact-demo/repo --json

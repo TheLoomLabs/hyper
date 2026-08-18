@@ -1,0 +1,2 @@
+{"type":"operation_detail","source":"  delete_dns_record:\n    kind: destroy\n    repeatability: repeatable\n    deadline: 30s\n    http:\n      method: DELETE\n      host: \"{from-target}\"\n      path: /client/v4/zones/{zone_id}/dns_records/{record_id}\n    input:\n      type: object\n      properties:\n        zone_id: {type: string}\n        record_id: {type: string}\n","derived":{"capabilities":["http"],"bound":"mandatory","patterns_resolved":[],"repeatability":"repeatable","deadline_seconds":30,"concurrency_limit":1}}
+{"type":"result","truncated":false}

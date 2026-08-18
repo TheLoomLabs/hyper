@@ -1,6 +1,0 @@
-kind: target-declaration
-target: local
-class: local
-kinds: [read]
-capabilities: [http]
-hosts: [status.hyper.dev, cert.hyper.dev]
