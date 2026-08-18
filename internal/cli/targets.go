@@ -62,8 +62,7 @@ func RunTargets(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 	rows := targetRows(loaded, lookupenv)
 	kept, dropped := truncate(rows, parsed.limit)
 
-	page := func(w io.Writer, rows []render.Row) error { return writeTargetTable(w, rows) }
-	if code := writeAnswer("targets", stdout, stderr, parsed.json, kept, render.NewResultRow(dropped > 0), page); code != 0 {
+	if code := writeAnswer("targets", stdout, stderr, parsed.json, kept, render.NewResultRow(dropped > 0), writeTargetTable); code != 0 {
 		return code
 	}
 
@@ -135,15 +134,16 @@ func (r targetRow) Cells() []string {
 // because a declaration may carry slots for more than one scheme, and a list of
 // names alone does not say which fills what (§9). A slot naming no variable
 // renders as its name alone: there is nothing to pair it with, and nothing to
-// ask the environment about.
+// ask the environment about — which is the same thing as having no presence to
+// state, the two being written together or not at all.
 func (r targetRow) credentialsCell() string {
 	rendered := make([]string, 0, len(r.Credentials))
 	for _, credential := range r.Credentials {
-		if credential.Env == "" {
+		if credential.Present == nil {
 			rendered = append(rendered, credential.Slot)
 			continue
 		}
-		rendered = append(rendered, fmt.Sprintf("%s=%s (%s)", credential.Slot, credential.Env, presence(credential.Present)))
+		rendered = append(rendered, fmt.Sprintf("%s=%s (%s)", credential.Slot, credential.Env, presence(*credential.Present)))
 	}
 	return strings.Join(rendered, ", ")
 }
@@ -152,8 +152,12 @@ func (r targetRow) credentialsCell() string {
 // says whether the variable is set and nothing about what is in it: an
 // empty-string variable is present, whether an empty credential works being the
 // endpoint's business and not hyper's.
-func presence(present *bool) string {
-	if present != nil && *present {
+//
+// It takes the answer rather than the row's pointer to one, so that "no
+// presence was stated" has no rendering here to be given by accident: the
+// caller has already read that off the member that can be absent.
+func presence(present bool) string {
+	if present {
 		return "present"
 	}
 	return "absent"

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"go/parser"
+	"go/token"
 	"maps"
 	"os"
 	"path/filepath"
@@ -152,8 +154,8 @@ func TestRunTargets_WritesOneRowPerTargetDeclaration(t *testing.T) {
 // fixture whose files sort in the opposite direction to the names they declare.
 func TestRunTargets_OrdersByNameAndNotByPath(t *testing.T) {
 	root := targetsRepo(t, map[string]string{
-		"aaa-last.yaml":  strings.Replace(localTargetDeclaration, "target: local", "target: zulu", 1),
-		"zzz-first.yaml": strings.Replace(localTargetDeclaration, "target: local", "target: alpha", 1),
+		"aaa-last.yaml":  namedTarget("zulu"),
+		"zzz-first.yaml": namedTarget("alpha"),
 	})
 
 	stdout, _, _ := runTargets(t, root, "--json")
@@ -161,6 +163,39 @@ func TestRunTargets_OrdersByNameAndNotByPath(t *testing.T) {
 	if got, want := targetNames(readTargetRows(t, stdout)), []string{"alpha", "zulu"}; !slices.Equal(got, want) {
 		t.Errorf("names = %v, want %v; the order is the name's, not the path's", got, want)
 	}
+}
+
+// TestRunTargets_TheOrderIsByteExactOverUTF8 is the comparison §9 fixes, held
+// by names an ASCII-only fixture could not tell apart from any other order: the
+// bytes are compared as they stand, with no locale collation and no
+// normalisation — the same fold §9 fixes for matching a name, and the same one
+// a Record identity is compared under (§7, §12).
+func TestRunTargets_TheOrderIsByteExactOverUTF8(t *testing.T) {
+	// Both names are ordered by a locale's collation nothing like the way
+	// their bytes are: Ångström sorts among the A's under collation and
+	// after every ASCII name by bytes, its first byte being 0xC3; zürich
+	// sorts beside zorn under collation and after it by bytes, ü being two
+	// bytes where o is one.
+	root := targetsRepo(t, map[string]string{
+		"zurich.yaml":   namedTarget("zürich"),
+		"zorn.yaml":     namedTarget("zorn"),
+		"angstrom.yaml": namedTarget("Ångström"),
+		"alpha.yaml":    namedTarget("alpha"),
+	})
+
+	stdout, _, _ := runTargets(t, root, "--json")
+
+	want := []string{"alpha", "zorn", "zürich", "Ångström"}
+	if got := targetNames(readTargetRows(t, stdout)); !slices.Equal(got, want) {
+		t.Errorf("names = %v, want %v — byte-exact over UTF-8, not a locale's collation", got, want)
+	}
+}
+
+// namedTarget is §3's local declaration under a name of the caller's choosing:
+// the cases about order care which name a declaration carries and nothing else
+// about it.
+func namedTarget(name string) string {
+	return strings.Replace(localTargetDeclaration, "target: local", "target: "+name, 1)
 }
 
 // TestRunTargets_HostsIsAnArrayCarryingEveryHostTheDeclarationGrants is one of
@@ -452,8 +487,8 @@ func TestRunTargets_ADeclarationThatWillNotParseContributesNoRow(t *testing.T) {
 // narration being stderr's in either (§9).
 func TestRunTargets_ATruncatedResultMarksItselfOnBothSurfaces(t *testing.T) {
 	root := targetsRepo(t, map[string]string{
-		"alpha.yaml": strings.Replace(localTargetDeclaration, "target: local", "target: alpha", 1),
-		"zulu.yaml":  strings.Replace(localTargetDeclaration, "target: local", "target: zulu", 1),
+		"alpha.yaml": namedTarget("alpha"),
+		"zulu.yaml":  namedTarget("zulu"),
 	})
 
 	for _, mode := range [][]string{{"--json", "--limit", "1"}, {"--limit", "1"}} {
@@ -478,8 +513,8 @@ func TestRunTargets_ATruncatedResultMarksItselfOnBothSurfaces(t *testing.T) {
 // Target namespace has neither.
 func TestRunTargets_TheMarkerNamesNoAxis(t *testing.T) {
 	root := targetsRepo(t, map[string]string{
-		"alpha.yaml": strings.Replace(localTargetDeclaration, "target: local", "target: alpha", 1),
-		"zulu.yaml":  strings.Replace(localTargetDeclaration, "target: local", "target: zulu", 1),
+		"alpha.yaml": namedTarget("alpha"),
+		"zulu.yaml":  namedTarget("zulu"),
 	})
 
 	stdout, _, _ := runTargets(t, root, "--json", "--limit", "1")
@@ -504,7 +539,7 @@ func TestRunTargets_TheDefaultLimitSaysItIsTheDefault(t *testing.T) {
 	declarations := map[string]string{}
 	for i := range 60 {
 		name := fmt.Sprintf("target-%02d", i)
-		declarations[name+".yaml"] = strings.Replace(localTargetDeclaration, "target: local", "target: "+name, 1)
+		declarations[name+".yaml"] = namedTarget(name)
 	}
 	root := targetsRepo(t, declarations)
 
@@ -620,8 +655,8 @@ func TestRunTargets_TwoInvocationsAgainstOneRepositoryAreByteIdentical(t *testin
 // enumerate it is a failure here rather than a discovery in milestone 5.
 func TestRunTargets_TheRowSetIsTheTargetNamespace(t *testing.T) {
 	root := targetsRepo(t, map[string]string{
-		"aaa-last.yaml": strings.Replace(localTargetDeclaration, "target: local", "target: zulu", 1),
-		"alpha.yaml":    strings.Replace(localTargetDeclaration, "target: local", "target: alpha", 1),
+		"aaa-last.yaml": namedTarget("zulu"),
+		"alpha.yaml":    namedTarget("alpha"),
 		"broken.yaml":   "kind: target-declaration\ntarget: broken\n  bad: [\n",
 		"nameless.yaml": "kind: target-declaration\nclass: local\n",
 	})
@@ -733,6 +768,39 @@ func TestRunTargets_TheThreeGlobalsAreTheOnesSectionNineCloses(t *testing.T) {
 	noColorEnv, _, _ := runTargetsIn(t, root, map[string]string{"NO_COLOR": "1"})
 	if noColorEnv != viaFlag {
 		t.Errorf("NO_COLOR changed the bytes:\n %q\n %q", viaFlag, noColorEnv)
+	}
+}
+
+// TestRunTargets_ReachesNoNetworkNoStoreAndInvokesNothing fences the command's
+// own file, on the shape `version` and `completions` are fenced by: what a
+// command can reach is what it imports, and this one imports its streams, the
+// repository load, the artefact facts and the renderer. No net, no os/exec, no
+// Store — the whole answer is the load and one lookup per credential slot.
+//
+// The fence matters more here than on its neighbours rather than less: this is
+// the one command in the milestone that reaches outside the repository at all,
+// and what it is allowed to ask the environment is whether a name is set (§9,
+// ADR-0007).
+func TestRunTargets_ReachesNoNetworkNoStoreAndInvokesNothing(t *testing.T) {
+	allowed := map[string]bool{
+		`"fmt"`:     true,
+		`"io"`:      true,
+		`"maps"`:    true,
+		`"slices"`:  true,
+		`"strings"`: true,
+		`"github.com/TheLoomLabs/hyper/internal/artefact"`:   true,
+		`"github.com/TheLoomLabs/hyper/internal/render"`:     true,
+		`"github.com/TheLoomLabs/hyper/internal/repository"`: true,
+	}
+
+	file, err := parser.ParseFile(token.NewFileSet(), "targets.go", nil, parser.ImportsOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, imp := range file.Imports {
+		if !allowed[imp.Path.Value] {
+			t.Errorf("internal/cli/targets.go imports %s; `hyper targets` reaches no network, reads no Store, and invokes nothing", imp.Path.Value)
+		}
 	}
 }
 

@@ -1,2 +1,2 @@
-{"type":"target","name":"cloudflare-prod","hosts":["api.cloudflare.com"],"accepts_kinds":["read","mutate","destroy"],"grants_capabilities":["http"],"credentials":[{"slot":"token","env":"CLOUDFLARE_API_TOKEN","present":true}]}
-{"type":"result","truncated":false}
+NAME             HOSTS               KINDS                  CAPABILITIES  CREDENTIALS
+cloudflare-prod  api.cloudflare.com  read, mutate, destroy  http          token=CLOUDFLARE_API_TOKEN (present)
