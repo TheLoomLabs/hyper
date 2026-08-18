@@ -1,8 +1,10 @@
 package repository
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -64,6 +66,29 @@ type Loaded struct {
 	Targets     artefact.TargetIndex
 	Definitions artefact.DefinitionIndex
 	Procedures  artefact.ProcedureIndex
+	// Manifests is the Provider namespace's other half: one entry per name
+	// in Providers, carrying where that name's bytes came from and what
+	// they were. Providers answers what a provider: resolves to and this
+	// answers which Manifest it resolved to, and they are built from one
+	// fold so the two can never mean different files by one name.
+	Manifests map[string]LoadedManifest
+}
+
+// LoadedManifest is one member of the Provider namespace as the commands that
+// report a Provider read it: the name the Manifest declares for itself, the
+// origin §12 reads off where its bytes loaded from, those exact bytes, and what
+// they parsed to.
+//
+// Bytes are here because manifest_digest is SHA-256 over a Manifest's exact
+// bytes (§7) and Origin because the two facts are one question — which file did
+// this name come from — answered once, at the fold, rather than by every caller
+// re-deciding it off a path.
+type LoadedManifest struct {
+	Name   string
+	Origin string
+	Path   string
+	Bytes  []byte
+	Root   *yaml.Node
 }
 
 // Load reads the repository at repoRoot: it walks the five artefact locations,
@@ -103,13 +128,71 @@ func Load(repoRoot string) (Loaded, error) {
 	}
 
 	targets := artefact.BuildTargetIndex(rootsUnder(artefacts, "targets/"))
+	manifests := manifestsByName(artefacts)
 	return Loaded{
 		Artefacts:   artefacts,
-		Providers:   artefact.BuildProviderIndex(rootsUnder(artefacts, "providers/")),
+		Providers:   artefact.BuildProviderIndex(manifestRoots(manifests)),
 		Targets:     targets,
 		Definitions: artefact.BuildDefinitionIndex(rootsUnder(artefacts, "definitions/"), targets),
 		Procedures:  artefact.BuildProcedureIndex(rootsUnder(artefacts, "procedures/")),
+		Manifests:   manifests,
 	}, nil
+}
+
+// manifestsByName folds the loaded artefacts into the Provider namespace's
+// members: the built-in, whose bytes are the compiled-in constant, and every
+// providers/ file that parsed and named itself. A file that will not parse
+// contributes nothing and neither does one whose provider: is absent or is not
+// a plain scalar — ADR-0064's rule, that an authored name resolving to nothing
+// is a check rather than a load failure.
+//
+// It is the one place a name is decided to mean a file. Where two Manifests
+// declare one name the later one wins, which is not a precedence rule the tool
+// is entitled to — an Extension may never shadow a built-in Provider's name,
+// and a collision is a load failure §11 fixes under provider-name-collision.
+// Until that check exists the fold has to answer something, and answering it
+// once means the Manifest `hyper providers` reports for a name and the Manifest
+// a Definition's provider: resolves to are the same file rather than two
+// readings of one repository.
+func manifestsByName(artefacts []LoadedArtefact) map[string]LoadedManifest {
+	manifests := map[string]LoadedManifest{}
+	for _, a := range artefacts {
+		if !a.OK || !isManifest(a.Path) {
+			continue
+		}
+		name := artefact.ManifestProviderName(a.Root)
+		if name == "" {
+			continue
+		}
+		manifests[name] = LoadedManifest{
+			Name:   name,
+			Origin: artefact.ProviderOrigin(a.Path),
+			Path:   a.Path,
+			Bytes:  a.Bytes,
+			Root:   a.Root,
+		}
+	}
+	return manifests
+}
+
+// isManifest says whether a loaded artefact is a Provider's Manifest: the
+// pseudo-path the built-in carries, or a file in providers/ — the two places
+// §12's origin set says a Manifest's bytes can be.
+func isManifest(path string) bool {
+	return path == artefact.BuiltinShellProviderPath || strings.HasPrefix(path, "providers/")
+}
+
+// manifestRoots is the folded members' roots, which is what the Provider
+// namespace is built from. Passing the fold's own output rather than the
+// providers/ roots is what makes the two views one: BuildProviderIndex sees one
+// root per name, so its own fold decides nothing this one has not already
+// decided, and the order it walks them in cannot matter.
+func manifestRoots(manifests map[string]LoadedManifest) []*yaml.Node {
+	roots := make([]*yaml.Node, 0, len(manifests))
+	for _, name := range slices.Sorted(maps.Keys(manifests)) {
+		roots = append(roots, manifests[name].Root)
+	}
+	return roots
 }
 
 // loadFile reads and parses one artefact file. An artefact hyper cannot even
@@ -142,10 +225,11 @@ func loadFile(repoRoot, rel string) LoadedArtefact {
 // is a check, and a file that will not parse is check's to report rather than
 // the load's to guess at.
 //
-// The built-in Provider's path is <built-in>/shell and matches no prefix here,
-// which is how it stays out of the providers/ roots: BuildProviderIndex seeds
-// the Provider namespace from the built-ins itself, and a second entry from the
-// same bytes would be one name declared twice.
+// The three namespaces built this way are the Target, Definition and Procedure
+// ones. The Provider namespace is not: its members carry the bytes their digest
+// covers, so they are folded by manifestsByName above, which reaches the
+// built-in — whose <built-in>/shell path matches no prefix here — as well as
+// the providers/ files.
 func rootsUnder(artefacts []LoadedArtefact, prefix string) []*yaml.Node {
 	var roots []*yaml.Node
 	for _, a := range artefacts {

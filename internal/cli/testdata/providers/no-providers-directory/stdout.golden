@@ -1,0 +1,2 @@
+NAME   ORIGIN    SUMMARY                                                   OPERATIONS  DIGEST
+shell  built-in  class local; requires shell; 1 read, 3 mutate, 2 destroy  6           sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4

@@ -29,8 +29,8 @@ import (
 // getwd is a function rather than a resolved path because the exemption is a
 // property of this dispatch and not of the commands behind it. `version` and
 // `completions` are the two cases that resolve no working directory and call no
-// gate — an exemption expressed as a branch not taken (§9, ADR-0020) — so the
-// working directory is resolved inside the branches that need one, and a
+// gate — an exemption expressed as a path not taken (§9, ADR-0020) — so the
+// working directory is resolved on the repository commands' arm alone, and a
 // working directory that cannot be read does not stop `hyper version`.
 //
 // facts is threaded whole rather than the bare version string it carries:
@@ -42,11 +42,16 @@ func Main(args []string, stdout, stderr io.Writer, getenv func(string) string, g
 		return ExitUsage
 	}
 
-	switch args[0] {
-	case "check":
-		// The working directory is read here rather than above the switch,
-		// so a command that reads no repository never depends on there being
-		// one to read (issue #103).
+	// The commands inside §9's tree that read a repository, and the whole of
+	// what they share: the complete argv past the command name, the two reads
+	// of the process, and the version the gate compares. They are dispatched
+	// off one table rather than a branch each, so the working directory —
+	// resolved for them and for nobody else — is read in one place however
+	// many of the sixteen land (issue #103, issue #111).
+	if run, gated := repositoryCommands[args[0]]; gated {
+		// The working directory is read here rather than above, so a
+		// command that reads no repository never depends on there being one
+		// to read (issue #103).
 		wd, err := getwd()
 		if err != nil {
 			// The code cmd/hyper returned before the dispatch moved,
@@ -59,7 +64,10 @@ func Main(args []string, stdout, stderr io.Writer, getenv func(string) string, g
 			fmt.Fprintf(stderr, "hyper: %s\n", err)
 			return ExitProblems
 		}
-		return RunCheck(args[1:], stdout, stderr, getenv, wd, facts.Version)
+		return run(args[1:], stdout, stderr, getenv, wd, facts.Version)
+	}
+
+	switch args[0] {
 	case "version":
 		// Neither the environment nor a working directory is passed, and no
 		// repository root is resolved: `version` is one of the two commands
@@ -75,4 +83,21 @@ func Main(args []string, stdout, stderr io.Writer, getenv func(string) string, g
 		fmt.Fprintf(stderr, "hyper: unknown command %q\n", args[0])
 		return ExitUsage
 	}
+}
+
+// repositoryCommand is the shape of a command that reads a repository: the
+// arguments past its own name, the two streams, the two reads of the process it
+// is handed rather than makes, and the version the pin gate compares. Every one
+// of §9's sixteen takes it — the gate is stated once for all of them, and
+// nothing else about a command is Main's business.
+type repositoryCommand func(args []string, stdout, stderr io.Writer, getenv func(string) string, wd, binaryVersion string) int
+
+// repositoryCommands is the dispatch: which command runs, for the commands that
+// stand behind the pin gate. It is not §9's tree — tree.go holds that, and a
+// name the spec fixes is there whether or not a milestone has built it yet;
+// this is the subset the binary implements, and a name absent from it is the
+// `unknown command` below.
+var repositoryCommands = map[string]repositoryCommand{
+	"check":     RunCheck,
+	"providers": RunProviders,
 }

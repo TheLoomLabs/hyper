@@ -240,13 +240,28 @@ type TargetIndex map[string]TargetInfo
 func BuildProviderIndex(manifestRoots []*yaml.Node) ProviderIndex {
 	idx := ProviderIndex{"shell": builtinShellProviderInfo()}
 	for _, root := range manifestRoots {
-		nameVal := topLevelFields(root, "provider")["provider"]
-		if nameVal == nil || nameVal.Kind != yaml.ScalarNode {
+		name := ManifestProviderName(root)
+		if name == "" {
 			continue
 		}
-		idx[nameVal.Value] = providerInfoFromManifest(root)
+		idx[name] = providerInfoFromManifest(root)
 	}
 	return idx
+}
+
+// ManifestProviderName is the name a Manifest declares for itself, or "" where
+// its provider: is absent or is not a plain scalar. It is exported because the
+// Provider namespace is not the only thing folded over that rule: `hyper
+// providers` writes one row per member of that namespace and needs the bytes
+// each name loaded from, which the index does not carry (§9, issue #111) — and
+// two folds of one rule written twice is where the day comes that a name is in
+// the namespace and not on the list.
+func ManifestProviderName(root *yaml.Node) string {
+	nameVal := topLevelFields(root, "provider")["provider"]
+	if nameVal == nil || nameVal.Kind != yaml.ScalarNode {
+		return ""
+	}
+	return nameVal.Value
 }
 
 // BuildTargetIndex adds one entry per targets/ root whose target: is a

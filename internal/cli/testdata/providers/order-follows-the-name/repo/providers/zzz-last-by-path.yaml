@@ -1,0 +1,21 @@
+kind: provider
+provider: alpha
+schema-version: 1
+class: widgetco
+capabilities: [http]
+operations:
+  list_widgets:
+    kind: read
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /widgets
+    input:
+      type: object
+      properties:
+        zone: {type: string}
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id}

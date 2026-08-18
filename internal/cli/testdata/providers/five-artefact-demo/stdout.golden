@@ -1,0 +1,4 @@
+NAME            ORIGIN     SUMMARY                                                       OPERATIONS  DIGEST
+cloudflare-dns  extension  class cloudflare; requires http; 1 read, 1 mutate, 1 destroy  3           sha256:bdcb1f6ca78d449dcebfead665b363e70ca68a80d14fea354ad94af340ead1c8
+shell           built-in   class local; requires shell; 1 read, 3 mutate, 2 destroy      6           sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4
+uptime          extension  class local; requires http; 1 read                            1           sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7

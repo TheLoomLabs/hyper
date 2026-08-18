@@ -279,3 +279,65 @@ func TestLoad_AnUnreadableArtefactDirectoryIsAFailedLoad(t *testing.T) {
 		t.Error("Load() error = nil, want the walk's own failure: a directory hyper cannot list is not an artefact's problem to carry")
 	}
 }
+
+// TestLoad_ManifestsAreTheProviderNamespacesOtherHalf is the fold issue #111
+// needed and #109 did not carry: every name in Providers has an entry here
+// naming the file its bytes came from, its origin, and those bytes — which is
+// what a manifest_digest covers and what the index alone cannot answer.
+func TestLoad_ManifestsAreTheProviderNamespacesOtherHalf(t *testing.T) {
+	root := fiveArtefacts(t)
+
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name := range loaded.Providers {
+		if _, ok := loaded.Manifests[name]; !ok {
+			t.Errorf("%s is in the Provider namespace and has no Manifest; the two are one fold", name)
+		}
+	}
+	for name := range loaded.Manifests {
+		if _, ok := loaded.Providers[name]; !ok {
+			t.Errorf("%s has a Manifest and is not in the Provider namespace; the two are one fold", name)
+		}
+	}
+
+	builtin := loaded.Manifests["shell"]
+	if builtin.Origin != artefact.OriginBuiltIn || builtin.Path != artefact.BuiltinShellProviderPath {
+		t.Errorf("the built-in Provider loaded as %+v, want origin %s at %s", builtin, artefact.OriginBuiltIn, artefact.BuiltinShellProviderPath)
+	}
+	if string(builtin.Bytes) != artefact.BuiltinShellProviderYAML {
+		t.Error("the built-in Provider's bytes are not the compiled-in Manifest")
+	}
+
+	hetzner := loaded.Manifests["hetzner"]
+	if hetzner.Origin != artefact.OriginExtension || hetzner.Path != "providers/hetzner.yaml" {
+		t.Errorf("a providers/ file loaded as %+v, want origin %s at providers/hetzner.yaml", hetzner, artefact.OriginExtension)
+	}
+	if want := "kind: provider\nprovider: hetzner\n"; string(hetzner.Bytes) != want {
+		t.Errorf("Bytes = %q, want the file's own bytes %q", hetzner.Bytes, want)
+	}
+}
+
+// TestLoad_AManifestThatNamesNothingIsInNoNamespace is ADR-0064's rule at the
+// fold: a file that will not parse, and one that parses without naming itself,
+// each contribute no name — so neither can be reported as a Provider and
+// neither can be resolved against.
+func TestLoad_AManifestThatNamesNothingIsInNoNamespace(t *testing.T) {
+	root := fiveArtefacts(t)
+	write(t, root, "providers/broken.yaml", "kind: provider\nprovider: broken\n  bad: [\n")
+	write(t, root, "providers/nameless.yaml", "kind: provider\nschema-version: 1\n")
+
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, ok := loaded.Manifests["broken"]; ok {
+		t.Error("a Manifest that will not parse is in the Provider namespace")
+	}
+	if len(loaded.Manifests) != 2 {
+		t.Errorf("Manifests holds %d entries, want the built-in and hetzner alone", len(loaded.Manifests))
+	}
+}

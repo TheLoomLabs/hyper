@@ -26,12 +26,13 @@ import (
 // pin. All four are passed in rather than read from the process directly, so
 // the whole command is exercisable without a subprocess.
 func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) string, wd, binaryVersion string) int {
-	flags, paths, code := parseFlags(args, stderr)
+	parsed, code := parseArgs("check", args, takesNoLimit, getenv, stderr)
 	if code != 0 {
 		return code
 	}
+	paths := parsed.positional
 
-	repoRoot, code := resolveRepoRoot(flags.repoDir, getenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("check", parsed.repoDir, getenv, wd, stderr)
 	if code != 0 {
 		return code
 	}
@@ -104,91 +105,15 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 	// truncation axis, so its terminal row's marker is always false (issue
 	// #110).
 	rows := checkRows(problems)
-	var renderErr error
-	if flags.json {
-		renderErr = render.WriteJSON(stdout, rows, render.NewResultRow(false))
-	} else {
-		renderErr = writeCheckTable(stdout, rows, checked)
-	}
-	if renderErr != nil {
-		fmt.Fprintf(stderr, "hyper check: %s\n", renderErr)
-		return ExitUsage
+	page := func(w io.Writer, rows []render.Row) error { return writeCheckTable(w, rows, checked) }
+	if code := writeAnswer("check", stdout, stderr, parsed.json, rows, render.NewResultRow(false), page); code != 0 {
+		return code
 	}
 
 	if len(problems) > 0 {
 		return ExitProblems
 	}
 	return ExitClean
-}
-
-type checkFlags struct {
-	json    bool
-	noColor bool
-	repoDir string
-}
-
-// parseFlags reads the three globals ADR-0014 fixes and nothing else: --json,
-// --repo-dir (HYPER_REPO_DIR), --no-color (NO_COLOR). Anything else
-// beginning "--" is a usage error. noColor is threaded through but has
-// nothing to affect yet — the check table carries no colour of its own to
-// suppress, which is why --no-color and NO_COLOR already produce identical
-// bytes.
-func parseFlags(args []string, stderr io.Writer) (checkFlags, []string, int) {
-	var flags checkFlags
-	var paths []string
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		switch {
-		case a == "--":
-			paths = append(paths, args[i+1:]...)
-			i = len(args)
-		case a == "--json":
-			flags.json = true
-		case a == "--no-color":
-			flags.noColor = true
-		case a == "--repo-dir":
-			i++
-			if i >= len(args) {
-				fmt.Fprintln(stderr, "hyper check: --repo-dir requires a value")
-				return flags, nil, ExitUsage
-			}
-			flags.repoDir = args[i]
-		case strings.HasPrefix(a, "--repo-dir="):
-			flags.repoDir = strings.TrimPrefix(a, "--repo-dir=")
-		case strings.HasPrefix(a, "--"):
-			fmt.Fprintf(stderr, "hyper check: unknown flag %s\n", a)
-			return flags, nil, ExitUsage
-		default:
-			paths = append(paths, a)
-		}
-	}
-	return flags, paths, 0
-}
-
-// resolveRepoRoot applies flags → environment → defaults (ADR-0014):
-// --repo-dir, then HYPER_REPO_DIR, then walking up from wd bounded by the
-// git root.
-func resolveRepoRoot(repoDirFlag string, getenv func(string) string, wd string, stderr io.Writer) (string, int) {
-	repoDir := repoDirFlag
-	if repoDir == "" {
-		repoDir = getenv("HYPER_REPO_DIR")
-	}
-	if repoDir != "" {
-		resolved := absPath(wd, repoDir)
-		info, err := os.Stat(resolved)
-		if err != nil || !info.IsDir() {
-			fmt.Fprintf(stderr, "hyper check: --repo-dir %s: not a directory\n", repoDir)
-			return "", ExitUsage
-		}
-		return resolved, 0
-	}
-
-	root, ok := repository.FindGitRoot(wd)
-	if !ok {
-		fmt.Fprintln(stderr, "hyper check: not inside a git repository; pass --repo-dir or set HYPER_REPO_DIR")
-		return "", ExitUsage
-	}
-	return root, 0
 }
 
 // procedureRoots is every loaded Procedure's root paired with its own file —
