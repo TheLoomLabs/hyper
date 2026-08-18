@@ -2,11 +2,14 @@ package cli_test
 
 import (
 	"flag"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/TheLoomLabs/hyper/internal/cli"
 )
 
 // update regenerates the golden files of every corpus instead of checking
@@ -22,6 +25,12 @@ var update = flag.Bool("update", false, "regenerate golden files")
 // and how its three golden files are compared or rewritten. What they do not
 // share is how a case is driven, which is each command's own entry point and
 // each corpus's own input files.
+//
+// A corpus is one harness's, then, but not necessarily one command's:
+// exemption/ holds a single case whose whole subject is the contrast between
+// three commands standing in one repository, and it could not be filed under
+// any one of them without becoming the three unrelated cases it exists to not
+// be (issue #105).
 
 // readArgv reads a case's complete argv — `hyper <command>` and whatever
 // follows — and returns what the entry point receives, which is everything
@@ -91,6 +100,62 @@ func compareGolden(t *testing.T, dir string, stdout, stderr []byte, exit int) {
 	}
 	if exit != wantExit {
 		t.Errorf("exit = %d, want %d", exit, wantExit)
+	}
+}
+
+// TestGoldenCorpora_StdoutCarriesNothingButTheAnswer is §9's stream discipline
+// asserted over every corpus at once: stdout is the answer and nothing else
+// ever goes there, so an invocation that ended badly wrote nothing to it. Exit
+// 1 is the sole exception, being a command that is not a Run reporting problems
+// it found — which *is* the answer. A usage error opens no row stream at all,
+// and a Refusal renders on stderr (§9, ADR-0060, issue #105).
+//
+// This is the one property that spans every command the tool will ever have, so
+// it is asserted from the checked-in golden files rather than by driving
+// anything: a corpus that lands in a later milestone is found by the shape of
+// its case directories — an exit.golden, and whatever stdout.golden lies beside
+// it — and has to tell this test nothing about how its own command is driven or
+// where its inputs live. Written now over six cases it is one walk; written in
+// milestone 8 over two hundred it is an archaeology exercise, and by then
+// something will already have violated it.
+func TestGoldenCorpora_StdoutCarriesNothingButTheAnswer(t *testing.T) {
+	var judged int
+
+	err := filepath.WalkDir("testdata", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || entry.Name() != "exit.golden" {
+			return nil
+		}
+		dir := filepath.Dir(path)
+
+		exit, err := strconv.Atoi(strings.TrimSpace(readFile(t, path)))
+		if err != nil {
+			t.Errorf("%s: %v", path, err)
+			return nil
+		}
+		if exit == cli.ExitClean || exit == cli.ExitProblems {
+			return nil
+		}
+
+		judged++
+		if stdout := readFile(t, filepath.Join(dir, "stdout.golden")); stdout != "" {
+			t.Errorf("%s exits %d and wrote %q to stdout; only exit %d has an answer to write there",
+				dir, exit, stdout, cli.ExitProblems)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A corpus of nothing but clean runs and problem reports would hold this
+	// invariant without ever reaching it. The fence is that the walk found the
+	// exits it is here to judge, not a count of them: cases are added freely,
+	// and a number here would be a registration by another name.
+	if judged == 0 {
+		t.Fatal("no case in any corpus exits non-zero and not 1; the invariant held vacuously")
 	}
 }
 

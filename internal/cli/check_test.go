@@ -27,7 +27,7 @@ func checkCases(t *testing.T) []string {
 
 // TestCheckGolden_IgnoresSiblingCorpora pins the property the check corpus
 // exists to give: a directory under testdata/ that is not check/ belongs to
-// another command's harness, and the check harness never runs it as a case
+// another harness, and the check harness never runs it as a case
 // (issue #101). Were discovery rooted at testdata/ again, the version/ and
 // completions/ corpora of the tickets that follow would be handed to
 // RunCheck with a --repo-dir neither command takes.
