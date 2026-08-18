@@ -199,10 +199,10 @@ func namedTarget(name string) string {
 }
 
 // TestRunTargets_HostsIsAnArrayCarryingEveryHostTheDeclarationGrants is one of
-// #106's four flagged resolutions: §9's prose says *its endpoint* and §3's
-// declaration has no such key. A Target granting several hosts grants all of
-// them, and a grant silently reduced to its first member is not a grant
-// (ADR-0024, ADR-0029).
+// #106's four flagged resolutions: §9 said *its endpoint* and §3's declaration
+// has no such key, and §9 now names it hosts on both its surfaces. A Target
+// granting several hosts grants all of them, and a grant silently reduced to
+// its first member is not a grant (ADR-0024, ADR-0029).
 func TestRunTargets_HostsIsAnArrayCarryingEveryHostTheDeclarationGrants(t *testing.T) {
 	root := targetsRepo(t, map[string]string{"multi.yaml": `kind: target-declaration
 target: multi

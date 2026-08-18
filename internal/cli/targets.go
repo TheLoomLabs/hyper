@@ -79,13 +79,14 @@ func RunTargets(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 // this contract rather than minting a second one, so the declaration order here
 // is the wire's and not a preference.
 //
-// The host grant is hosts, an array, in the declaration's own order. §9's prose
-// says *its endpoint* and its MCP sketch names the field endpoint, but §3's
-// Target declaration has no such key: it has hosts:, and it never has a grant
-// without an enumeration (ADR-0024). §12's opening rule — one fact reaching two
-// wires reaches them under one name — decides it in favour of the artefact's
-// own key, and a grant silently reduced to its first member is not a grant
-// (ADR-0029).
+// The host grant is hosts, an array, in the declaration's own order. §9 said
+// *its endpoint* and its MCP sketch named the field endpoint, and §3's Target
+// declaration has no such key: it has hosts:, and it never has a grant without
+// an enumeration (ADR-0024). §12's opening rule — one fact reaching two wires
+// reaches them under one name — decided it in favour of the artefact's own key,
+// and a grant silently reduced to its first member is not a grant (ADR-0029).
+// §9 now names the field hosts on both its surfaces, so the two agree; this
+// comment keeps the disagreement it was resolved from.
 //
 // The four lists are omitempty, on the ordinary absence rule (§7): a
 // declaration granting no http carries no hosts: at all, and a declaration
