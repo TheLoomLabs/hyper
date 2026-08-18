@@ -113,14 +113,22 @@ operations:
 // with no exemption: a Provider is data, and data check may not read is an
 // advisory analyzer wearing the tool's own badge.
 func CheckBuiltinShellProvider() []problem.Problem {
-	return checkManifestBody(BuiltinShellProviderPath, builtinShellProviderRoot())
+	return checkManifestBody(BuiltinShellProviderPath, BuiltinShellProviderRoot())
 }
 
-// builtinShellProviderRoot parses BuiltinShellProviderYAML and returns its
-// document root, shared by CheckBuiltinShellProvider and
-// builtinShellProviderInfo (issue #93) so hyper's own bytes are decoded
-// once per caller rather than reimplemented at each.
-func builtinShellProviderRoot() *yaml.Node {
+// BuiltinShellProviderRoot decodes BuiltinShellProviderYAML and returns its
+// document root, so that the one decode of hyper's own bytes is written here
+// rather than reimplemented at each caller: CheckBuiltinShellProvider,
+// builtinShellProviderInfo (issue #93) and the repository load (issue #109),
+// which carries the built-in as an artefact like any other and needs a root to
+// carry (ADR-0039). It is exported for the third of those.
+//
+// Each call decodes afresh, which is why the constant and not the node is what
+// the callers share. That is sound only because the subject is a compiled-in
+// constant no repository author can touch: two decodes of immutable bytes cannot
+// disagree, where two reads of one file could. Nothing here may be reused for an
+// artefact that came off disk.
+func BuiltinShellProviderRoot() *yaml.Node {
 	var doc yaml.Node
 	if err := yaml.Unmarshal([]byte(BuiltinShellProviderYAML), &doc); err != nil {
 		// hyper's own bytes, never touched by a repository author — a

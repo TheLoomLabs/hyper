@@ -1,5 +1,9 @@
-// Package repository finds the repository root and enumerates the artefact
-// files hyper check walks.
+// Package repository finds the repository root and loads the repository: one
+// call walks the five artefact locations, reads and parses each file, and
+// returns what was loaded together with the namespaces built from it (issue
+// #109). Every command that asks a question about a repository — `check` and
+// milestone 2's four discovery commands alike — reads it through Load, so no
+// two of them can disagree about what reading a repository means.
 package repository
 
 import (
@@ -29,13 +33,17 @@ func FindGitRoot(start string) (root string, ok bool) {
 // hyper.yaml, lives at the repository root rather than in a directory.
 var artefactDirs = []string{"definitions", "procedures", "targets", "providers"}
 
-// ArtefactFiles returns every artefact file's path, relative to repoRoot with
+// artefactFiles returns every artefact file's path, relative to repoRoot with
 // forward slashes, across the five artefact locations (§9). A directory that
 // does not exist contributes nothing rather than an error — a repository
 // author who has not yet written any Target declaration still gets a clean
 // check. The walk is not recursive: an artefact directory holds files, not
 // further directories (§12's kind:-to-directory mapping names no nesting).
-func ArtefactFiles(repoRoot string) ([]string, error) {
+//
+// It is unexported because Load is the one way to read a repository: a caller
+// handed the file list would have to read and parse it for itself, which is the
+// sequence issue #109 collapsed into one value.
+func artefactFiles(repoRoot string) ([]string, error) {
 	var files []string
 	for _, dir := range artefactDirs {
 		entries, err := os.ReadDir(filepath.Join(repoRoot, dir))

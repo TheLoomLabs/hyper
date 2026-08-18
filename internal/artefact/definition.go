@@ -480,7 +480,7 @@ func authSlotNames(root *yaml.Node) []string {
 // one Provider hyper ships is a member of ProviderIndex on exactly the same
 // footing as an Extension (§3, §11).
 func builtinShellProviderInfo() ProviderInfo {
-	return providerInfoFromManifest(builtinShellProviderRoot())
+	return providerInfoFromManifest(BuiltinShellProviderRoot())
 }
 
 // CheckDefinition validates a definitions/ file's already-parsed root

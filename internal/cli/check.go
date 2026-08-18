@@ -1,8 +1,9 @@
 // Package cli is the third seam #87's Implementation Decisions name: argument
 // handling, path stats, the two renderings, ordering, filtering, exit codes,
 // stream discipline. It owns no rule of its own — every problem it prints
-// comes from the loader (internal/yamlsubset), the pin gate (internal/pin),
-// and an artefact's own schema (internal/artefact).
+// comes from the load (internal/repository, over internal/yamlsubset's own
+// grammar), the pin gate (internal/pin), and an artefact's own schema
+// (internal/artefact).
 package cli
 
 import (
@@ -12,13 +13,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
-	"github.com/TheLoomLabs/hyper/internal/yamlsubset"
 )
 
 // RunCheck implements `hyper check [path...]`. wd is the working directory
@@ -54,65 +52,37 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 		}
 	}
 
-	files, err := repository.ArtefactFiles(repoRoot)
+	// The repository is loaded by one call, which walks the artefact
+	// locations, reads and parses each file, and builds the four namespaces
+	// (issue #109). check evaluates not one rule before that call returns,
+	// and writes not one line of the load itself: four commands in this
+	// milestone need the same read and every command after them will.
+	loaded, err := repository.Load(repoRoot)
 	if err != nil {
 		fmt.Fprintf(stderr, "hyper check: %s\n", err)
 		return ExitUsage
 	}
 
-	// check loads every artefact before evaluating a single rule, in two
-	// passes: parsing every file first is what lets a Definition's
+	// The second pass, which is check's own and not the load's. It runs
+	// over an already-parsed repository, which is what lets a Definition's
 	// provider: and targets: resolve against the whole repository's names
-	// rather than only the files loaded before it in artefactDirs' own
-	// order (issue #93). A failed load does not stop the pass: reading or
-	// parsing one file stops every check after it for that file — never
-	// for the repository (issue #88). An artefact hyper cannot even read is
-	// judged the same way as one that will not parse: exactly one problem,
-	// on its own line, and every other artefact is untouched.
-	loadedFiles := make([]loadedFile, 0, len(files))
-	for _, rel := range files {
-		data, err := os.ReadFile(filepath.Join(repoRoot, rel))
-		if err != nil {
-			loadedFiles = append(loadedFiles, loadedFile{rel: rel, problems: []problem.Problem{{
-				File:      rel,
-				Line:      1,
-				Column:    1,
-				ErrorCode: yamlsubset.ErrorCode,
-				Message:   err.Error(),
-			}}})
+	// rather than only the files walked before it (issue #93). A failed
+	// load does not stop it: reading or parsing one file stops every check
+	// after it for that file — never for the repository (issue #88).
+	var problems []problem.Problem
+	for _, a := range loaded.Artefacts {
+		problems = append(problems, a.Problems...)
+		if !a.OK {
 			continue
 		}
-		root, probs, ok := yamlsubset.Parse(rel, data)
-		if ok && root != nil {
-			probs = append(probs, yamlsubset.Violations(root, rel)...)
-		}
-		loadedFiles = append(loadedFiles, loadedFile{rel: rel, root: root, problems: probs, ok: ok})
-	}
-
-	providers := artefact.BuildProviderIndex(rootsUnder(loadedFiles, "providers/"))
-	targets := artefact.BuildTargetIndex(rootsUnder(loadedFiles, "targets/"))
-	definitions := artefact.BuildDefinitionIndex(rootsUnder(loadedFiles, "definitions/"), targets)
-	procedures := artefact.BuildProcedureIndex(rootsUnder(loadedFiles, "procedures/"))
-
-	// The built-in shell Provider is loaded into the Provider namespace
-	// above by BuildProviderIndex; it is checked here like any other
-	// Manifest, with no exemption (§3, ADR-0081, issue #99) — a Provider is
-	// data, and data check may not read is an advisory analyzer wearing the
-	// tool's own badge.
-	problems := artefact.CheckBuiltinShellProvider()
-	for _, lf := range loadedFiles {
-		problems = append(problems, lf.problems...)
-		if !lf.ok {
-			continue
-		}
-		problems = append(problems, checkArtefact(lf.rel, lf.root, providers, targets, definitions, procedures)...)
+		problems = append(problems, checkArtefact(a, loaded)...)
 	}
 
 	// The transitive walk — an invoked Procedure's own envelope against its
 	// caller's, and the two Cadence rules that ride the same walk — needs
 	// every procedures/ file at once, so it runs once here rather than per
 	// file inside checkArtefact (issue #96).
-	graph := artefact.BuildProcedureGraph(procedureRootsUnder(loadedFiles), providers, definitions)
+	graph := artefact.BuildProcedureGraph(procedureRoots(loaded.Artefacts), loaded.Providers, loaded.Definitions)
 	problems = append(problems, artefact.CheckProcedureGraph(graph)...)
 
 	if len(paths) > 0 {
@@ -120,9 +90,12 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 	}
 	problem.Sort(problems)
 
-	// checked is every artefact hyper check read plus the built-in shell
-	// Provider — what a clean run's confirmation line names (issue #99).
-	checked := len(files) + 1
+	// checked is every artefact the load returned, which is every file hyper
+	// check read plus the built-in shell Provider — what a clean run's
+	// confirmation line names (issue #99). The built-in being a loaded
+	// artefact like any other, the count no longer adds one for it (issue
+	// #109).
+	checked := len(loaded.Artefacts)
 
 	var renderErr error
 	if flags.json {
@@ -211,70 +184,49 @@ func resolveRepoRoot(repoDirFlag string, getenv func(string) string, wd string, 
 	return root, 0
 }
 
-// loadedFile is one artefact file's own parse, kept between check's two
-// passes: root is what the second pass's schema and resolution checks read,
-// and problems already holds whatever the read itself or yamlsubset's own
-// grammar found. ok is false where the read failed or the file will not
-// parse at all — the one case the second pass skips entirely, on the same
-// "loading a file is the first check" rule yamlsubset.Parse's own ok return
-// states (§4). A file that read and parsed but supplied no document at all
-// (an empty file) is ok with root nil, which every check below reads the
-// same way schema.Check already does: a required key nothing supplied.
-type loadedFile struct {
-	rel      string
-	root     *yaml.Node
-	problems []problem.Problem
-	ok       bool
-}
-
-// rootsUnder returns the root of every loaded file whose path starts with
-// prefix and that parsed at all — the roots BuildProviderIndex and
-// BuildTargetIndex read the repository's provider and Target namespaces off
-// of (issue #93). A file that failed to parse contributes no root and
-// therefore no name to either namespace, on ADR-0064's own rule.
-func rootsUnder(files []loadedFile, prefix string) []*yaml.Node {
-	var roots []*yaml.Node
-	for _, lf := range files {
-		if lf.ok && strings.HasPrefix(lf.rel, prefix) {
-			roots = append(roots, lf.root)
-		}
-	}
-	return roots
-}
-
-// procedureRootsUnder is rootsUnder's own rule for procedures/, keeping
-// each root paired with its own file — what BuildProcedureGraph needs to
-// cite a fault against the file that carries it (issue #96).
-func procedureRootsUnder(files []loadedFile) []artefact.ProcedureRoot {
+// procedureRoots is every loaded Procedure's root paired with its own file —
+// what BuildProcedureGraph needs to cite a fault against the file that carries
+// it (issue #96). A file that failed to parse contributes no root, on
+// ADR-0064's own rule. The graph is check's and not the load's, so the shaping
+// its input needs is here.
+func procedureRoots(artefacts []repository.LoadedArtefact) []artefact.ProcedureRoot {
 	var roots []artefact.ProcedureRoot
-	for _, lf := range files {
-		if lf.ok && strings.HasPrefix(lf.rel, "procedures/") {
-			roots = append(roots, artefact.ProcedureRoot{File: lf.rel, Root: lf.root})
+	for _, a := range artefacts {
+		if a.OK && strings.HasPrefix(a.Path, "procedures/") {
+			roots = append(roots, artefact.ProcedureRoot{File: a.Path, Root: a.Root})
 		}
 	}
 	return roots
 }
 
-// checkArtefact runs one already-parsed artefact's own schema and the
-// checks that read it against itself or against the repository: hyper.yaml,
-// a file in targets/, a file in providers/, a file in definitions/ and,
-// since issue #94, a file in procedures/ — the five artefacts this
-// milestone's schema reaches. providers and targets are the repository-wide
-// namespaces a Definition's provider: and targets: resolve against;
-// definitions and procedures are the namespaces a Step's definition: and a
-// nested invocation's procedure: resolve against.
-func checkArtefact(rel string, root *yaml.Node, providers artefact.ProviderIndex, targets artefact.TargetIndex, definitions artefact.DefinitionIndex, procedures artefact.ProcedureIndex) []problem.Problem {
+// checkArtefact runs one already-parsed artefact's own schema and the checks
+// that read it against itself or against the repository: hyper.yaml, a file in
+// targets/, a file in providers/, a file in definitions/ and, since issue #94,
+// a file in procedures/ — the five artefacts this milestone's schema reaches —
+// plus the built-in shell Provider, which the load carries like any other
+// artefact and which is checked here with no exemption (§3, ADR-0081, issues
+// #99, #109): a Provider is data, and data check may not read is an advisory
+// analyzer wearing the tool's own badge.
+//
+// loaded is passed whole rather than as its four namespaces, which travel
+// together everywhere and are what an artefact's authored names resolve
+// against: providers and targets are the namespaces a Definition's provider:
+// and targets: resolve against, definitions and procedures the namespaces a
+// Step's definition: and a nested invocation's procedure: resolve against.
+func checkArtefact(a repository.LoadedArtefact, loaded repository.Loaded) []problem.Problem {
 	switch {
-	case rel == "hyper.yaml":
-		return artefact.CheckRepositoryDeclaration(rel, root)
-	case strings.HasPrefix(rel, "targets/"):
-		return artefact.CheckTargetDeclaration(rel, root)
-	case strings.HasPrefix(rel, "providers/"):
-		return artefact.CheckManifest(rel, root)
-	case strings.HasPrefix(rel, "definitions/"):
-		return artefact.CheckDefinition(rel, root, providers, targets)
-	case strings.HasPrefix(rel, "procedures/"):
-		return artefact.CheckProcedure(rel, root, providers, definitions, targets, procedures)
+	case a.Path == artefact.BuiltinShellProviderPath:
+		return artefact.CheckBuiltinShellProvider()
+	case a.Path == "hyper.yaml":
+		return artefact.CheckRepositoryDeclaration(a.Path, a.Root)
+	case strings.HasPrefix(a.Path, "targets/"):
+		return artefact.CheckTargetDeclaration(a.Path, a.Root)
+	case strings.HasPrefix(a.Path, "providers/"):
+		return artefact.CheckManifest(a.Path, a.Root)
+	case strings.HasPrefix(a.Path, "definitions/"):
+		return artefact.CheckDefinition(a.Path, a.Root, loaded.Providers, loaded.Targets)
+	case strings.HasPrefix(a.Path, "procedures/"):
+		return artefact.CheckProcedure(a.Path, a.Root, loaded.Providers, loaded.Definitions, loaded.Targets, loaded.Procedures)
 	}
 	return nil
 }

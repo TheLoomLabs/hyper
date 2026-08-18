@@ -44,7 +44,7 @@ func TestArtefactFiles_CollectsFromAllFiveLocations(t *testing.T) {
 	write(t, root, "targets/prod.yaml", "kind: target-declaration\n")
 	write(t, root, "providers/hetzner.yaml", "kind: provider\n")
 
-	got, err := ArtefactFiles(root)
+	got, err := artefactFiles(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,11 +57,11 @@ func TestArtefactFiles_CollectsFromAllFiveLocations(t *testing.T) {
 		"providers/hetzner.yaml":  true,
 	}
 	if len(got) != len(want) {
-		t.Fatalf("ArtefactFiles() = %v, want exactly %v", got, want)
+		t.Fatalf("artefactFiles() = %v, want exactly %v", got, want)
 	}
 	for _, f := range got {
 		if !want[f] {
-			t.Errorf("ArtefactFiles() included unexpected file %q", f)
+			t.Errorf("artefactFiles() included unexpected file %q", f)
 		}
 	}
 }
@@ -70,12 +70,12 @@ func TestArtefactFiles_MissingDirectoriesAreNotAnError(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "hyper.yaml", "kind: repository-declaration\n")
 
-	got, err := ArtefactFiles(root)
+	got, err := artefactFiles(root)
 	if err != nil {
-		t.Fatalf("ArtefactFiles() error = %v, want nil", err)
+		t.Fatalf("artefactFiles() error = %v, want nil", err)
 	}
 	if len(got) != 1 || got[0] != "hyper.yaml" {
-		t.Fatalf("ArtefactFiles() = %v, want just [hyper.yaml]", got)
+		t.Fatalf("artefactFiles() = %v, want just [hyper.yaml]", got)
 	}
 }
 
@@ -83,12 +83,12 @@ func TestArtefactFiles_MissingHyperYAMLIsNotAnError(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "definitions/uptime.yaml", "kind: definition\n")
 
-	got, err := ArtefactFiles(root)
+	got, err := artefactFiles(root)
 	if err != nil {
-		t.Fatalf("ArtefactFiles() error = %v, want nil", err)
+		t.Fatalf("artefactFiles() error = %v, want nil", err)
 	}
 	if len(got) != 1 || got[0] != "definitions/uptime.yaml" {
-		t.Fatalf("ArtefactFiles() = %v, want just [definitions/uptime.yaml]", got)
+		t.Fatalf("artefactFiles() = %v, want just [definitions/uptime.yaml]", got)
 	}
 }
 
