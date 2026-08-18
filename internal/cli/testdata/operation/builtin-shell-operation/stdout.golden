@@ -1,0 +1,14 @@
+  mutate_once:
+    kind: mutate
+    deadline: 1h
+    shell: {}
+    input:
+      type: object
+      properties:
+        command: {type: array, items: {type: string}}
+    record:
+      identity: $.command
+      fields:
+        exit_code: $.exit_code
+        stdout: $.stdout
+        stderr: $.stderr

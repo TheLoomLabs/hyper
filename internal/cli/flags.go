@@ -171,18 +171,24 @@ func resolveRepoRoot(command, repoDirFlag string, lookupenv func(string) (string
 }
 
 // arityFault says which of the two arity faults happened where a command takes
-// exactly one positional. Both are usage errors decided from the argument list
-// alone, and the difference is worth a clause because the remedies differ: one
-// caller forgot the argument and the other named the thing twice or slipped a
-// flag past it (ADR-0060).
+// a fixed number of positionals. Both are usage errors decided from the
+// argument list alone, and the difference is worth a clause because the
+// remedies differ: one caller forgot an argument and the other named a thing
+// twice or slipped a flag past it (ADR-0060).
 //
-// noun is what the command takes one of, spelled as its own messages spell it —
-// a shell for `completions`, a Provider for `provider`. It is a parameter for
-// the reason parseArgs's own command is one: the fault is spelled in a single
-// place, and a caller still reads a message in their own command's words.
-func arityFault(noun string, args []string) string {
+// nouns are what the command takes one of each of, in positional order and
+// spelled as its own messages spell them — a shell for `completions`, a
+// Provider for `provider`, a Provider and an Operation for `operation`. They
+// are parameters for the reason parseArgs's own command is one: the fault is
+// spelled in a single place, and a caller still reads a message in their own
+// command's words.
+func arityFault(args []string, nouns ...string) string {
 	if len(args) == 0 {
-		return "names no " + noun
+		return "names no " + strings.Join(nouns, " and no ")
 	}
-	return fmt.Sprintf("takes one %s, got %d", noun, len(args))
+	wanted := make([]string, len(nouns))
+	for i, noun := range nouns {
+		wanted[i] = "one " + noun
+	}
+	return fmt.Sprintf("takes %s, got %d", strings.Join(wanted, " and "), len(args))
 }

@@ -1,0 +1,36 @@
+kind: provider
+provider: widget
+schema-version: 1
+class: widgetco
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  list_widgets:
+    kind: read
+    deadline: 30s
+    http: {method: GET, host: "{from-target}", path: /widgets}
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id}
+
+  # Archives the widget rather than deleting it: the API has no delete.
+  # The Kind is mutate all the same — what it does to the asset is what counts.
+  delete_widget:
+    kind: mutate
+    deadline: 30s
+    # A POST, and not a DELETE, because the endpoint is /archive.
+    http: {method: POST, host: "{from-target}", path: "/widgets/{id}/archive"}
+    record:
+      identity: "{id}"
+      fields: {id: $.body.id}
+
+  create_widget:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 30s
+    http: {method: POST, host: "{from-target}", path: /widgets}
+    record:
+      identity: "{name}"
+      fields: {id: $.body.id}

@@ -1,0 +1,2 @@
+{"type":"operation_detail","source":"  # Archives the widget rather than deleting it: the API has no delete.\n  # The Kind is mutate all the same — what it does to the asset is what counts.\n  delete_widget:\n    kind: mutate\n    deadline: 30s\n    # A POST, and not a DELETE, because the endpoint is /archive.\n    http: {method: POST, host: \"{from-target}\", path: \"/widgets/{id}/archive\"}\n    record:\n      identity: \"{id}\"\n      fields: {id: $.body.id}\n"}
+{"type":"result","truncated":false}

@@ -47,7 +47,7 @@ func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string)
 	// gives its own arity, and the same fault the shared spelling names
 	// (ADR-0060).
 	if len(parsed.positional) != 1 {
-		fmt.Fprintf(stderr, "hyper provider: %s\n", arityFault("Provider", parsed.positional))
+		fmt.Fprintf(stderr, "hyper provider: %s\n", arityFault(parsed.positional, "Provider"))
 		return ExitUsage
 	}
 	name := parsed.positional[0]
@@ -79,7 +79,7 @@ func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string)
 	// exit 2 in CI (§9, ADR-0060).
 	manifest, resolved := loaded.Manifests[name]
 	if !resolved {
-		fmt.Fprint(stderr, unresolvedProviderName(name))
+		fmt.Fprint(stderr, unresolvedProviderName("provider", name))
 		return ExitUsage
 	}
 
@@ -95,9 +95,9 @@ func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string)
 	return ExitClean
 }
 
-// unresolvedProviderName is what a name matching nothing writes, and it goes to
-// stderr with stdout left completely silent in both modes: no row stream opens,
-// so there is no terminal row to be missing (§9, ADR-0060).
+// unresolvedProviderName is what a Provider name matching nothing writes, and
+// it goes to stderr with stdout left completely silent in both modes: no row
+// stream opens, so there is no terminal row to be missing (§9, ADR-0060).
 //
 // It states three things and no fourth: the name that was typed, the namespace
 // it was resolved against, and the command that enumerates that namespace. It
@@ -106,9 +106,15 @@ func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string)
 // something they did not type (ADR-0047). Enumerating the namespace is
 // `providers`'s job, which is why the remedy names that command rather than
 // doing its work here.
-func unresolvedProviderName(name string) string {
-	return fmt.Sprintf("hyper provider: no Provider named %q in this repository's Provider namespace\n"+
-		"  hyper providers lists every Provider in it\n", name)
+//
+// command is the command the caller typed, which is `provider` and is also
+// `operation`: both resolve their first positional against the one Provider
+// namespace, so both write this message and neither may write it in the other's
+// name. One spelling rather than two is what keeps them from drifting into two
+// accounts of one namespace.
+func unresolvedProviderName(command, name string) string {
+	return fmt.Sprintf("hyper %s: no Provider named %q in this repository's Provider namespace\n"+
+		"  hyper providers lists every Provider in it\n", command, name)
 }
 
 // manifestRow is the header row, and its members are §9's own, in §9's order:

@@ -1,0 +1,8 @@
+  delete_widget:
+    kind: mutate
+    deadline: 30s
+    http: {method: POST, host: "{from-target}", path: "/widgets/{id}/archive"}
+    record:
+      identity: "{id}"
+      fields: {id: $.body.id}
+    # Archived rather than deleted: the API has no delete.

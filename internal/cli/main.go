@@ -101,5 +101,6 @@ var repositoryCommands = map[string]repositoryCommand{
 	"check":     RunCheck,
 	"providers": RunProviders,
 	"provider":  RunProvider,
+	"operation": RunOperation,
 	"targets":   RunTargets,
 }

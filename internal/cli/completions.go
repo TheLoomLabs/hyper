@@ -22,7 +22,7 @@ import (
 // the tool is matched (§9): `hyper completions BASH` exits 2.
 func RunCompletions(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		fmt.Fprintf(stderr, "hyper completions: %s\n  known shells: %s\n", arityFault("shell", args), strings.Join(shells, ", "))
+		fmt.Fprintf(stderr, "hyper completions: %s\n  known shells: %s\n", arityFault(args, "shell"), strings.Join(shells, ", "))
 		return ExitUsage
 	}
 

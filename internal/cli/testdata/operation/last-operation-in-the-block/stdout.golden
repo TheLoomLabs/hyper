@@ -1,0 +1,8 @@
+  create_widget:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 30s
+    http: {method: POST, host: "{from-target}", path: /widgets}
+    record:
+      identity: "{name}"
+      fields: {id: $.body.id}

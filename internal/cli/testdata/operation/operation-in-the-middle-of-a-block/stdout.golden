@@ -1,0 +1,8 @@
+  list_widgets:
+    kind: read
+    deadline: 30s
+    http: {method: GET, host: "{from-target}", path: /widgets}
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id}
