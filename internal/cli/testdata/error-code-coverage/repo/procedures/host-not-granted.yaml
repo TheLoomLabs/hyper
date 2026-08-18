@@ -1,0 +1,10 @@
+kind: procedure
+procedure: host-not-granted
+targets: [hostco]
+steps:
+  - id: list
+    definition: hostco
+    operation: list_buckets
+    target: hostco
+    args:
+      endpoint: s3.us-east-1.amazonaws.com

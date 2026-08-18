@@ -1,0 +1,6 @@
+kind: definition
+definition: a
+provider: mid
+kinds: [read]
+targets: [d]
+extra-key: true

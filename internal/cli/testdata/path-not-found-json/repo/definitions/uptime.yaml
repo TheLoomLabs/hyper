@@ -1,0 +1,4 @@
+kind: definition
+definition: uptime
+provider: local
+targets: [local]

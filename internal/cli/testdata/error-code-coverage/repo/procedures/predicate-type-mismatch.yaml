@@ -1,0 +1,14 @@
+kind: procedure
+procedure: predicate-type-mismatch
+targets: [secretco-prod]
+steps:
+  - id: destroy
+    definition: widget
+    operation: destroy_widget
+    target: secretco-prod
+    over:
+      assets:
+        - {field: token, equals: abc}
+    args:
+      widget_id: {item: $.id}
+    bound: 5

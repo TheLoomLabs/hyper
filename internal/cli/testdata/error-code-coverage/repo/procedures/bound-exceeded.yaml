@@ -1,0 +1,17 @@
+kind: procedure
+procedure: bound-exceeded
+targets: [cloudflare-prod]
+steps:
+  - id: retire-legacy
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    over:
+      values:
+        - 5b2d84f16c0a39e7d5182bfa604c7e93
+        - 8f1a2c4d6e8b0a2c4e6f8a0b2c4d6e8f
+        - c3d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $}
+    bound: 2

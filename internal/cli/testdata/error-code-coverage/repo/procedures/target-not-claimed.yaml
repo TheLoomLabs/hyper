@@ -1,0 +1,12 @@
+kind: procedure
+procedure: target-not-claimed
+targets: [shell-host]
+steps:
+  - id: purge
+    definition: uptime-no-targets
+    operation: destroy
+    target: shell-host
+    over:
+      values: [/tmp/y]
+    args:
+      command: [rm, -rf, {item: $}]

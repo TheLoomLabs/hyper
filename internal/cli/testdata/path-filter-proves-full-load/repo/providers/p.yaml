@@ -1,0 +1,16 @@
+kind: provider
+provider: p
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  op:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    record:
+      identity: $.host
+      fields: {host: $.host}

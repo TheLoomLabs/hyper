@@ -1,0 +1,6 @@
+kind: target-declaration
+target: hostco
+class: hostco
+kinds: [read]
+capabilities: [http]
+hosts: [s3.us-east-1.amazonaws.com]

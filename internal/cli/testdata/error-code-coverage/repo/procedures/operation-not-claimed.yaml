@@ -1,0 +1,12 @@
+kind: procedure
+procedure: operation-not-claimed
+targets: [shell-host]
+steps:
+  - id: purge
+    definition: uptime-mutate
+    operation: destroy_once
+    target: shell-host
+    over:
+      values: [/tmp/x]
+    args:
+      command: [rm, -rf, {item: $}]

@@ -1,0 +1,12 @@
+kind: procedure
+procedure: record-identity-collision
+targets: [shell-host]
+steps:
+  - id: probe
+    definition: uptime-mutate
+    operation: mutate
+    target: shell-host
+    over:
+      values: [web-01, Web-01]
+    args:
+      command: [ssh, {item: $}, df, -h, /srv]

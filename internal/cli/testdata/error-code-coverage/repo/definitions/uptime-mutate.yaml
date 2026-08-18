@@ -1,0 +1,6 @@
+kind: definition
+definition: uptime-mutate
+provider: shell
+kinds: [mutate]
+destroy: [destroy]
+targets: [shell-host]

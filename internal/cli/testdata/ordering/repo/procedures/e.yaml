@@ -1,0 +1,8 @@
+kind: procedure
+procedure: e
+targets: [d]
+steps:
+  - id: only
+    definition: missing-definition
+    operation: op1
+    target: d

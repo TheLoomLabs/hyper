@@ -1,0 +1,5 @@
+kind: definition
+definition: needs-other
+provider: p
+kinds: [read]
+targets: [t]

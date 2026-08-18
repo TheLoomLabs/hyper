@@ -111,7 +111,12 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 	definitions := artefact.BuildDefinitionIndex(rootsUnder(loadedFiles, "definitions/"), targets)
 	procedures := artefact.BuildProcedureIndex(rootsUnder(loadedFiles, "procedures/"))
 
-	var problems []problem.Problem
+	// The built-in shell Provider is loaded into the Provider namespace
+	// above by BuildProviderIndex; it is checked here like any other
+	// Manifest, with no exemption (§3, ADR-0081, issue #99) — a Provider is
+	// data, and data check may not read is an advisory analyzer wearing the
+	// tool's own badge.
+	problems := artefact.CheckBuiltinShellProvider()
 	for _, lf := range loadedFiles {
 		problems = append(problems, lf.problems...)
 		if !lf.ok {
@@ -132,11 +137,15 @@ func RunCheck(args []string, stdout, stderr io.Writer, getenv func(string) strin
 	}
 	problem.Sort(problems)
 
+	// checked is every artefact hyper check read plus the built-in shell
+	// Provider — what a clean run's confirmation line names (issue #99).
+	checked := len(files) + 1
+
 	var renderErr error
 	if flags.json {
 		renderErr = render.WriteJSON(stdout, problems)
 	} else {
-		renderErr = render.WriteTable(stdout, problems)
+		renderErr = render.WriteTable(stdout, problems, checked)
 	}
 	if renderErr != nil {
 		fmt.Fprintf(stderr, "hyper check: %s\n", renderErr)

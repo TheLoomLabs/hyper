@@ -1,0 +1,5 @@
+kind: target-declaration
+target: d
+class: local
+kinds: [read]
+capabilities: [http]

@@ -1,0 +1,19 @@
+kind: provider
+provider: hole-illegal-demo
+schema-version: 1
+class: cloudflare
+capabilities: [http]
+auth:
+  header: {name: "{header_name}", prefix: "Bearer "}
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    input:
+      type: object
+      properties:
+        header_name: {type: string}

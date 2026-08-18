@@ -1,0 +1,13 @@
+kind: procedure
+procedure: bound-illegal
+targets: [shell-host]
+steps:
+  - id: purge
+    definition: uptime-mutate
+    operation: destroy
+    target: shell-host
+    over:
+      values: [/tmp/x]
+    bound: 1
+    args:
+      command: [rm, -rf, {item: $}]

@@ -45,13 +45,23 @@ func TestWriteJSON_EmitsTerminalRowEvenWhenClean(t *testing.T) {
 	}
 }
 
-func TestWriteTable_EmptyWritesNothing(t *testing.T) {
+func TestWriteTable_CleanRunNamesWhatWasCheckedAndThatNothingWasFound(t *testing.T) {
 	var buf bytes.Buffer
-	if err := WriteTable(&buf, nil); err != nil {
+	if err := WriteTable(&buf, nil, 8); err != nil {
 		t.Fatal(err)
 	}
-	if buf.Len() != 0 {
-		t.Errorf("WriteTable() wrote %q, want nothing for a clean run", buf.String())
+	if got, want := buf.String(), "checked 8 artefacts: no problems found\n"; got != want {
+		t.Errorf("WriteTable() = %q, want %q", got, want)
+	}
+}
+
+func TestWriteTable_CleanRunSingularArtefact(t *testing.T) {
+	var buf bytes.Buffer
+	if err := WriteTable(&buf, nil, 1); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := buf.String(), "checked 1 artefact: no problems found\n"; got != want {
+		t.Errorf("WriteTable() = %q, want %q", got, want)
 	}
 }
 
@@ -60,7 +70,7 @@ func TestWriteTable_CarriesFileLineFieldCodeMessageNotColumn(t *testing.T) {
 	problems := []problem.Problem{
 		{File: "procedures/retire.yaml", Line: 34, Column: 7, Field: "steps[2].bound", ErrorCode: "strict-yaml-violation", Message: "boom"},
 	}
-	if err := WriteTable(&buf, problems); err != nil {
+	if err := WriteTable(&buf, problems, 1); err != nil {
 		t.Fatal(err)
 	}
 	out := buf.String()

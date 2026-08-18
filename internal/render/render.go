@@ -60,12 +60,19 @@ func WriteJSON(w io.Writer, problems []problem.Problem) error {
 }
 
 // WriteTable writes the human rendering: the file, the line, the field, the
-// error_code and the message. column rides on the wire only (§9). Nothing is
-// written where there are no problems — a clean run's stdout is empty, not a
-// header over no rows.
-func WriteTable(w io.Writer, problems []problem.Problem) error {
+// error_code and the message. column rides on the wire only (§9). A clean run
+// is not silent (issue #99): it writes one line naming how many artefacts
+// were checked and that nothing was found, checked being the loader's own
+// count — every repository file `hyper check` read plus the built-in shell
+// Provider — rather than a header over no rows.
+func WriteTable(w io.Writer, problems []problem.Problem, checked int) error {
 	if len(problems) == 0 {
-		return nil
+		plural := "s"
+		if checked == 1 {
+			plural = ""
+		}
+		_, err := fmt.Fprintf(w, "checked %d artefact%s: no problems found\n", checked, plural)
+		return err
 	}
 	tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
 	fmt.Fprintln(tw, "FILE\tLINE\tFIELD\tERROR_CODE\tMESSAGE")

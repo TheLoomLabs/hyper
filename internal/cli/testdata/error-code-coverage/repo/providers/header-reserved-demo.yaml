@@ -1,0 +1,19 @@
+kind: provider
+provider: header-reserved-demo
+schema-version: 1
+class: cloudflare
+capabilities: [http]
+auth:
+  header: {name: Content-Type}
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    record:
+      identity: $.id
+      fields:
+        id: $.id

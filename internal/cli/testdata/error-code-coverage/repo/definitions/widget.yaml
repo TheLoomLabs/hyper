@@ -1,0 +1,6 @@
+kind: definition
+definition: widget
+provider: secretco
+kinds: [mutate]
+destroy: [destroy_widget]
+targets: [secretco-prod]

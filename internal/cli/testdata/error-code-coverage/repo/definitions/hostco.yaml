@@ -1,0 +1,5 @@
+kind: definition
+definition: hostco
+provider: hostco
+kinds: [read]
+targets: [hostco]

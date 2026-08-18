@@ -1,0 +1,13 @@
+kind: procedure
+procedure: skip-if-recorded-unreachable
+targets: [secretco-prod]
+steps:
+  - id: create
+    definition: widget
+    operation: create_widget
+    target: secretco-prod
+    over:
+      assets:
+        - {field: name, equals: foo}
+    args:
+      name: foo

@@ -1,0 +1,5 @@
+kind: target-declaration
+target: shell-host
+class: local
+kinds: [mutate, destroy]
+capabilities: [shell]

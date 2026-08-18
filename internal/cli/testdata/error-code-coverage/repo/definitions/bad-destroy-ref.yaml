@@ -1,0 +1,6 @@
+kind: definition
+definition: bad-destroy-ref
+provider: cloudflare-dns
+kinds: [mutate]
+destroy: [no_such_operation]
+targets: [cloudflare-prod]

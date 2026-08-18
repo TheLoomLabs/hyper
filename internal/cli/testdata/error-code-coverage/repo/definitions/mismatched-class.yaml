@@ -1,0 +1,5 @@
+kind: definition
+definition: mismatched-class
+provider: cloudflare-dns
+kinds: [read]
+targets: [cloudflare-local]

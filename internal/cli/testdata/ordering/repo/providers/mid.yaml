@@ -1,0 +1,26 @@
+kind: provider
+provider: mid
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  op1:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    record:
+      fields: {host: $.host}
+  op2:
+    kind: mutate
+    deadline: 10s
+    concurrency: 2
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /
+    record:
+      identity: $.host
+      fields: {host: $.host}

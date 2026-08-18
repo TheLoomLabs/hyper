@@ -1,0 +1,24 @@
+kind: provider
+provider: hostco
+schema-version: 1
+class: hostco
+capabilities: [http]
+enumerations:
+  region: [us-east-1, eu-central-1]
+operations:
+  list_buckets:
+    kind: read
+    repeatability: repeatable
+    deadline: 30s
+    http:
+      method: GET
+      host: "s3.{region}.amazonaws.com"
+      path: /
+      host-input: endpoint
+    input:
+      type: object
+      properties:
+        endpoint: {type: string}
+    record:
+      identity: $.host
+      fields: {host: $.host}
