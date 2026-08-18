@@ -33,8 +33,8 @@ import (
 // the Manifest has no such block to look in at all — what is wrong with it is
 // check's to name and never this reader's to guess at (ADR-0064).
 func OperationSource(manifest []byte, root *yaml.Node, name string) (string, bool) {
-	operations := topLevelFields(root, "operations")["operations"]
-	if operations == nil || operations.Kind != yaml.MappingNode {
+	operations := operationsMapping(root)
+	if operations == nil {
 		return "", false
 	}
 	lines := readSourceLines(manifest)

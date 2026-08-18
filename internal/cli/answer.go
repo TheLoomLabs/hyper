@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"text/tabwriter"
 
 	"github.com/TheLoomLabs/hyper/internal/render"
 )
@@ -39,6 +40,38 @@ func writeAnswer(command string, stdout, stderr io.Writer, asJSON bool, rows []r
 		return ExitUsage
 	}
 	return 0
+}
+
+// labelledValue is one line of a block of labelled values: the label, and what
+// the row states against it. A value the row does not carry writes no line at
+// all, which is the ordinary absence rule the wire applies to the same member —
+// a page carrying a label against nothing would state a claim the artefact
+// never made (§7, ADR-0064).
+type labelledValue struct{ label, value string }
+
+// writeLabelledValues writes a block of them, aligned, in the order they are
+// given — which is the order of the row's own members, so a reader moving
+// between the page and the wire reads the same facts in the same sequence.
+//
+// It is one function rather than the same eight lines in each command for
+// writeAnswer's own reason: a page whose values are one each rather than a
+// table of like rows is a shape two commands in this milestone already have,
+// and a command spelling the alignment for itself is a command free to get the
+// absence rule or the padding wrong.
+//
+// No line ends in padding: each value is its line's last cell, which tabwriter
+// leaves unaligned, so nothing here needs the trim WriteTable performs.
+func writeLabelledValues(w io.Writer, values []labelledValue) error {
+	tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
+	for _, stated := range values {
+		if stated.value == "" {
+			continue
+		}
+		if _, err := fmt.Fprintf(tw, "%s\t%s\n", stated.label, stated.value); err != nil {
+			return err
+		}
+	}
+	return tw.Flush()
 }
 
 // truncate keeps the first N of a command's own order and says how many it

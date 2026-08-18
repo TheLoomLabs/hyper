@@ -1,0 +1,19 @@
+  rotate_widget:
+    kind: mutate
+    deadline: 1d
+    input:
+      type: object
+      properties:
+        id: {type: string}
+    http: {method: POST, host: "{from-target}", path: "/widgets/{id}/rotate"}
+    record:
+      identity: "{id}"
+      fields: {id: $.body.id}
+
+CAPABILITIES        http
+BOUND               none
+RECORD CARDINALITY  one
+RECORD IDENTITY     {id}
+REPEATABILITY       run-once
+DEADLINE            1d
+CONCURRENCY LIMIT   1

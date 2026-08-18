@@ -338,16 +338,8 @@ func checkCapabilityMismatch(file string, root *yaml.Node) []problem.Problem {
 			if nameNode.Kind != yaml.ScalarNode || opNode.Kind != yaml.MappingNode {
 				continue
 			}
-			opFields := topLevelFields(opNode, "http", "shell")
-			httpVal, shellVal := opFields["http"], opFields["shell"]
-			var capability string
-			var node *yaml.Node
-			switch {
-			case httpVal != nil && shellVal == nil:
-				capability, node = "http", httpVal
-			case shellVal != nil && httpVal == nil:
-				capability, node = "shell", shellVal
-			default:
+			capability, node := operationCapability(opNode)
+			if capability == "" {
 				continue
 			}
 			derived[capability] = true
@@ -376,6 +368,30 @@ func checkCapabilityMismatch(file string, root *yaml.Node) []problem.Problem {
 		}
 	}
 	return problems
+}
+
+// operationCapability is the one Capability an Operation's request is
+// written under, and the node that names it: the request block's own key
+// *is* the Capability, so this reads one key rather than inferring one from
+// shape (§3, §12). It answers "" where the Operation names both http: and
+// shell:, or neither — a request that has already earned schema-mismatch
+// from checkExactlyOneOf and names no Capability unambiguously.
+//
+// One derivation rather than two that agree: the Capability check refuses a
+// Manifest's capabilities: for disagreeing with it, and §9's derived block
+// reports it, and the day they were two walks is the day one of them reads
+// a request block the other does not (§4, §9).
+func operationCapability(op *yaml.Node) (string, *yaml.Node) {
+	fields := topLevelFields(op, "http", "shell")
+	httpVal, shellVal := fields["http"], fields["shell"]
+	switch {
+	case httpVal != nil && shellVal == nil:
+		return "http", httpVal
+	case shellVal != nil && httpVal == nil:
+		return "shell", shellVal
+	default:
+		return "", nil
+	}
 }
 
 // checkShellOnlyAuth reports manifest-inconsistent on a Manifest declaring

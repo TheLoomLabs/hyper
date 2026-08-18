@@ -1,0 +1,20 @@
+  create_widget:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 1h
+    input:
+      type: object
+      properties:
+        name: {type: string}
+    http: {method: POST, host: "{from-target}", path: /widgets, body: {name: "{name}"}}
+    record:
+      identity: "{name}"
+      fields: {id: $.body.id}
+
+CAPABILITIES        http
+BOUND               none
+RECORD CARDINALITY  one
+RECORD IDENTITY     {name}
+REPEATABILITY       skip-if-recorded
+DEADLINE            1h
+CONCURRENCY LIMIT   1

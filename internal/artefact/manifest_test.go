@@ -1178,6 +1178,38 @@ operations:
 	}
 }
 
+// TestCheckManifest_RunOnceIsNotAValueAnArtefactMayWrite is the fence the
+// derived block earns by rendering the word: run-once is what an effectful
+// Operation declaring no repeatability: *is*, and §12 gives it no keyword, so a
+// Manifest attempting one is schema-mismatch like any other value outside an
+// enum. Rendering a fact no artefact declares is exactly what `opaque` already
+// does, and it stays that way only while writing it is refused (§3, §12).
+func TestCheckManifest_RunOnceIsNotAValueAnArtefactMayWrite(t *testing.T) {
+	got := CheckManifest("providers/broken.yaml", parse(t, `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  create_widget:
+    kind: mutate
+    repeatability: run-once
+    deadline: 1h
+    input:
+      type: object
+      properties:
+        name: {type: string}
+    http: {method: POST, host: "{from-target}", path: /widgets}
+    record:
+      identity: "{name}"
+      fields: {id: $.body.id}
+`))
+
+	if p := mustCode(t, got, schema.CodeMismatch); p.Field != "operations.create_widget.repeatability" {
+		t.Errorf("Field = %q, want operations.create_widget.repeatability", p.Field)
+	}
+}
+
 func TestCheckManifest_ManifestInconsistentConcurrencyNotRead(t *testing.T) {
 	doc := `kind: provider
 provider: broken

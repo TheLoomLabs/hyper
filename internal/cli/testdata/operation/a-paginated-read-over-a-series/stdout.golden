@@ -1,0 +1,22 @@
+  list_widgets:
+    kind: read
+    repeatability: repeatable
+    deadline: 30s
+    patterns:
+      pagination:
+        cursor: {from: $.body.result_info.cursor, into: {query: cursor}}
+      retry: {attempts: 3}
+    http: {method: GET, host: "{from-target}", path: /widgets}
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id, name: $.name}
+
+CAPABILITIES        http
+BOUND               none
+PATTERNS RESOLVED   pagination, retry
+RECORD CARDINALITY  series
+RECORD IDENTITY     $.id
+REPEATABILITY       repeatable
+DEADLINE            30s
+CONCURRENCY LIMIT   1

@@ -1,0 +1,15 @@
+  destroy:
+    kind: destroy
+    repeatability: repeatable
+    deadline: 1h
+    shell: {}
+    input:
+      type: object
+      properties:
+        command: {type: array, items: {type: string}}
+
+CAPABILITIES       shell
+BOUND              illegal
+REPEATABILITY      repeatable
+DEADLINE           1h
+CONCURRENCY LIMIT  1

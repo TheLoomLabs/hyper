@@ -17,6 +17,7 @@ package schema
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -203,6 +204,30 @@ var (
 	booleanPattern  = regexp.MustCompile(`^(true|false)$`)
 	durationPattern = regexp.MustCompile(`^[0-9]+[smhd]$`)
 )
+
+// durationUnits is what each unit the grammar admits is worth in seconds.
+// It is beside the pattern that closes the set, so a unit added to one is a
+// unit added to the other rather than a value the reader silently declines.
+var durationUnits = map[byte]int{'s': 1, 'm': 60, 'h': 3600, 'd': 86400}
+
+// DurationSeconds is an authored duration read as the number of seconds it
+// names — 30s, 2m, 1h, 1d — and false where value is not a duration this
+// grammar admits, which is schema-mismatch at every authored position and no
+// duration for a caller to convert.
+//
+// It is here rather than at the surface that renders one because the grammar
+// is here: the pattern above is what refuses a value at load, and a second
+// reading of it elsewhere is a second spelling of one closed set (§3, §9).
+func DurationSeconds(value string) (int, bool) {
+	if !durationPattern.MatchString(value) {
+		return 0, false
+	}
+	count, err := strconv.Atoi(value[:len(value)-1])
+	if err != nil {
+		return 0, false
+	}
+	return count * durationUnits[value[len(value)-1]], true
+}
 
 func readsAs(t Type, value string) bool {
 	switch t {

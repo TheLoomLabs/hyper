@@ -6,3 +6,11 @@
       over: $.body.result
       identity: $.id
       fields: {id: $.id}
+
+CAPABILITIES        http
+BOUND               none
+RECORD CARDINALITY  series
+RECORD IDENTITY     $.id
+REPEATABILITY       repeatable
+DEADLINE            30s
+CONCURRENCY LIMIT   1

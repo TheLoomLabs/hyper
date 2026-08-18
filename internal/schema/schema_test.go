@@ -269,3 +269,36 @@ func TestCheck_FieldPathsAreDotAndBracketJoined(t *testing.T) {
 	got := Check(parse(t, "steps:\n  - bound: nope\n"), s, "f.yaml")
 	mustOne(t, got, CodeMismatch, "steps[0].bound")
 }
+
+// TestDurationSeconds_ReadsTheGrammarThePatternAdmits: the four units the
+// authoring format closes the set at, converted; and false for everything the
+// pattern refuses, which is what a surface rendering a duration in seconds
+// reads as *there is no duration here* rather than as zero (§3, §9).
+func TestDurationSeconds_ReadsTheGrammarThePatternAdmits(t *testing.T) {
+	for value, want := range map[string]int{
+		"30s": 30, "0s": 0, "2m": 120, "1h": 3600, "1d": 86400, "90m": 5400,
+	} {
+		got, authored := DurationSeconds(value)
+		if !authored || got != want {
+			t.Errorf("DurationSeconds(%q) = (%d, %v), want (%d, true)", value, got, authored, want)
+		}
+	}
+
+	for _, value := range []string{"", "soon", "30", "s", "30 s", "-30s", "+30s", "1.5h", "30S", "1w"} {
+		if got, authored := DurationSeconds(value); authored {
+			t.Errorf("DurationSeconds(%q) = (%d, true); the grammar is digits and one of smhd", value, got)
+		}
+	}
+}
+
+// TestDurationSeconds_AgreesWithTheTypeThatRefusesTheValue is the one grammar
+// read from both ends: a value this converts is a value a duration position
+// admits, and a value it refuses is schema-mismatch there.
+func TestDurationSeconds_AgreesWithTheTypeThatRefusesTheValue(t *testing.T) {
+	for _, value := range []string{"30s", "0s", "1d", "soon", "30", "-1s", "1w"} {
+		_, authored := DurationSeconds(value)
+		if admitted := readsAs(Duration, value); authored != admitted {
+			t.Errorf("DurationSeconds(%q) read it as %v and the duration type admits it as %v", value, authored, admitted)
+		}
+	}
+}

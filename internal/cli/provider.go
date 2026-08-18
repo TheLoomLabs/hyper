@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/render"
@@ -285,25 +284,18 @@ func writeProviderPage(w io.Writer, rows []render.Row) error {
 // absence rule the wire already applies to it: the two origin members stand or
 // fall together, and a page carrying "ORIGIN REF" against nothing would state a
 // claim the Manifest never made (§7, ADR-0073).
-//
-// No line ends in padding: each value is its line's last cell, which tabwriter
-// leaves unaligned, so nothing here needs the trim WriteTable performs.
 func writeManifestBlock(w io.Writer, row manifestRow) error {
-	tw := tabwriter.NewWriter(w, 0, 2, 2, ' ', 0)
-	stated := func(label, value string) {
-		if value != "" {
-			fmt.Fprintf(tw, "%s\t%s\n", label, value)
-		}
+	values := []labelledValue{
+		{"AUTH SCHEME", row.AuthScheme},
+		{"CAPABILITIES", strings.Join(row.CapabilitiesRequired, ", ")},
+		{"DIGEST", row.Digest},
 	}
-
-	stated("AUTH SCHEME", row.AuthScheme)
-	stated("CAPABILITIES", strings.Join(row.CapabilitiesRequired, ", "))
-	stated("DIGEST", row.Digest)
 	if row.SchemaVersion != nil {
-		stated("SCHEMA VERSION", strconv.Itoa(*row.SchemaVersion))
+		values = append(values, labelledValue{"SCHEMA VERSION", strconv.Itoa(*row.SchemaVersion)})
 	}
-	stated("ORIGIN REF", row.OriginRef)
-	stated("ORIGIN DIGEST", row.OriginDigest)
+	values = append(values,
+		labelledValue{"ORIGIN REF", row.OriginRef},
+		labelledValue{"ORIGIN DIGEST", row.OriginDigest})
 
-	return tw.Flush()
+	return writeLabelledValues(w, values)
 }

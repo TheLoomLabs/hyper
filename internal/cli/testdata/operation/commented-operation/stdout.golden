@@ -8,3 +8,11 @@
     record:
       identity: "{id}"
       fields: {id: $.body.id}
+
+CAPABILITIES        http
+BOUND               none
+RECORD CARDINALITY  one
+RECORD IDENTITY     {id}
+REPEATABILITY       run-once
+DEADLINE            30s
+CONCURRENCY LIMIT   1

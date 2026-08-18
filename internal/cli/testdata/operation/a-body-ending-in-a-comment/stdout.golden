@@ -6,3 +6,11 @@
       identity: "{id}"
       fields: {id: $.body.id}
     # Archived rather than deleted: the API has no delete.
+
+CAPABILITIES        http
+BOUND               none
+RECORD CARDINALITY  one
+RECORD IDENTITY     {id}
+REPEATABILITY       run-once
+DEADLINE            30s
+CONCURRENCY LIMIT   1

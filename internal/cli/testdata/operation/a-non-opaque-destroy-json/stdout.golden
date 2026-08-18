@@ -1,0 +1,2 @@
+{"type":"operation_detail","source":"  delete_widget:\n    kind: destroy\n    repeatability: repeatable\n    deadline: 30s\n    input:\n      type: object\n      properties:\n        id: {type: string}\n    http: {method: DELETE, host: \"{from-target}\", path: \"/widgets/{id}\"}\n","derived":{"capabilities":["http"],"bound":"mandatory","patterns_resolved":[],"repeatability":"repeatable","deadline_seconds":30,"concurrency_limit":1}}
+{"type":"result","truncated":false}

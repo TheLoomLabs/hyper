@@ -1,0 +1,21 @@
+  search_widgets:
+    kind: read
+    repeatability: repeatable
+    deadline: 30s
+    concurrency: 4
+    input:
+      type: object
+      properties:
+        term: {type: string}
+    http: {method: GET, host: "{from-target}", path: /widgets/search, query: {q: "{term}"}}
+    record:
+      identity: $.body.id
+      fields: {id: $.body.id}
+
+CAPABILITIES        http
+BOUND               none
+RECORD CARDINALITY  one
+RECORD IDENTITY     $.body.id
+REPEATABILITY       repeatable
+DEADLINE            30s
+CONCURRENCY LIMIT   4

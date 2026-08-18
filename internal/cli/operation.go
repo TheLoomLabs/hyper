@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
@@ -92,7 +93,7 @@ func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string
 		return ExitUsage
 	}
 
-	rows := []render.Row{operationDetailRow{Type: "operation_detail", Source: source}}
+	rows := []render.Row{newOperationDetailRow(source, artefact.ReadOperationDetail(manifest.Root, operationName))}
 
 	// The terminal row is written with no marker: this command names one
 	// Operation, so a stream it opened always carried everything there was
@@ -122,21 +123,80 @@ func unresolvedOperationName(provider, operation string) string {
 		"  hyper provider %s lists every Operation in it\n", operation, provider, provider)
 }
 
-// operationDetailRow is the Operation's declaring lines, and its members are
-// §9's own: {"type":"operation_detail","source":…}. The derived facts that
-// stand beside the source on that wire — the Capabilities, the Bound, the
-// Patterns, the Record's cardinality and identity, the Repeatability, the
-// deadline and the effective concurrency limit — arrive with the ticket after
-// this one, and they arrive as a member of this row rather than as a second
-// row: §9 writes the shape out once and milestone 11's MCP tool reuses this
-// contract rather than minting a second one.
+// operationDetailRow is the Operation's declaring lines and the facts derived
+// beside them, and its members are §9's own:
+// {"type":"operation_detail","source":…,"derived":{…}}. The two halves are one
+// row rather than two, because §9 writes the shape out once and milestone 11's
+// MCP tool reuses this contract rather than minting a second one.
 //
 // source is always written. An Operation this command resolved has declaring
 // lines by construction — the lookup that found it read them off the same
-// bytes — so there is no absence here for the ordinary rule to cover.
+// bytes — so there is no absence here for the ordinary rule to cover. derived
+// is always written too, and for the same reason read the other way: the block
+// is what `hyper` computed rather than what the Manifest stated, so there is
+// always something it computed, down to the concurrency limit that is 1 for
+// every Operation whatever the Manifest left out.
 type operationDetailRow struct {
-	Type   string `json:"type"`
-	Source string `json:"source"`
+	Type    string           `json:"type"`
+	Source  string           `json:"source"`
+	Derived operationDerived `json:"derived"`
+}
+
+// operationDerived is the derived block, and its members are §9's own in §9's
+// own order: the Capability the request is written under, the Bound, the
+// Patterns resolved, the Record's cardinality and declared identity, the
+// Repeatability in force, the deadline in seconds, and the effective
+// concurrency limit.
+//
+// Three of the eight follow the ordinary absence rule and three do not, and
+// which is which is the answer rather than the encoding. patterns_resolved is
+// empty rather than absent: a caller asking which Patterns run around this call
+// is answered *none of them*, which is a fact. concurrency_limit is always
+// present, an effective limit existing for every Operation (ADR-0045). The
+// Record pair is absent together on a destroy, which declares no record: at all
+// (§3, ADR-0037), and capabilities, bound and repeatability are absent only
+// where a Manifest hyper could not read left nothing to derive them from —
+// which is check's to report and never this row's to substitute for (ADR-0064).
+//
+// deadline is the page's and never the wire's: §9 fixed the wire name and its
+// unit with it, so what goes out is deadline_seconds, and what the table
+// renders is the authored spelling, because that is what the source it stands
+// beside says. It is unexported for exactly that reason — the two renderings
+// are one row, and this member is the half of it only one of them has a line
+// for.
+type operationDerived struct {
+	Capabilities      []string `json:"capabilities,omitempty"`
+	Bound             string   `json:"bound,omitempty"`
+	PatternsResolved  []string `json:"patterns_resolved"`
+	RecordCardinality string   `json:"record_cardinality,omitempty"`
+	RecordIdentity    string   `json:"record_identity,omitempty"`
+	Repeatability     string   `json:"repeatability,omitempty"`
+	DeadlineSeconds   *int     `json:"deadline_seconds,omitempty"`
+	ConcurrencyLimit  int      `json:"concurrency_limit"`
+	deadline          string
+}
+
+// newOperationDetailRow is the whole answer as one row: the Manifest's own
+// bytes, and the reader's derived facts under the wire's own member names. The
+// mapping is written out here rather than by hanging json tags off the reader's
+// own type, on manifestRow's rule — the wire shape is this surface's and a
+// domain value carries no serialisation it has no other use for.
+func newOperationDetailRow(source string, detail artefact.OperationDetail) operationDetailRow {
+	return operationDetailRow{
+		Type:   "operation_detail",
+		Source: source,
+		Derived: operationDerived{
+			Capabilities:      detail.Capabilities,
+			Bound:             detail.Bound,
+			PatternsResolved:  detail.PatternsResolved,
+			RecordCardinality: detail.RecordCardinality,
+			RecordIdentity:    detail.RecordIdentity,
+			Repeatability:     detail.Repeatability,
+			DeadlineSeconds:   detail.DeadlineSeconds,
+			ConcurrencyLimit:  detail.ConcurrencyLimit,
+			deadline:          detail.Deadline,
+		},
+	}
 }
 
 // Cells is empty: this row is a block of an artefact's own lines rather than a
@@ -145,11 +205,11 @@ type operationDetailRow struct {
 // has (ADR-0026).
 func (r operationDetailRow) Cells() []string { return nil }
 
-// writeOperationPage is `operation`'s page: the source, and nothing else. No
-// header, no frame and no label — a frame around bytes a caller is meant to
-// copy into a Definition is a frame they would have to strip, and the page and
-// the --json stream carry the same lines because they are written from the one
-// row (§9, ADR-0026).
+// writeOperationPage is `operation`'s page: the source, then the derived facts
+// beneath it as labelled values. The source carries no header, no frame and no
+// label — a frame around bytes a caller is meant to copy into a Definition is a
+// frame they would have to strip — and the page and the --json stream state the
+// same facts because they are written from the one row (§9, ADR-0026).
 //
 // A source whose last line carries no newline — an author whose editor wrote
 // none, the range running to the end of the file — is ended with one here. That
@@ -173,6 +233,40 @@ func writeOperationPage(w io.Writer, rows []render.Row) error {
 	if !strings.HasSuffix(source, "\n") {
 		source += "\n"
 	}
-	_, err := io.WriteString(w, source)
-	return err
+	if _, err := io.WriteString(w, source); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintln(w); err != nil {
+		return err
+	}
+	return writeDerivedBlock(w, detail.Derived)
+}
+
+// writeDerivedBlock writes the derived facts as labelled values, in the row's
+// own member order — the wire's order, so a reader moving between the two
+// surfaces reads the same facts in the same sequence.
+//
+// A member the row does not carry writes no line at all, which is the rule
+// writeLabelledValues holds for every block of them: a destroy's Record pair is
+// absent together, and a line reading "RECORD CARDINALITY" against nothing
+// would state a projection the Operation does not have. An Operation declaring
+// no Pattern is that rule read from its other end — the wire says *none of
+// them* with an empty list and the page says it by having no line — and the
+// concurrency limit always has one, there being an effective limit for every
+// Operation (ADR-0045).
+//
+// DEADLINE is the authored spelling and not the wire's seconds, because the
+// source it stands beneath says 30s and a page restating it as 30 would be a
+// second spelling of one fact on one screen.
+func writeDerivedBlock(w io.Writer, derived operationDerived) error {
+	return writeLabelledValues(w, []labelledValue{
+		{"CAPABILITIES", strings.Join(derived.Capabilities, ", ")},
+		{"BOUND", derived.Bound},
+		{"PATTERNS RESOLVED", strings.Join(derived.PatternsResolved, ", ")},
+		{"RECORD CARDINALITY", derived.RecordCardinality},
+		{"RECORD IDENTITY", derived.RecordIdentity},
+		{"REPEATABILITY", derived.Repeatability},
+		{"DEADLINE", derived.deadline},
+		{"CONCURRENCY LIMIT", strconv.Itoa(derived.ConcurrencyLimit)},
+	})
 }

@@ -1,0 +1,77 @@
+kind: provider
+provider: widget
+schema-version: 1
+class: widgetco
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  list_widgets:
+    kind: read
+    repeatability: repeatable
+    deadline: 30s
+    patterns:
+      pagination:
+        cursor: {from: $.body.result_info.cursor, into: {query: cursor}}
+      retry: {attempts: 3}
+    http: {method: GET, host: "{from-target}", path: /widgets}
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id, name: $.name}
+  search_widgets:
+    kind: read
+    repeatability: repeatable
+    deadline: 30s
+    concurrency: 4
+    input:
+      type: object
+      properties:
+        term: {type: string}
+    http: {method: GET, host: "{from-target}", path: /widgets/search, query: {q: "{term}"}}
+    record:
+      identity: $.body.id
+      fields: {id: $.body.id}
+  get_widget:
+    kind: read
+    deadline: 2m
+    input:
+      type: object
+      properties:
+        id: {type: string}
+    http: {method: GET, host: "{from-target}", path: "/widgets/{id}"}
+    record:
+      identity: $.body.id
+      fields: {id: $.body.id}
+  create_widget:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 1h
+    input:
+      type: object
+      properties:
+        name: {type: string}
+    http: {method: POST, host: "{from-target}", path: /widgets, body: {name: "{name}"}}
+    record:
+      identity: "{name}"
+      fields: {id: $.body.id}
+  rotate_widget:
+    kind: mutate
+    deadline: 1d
+    input:
+      type: object
+      properties:
+        id: {type: string}
+    http: {method: POST, host: "{from-target}", path: "/widgets/{id}/rotate"}
+    record:
+      identity: "{id}"
+      fields: {id: $.body.id}
+  delete_widget:
+    kind: destroy
+    repeatability: repeatable
+    deadline: 30s
+    input:
+      type: object
+      properties:
+        id: {type: string}
+    http: {method: DELETE, host: "{from-target}", path: "/widgets/{id}"}

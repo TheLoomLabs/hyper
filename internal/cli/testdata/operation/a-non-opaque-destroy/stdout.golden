@@ -1,0 +1,15 @@
+  delete_widget:
+    kind: destroy
+    repeatability: repeatable
+    deadline: 30s
+    input:
+      type: object
+      properties:
+        id: {type: string}
+    http: {method: DELETE, host: "{from-target}", path: "/widgets/{id}"}
+
+CAPABILITIES       http
+BOUND              mandatory
+REPEATABILITY      repeatable
+DEADLINE           30s
+CONCURRENCY LIMIT  1

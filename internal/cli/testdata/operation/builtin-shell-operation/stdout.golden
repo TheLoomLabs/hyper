@@ -12,3 +12,11 @@
         exit_code: $.exit_code
         stdout: $.stdout
         stderr: $.stderr
+
+CAPABILITIES        shell
+BOUND               none
+RECORD CARDINALITY  one
+RECORD IDENTITY     $.command
+REPEATABILITY       run-once
+DEADLINE            1h
+CONCURRENCY LIMIT   1

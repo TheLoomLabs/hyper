@@ -1,0 +1,19 @@
+  get_widget:
+    kind: read
+    deadline: 2m
+    input:
+      type: object
+      properties:
+        id: {type: string}
+    http: {method: GET, host: "{from-target}", path: "/widgets/{id}"}
+    record:
+      identity: $.body.id
+      fields: {id: $.body.id}
+
+CAPABILITIES        http
+BOUND               none
+RECORD CARDINALITY  one
+RECORD IDENTITY     $.body.id
+REPEATABILITY       repeatable
+DEADLINE            2m
+CONCURRENCY LIMIT   1
