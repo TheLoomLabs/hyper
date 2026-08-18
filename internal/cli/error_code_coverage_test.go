@@ -25,8 +25,8 @@ import (
 //
 // version-pin-mismatch and version-pin-absent are milestone 0's gate, which
 // `check` inherits rather than contributes; they are exercised by
-// testdata/version-pin-mismatch and testdata/version-pin-absent but are
-// deliberately not members of this set.
+// testdata/check/version-pin-mismatch and testdata/check/version-pin-absent
+// but are deliberately not members of this set.
 var milestoneOneErrorCodes = []string{
 	"strict-yaml-violation",
 	"unknown-key",
@@ -67,25 +67,17 @@ var milestoneOneErrorCodes = []string{
 }
 
 // TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture walks every golden
-// file under testdata/ and confirms each of the thirty-six error_code members
-// this milestone contributes appears in at least one of them — the human
-// table's ERROR_CODE column or the --json stream's "error_code" field, either
-// rendering being fine since both come from one renderer (ADR-0026). It fails
-// naming every code an uncovered member, so the closed set and the fixture
-// set can never drift apart silently (issue #99).
+// file in the check corpus and confirms each of the thirty-six error_code
+// members this milestone contributes appears in at least one of them — the
+// human table's ERROR_CODE column or the --json stream's "error_code" field,
+// either rendering being fine since both come from one renderer (ADR-0026).
+// It fails naming every code an uncovered member, so the closed set and the
+// fixture set can never drift apart silently (issue #99).
 func TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
-	dirs, err := os.ReadDir("testdata")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	var haystack []byte
-	for _, d := range dirs {
-		if !d.IsDir() {
-			continue
-		}
+	for _, name := range checkCases(t) {
 		for _, golden := range []string{"stdout.golden", "stderr.golden"} {
-			data, err := os.ReadFile(filepath.Join("testdata", d.Name(), golden))
+			data, err := os.ReadFile(filepath.Join(checkCorpus, name, golden))
 			if err != nil {
 				if os.IsNotExist(err) {
 					continue
@@ -112,6 +104,6 @@ func TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
 
 	if len(missing) > 0 {
 		sort.Strings(missing)
-		t.Errorf("%d of %d milestone-1 error_code members have no failing fixture under testdata/: %v", len(missing), len(milestoneOneErrorCodes), missing)
+		t.Errorf("%d of %d milestone-1 error_code members have no failing fixture under %s/: %v", len(missing), len(milestoneOneErrorCodes), checkCorpus, missing)
 	}
 }
