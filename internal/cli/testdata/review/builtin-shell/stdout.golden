@@ -1,84 +1,84 @@
-  MANIFEST  │  no baseline — shell ships in the binary
-  ──────────┼─────────────────────────────────────────
-            │ kind: provider
-            │ provider: shell
-            │ schema-version: 1
-            │ class: local
-            │ capabilities: [shell]
-            │ operations:
-            │   read:
-            │     kind: read
-            │     repeatability: repeatable
-            │     deadline: 1h
-            │     shell: {}
-            │     input:
-            │       type: object
-            │       properties:
-            │         command: {type: array, items: {type: string}}
-            │     record:
-            │       identity: $.command
-            │       fields:
-            │         exit_code: $.exit_code
-            │         stdout: $.stdout
-            │         stderr: $.stderr
-            │   mutate:
-            │     kind: mutate
-            │     repeatability: repeatable
-            │     deadline: 1h
-            │     shell: {}
-            │     input:
-            │       type: object
-            │       properties:
-            │         command: {type: array, items: {type: string}}
-            │     record:
-            │       identity: $.command
-            │       fields:
-            │         exit_code: $.exit_code
-            │         stdout: $.stdout
-            │         stderr: $.stderr
-            │   mutate_once:
-            │     kind: mutate
-            │     deadline: 1h
-            │     shell: {}
-            │     input:
-            │       type: object
-            │       properties:
-            │         command: {type: array, items: {type: string}}
-            │     record:
-            │       identity: $.command
-            │       fields:
-            │         exit_code: $.exit_code
-            │         stdout: $.stdout
-            │         stderr: $.stderr
-            │   mutate_skip_if_recorded:
-            │     kind: mutate
-            │     repeatability: skip-if-recorded
-            │     deadline: 1h
-            │     shell: {}
-            │     input:
-            │       type: object
-            │       properties:
-            │         command: {type: array, items: {type: string}}
-            │     record:
-            │       identity: $.command
-            │       fields:
-            │         exit_code: $.exit_code
-            │         stdout: $.stdout
-            │         stderr: $.stderr
-            │   destroy:
-            │     kind: destroy
-            │     repeatability: repeatable
-            │     deadline: 1h
-            │     shell: {}
-            │     input:
-            │       type: object
-            │       properties:
-            │         command: {type: array, items: {type: string}}
-            │   destroy_once:
-            │     kind: destroy
-            │     deadline: 1h
-            │     shell: {}
-            │     input:
-            │       type: object
-            │       properties:
-            │         command: {type: array, items: {type: string}}
+  MANIFEST                           │  no baseline — shell ships in the binary
+  ───────────────────────────────────┼─────────────────────────────────────────
+                                     │ kind: provider
+                                     │ provider: shell
+                                     │ schema-version: 1
+                                     │ class: local
+  shell                              │ capabilities: [shell]
+                                     │ operations:
+  read     repeatable        opaque  │   read:
+                                     │     kind: read
+                                     │     repeatability: repeatable
+                                     │     deadline: 1h
+                                     │     shell: {}
+                                     │     input:
+                                     │       type: object
+                                     │       properties:
+                                     │         command: {type: array, items: {type: string}}
+                                     │     record:
+                                     │       identity: $.command
+                                     │       fields:
+                                     │         exit_code: $.exit_code
+                                     │         stdout: $.stdout
+                                     │         stderr: $.stderr
+  mutate   repeatable        opaque  │   mutate:
+                                     │     kind: mutate
+                                     │     repeatability: repeatable
+                                     │     deadline: 1h
+                                     │     shell: {}
+                                     │     input:
+                                     │       type: object
+                                     │       properties:
+                                     │         command: {type: array, items: {type: string}}
+                                     │     record:
+                                     │       identity: $.command
+                                     │       fields:
+                                     │         exit_code: $.exit_code
+                                     │         stdout: $.stdout
+                                     │         stderr: $.stderr
+  mutate   run-once          opaque  │   mutate_once:
+                                     │     kind: mutate
+                                     │     deadline: 1h
+                                     │     shell: {}
+                                     │     input:
+                                     │       type: object
+                                     │       properties:
+                                     │         command: {type: array, items: {type: string}}
+                                     │     record:
+                                     │       identity: $.command
+                                     │       fields:
+                                     │         exit_code: $.exit_code
+                                     │         stdout: $.stdout
+                                     │         stderr: $.stderr
+  mutate   skip-if-recorded  opaque  │   mutate_skip_if_recorded:
+                                     │     kind: mutate
+                                     │     repeatability: skip-if-recorded
+                                     │     deadline: 1h
+                                     │     shell: {}
+                                     │     input:
+                                     │       type: object
+                                     │       properties:
+                                     │         command: {type: array, items: {type: string}}
+                                     │     record:
+                                     │       identity: $.command
+                                     │       fields:
+                                     │         exit_code: $.exit_code
+                                     │         stdout: $.stdout
+                                     │         stderr: $.stderr
+  DESTROY  repeatable        opaque  │   destroy:
+                                     │     kind: destroy
+                                     │     repeatability: repeatable
+                                     │     deadline: 1h
+                                     │     shell: {}
+                                     │     input:
+                                     │       type: object
+                                     │       properties:
+                                     │         command: {type: array, items: {type: string}}
+  DESTROY  run-once          opaque  │   destroy_once:
+                                     │     kind: destroy
+                                     │     deadline: 1h
+                                     │     shell: {}
+                                     │     input:
+                                     │       type: object
+                                     │       properties:
+                                     │         command: {type: array, items: {type: string}}

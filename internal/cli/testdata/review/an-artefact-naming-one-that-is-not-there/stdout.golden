@@ -3,8 +3,8 @@
               │ kind: definition
               │ definition: orphan
               │ provider: not-there
-              │ kinds: [read]
-              │ targets: [nowhere]
+  read        │ kinds: [read]
+  nowhere     │ targets: [nowhere]
 
   AUTHORITY   assembled from definitions/ and targets/
   DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS  EFFECTIVE   DESTROY OPS

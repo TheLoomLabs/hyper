@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -234,9 +235,13 @@ func TestRunReview_TheBuiltinManifestsHeaderStatesTheSentenceAlone(t *testing.T)
 		t.Fatalf("exit = %d, want the built-in Manifest rendered", exit)
 	}
 
-	first := strings.SplitN(stdout, "\n", 2)[0]
-	if got, want := first, "  MANIFEST  │  no baseline — shell ships in the binary"; got != want {
-		t.Errorf("the header's first line is\n %q\nwant\n %q", got, want)
+	// The header is read off the page rather than spelled out with its
+	// gutter, on markersOf's own rule: what this case asks is what the
+	// header's line carries, and a case that wrote the marker column's
+	// width into its expectation would fail the day this Manifest's own
+	// Operations widen it.
+	if got, want := headerOf(t, stdout), []string{"no baseline — shell ships in the binary"}; !slices.Equal(got, want) {
+		t.Errorf("the header is\n %q\nwant\n %q", got, want)
 	}
 }
 
@@ -263,11 +268,18 @@ func TestRunReview_TheAbsenceIsRankedAsAPipeline(t *testing.T) {
 	}
 }
 
-// TestRunReview_TheStreamIsTheHeaderRowAndTheTerminalRow is what `--json`
-// carries in this milestone: nothing is annotated yet, so the annotations are
-// the header alone, and the terminal row's marker is false because nothing on
-// this screen is a result set (§8, §9).
-func TestRunReview_TheStreamIsTheHeaderRowAndTheTerminalRow(t *testing.T) {
+// TestRunReview_TheStreamIsTheHeaderRowTheGutterAndTheTerminalRow is what
+// `--json` carries in this milestone, whole: the header, one `gutter` row per
+// rendered line the gutter has something to say about, and the terminal row —
+// whose marker is false because nothing on this screen is a result set (§8,
+// §9).
+//
+// The source is not on it and no row for it is: a review does not decompose
+// into rows the way the change tables do, the consumer already having the file.
+// The artefact is a Repository declaration with no `retention:`, so the one
+// mark is the pin: a line that is not in the file has no cell, which is
+// different from a line rendering a blank one (§8, issue #122).
+func TestRunReview_TheStreamIsTheHeaderRowTheGutterAndTheTerminalRow(t *testing.T) {
 	root := newRepo(t)
 
 	stdout, _, exit := runReview(t, root, "hyper.yaml", "--json")
@@ -277,6 +289,7 @@ func TestRunReview_TheStreamIsTheHeaderRowAndTheTerminalRow(t *testing.T) {
 
 	want := []string{
 		`{"type":"artefact","kind":"repository-declaration","path":"hyper.yaml","baseline_absent":"no-store"}`,
+		`{"type":"gutter","line":2,"marker":"1.4.0"}`,
 		`{"type":"result","truncated":false}`,
 	}
 	if got := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n"); !slices.Equal(got, want) {
@@ -1306,6 +1319,519 @@ steps:
 	} {
 		if !strings.Contains(stdout, want) {
 			t.Errorf("the stream is\n%s\nwant a row carrying %s", stdout, want)
+		}
+	}
+}
+
+// The other four artefacts' rosters (issue #122). Only a Procedure has Steps,
+// so only a Procedure carries a Kind, a Target, a Bound or an envelope mark;
+// what the other four mark is their own, and §8 fixes it artefact by artefact.
+
+// providerWithAScheme is a Manifest carrying every line its roster marks: an
+// Auth scheme, the Capabilities its Operations require, and one Operation of
+// each Kind — two of them stating their Repeatability by omission. The scheme
+// is the mark whose line does not name it: `auth:` says there is one and the
+// key beneath it says which (§13).
+const providerWithAScheme = `kind: provider
+provider: things
+schema-version: 1
+class: things
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  list_things:
+    kind: read
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /things
+    record:
+      identity: $.id
+      fields: {id: $.id}
+  make_thing:
+    kind: mutate
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /things
+    record:
+      identity: $.id
+      fields: {id: $.id}
+  end_thing:
+    kind: destroy
+    repeatability: repeatable
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /things/{thing_id}
+`
+
+// rosterRepo is a repository with one artefact of each of §12's five kinds in
+// it, each written so that every line its own roster marks is there: a
+// Repository declaration with a retention policy, a Manifest with a scheme and
+// three Operations, a Target declaration granting hosts and a credential slot,
+// a Definition claiming both effectful Kinds, and a Procedure binding them.
+//
+// It checks clean, which every case reading it depends on: an artefact the load
+// found a fault in is `check`'s row and exit 1 rather than a rendering (§9).
+func rosterRepo(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	writeFile(t, root+"/hyper.yaml", "kind: repository-declaration\nversion: 1.4.0\n"+
+		"digest: sha256:0000000000000000000000000000000000000000000000000000000000000000\nretention: 90d\n")
+	writeFile(t, root+"/providers/things.yaml", providerWithAScheme)
+	writeFile(t, root+"/targets/staging.yaml",
+		"kind: target-declaration\ntarget: staging\nclass: things\nkinds: [read, mutate, destroy]\n"+
+			"capabilities: [http]\nhosts: [api.things.dev, api.things.eu]\nauth:\n  token: {env: THINGS_API_TOKEN}\n")
+	writeFile(t, root+"/definitions/things.yaml",
+		"kind: definition\ndefinition: things\nprovider: things\nkinds: [mutate, destroy]\ndestroy: [end_thing]\ntargets: [staging]\n")
+	writeFile(t, root+"/procedures/subject.yaml",
+		"kind: procedure\nprocedure: subject\ntargets: [staging]\nsteps:\n  - id: retire\n"+
+			"    definition: things\n    operation: end_thing\n    target: staging\n    bound: 5\n")
+	return root
+}
+
+// TestRunReview_ADefinitionsGutterMarksItsThreeClaims is §8's roster on a
+// Definition: the Kinds claimed, the `destroy` Operations named and the Targets
+// bindable, each beside its own line and all three authored in the file being
+// read (§8, issue #122).
+func TestRunReview_ADefinitionsGutterMarksItsThreeClaims(t *testing.T) {
+	root := rosterRepo(t)
+
+	stdout, stderr, exit := runReview(t, root, "definitions/things.yaml")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+
+	want := map[int]string{
+		4: "mutate DESTROY",
+		5: "DESTROY end_thing",
+		6: "staging",
+	}
+	if got := markersOf(t, stdout); !maps.Equal(got, want) {
+		t.Errorf("the marker column is\n %v\nwant\n %v", got, want)
+	}
+}
+
+// TestRunReview_ADefinitionWhoseProviderIsNotThereRendersCompleteAndUnmarked is
+// the gutter's supply rule holding rather than the review missing something:
+// nothing rendered on this screen is derived from a Manifest, so there is no
+// name here for the gutter to fail to follow, the `provider:` line carries no
+// mark, and the review exits 0 (§8, ADR-0064).
+func TestRunReview_ADefinitionWhoseProviderIsNotThereRendersCompleteAndUnmarked(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/definitions/orphan.yaml",
+		"kind: definition\ndefinition: orphan\nprovider: not-there\nkinds: [read]\ntargets: [nowhere]\n")
+
+	stdout, stderr, exit := runReview(t, root, "orphan")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+
+	markers := markersOf(t, stdout)
+	if marker, marked := markers[3]; marked {
+		t.Errorf("the provider: line is marked %q; nothing on this screen is derived from a Manifest", marker)
+	}
+	if got, want := markers[4], "read"; got != want {
+		t.Errorf("the kinds: line is marked %q, want %q — the Definition's own claim renders as it always does", got, want)
+	}
+	for line, marker := range markers {
+		if strings.Contains(marker, "unresolved") {
+			t.Errorf("line %d is marked %q; unresolved is a Procedure's mark and no other artefact's", line, marker)
+		}
+	}
+}
+
+// TestRunReview_ALineThatDerivedNothingRendersUnmarked is the other absence the
+// roster collapses into a line with no cell, and it is a different fact about
+// the file: a Definition writing `destroy: []` wrote the line and named no
+// Operation, so there is nothing derived to mark. `DESTROY` alone there would
+// name a grant this Definition never took, and a review does not run `check`
+// (§9) — what it renders is what `hyper` derived from these lines and nothing
+// else (§8, ADR-0064).
+func TestRunReview_ALineThatDerivedNothingRendersUnmarked(t *testing.T) {
+	root := rosterRepo(t)
+	writeFile(t, root+"/definitions/observed.yaml",
+		"kind: definition\ndefinition: observed\nprovider: things\nkinds: [read]\ndestroy: []\ntargets: [staging]\n")
+
+	stdout, stderr, exit := runReview(t, root, "observed")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+
+	want := map[int]string{4: "read", 6: "staging"}
+	if got := markersOf(t, stdout); !maps.Equal(got, want) {
+		t.Errorf("the marker column is\n %v\nwant\n %v — the destroy: line names none and carries no mark", got, want)
+	}
+}
+
+// TestRunReview_ATargetDeclarationsGutterMarksEveryGrant is §8's roster on a
+// Target declaration: the Kinds accepted, the Capabilities granted, the hosts
+// granted, and each credential slot's environment variable — the variable's
+// name and never its value, this surface resolving no credential at all (§7,
+// §8, ADR-0007).
+func TestRunReview_ATargetDeclarationsGutterMarksEveryGrant(t *testing.T) {
+	root := rosterRepo(t)
+
+	stdout, stderr, exit := runReview(t, root, "staging")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+
+	want := map[int]string{
+		4: "read mutate DESTROY",
+		5: "http",
+		6: "api.things.dev api.things.eu",
+		8: "THINGS_API_TOKEN",
+	}
+	if got := markersOf(t, stdout); !maps.Equal(got, want) {
+		t.Errorf("the marker column is\n %v\nwant\n %v", got, want)
+	}
+}
+
+// TestRunReview_TheOptInAdmittingAnOpaqueDestroyIsMarked is the one grant a
+// Target declaration makes that no other line of it makes: the opt-in §4 fixes,
+// marked in the two tokens this vocabulary already carries.
+func TestRunReview_TheOptInAdmittingAnOpaqueDestroyIsMarked(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/targets/box.yaml",
+		"kind: target-declaration\ntarget: box\nclass: local\nkinds: [read, destroy]\n"+
+			"capabilities: [shell]\nopaque-destroy: true\n")
+
+	stdout, _, exit := runReview(t, root, "box")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got, want := markersOf(t, stdout)[6], "opaque DESTROY"; got != want {
+		t.Errorf("the opt-in is marked %q, want %q", got, want)
+	}
+}
+
+// TestRunReview_ATargetDeclarationWithNoAuthBlockRendersNoCredentialCell is the
+// absence rule this roster is read under: where a line is simply not in the
+// file there is no cell, which is a different thing from a line rendering a
+// blank one (§8).
+func TestRunReview_ATargetDeclarationWithNoAuthBlockRendersNoCredentialCell(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/targets/local.yaml",
+		"kind: target-declaration\ntarget: local\nclass: local\nkinds: [read]\ncapabilities: [shell]\n")
+
+	stdout, _, exit := runReview(t, root, "local")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+
+	want := map[int]string{4: "read", 5: "shell"}
+	if got := markersOf(t, stdout); !maps.Equal(got, want) {
+		t.Errorf("the marker column is\n %v\nwant\n %v — a declaration with no auth: has no slot to mark", got, want)
+	}
+}
+
+// TestRunReview_AManifestsGutterMarksItsSchemeItsCapabilitiesAndEachOperation
+// is §8's roster on a Manifest, and the Operations are the half of it a
+// reviewer with the file open cannot see: a Kind is declared and never inferred
+// from the name, and the Repeatability in force has no spelling in the source
+// at all (§12).
+//
+// The `auth:` line is marked with which of §12's two schemes this Manifest
+// names, which is the one thing that line does not say — the scheme is the key
+// nested beneath it, and the header it composes is what `hyper provider`
+// renders (§9, §13).
+func TestRunReview_AManifestsGutterMarksItsSchemeItsCapabilitiesAndEachOperation(t *testing.T) {
+	root := rosterRepo(t)
+
+	stdout, stderr, exit := runReview(t, root, "providers/things.yaml")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+
+	want := map[int]string{
+		5:  "http",
+		6:  "header",
+		9:  "read     repeatable",
+		18: "mutate   run-once",
+		27: "DESTROY  repeatable",
+	}
+	if got := markersOf(t, stdout); !maps.Equal(got, want) {
+		t.Errorf("the marker column is\n %v\nwant\n %v", got, want)
+	}
+}
+
+// TestRunReview_TheRepeatabilityMarkedIsTheEffectiveOne is §12's derivation
+// rendered rather than the Manifest's own key read back: an Operation omitting
+// `repeatability:` is run-once where it effects and repeatable where it reads,
+// and `run-once` is a word no artefact may write — so a reader who scanned the
+// source for it would find nothing (§12, ADR-0037).
+func TestRunReview_TheRepeatabilityMarkedIsTheEffectiveOne(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/providers/things.yaml", `kind: provider
+provider: things
+schema-version: 1
+class: things
+capabilities: [http]
+operations:
+  list_things:
+    kind: read
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /things
+    record:
+      identity: $.id
+      fields: {id: $.id}
+  end_thing:
+    kind: destroy
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /things/{thing_id}
+`)
+
+	stdout, _, exit := runReview(t, root, "things")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+
+	markers := markersOf(t, stdout)
+	if got, want := markers[7], "read     repeatable"; got != want {
+		t.Errorf("the read is marked %q, want %q — a read declaring nothing is repeatable", got, want)
+	}
+	if got, want := markers[16], "DESTROY  run-once"; got != want {
+		t.Errorf("the destroy is marked %q, want %q — an effectful Operation declaring nothing is run-once", got, want)
+	}
+	if strings.Contains(strings.Join(sourceOf(t, stdout), "\n"), "run-once") {
+		t.Errorf("the source names run-once; it is a word no artefact may write:\n%s", stdout)
+	}
+}
+
+// TestRunReview_AManifestWithNoAuthBlockRendersNoSchemeCell is the Manifest's
+// half of the absence rule: `none` is what a row renders for a Provider that
+// sends no credential, and a line that is not in the file has no cell for it
+// (§8, §13).
+func TestRunReview_AManifestWithNoAuthBlockRendersNoSchemeCell(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/providers/things.yaml", providerDeclaring)
+
+	stdout, _, exit := runReview(t, root, "things")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	for line, marker := range markersOf(t, stdout) {
+		if strings.Contains(marker, "none") || strings.Contains(marker, "header") {
+			t.Errorf("line %d is marked %q; this Manifest names no scheme and has no line to mark", line, marker)
+		}
+	}
+}
+
+// TestRunReview_TheBuiltinManifestMarksAllSixOfItsOperations is the Manifest
+// roster read over the bytes compiled into the binary, which is the case that
+// needs the marker composition whole: every one of the six Operations is
+// Opaque, two of them `destroy`, and two state their Repeatability by omission
+// (§11, ADR-0039).
+func TestRunReview_TheBuiltinManifestMarksAllSixOfItsOperations(t *testing.T) {
+	root := newRepo(t)
+
+	stdout, stderr, exit := runReview(t, root, "shell")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want the built-in Manifest rendered", exit, stderr)
+	}
+
+	operations := 0
+	destroys := 0
+	for _, marker := range markersOf(t, stdout) {
+		if !strings.Contains(marker, "opaque") {
+			continue
+		}
+		operations++
+		if strings.Contains(marker, "DESTROY") {
+			destroys++
+		}
+	}
+	if operations != 6 || destroys != 2 {
+		t.Errorf("%d Operations are marked opaque and %d of them DESTROY, want 6 and 2:\n%s", operations, destroys, stdout)
+	}
+	if got, want := markersOf(t, stdout)[5], "shell"; got != want {
+		t.Errorf("the capabilities: line is marked %q, want %q", got, want)
+	}
+}
+
+// TestRunReview_ARepositoryDeclarationsGutterMarksThePinAndTheRetention is §8's
+// roster on the artefact that governs every Run: the version pin every Run is
+// gated on, and the retention policy that bounds Compaction (§3, §11).
+func TestRunReview_ARepositoryDeclarationsGutterMarksThePinAndTheRetention(t *testing.T) {
+	root := rosterRepo(t)
+
+	stdout, stderr, exit := runReview(t, root, "hyper.yaml")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+
+	want := map[int]string{2: "1.4.0", 4: "90d"}
+	if got := markersOf(t, stdout); !maps.Equal(got, want) {
+		t.Errorf("the marker column is\n %v\nwant\n %v — the digest is hyper's own writing and carries no mark", got, want)
+	}
+}
+
+// TestRunReview_ARepositoryDeclarationWithNoRetentionRendersNoRetentionCell is
+// the last of the four absences: a repository whose Records are never removed
+// writes no `retention:`, so there is no line and therefore no cell (§8).
+func TestRunReview_ARepositoryDeclarationWithNoRetentionRendersNoRetentionCell(t *testing.T) {
+	root := newRepo(t)
+
+	stdout, _, exit := runReview(t, root, "hyper.yaml")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+
+	want := map[int]string{2: "1.4.0"}
+	if got := markersOf(t, stdout); !maps.Equal(got, want) {
+		t.Errorf("the marker column is\n %v\nwant\n %v", got, want)
+	}
+}
+
+// TestRunReview_TheMarkerColumnIsHeadedByTheArtefactsOwnKind is §8's heading on
+// all five: the kind of the artefact being read, where a header naming blast
+// radius would describe a Procedure's marks and a Definition's and misdescribe
+// a Target declaration's hosts and a Repository declaration's retention policy.
+func TestRunReview_TheMarkerColumnIsHeadedByTheArtefactsOwnKind(t *testing.T) {
+	root := rosterRepo(t)
+
+	for _, c := range []struct{ named, want string }{
+		{"definitions/things.yaml", "DEFINITION"},
+		{"procedures/subject.yaml", "PROCEDURE"},
+		{"providers/things.yaml", "MANIFEST"},
+		{"staging", "TARGET"},
+		{"hyper.yaml", "REPOSITORY"},
+	} {
+		stdout, _, exit := runReview(t, root, c.named)
+		if exit != cli.ExitClean {
+			t.Fatalf("hyper review %s exited %d, want a clean review", c.named, exit)
+		}
+		if got := headingOf(t, stdout); got != c.want {
+			t.Errorf("hyper review %s heads the marker column %q, want %q", c.named, got, c.want)
+		}
+	}
+}
+
+// headingOf is the word at the top of the marker column, read back off the
+// page: whatever stands left of the bar on the header's first line.
+func headingOf(t *testing.T, page string) string {
+	t.Helper()
+
+	first := strings.SplitN(page, "\n", 2)[0]
+	bar := strings.Index(first, "│")
+	if bar < 0 {
+		t.Fatalf("the header's first line %q carries no gutter; every rendered line does", first)
+	}
+	return strings.TrimSpace(first[:bar])
+}
+
+// TestRunReview_TheChangeColumnIsAColumnOnAllFiveAndZeroWideOnAllFive is §8's
+// statement about which artefacts *have* a range rather than about which
+// renderings carry one: no kind is exempt from the column, and in this
+// milestone the supply is missing everywhere, so the source sits one character
+// right of the bar on every one of the five.
+func TestRunReview_TheChangeColumnIsAColumnOnAllFiveAndZeroWideOnAllFive(t *testing.T) {
+	root := rosterRepo(t)
+
+	for _, named := range []string{"definitions/things.yaml", "procedures/subject.yaml", "providers/things.yaml", "staging", "hyper.yaml"} {
+		stdout, _, exit := runReview(t, root, named)
+		if exit != cli.ExitClean {
+			t.Fatalf("hyper review %s exited %d, want a clean review", named, exit)
+		}
+		for _, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+			bar := strings.Index(line, "│")
+			if bar < 0 {
+				continue
+			}
+			if rest := line[bar+len("│"):]; rest != "" && !strings.HasPrefix(rest, " ") {
+				t.Errorf("hyper review %s renders %q, want one character between the bar and the line", named, line)
+			}
+		}
+		if strings.Contains(stdout, "~") {
+			t.Errorf("hyper review %s carries a change mark; no range opens in this milestone:\n%s", named, stdout)
+		}
+	}
+}
+
+// TestRunReview_TheWireCarriesGutterRowsOnAllFourOtherArtefacts is §8's
+// `gutter` row on the four rosters this ticket lands, on the same contract as a
+// Procedure's: one row per rendered line with content, carrying the string the
+// page renders with its alignment padding collapsed to single spaces, and never
+// a decomposition of it (§8, ADR-0063).
+func TestRunReview_TheWireCarriesGutterRowsOnAllFourOtherArtefacts(t *testing.T) {
+	root := rosterRepo(t)
+
+	for _, c := range []struct {
+		named string
+		want  []string
+	}{
+		{"definitions/things.yaml", []string{
+			`{"type":"gutter","line":4,"marker":"mutate DESTROY"}`,
+			`{"type":"gutter","line":5,"marker":"DESTROY end_thing"}`,
+			`{"type":"gutter","line":6,"marker":"staging"}`,
+		}},
+		{"staging", []string{
+			`{"type":"gutter","line":4,"marker":"read mutate DESTROY"}`,
+			`{"type":"gutter","line":5,"marker":"http"}`,
+			`{"type":"gutter","line":6,"marker":"api.things.dev api.things.eu"}`,
+			`{"type":"gutter","line":8,"marker":"THINGS_API_TOKEN"}`,
+		}},
+		{"providers/things.yaml", []string{
+			`{"type":"gutter","line":5,"marker":"http"}`,
+			`{"type":"gutter","line":6,"marker":"header"}`,
+			`{"type":"gutter","line":9,"marker":"read repeatable"}`,
+			`{"type":"gutter","line":18,"marker":"mutate run-once"}`,
+			`{"type":"gutter","line":27,"marker":"DESTROY repeatable"}`,
+		}},
+		{"hyper.yaml", []string{
+			`{"type":"gutter","line":2,"marker":"1.4.0"}`,
+			`{"type":"gutter","line":4,"marker":"90d"}`,
+		}},
+	} {
+		stdout, _, exit := runReview(t, root, c.named, "--json")
+		if exit != cli.ExitClean {
+			t.Fatalf("hyper review %s --json exited %d, want a clean review", c.named, exit)
+		}
+
+		var rows []string
+		for _, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+			if strings.Contains(line, `"type":"gutter"`) {
+				rows = append(rows, line)
+			}
+		}
+		if !slices.Equal(rows, c.want) {
+			t.Errorf("hyper review %s --json carries\n %q\nwant\n %q", c.named, rows, c.want)
+		}
+	}
+}
+
+// TestRunReview_UnresolvedRendersOnNoArtefactButAProcedure is the other side of
+// the supply rule: three of the five artefacts name no artefact at all and a
+// Definition names one that reaches nothing on this screen, so `unresolved` —
+// §8's one mark for a name the gutter must follow that resolves to nothing —
+// has nothing to fire on but a Step (§8, ADR-0064).
+func TestRunReview_UnresolvedRendersOnNoArtefactButAProcedure(t *testing.T) {
+	root := newRepo(t)
+	// Every name one of these four artefacts writes for another, pointed at
+	// nothing: a Definition's Provider and its Targets, a Target
+	// declaration's class, a Procedure's own targets:.
+	writeFile(t, root+"/definitions/orphan.yaml",
+		"kind: definition\ndefinition: orphan\nprovider: not-there\nkinds: [read]\ntargets: [nowhere]\n")
+	writeFile(t, root+"/targets/lonely.yaml",
+		"kind: target-declaration\ntarget: lonely\nclass: not-there\nkinds: [read]\ncapabilities: [shell]\n")
+	writeFile(t, root+"/providers/things.yaml", providerDeclaring)
+
+	for _, named := range []string{"orphan", "lonely", "things", "hyper.yaml"} {
+		stdout, _, exit := runReview(t, root, named)
+		if exit != cli.ExitClean {
+			t.Fatalf("hyper review %s exited %d, want a clean review", named, exit)
+		}
+		for line, marker := range markersOf(t, stdout) {
+			if strings.Contains(marker, "unresolved") {
+				t.Errorf("hyper review %s marks line %d %q; unresolved is a Procedure's mark and no other artefact's", named, line, marker)
+			}
 		}
 	}
 }

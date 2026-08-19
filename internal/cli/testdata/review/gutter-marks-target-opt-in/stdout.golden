@@ -1,0 +1,13 @@
+  TARGET          │  targets/local.yaml                      no baseline — no Store
+  ────────────────┼────────────────────────────────────────────────────────────────
+                  │ kind: target-declaration
+                  │ target: local
+                  │ class: local
+  read DESTROY    │ kinds: [read, destroy]
+  shell           │ capabilities: [shell]
+  opaque DESTROY  │ opaque-destroy: true
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION        TARGET  DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS
+  commands          local   read              read destroy  r          —
+  commands-destroy  local   destroy           read destroy  d          destroy

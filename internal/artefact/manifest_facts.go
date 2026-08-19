@@ -19,6 +19,14 @@ import (
 // the scheme's (ADR-0007, ADR-0031).
 const SecretMarker = "<secret>"
 
+// authSchemes is §12's closed Auth scheme set in §12's own order, and it is one
+// list because every reading of it reads the same closed set: the check that
+// refuses a Manifest naming neither scheme or both, the slot names a
+// (Definition, Target) binding is checked against, the position a credential is
+// composed into, and the scheme a review's gutter marks the auth: line with
+// (§4, §5, §8, §13).
+var authSchemes = []string{"header", "basic"}
+
 // authSchemeNone is what a Provider carrying no auth: block composes, and §12
 // fixes the word: an undeclared default rendered in words rather than an empty
 // cell, because a Provider naming no scheme sends no credential — a fact about

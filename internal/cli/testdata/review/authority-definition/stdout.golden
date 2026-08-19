@@ -1,11 +1,11 @@
-  DEFINITION  │  definitions/things.yaml                 no baseline — no Store
-  ────────────┼────────────────────────────────────────────────────────────────
-              │ kind: definition
-              │ definition: things
-              │ provider: things
-              │ kinds: [mutate]
-              │ destroy: [end_thing]
-              │ targets: [staging, observed-only, wont-parse, nowhere]
+  DEFINITION                                │  definitions/things.yaml                 no baseline — no Store
+  ──────────────────────────────────────────┼────────────────────────────────────────────────────────────────
+                                            │ kind: definition
+                                            │ definition: things
+                                            │ provider: things
+  mutate                                    │ kinds: [mutate]
+  DESTROY end_thing                         │ destroy: [end_thing]
+  staging observed-only wont-parse nowhere  │ targets: [staging, observed-only, wont-parse, nowhere]
 
   AUTHORITY   assembled from definitions/ and targets/
   DEFINITION  TARGET         DEFINITION KINDS  TARGET KINDS         EFFECTIVE   DESTROY OPS

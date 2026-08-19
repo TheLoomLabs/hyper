@@ -35,6 +35,26 @@ Target its own Procedure never declared — and it exits `0` too. A review does
 not run `check` (§9), so an artefact carrying `envelope-exceeded` renders like
 any other and the mark is the whole of what says so.
 
+`targets/local.yaml` is the fifth artefact this repository renders, and it is
+here for one mark: the opt-in that admits an `opaque` `destroy` (issue #122).
+
+```
+hyper review local
+```
+
+| line | marker | what it is |
+| --- | --- | --- |
+| `kinds:` | `read DESTROY` | the Kinds accepted, `destroy` spelled as it is spelled everywhere |
+| `capabilities:` | `shell` | the Capability granted |
+| `opaque-destroy:` | `opaque DESTROY` | the grant §4 fixes, in the two tokens the vocabulary already carries |
+
+It carries no `auth:` block — a declaration named `local` may not (§4) — so it
+renders no credential-slot cell: where a line is simply not in the file there is
+no cell, which is a different thing from a line rendering a blank one. The other
+three rosters — a Definition's, a Manifest's and a Repository declaration's —
+render on the five-artefact demonstration repository next door, which has one of
+each and checks clean.
+
 The Definitions come in pairs — `things` beside `things-observed`, `commands`
 beside `commands-destroy` — because a Definition observes or effects and never
 both (ADR-0032), and a `read` Step and an effectful one against one Provider and
@@ -45,9 +65,10 @@ one Target are two Definitions rather than one.
 
 ## Why it is a repository and not a case
 
-Three review cases read it — the Procedure rendered, the same as NDJSON, and the
-envelope's exceeded state — on the argument `five-artefact-demo/` already
-carries: a copy per case is a fixture edit that reaches one golden file and not
-another, and this repository's whole subject is that the two surfaces render the
-same facts. The cases stay in `review/`, named for the command their argv
-invokes, and name this repository with the `--repo-dir` an operator would type.
+Four review cases read it — the Procedure rendered, the same as NDJSON, the
+envelope's exceeded state, and the Target declaration's opt-in — on the argument
+`five-artefact-demo/` already carries: a copy per case is a fixture edit that
+reaches one golden file and not another, and this repository's whole subject is
+that the two surfaces render the same facts. The cases stay in `review/`, named
+for the command their argv invokes, and name this repository with the
+`--repo-dir` an operator would type.

@@ -1,2 +1,9 @@
 {"type":"artefact","kind":"provider","baseline_absent":"built-in"}
+{"type":"gutter","line":5,"marker":"shell"}
+{"type":"gutter","line":7,"marker":"read repeatable opaque"}
+{"type":"gutter","line":22,"marker":"mutate repeatable opaque"}
+{"type":"gutter","line":37,"marker":"mutate run-once opaque"}
+{"type":"gutter","line":51,"marker":"mutate skip-if-recorded opaque"}
+{"type":"gutter","line":66,"marker":"DESTROY repeatable opaque"}
+{"type":"gutter","line":75,"marker":"DESTROY run-once opaque"}
 {"type":"result","truncated":false}

@@ -1,13 +1,13 @@
-  TARGET  │  targets/staging.yaml                    no baseline — no Store
-  ────────┼────────────────────────────────────────────────────────────────
-          │ kind: target-declaration
-          │ target: staging
-          │ class: things
-          │ kinds: [read, mutate, destroy]
-          │ capabilities: [http]
-          │ hosts: [api.things.dev]
-          │ auth:
-          │   token: {env: THINGS_API_TOKEN}
+  TARGET               │  targets/staging.yaml                    no baseline — no Store
+  ─────────────────────┼────────────────────────────────────────────────────────────────
+                       │ kind: target-declaration
+                       │ target: staging
+                       │ class: things
+  read mutate DESTROY  │ kinds: [read, mutate, destroy]
+  http                 │ capabilities: [http]
+  api.things.dev       │ hosts: [api.things.dev]
+                       │ auth:
+  THINGS_API_TOKEN     │   token: {env: THINGS_API_TOKEN}
 
   AUTHORITY   assembled from definitions/ and targets/
   DEFINITION       TARGET   DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS

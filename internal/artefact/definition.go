@@ -447,9 +447,7 @@ func targetInfoFromDeclaration(root *yaml.Node) TargetInfo {
 	for _, kind := range scalarSequence(fields["kinds"]) {
 		info.Kinds[kind] = true
 	}
-	if opaqueVal := fields["opaque-destroy"]; opaqueVal != nil && opaqueVal.Kind == yaml.ScalarNode {
-		info.OpaqueDestroy = opaqueVal.Value == "true"
-	}
+	info.OpaqueDestroy = grantsOpaqueDestroy(root)
 	// hosts: is read as a set here and as an enumeration by ReadTargetFacts,
 	// two readings of one key: a check asks whether a candidate is granted,
 	// and a row states what the grant is. The set stays nil where the
@@ -475,7 +473,7 @@ func authSlotNames(root *yaml.Node) []string {
 	if authVal == nil || authVal.Kind != yaml.MappingNode {
 		return nil
 	}
-	fields := topLevelFields(authVal, "header", "basic")
+	fields := topLevelFields(authVal, authSchemes...)
 	switch {
 	case fields["header"] != nil:
 		return []string{"token"}

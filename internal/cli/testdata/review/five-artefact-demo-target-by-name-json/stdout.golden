@@ -1,4 +1,8 @@
 {"type":"artefact","kind":"target-declaration","path":"targets/cloudflare-prod.yaml","baseline_absent":"no-store"}
+{"type":"gutter","line":4,"marker":"read mutate DESTROY"}
+{"type":"gutter","line":5,"marker":"http"}
+{"type":"gutter","line":6,"marker":"api.cloudflare.com"}
+{"type":"gutter","line":8,"marker":"CLOUDFLARE_API_TOKEN"}
 {"type":"authority","definition":"preview-dns","target":"cloudflare-prod","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["delete_dns_record"]}
 {"type":"authority","definition":"preview-dns-observed","target":"cloudflare-prod","definition_kinds":["read"],"target_kinds":["read","mutate","destroy"],"effective":["read"],"destroy_operations":[]}
 {"type":"result","truncated":false}

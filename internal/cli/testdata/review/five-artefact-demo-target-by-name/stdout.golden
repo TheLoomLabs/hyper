@@ -1,13 +1,13 @@
-  TARGET  │  targets/cloudflare-prod.yaml            no baseline — no Store
-  ────────┼────────────────────────────────────────────────────────────────
-          │ kind: target-declaration
-          │ target: cloudflare-prod
-          │ class: cloudflare
-          │ kinds: [read, mutate, destroy]
-          │ capabilities: [http]
-          │ hosts: [api.cloudflare.com]
-          │ auth:
-          │   token: {env: CLOUDFLARE_API_TOKEN}
+  TARGET                │  targets/cloudflare-prod.yaml            no baseline — no Store
+  ──────────────────────┼────────────────────────────────────────────────────────────────
+                        │ kind: target-declaration
+                        │ target: cloudflare-prod
+                        │ class: cloudflare
+  read mutate DESTROY   │ kinds: [read, mutate, destroy]
+  http                  │ capabilities: [http]
+  api.cloudflare.com    │ hosts: [api.cloudflare.com]
+                        │ auth:
+  CLOUDFLARE_API_TOKEN  │   token: {env: CLOUDFLARE_API_TOKEN}
 
   AUTHORITY   assembled from definitions/ and targets/
   DEFINITION            TARGET           DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS

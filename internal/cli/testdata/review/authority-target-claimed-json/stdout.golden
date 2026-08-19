@@ -1,4 +1,8 @@
 {"type":"artefact","kind":"target-declaration","path":"targets/staging.yaml","baseline_absent":"no-store"}
+{"type":"gutter","line":4,"marker":"read mutate DESTROY"}
+{"type":"gutter","line":5,"marker":"http"}
+{"type":"gutter","line":6,"marker":"api.things.dev"}
+{"type":"gutter","line":8,"marker":"THINGS_API_TOKEN"}
 {"type":"authority","definition":"things","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["end_thing"]}
 {"type":"authority","definition":"things-observed","target":"staging","definition_kinds":["read"],"target_kinds":["read","mutate","destroy"],"effective":["read"],"destroy_operations":[]}
 {"type":"result","truncated":false}

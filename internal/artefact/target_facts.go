@@ -102,6 +102,17 @@ func envVariable(val *yaml.Node) string {
 	return ""
 }
 
+// grantsOpaqueDestroy reports whether a Target declaration opts into admitting
+// an opaque destroy — the one grant §4 states as a boolean rather than as a set.
+//
+// It is one reader because the check that refuses a claim this Target never
+// admitted and the mark a review renders beside the opt-in are one question
+// about one line: a second reading is where the day comes that a Definition is
+// refused for a grant the gutter says was made (§4, §5, §8).
+func grantsOpaqueDestroy(root *yaml.Node) bool {
+	return scalarValue(topLevelFields(root, "opaque-destroy")["opaque-destroy"]) == "true"
+}
+
 // TargetDeclarationName is the name a Target declaration declares for itself,
 // or "" where its target: is absent or is not a plain scalar. It is exported
 // for ManifestProviderName's own reason: the Target namespace is not the only

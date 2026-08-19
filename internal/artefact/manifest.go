@@ -424,7 +424,7 @@ func authOwnedHeaderName(root *yaml.Node) string {
 	if authVal == nil || authVal.Kind != yaml.MappingNode {
 		return ""
 	}
-	fields := topLevelFields(authVal, "header", "basic")
+	fields := topLevelFields(authVal, authSchemes...)
 	if headerVal := fields["header"]; headerVal != nil {
 		if headerVal.Kind != yaml.MappingNode {
 			return ""
@@ -1180,8 +1180,8 @@ func checkAuth(file string, root *yaml.Node) []problem.Problem {
 	if authVal == nil || authVal.Kind != yaml.MappingNode {
 		return nil
 	}
-	problems := checkExactlyOneOf(file, "auth", authVal, []string{"header", "basic"})
-	fields := topLevelFields(authVal, "header", "basic")
+	problems := checkExactlyOneOf(file, "auth", authVal, authSchemes)
+	fields := topLevelFields(authVal, authSchemes...)
 	if headerVal := fields["header"]; headerVal != nil {
 		problems = append(problems, schema.CheckAt(headerVal, authHeaderDeclaration, "auth.header", file)...)
 		problems = append(problems, checkAuthHoles(file, "auth.header", headerVal)...)
