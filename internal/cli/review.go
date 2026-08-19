@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
+	"github.com/TheLoomLabs/hyper/internal/cadence"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
@@ -131,6 +132,7 @@ type reviewedArtefact struct {
 	kind     artefactKind
 	path     string
 	name     string
+	cadence  string
 	source   []string
 	problems []problem.Problem
 }
@@ -139,6 +141,11 @@ type reviewedArtefact struct {
 // and it is one constructor because the two forms of the positional resolve to
 // the same value: which form found it is a fact about the argument and not
 // about the artefact.
+//
+// The Cadence is read on a Procedure and nowhere else. It is a Procedure's
+// declaration (§10), so a key of that name on another artefact is not one — and
+// reading it by kind rather than by key is what keeps the header from glossing
+// something no author declared.
 //
 // The one artefact with no file in the repository carries no path here. The
 // load gives it a pseudo-path so that it is a member on the same footing as the
@@ -150,10 +157,15 @@ func newReviewedArtefact(a repository.LoadedArtefact, kind artefactKind) reviewe
 	if file == artefact.BuiltinShellProviderPath {
 		file = ""
 	}
+	declared := ""
+	if kind.wire == artefact.KindProcedure {
+		declared = artefact.ProcedureCadence(a.Root)
+	}
 	return reviewedArtefact{
 		kind:     kind,
 		path:     file,
 		name:     artefact.DeclaredName(a.Root, kind.nameKey),
+		cadence:  declared,
 		source:   artefact.SourceLines(a.Bytes),
 		problems: a.Problems,
 	}
@@ -385,6 +397,23 @@ func ambiguousArtefactName(named string, matched []reviewedArtefact) string {
 // recorded a revision of what has none. The name already on the row is the
 // discriminator and a second key would carry that fact twice (§8, ADR-0068).
 //
+// The gloss arrives as its parts and never as the composed string. A `gutter`
+// row goes the other way and says why — a decomposition is a second rendering
+// of one fact, and the second one can be wrong about the first — but a marker
+// is one derived fact in one cell, where the gloss is several facts with
+// several supplies sharing a line. Carrying both the parts and the string would
+// be the failure that row names (§8, ADR-0063).
+//
+// rate is a pointer because zero is a rate: an expression the calendar has no
+// instance of matches nothing, and a `rate` key merely missing where the gloss
+// rendered would be the omission this screen forbids everywhere else (ADR-0026).
+//
+// `last_run` is not here, and its absence is one absence and not two: the range
+// and *last ran* read the same Journal entry under the same filter, so the
+// header states it once on the range's line and this line carries only what the
+// artefact's own bytes supply. There is no Store in this milestone to hold one
+// either way (§8, §10).
+//
 // baseline and baseline_absent are the two halves of one member: a review with
 // a range carries the revision it opened at, and one with none carries which of
 // §12's four names it is, a key merely missing collapsing four different facts
@@ -393,21 +422,47 @@ func ambiguousArtefactName(named string, matched []reviewedArtefact) string {
 // and a member declared against nothing is the stub the absence pipeline below
 // refuses for the same reason: it arrives with the supply that fills it.
 type artefactRow struct {
-	Type           string `json:"type"`
-	Kind           string `json:"kind"`
-	Path           string `json:"path,omitempty"`
-	BaselineAbsent string `json:"baseline_absent,omitempty"`
+	Type           string   `json:"type"`
+	Kind           string   `json:"kind"`
+	Path           string   `json:"path,omitempty"`
+	BaselineAbsent string   `json:"baseline_absent,omitempty"`
+	Cadence        string   `json:"cadence,omitempty"`
+	Phrase         string   `json:"phrase,omitempty"`
+	Rate           *float64 `json:"rate,omitempty"`
+
+	// rateText is the rate in the notation the page renders it in — the
+	// `≈` where it was rounded, and the unit fixed at runs per month (§10).
+	// It is off the wire because the wire carries the number, and it is on
+	// the row because the page is written from the rows (ADR-0026): both
+	// come out of one reading of the expression, so the digits the page
+	// renders and the number the row carries are one rounding and cannot
+	// disagree.
+	rateText string
 }
 
 // newArtefactRow is the header as one row: the kind, the path where there is a
-// file, and the name the absence pipeline ranked.
+// file, the name the absence pipeline ranked, and — where the artefact declares
+// a Cadence §10's grammar admits — the gloss's parts.
+//
+// An expression outside that grammar carries no gloss and is not refused:
+// `cadence-malformed` is §12's static check and lands with the milestone that
+// projects a Cadence into a workflow. Until it does, a review renders such an
+// artefact like any other and says nothing about it — the gloss is a reading of
+// the grammar, and what is not in the grammar has no reading (§10, ADR-0064).
 func newArtefactRow(reviewed reviewedArtefact, absent string) artefactRow {
-	return artefactRow{
+	row := artefactRow{
 		Type:           "artefact",
 		Kind:           reviewed.kind.wire,
 		Path:           reviewed.path,
 		BaselineAbsent: absent,
 	}
+	if gloss, readable := cadence.Read(reviewed.cadence); readable {
+		row.Cadence = gloss.Expression
+		row.Phrase = gloss.Phrase
+		row.Rate = &gloss.Rate
+		row.rateText = gloss.RateText
+	}
+	return row
 }
 
 // Cells is empty: the header is a block of one fact per line rather than a line
@@ -579,13 +634,27 @@ func (r artefactRow) markerHeading() string { return kindByWire(r.Kind).word }
 // dropped, and the width it would have taken is not left as blank run-up —
 // whitespace where a member was is omission wearing a rendering (ADR-0068).
 //
-// The Cadence gloss is the header's second line and is not here: it is a
-// Procedure's, it reads §10's phrase and rate, and it lands with them.
+// The second line is the Cadence gloss, and it takes a line of its own rather
+// than being composed onto the first: composed, the screen's width would depend
+// on how awkwardly an expression glosses, and §10's grammar admits expressions
+// that gloss at very different lengths. It sits above the rule, because below
+// it it would stand directly over `kind: procedure` and read as an annotation
+// of that line, which is the one thing the header may not be (§8, ADR-0063).
+//
+// An artefact with no Cadence beneath it renders a one-line header: the gloss's
+// absence takes the line rather than leaving one blank.
 func headerFacts(header artefactRow, sentence string) []string {
+	first := inColumn(header.Path, reviewPathColumn) + sentence
 	if header.Path == "" {
-		return []string{sentence}
+		first = sentence
 	}
-	return []string{inColumn(header.Path, reviewPathColumn) + sentence}
+	if header.Phrase == "" {
+		return []string{first}
+	}
+	// How the parts are arranged is the surface's, and what they are is
+	// not (§10). On a header they share one line, separated by `·`, the
+	// expression already being on the `cadence:` line below.
+	return []string{first, header.Phrase + " · " + header.rateText}
 }
 
 // gutter is one line's left-hand side: the indent, the marker cell padded to

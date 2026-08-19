@@ -465,3 +465,179 @@ func TestRunReview_ResolvesNoCredential(t *testing.T) {
 		}
 	}
 }
+
+// procedureDeclaring is a Procedure written around one Cadence: the least
+// artefact that carries the header's second line, so that a case about the
+// gloss is about the gloss.
+func procedureDeclaring(cadence string) string {
+	return "kind: procedure\nprocedure: nightly\ntargets: [local]\ncadence: \"" + cadence + "\"\nsteps: []\n"
+}
+
+// headerOf is the header a review rendered, read back off the page: the lines
+// above the rule, each with the gutter that prefixes it taken off.
+func headerOf(t *testing.T, page string) []string {
+	t.Helper()
+
+	var header []string
+	for _, line := range strings.Split(strings.TrimSuffix(page, "\n"), "\n") {
+		if strings.Contains(line, "┼") {
+			return header
+		}
+		bar := strings.Index(line, "│")
+		if bar < 0 {
+			t.Fatalf("line %q above the rule carries no gutter; every rendered line does", line)
+		}
+		header = append(header, strings.TrimPrefix(line[bar+len("│"):], "  "))
+	}
+	t.Fatalf("the page carries no rule:\n%s", page)
+	return nil
+}
+
+// TestRunReview_TheWorkedExpressionsRenderOnTheHeadersSecondLine drives §10's
+// eleven worked expressions through a Procedure header, which is the gloss's
+// first consumer and the surface the rule was written for (§8, ADR-0063).
+//
+// The phrases are the specification's own, copied byte for byte: a phrase that
+// differs by a byte is a different sentence, and a reader who checks a gloss
+// against §10 is checking exactly this.
+func TestRunReview_TheWorkedExpressionsRenderOnTheHeadersSecondLine(t *testing.T) {
+	for _, worked := range []struct{ cadence, gloss string }{
+		{"0 3 * * 1", "03:00 UTC every Monday · ≈4.3 runs/month"},
+		{"0 0 1 * *", "00:00 UTC on the 1st of the month · 1 run/month"},
+		{"0 0 * * *", "00:00 UTC every day · ≈30 runs/month"},
+		{"*/5 * * * *", "every 5 minutes · ≈8800 runs/month"},
+		{"*/7 * * * *", "at :00, :07, :14, :21, :28, :35, :42, :49 and :56 past every hour · ≈6600 runs/month"},
+		{"0-59 * * * *", "every minute from :00 to :59 past every hour · ≈44000 runs/month"},
+		{"0 9,17 * * 1-5", "09:00 and 17:00 UTC every day from Monday to Friday · ≈43 runs/month"},
+		{"0 9-17 * * *", "at :00 past every hour from 09:00 to 17:00 UTC, every day · ≈270 runs/month"},
+		{"0 0 1 * 1", "00:00 UTC on the 1st of the month or any Monday · ≈5.2 runs/month"},
+		{"0 0 1 */3 *", "00:00 UTC on the 1st in January, April, July and October · ≈0.33 runs/month"},
+		{"0 0 29 2 *", "00:00 UTC on the 29th of February · ≈0.020 runs/month"},
+	} {
+		root := newRepo(t)
+		writeFile(t, root+"/procedures/nightly.yaml", procedureDeclaring(worked.cadence))
+
+		stdout, stderr, exit := runReview(t, root, "nightly")
+		if exit != cli.ExitClean || stderr != "" {
+			t.Fatalf("%s: exit = %d, stderr = %q, want a clean review", worked.cadence, exit, stderr)
+		}
+		header := headerOf(t, stdout)
+		if len(header) != 2 {
+			t.Fatalf("%s: the header is %q, want two lines", worked.cadence, header)
+		}
+		if header[1] != worked.gloss {
+			t.Errorf("%s glossed\n %q\nwant\n %q", worked.cadence, header[1], worked.gloss)
+		}
+	}
+}
+
+// TestRunReview_AnArtefactWithNoCadenceRendersAOneLineHeader is the other half
+// of the rule: the gloss's absence takes the line rather than leaving one blank
+// (§8). A Procedure declaring none and every artefact that could not declare one
+// answer the same way, the header keying on the supply rather than on the kind.
+func TestRunReview_AnArtefactWithNoCadenceRendersAOneLineHeader(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/procedures/by-hand.yaml", "kind: procedure\nprocedure: by-hand\ntargets: [local]\nsteps: []\n")
+	writeFile(t, root+"/targets/local.yaml", "kind: target-declaration\ntarget: local\nclass: local\nkinds: [read]\n")
+
+	for _, named := range []string{"by-hand", "local", "hyper.yaml", "shell"} {
+		stdout, _, exit := runReview(t, root, named)
+		if exit != cli.ExitClean {
+			t.Fatalf("hyper review %s exited %d, want a clean review", named, exit)
+		}
+		if header := headerOf(t, stdout); len(header) != 1 {
+			t.Errorf("hyper review %s rendered the header %q, want one line", named, header)
+		}
+	}
+}
+
+// TestRunReview_TheGlossIsAboveTheRule is where §8 puts it and why: below the
+// rule it would sit directly over `kind: procedure` and read as an annotation
+// of that line, which is the one thing the header may not be (ADR-0063).
+func TestRunReview_TheGlossIsAboveTheRule(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/procedures/nightly.yaml", procedureDeclaring("0 3 * * 1"))
+
+	stdout, _, exit := runReview(t, root, "nightly")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	gloss := strings.Index(stdout, "03:00 UTC every Monday")
+	rule := strings.Index(stdout, "┼")
+	if gloss < 0 || rule < 0 || gloss > rule {
+		t.Errorf("the gloss is not above the rule:\n%s", stdout)
+	}
+	if source := sourceOf(t, stdout); slices.ContainsFunc(source, func(line string) bool {
+		return strings.Contains(line, "runs/month")
+	}) {
+		t.Errorf("the gloss rendered among the source lines:\n%s", stdout)
+	}
+}
+
+// TestRunReview_TheWireCarriesTheGlossesPartsAndNeverTheComposedString is §8's
+// `artefact` row with the Cadence on it: the expression as written, the phrase,
+// and the rate as a JSON number at the two significant figures the page rounded
+// to. Carrying the composed string beside them would be one fact in two
+// representations that can disagree (§8, §10, ADR-0063).
+//
+// `last_run` is absent: one Journal absence serves both readings of the missing
+// entry, so the header states it once on the range's line and this line carries
+// only what the artefact's own bytes supply.
+func TestRunReview_TheWireCarriesTheGlossesPartsAndNeverTheComposedString(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/procedures/nightly.yaml", procedureDeclaring("0 3 * * 1"))
+
+	stdout, _, exit := runReview(t, root, "nightly", "--json")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+
+	want := []string{
+		`{"type":"artefact","kind":"procedure","path":"procedures/nightly.yaml","baseline_absent":"no-store","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3}`,
+		`{"type":"result","truncated":false}`,
+	}
+	if got := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n"); !slices.Equal(got, want) {
+		t.Errorf("the stream is\n %q\nwant\n %q", got, want)
+	}
+	if strings.Contains(stdout, "last_run") {
+		t.Errorf("the row carries last_run:\n%s", stdout)
+	}
+}
+
+// TestRunReview_AnUnreadableCadenceRendersNoGloss holds what this milestone
+// does not do: `cadence-malformed` is §12's static check and is not implemented
+// here, so an expression outside §10's grammar is not refused. The review
+// renders the artefact and exits clean, with no gloss to render and no line
+// taken for one.
+func TestRunReview_AnUnreadableCadenceRendersNoGloss(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/procedures/nightly.yaml", procedureDeclaring("@hourly"))
+
+	stdout, stderr, exit := runReview(t, root, "nightly")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want the artefact rendered and nothing refused", exit, stderr)
+	}
+	if header := headerOf(t, stdout); len(header) != 1 {
+		t.Errorf("the header is %q, want the one line an artefact with no readable Cadence renders", header)
+	}
+	if !slices.Contains(sourceOf(t, stdout), `cadence: "@hourly"`) {
+		t.Errorf("the artefact's own line is missing:\n%s", stdout)
+	}
+}
+
+// TestRunReview_ACadenceOnAnArtefactThatIsNotAProcedureIsNotOne holds the
+// supply: a Cadence is a Procedure's, and a key of that name anywhere else is
+// not a recurrence for this header to gloss (§10).
+func TestRunReview_ACadenceOnAnArtefactThatIsNotAProcedureIsNotOne(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/targets/local.yaml",
+		"kind: target-declaration\ntarget: local\nclass: local\nkinds: [read]\ncadence: \"0 3 * * 1\"\n")
+
+	stdout, _, exit := runReview(t, root, "local")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if header := headerOf(t, stdout); len(header) != 1 {
+		t.Errorf("the header is %q, want one line: a Target declaration declares no Cadence", header)
+	}
+}

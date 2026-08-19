@@ -1,4 +1,5 @@
   PROCEDURE  │  procedures/retire-preview-dns.yaml      no baseline — no Store
+             │  03:00 UTC every Monday · ≈4.3 runs/month
   ───────────┼────────────────────────────────────────────────────────────────
              │ kind: procedure
              │ procedure: retire-preview-dns

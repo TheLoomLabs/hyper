@@ -1,2 +1,2 @@
-{"type":"artefact","kind":"procedure","path":"procedures/retire-preview-dns.yaml","baseline_absent":"no-store"}
+{"type":"artefact","kind":"procedure","path":"procedures/retire-preview-dns.yaml","baseline_absent":"no-store","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3}
 {"type":"result","truncated":false}

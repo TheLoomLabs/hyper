@@ -250,6 +250,19 @@ func BuildProcedureIndex(procedureRoots []*yaml.Node) ProcedureIndex {
 	return idx
 }
 
+// ProcedureCadence is the recurrence a Procedure declares, exactly as it was
+// written, and "" where it declares none. It is DeclaredName's reader under the
+// key this one fixes — a caller asking for a Cadence is asking for a
+// Procedure's recurrence rather than for a key's scalar, and a Cadence is a
+// Procedure's alone: a key of that name on any other artefact is not one.
+//
+// It reads and does not judge. Whether the expression is one §10's grammar
+// admits is the gloss's question to answer and `cadence-malformed`'s to refuse,
+// and neither is this reader's (§10, §12).
+func ProcedureCadence(root *yaml.Node) string {
+	return DeclaredName(root, "cadence")
+}
+
 // CheckProcedure validates a procedures/ file's already-parsed root against
 // ProcedureDeclaration and every check that reads a Procedure against itself
 // and the repository (§3, §4, issue #94): kind: against procedures/,

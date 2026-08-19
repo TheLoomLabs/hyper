@@ -28,13 +28,13 @@ Section numbers are the spec's own: file `NN` carries heading `§NN-1`, so §3 i
 | 0 | Binary and gate | `hyper version`, `completions <shell>`; the version pin gate Refuses on skew | §9 (the tree), §11 (the pin) | — |
 | 1 | Load and `check` | `hyper check` over a repository of five artefacts, rows out, exit 0/1 | §3, §4, §12 (most of it) | 0 |
 | 2 | Discovery | `providers`, `provider <name>`, `operation <p> <o>`, `targets` | §9 (Discovery, The repository) | 1 |
-| 3 | The review | `hyper review <artefact>` — the gutter and the four renderings | §8 (the Definition review) | 1 |
+| 3 | The review | `hyper review <artefact>` — the gutter, the four renderings, the Cadence gloss | §8 (the Definition review), §10 (the gloss) | 1 |
 | 4 | The Store | `store init`, `compact`; canonical JSON, paths, the Head, the Journal | §7, §9 (Lifecycle) | 1 |
 | 5 | The read Run | `probe`, then `run` over a Procedure of `read` Steps; Observations land in the Store | §5, §6 (the `read` half) | 1, 4 |
 | 6 | The effectful Run | `mutate` and `destroy`: the Bound, Repeatability, Tombstones, Assets | §5, §6 (the rest), §7 (the Asset half) | 5 |
 | 7 | The `shell` Capability | argv exec, the process group, the deadline, the built-in Provider's six Operations | §3 (the command), §6 (execution) | 5 for `read`, 6 for effectful |
 | 8 | Comparison and inspection | `changes`, `records`, `runs`, `show`; the NDJSON row stream | §8 (the rest) | 3, 6 |
-| 9 | Cadence and projection | `project` writes the workflow; the gloss; the job summary | §10 | 6 |
+| 9 | Cadence and projection | `project` writes the workflow; `cadence-malformed`; the job summary | §10 | 6 |
 | 10 | Distribution | `install <ref>`, digest verification, `origin:` | §11 | 1 |
 | 11 | MCP | the thirteen tools, the return envelope, long Runs | §9 (the MCP half) | 2, 3, 8 |
 
