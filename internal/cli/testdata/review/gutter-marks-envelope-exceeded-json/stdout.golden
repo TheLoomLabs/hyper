@@ -1,0 +1,7 @@
+{"type":"artefact","kind":"procedure","path":"procedures/beyond.yaml","baseline_absent":"no-store"}
+{"type":"gutter","line":3,"marker":"envelope exceeded"}
+{"type":"gutter","line":5,"marker":"read opaque local"}
+{"type":"authority","definition":"commands","target":"local","definition_kinds":["read"],"target_kinds":["read","destroy"],"effective":["read"],"destroy_operations":[]}
+{"type":"flag","flag":"opaque","cites_line":5,"step":"reach"}
+{"type":"flag","flag":"envelope","cites_line":3}
+{"type":"result","truncated":false}

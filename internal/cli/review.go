@@ -820,6 +820,49 @@ func padTo(s string, width int) string {
 	return s
 }
 
+// columnWidths is each field position's width in a rendering: the widest value
+// any row supplies at that position, and 0 for a position none of them does.
+//
+// It is the whole of what makes this screen's two aligned blocks columns rather
+// than a fixed layout — a field is padded to the widest value at that position
+// in *this* rendering, so nothing can be composed until every row is known. The
+// gutter's marker cells and the `FLAGS` block's rows read it alike, one screen
+// having one geometry (§8).
+func columnWidths(rows [][]string) []int {
+	var widths []int
+	for _, fields := range rows {
+		for len(widths) < len(fields) {
+			widths = append(widths, 0)
+		}
+		for i, field := range fields {
+			if width := utf8.RuneCountInString(field); width > widths[i] {
+				widths[i] = width
+			}
+		}
+	}
+	return widths
+}
+
+// alignedFields is one row's fields as this screen draws them: each field the
+// rendering has a width for, padded to it and separated by the least gap this
+// screen puts between two things on one line.
+//
+// A position no row in the rendering supplies is not drawn at all, and the line
+// ends where its last field does: a row whose last field is empty is one that
+// supplied none, and the padding behind it is the page's rather than the row's
+// — a cell does not end in run-up any more than a line does. A blank column is
+// the one thing this screen may not draw (§8, ADR-0026).
+func alignedFields(fields []string, widths []int) string {
+	drawn := make([]string, 0, len(fields))
+	for i, field := range fields {
+		if i >= len(widths) || widths[i] == 0 {
+			continue
+		}
+		drawn = append(drawn, padTo(field, widths[i]))
+	}
+	return strings.TrimRight(strings.Join(drawn, reviewFieldGap), " ")
+}
+
 // widestOf is the widest of the lines given, in runes.
 func widestOf(lines []string) int {
 	widest := 0

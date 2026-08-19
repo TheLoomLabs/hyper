@@ -3,7 +3,6 @@ package cli
 import (
 	"slices"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/render"
@@ -170,16 +169,16 @@ func readMarks(found resolvedArtefact, loaded repository.Loaded) reviewMarks {
 		// reason: a nested invocation's own file, to any depth (issue #96).
 		graph := artefact.BuildProcedureGraph(procedureRoots(loaded.Artefacts), loaded.Providers, loaded.Definitions)
 		read := artefact.ReadProcedureMarks(root, loaded.Providers, loaded.Definitions, loaded.Targets, graph)
-		marks = reviewMarks{procedureMarkers(read), procedureFlags(read, manifestPathIn(loaded))}
+		marks = reviewMarks{markers: procedureMarkers(read), flags: procedureFlags(read, manifestPathIn(loaded))}
 	case artefact.KindDefinition:
 		read := artefact.ReadDefinitionMarks(root)
-		marks = reviewMarks{definitionMarkers(read), definitionFlags(read)}
+		marks = reviewMarks{markers: definitionMarkers(read), flags: definitionFlags(read)}
 	case artefact.KindTargetDeclaration:
 		read := artefact.ReadTargetDeclarationMarks(root)
-		marks = reviewMarks{targetDeclarationMarkers(read), targetDeclarationFlags(read)}
+		marks = reviewMarks{markers: targetDeclarationMarkers(read), flags: targetDeclarationFlags(read)}
 	case artefact.KindProvider:
 		read := artefact.ReadManifestMarks(root)
-		marks = reviewMarks{manifestMarkers(read), manifestFlags(read)}
+		marks = reviewMarks{markers: manifestMarkers(read), flags: manifestFlags(read)}
 	case artefact.KindRepositoryDeclaration:
 		marks = reviewMarks{markers: repositoryDeclarationMarkers(artefact.ReadRepositoryDeclarationMarks(root))}
 	}
@@ -463,46 +462,26 @@ func gutterRows(markers []reviewMarker) []render.Row {
 	return rows
 }
 
-// markerWidths is each field position's width in this rendering: the widest
-// value any marker supplies at that position, and 0 for a position none of them
-// does. Whole-cell markers supply none of it — they take no part in the
-// alignment, being a different marker class — though they still widen the
-// column itself, which the page reads off the composed cells (§8).
+// markerWidths is this rendering's field widths, read off the markers that
+// compose from fields. Whole-cell markers supply none of it — they take no part
+// in the alignment, being a different marker class — though they still widen
+// the column itself, which the page reads off the composed cells (§8).
 func markerWidths(markers []reviewMarker) []int {
-	var widths []int
+	rows := make([][]string, 0, len(markers))
 	for _, m := range markers {
-		for len(widths) < len(m.fields) {
-			widths = append(widths, 0)
-		}
-		for i, field := range m.fields {
-			if width := utf8.RuneCountInString(field); width > widths[i] {
-				widths[i] = width
-			}
-		}
+		rows = append(rows, m.fields)
 	}
-	return widths
+	return columnWidths(rows)
 }
 
 // page is the marker as the screen draws it: a whole-cell marker as it stands,
-// and otherwise each field this rendering has a width for, padded to it and
-// separated by the least gap this screen puts between two things on one line.
-//
-// It ends where its last field does. A marker whose last field is empty is a
-// line that supplied none, and the padding behind it is this page's rather than
-// the marker's — a cell does not end in run-up any more than a line does
-// (ADR-0026).
+// and otherwise its fields aligned against this rendering's own widths, the
+// way every aligned block on this screen is composed.
 func (m reviewMarker) page(widths []int) string {
 	if m.whole != "" {
 		return m.whole
 	}
-	fields := make([]string, 0, len(m.fields))
-	for i, field := range m.fields {
-		if widths[i] == 0 {
-			continue
-		}
-		fields = append(fields, padTo(field, widths[i]))
-	}
-	return strings.TrimRight(strings.Join(fields, reviewFieldGap), " ")
+	return alignedFields(m.fields, widths)
 }
 
 // wire is the same marker with its alignment padding collapsed to single

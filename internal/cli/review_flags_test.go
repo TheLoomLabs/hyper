@@ -422,3 +422,45 @@ func TestRunReview_TheThreeChangeNamesAreNotImplemented(t *testing.T) {
 		}
 	}
 }
+
+// TestRunReview_ADestroyRowNamesNoBoundOnAnOpaqueStep is §5's argument held on
+// this surface: a Bound counts the Records an Expansion resolved to, and a
+// count of the calls an opaque Step made says nothing about what any of them
+// did — so the only Bound such a Step could carry "would stand in the gutter
+// and in `FLAGS` reading *at most one thing will be destroyed* while `rm -rf /`
+// is magnitude one".
+//
+// Writing one is `bound-illegal` and `check`'s to report. What this holds is
+// that the review does not repeat the refused claim while the `unbounded` row
+// directly beneath it says the opposite.
+func TestRunReview_ADestroyRowNamesNoBoundOnAnOpaqueStep(t *testing.T) {
+	root := opaqueDestroyRepo(t)
+	writeFile(t, root+"/procedures/subject.yaml", `kind: procedure
+procedure: subject
+targets: [local]
+steps:
+  - id: scrub
+    definition: commands
+    operation: destroy
+    target: local
+    over:
+      assets:
+        - field: stdout
+          starts_with: preview-
+    args:
+      command: [rm, -rf, /srv/preview]
+    bound: 5
+`)
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != 0 {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	block := flagsOf(stdout)
+	if !slices.Contains(block, "DESTROY    line 5  step scrub  destroy") {
+		t.Errorf("the block reads\n%q\nwant a DESTROY row naming the Operation alone", block)
+	}
+	if strings.Contains(strings.Join(block, "\n"), "bound 5") {
+		t.Errorf("the block reads\n%q\nwant no Bound named on an opaque destroy", block)
+	}
+}

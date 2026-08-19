@@ -5,7 +5,6 @@ import (
 	"io"
 	"slices"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/render"
@@ -176,14 +175,24 @@ func stepCoordinate(id string) string {
 }
 
 // destroyStepText is §8's own row: the Operation the Step invokes, and the
-// Bound standing behind it where the Step declares one.
+// Bound standing behind it where one may stand there at all.
 //
-// A Step with no legible Bound renders the Operation alone rather than naming
-// the absence. Where the absence is the fact — a `mutate` with none, an
+// An `opaque` `destroy` renders the Operation alone however the Step is
+// written, and that is §5's argument rather than a tidying: a Bound counts the
+// Records an Expansion resolved to, a count of the calls an opaque Step made
+// says nothing about what any of them did, and the only Bound such a Step could
+// carry "would stand in the gutter and in `FLAGS` reading *at most one thing
+// will be destroyed* while `rm -rf /` is magnitude one". Writing one is
+// `bound-illegal` and `check`'s to report; rendering it here would be this
+// surface repeating the claim §5 refuses, on the most severe Step the tool runs
+// and against the `unbounded` row standing directly beneath it.
+//
+// A Step with no legible Bound renders the Operation alone too, rather than
+// naming the absence. Where the absence is the fact — a `mutate` with none, an
 // `opaque` `destroy` where one is refused — `unbounded` is the row that says
 // so, and saying it twice on one line would be two rows for one fact (§12).
 func destroyStepText(step artefact.StepMark) string {
-	if step.Bound == "" {
+	if step.Bound == "" || step.Opaque {
 		return step.Operation
 	}
 	return step.Operation + ", bound " + step.Bound
@@ -306,7 +315,7 @@ func sortFlags(flags []reviewFlag) {
 // headings, and a field position no row in this rendering supplies takes no
 // width at all — a blank column is the one thing this screen may not draw (§8).
 func writeFlagsBlock(w io.Writer, rows []render.Row) error {
-	flags := flagRowsOf(rows)
+	flags := flagRowsIn(rows)
 
 	lines := []string{"", reviewIndent + flagsCaption}
 	if len(flags) == 0 {
@@ -325,10 +334,10 @@ func writeFlagsBlock(w io.Writer, rows []render.Row) error {
 	return nil
 }
 
-// flagRowsOf is the index read back off the row list, which is the one place
+// flagRowsIn is the index read back off the row list, which is the one place
 // the page reads a `flag` row: the block is written from the rows, so the
 // stream and the block cannot carry different flags (ADR-0026).
-func flagRowsOf(rows []render.Row) []flagRow {
+func flagRowsIn(rows []render.Row) []flagRow {
 	var flags []flagRow
 	for _, row := range rows {
 		if flag, drawn := row.(flagRow); drawn {
@@ -350,41 +359,27 @@ func (r flagRow) fields() []string {
 	}
 }
 
-// line is the row as the block draws it: each field padded to this rendering's
-// width for that position and separated by the least gap this screen puts
-// between two things on one line, ending where its last field does.
+// line is the row as the block draws it: its fields aligned against this
+// rendering's own widths, the same composition the marker column is drawn by.
 //
 // A position no row in this rendering supplies is not drawn at all, which is
 // the coordinate column on the four artefacts that have none: a flag's
 // coordinate is a Procedure's `step` today, and a column of nothing is what §8
 // refuses one column left of here.
 func (r flagRow) line(widths []int) string {
-	var cells []string
-	for i, field := range r.fields() {
-		if widths[i] == 0 {
-			continue
-		}
-		cells = append(cells, padTo(field, widths[i]))
-	}
-	return strings.TrimRight(strings.Join(cells, reviewFieldGap), " ")
+	return alignedFields(r.fields(), widths)
 }
 
-// flagWidths is each position's width in this rendering: the widest value any
-// row supplies there, and 0 for a position none of them does.
+// flagWidths is this rendering's field widths, read off the rows the block
+// draws. Every row supplies all four fields, so the widths are four wide and
+// the empty ones are the positions no flag in *this* rendering had anything to
+// put in.
 func flagWidths(flags []flagRow) []int {
-	var widths []int
+	rows := make([][]string, 0, len(flags))
 	for _, flag := range flags {
-		fields := flag.fields()
-		for len(widths) < len(fields) {
-			widths = append(widths, 0)
-		}
-		for i, field := range fields {
-			if width := utf8.RuneCountInString(field); width > widths[i] {
-				widths[i] = width
-			}
-		}
+		rows = append(rows, flag.fields())
 	}
-	return widths
+	return columnWidths(rows)
 }
 
 // definitionFlags is §12's roster on a Definition, which is one name: the
@@ -496,7 +491,16 @@ func absentNameText(absent artefact.AbsentName, manifestPath func(string) string
 	if absent.Name == "" {
 		return absent.Key + ": no name to resolve"
 	}
-	return absent.Key + ": " + absent.Name + " — " + lookedIn(absent, manifestPath)
+	// A key with nowhere stated to have looked names what failed and stops
+	// there. No key reaches it today, the four below being the four a Step
+	// carries; what it refuses to render is the half-written sentence a
+	// fifth arriving unnoticed would leave — trailing punctuation with
+	// nothing behind it is the blank this screen may not draw (§8).
+	looked := lookedIn(absent, manifestPath)
+	if looked == "" {
+		return absent.Key + ": " + absent.Name
+	}
+	return absent.Key + ": " + absent.Name + " — " + looked
 }
 
 // lookedIn is where `hyper` looked for the name that failed. Three of the four
@@ -507,16 +511,16 @@ func absentNameText(absent artefact.AbsentName, manifestPath func(string) string
 // are.
 func lookedIn(absent artefact.AbsentName, manifestPath func(string) string) string {
 	switch absent.Key {
-	case "definition":
+	case artefact.KeyDefinition:
 		return "no " + artefactFile(artefact.KindDefinition, absent.Name)
-	case "procedure":
+	case artefact.KeyProcedure:
 		return "no " + artefactFile(artefact.KindProcedure, absent.Name)
-	case "provider":
+	case artefact.KeyProvider:
 		// A Provider name resolves against the built-ins before any file,
 		// so naming the file alone would state half the namespace it was
 		// looked for in (§11, ADR-0039).
 		return "no built-in Provider and no " + artefactFile(artefact.KindProvider, absent.Name)
-	case "operation":
+	case artefact.KeyOperation:
 		if path := manifestPath(absent.Provider); path != "" {
 			return "no such Operation in " + path
 		}

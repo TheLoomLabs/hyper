@@ -131,6 +131,18 @@ type AbsentName struct {
 	Provider string
 }
 
+// The four keys an AbsentName is written under, which are the authoring
+// format's own and not §12's kind: values — three of them spell a kind and the
+// fourth names a key inside a Manifest. They are stated here because the reader
+// that sets one and the surface that renders it are in two packages, and a
+// fifth absence arriving should not be two literals nothing ties together.
+const (
+	KeyDefinition = "definition"
+	KeyOperation  = "operation"
+	KeyProvider   = "provider"
+	KeyProcedure  = "procedure"
+)
+
 // ReadProcedureMarks reads a Procedure's own root into the marks its gutter
 // carries. providers, definitions and graph are the namespaces a Step's
 // definition: and operation: and a nested invocation's procedure: resolve
@@ -201,23 +213,23 @@ func stepMark(line int, id string, fields map[string]*yaml.Node, providers Provi
 
 	defName, ok := resolveScalar(fields["definition"])
 	if !ok {
-		return unresolved(AbsentName{Key: "definition"})
+		return unresolved(AbsentName{Key: KeyDefinition})
 	}
 	defInfo, haveDef := definitions[defName]
 	if !haveDef {
-		return unresolved(AbsentName{Key: "definition", Name: defName})
+		return unresolved(AbsentName{Key: KeyDefinition, Name: defName})
 	}
 	provider, haveProvider := providers[defInfo.ProviderName]
 	if !haveProvider {
-		return unresolved(AbsentName{Key: "provider", Name: defInfo.ProviderName})
+		return unresolved(AbsentName{Key: KeyProvider, Name: defInfo.ProviderName})
 	}
 	opName, ok := resolveScalar(fields["operation"])
 	if !ok {
-		return unresolved(AbsentName{Key: "operation", Provider: defInfo.ProviderName})
+		return unresolved(AbsentName{Key: KeyOperation, Provider: defInfo.ProviderName})
 	}
 	op, haveOp := provider.Operations[opName]
 	if !haveOp {
-		return unresolved(AbsentName{Key: "operation", Name: opName, Provider: defInfo.ProviderName})
+		return unresolved(AbsentName{Key: KeyOperation, Name: opName, Provider: defInfo.ProviderName})
 	}
 
 	bound, _ := resolveScalar(fields["bound"])
@@ -253,10 +265,10 @@ func stepMark(line int, id string, fields map[string]*yaml.Node, providers Provi
 func invocationMark(line int, id string, procVal *yaml.Node, graph ProcedureGraph, memo map[string]procedureReach) StepMark {
 	name, ok := resolveScalar(procVal)
 	if !ok {
-		return StepMark{Line: line, ID: id, Unresolved: true, Absent: AbsentName{Key: "procedure"}}
+		return StepMark{Line: line, ID: id, Unresolved: true, Absent: AbsentName{Key: KeyProcedure}}
 	}
 	if _, known := graph[name]; !known {
-		return StepMark{Line: line, ID: id, Unresolved: true, Absent: AbsentName{Key: "procedure", Name: name}}
+		return StepMark{Line: line, ID: id, Unresolved: true, Absent: AbsentName{Key: KeyProcedure, Name: name}}
 	}
 	return StepMark{Line: line, ID: id, Targets: sortedNames(walkProcedure(name, graph, memo, map[string]bool{}).targets)}
 }
