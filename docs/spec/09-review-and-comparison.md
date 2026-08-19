@@ -103,7 +103,7 @@ Target name is an identity in a reviewed artefact, and eliding a character of on
 stating something other than what is about to be approved. Its header is the artefact's kind —
 `PROCEDURE`, `DEFINITION`, `TARGET`, `MANIFEST`, `REPOSITORY` — which is true on all five, where a
 header naming blast radius describes a Procedure's marks and a Definition's and misdescribes a Target
-declaration's endpoint and a Repository declaration's retention policy. Nothing on this screen is sized
+declaration's hosts and a Repository declaration's retention policy. Nothing on this screen is sized
 to the terminal: §9's truncation discipline governs a result set, which has an order and a limit, and an
 artefact has neither.
 
@@ -122,8 +122,8 @@ review has no range the column has no content and no width, and the source sits 
 **The gutter reads on all five reviewed artefacts, not only a Procedure**, and every marker it carries
 is what `FLAGS` below may index — so what a review can say about an artefact is fixed here and nowhere
 else. On a **Definition** it marks the Kinds claimed, the Targets bindable, and the `destroy`
-Operations named; on a **Target declaration** the Kinds accepted, the Capabilities granted, the
-endpoint, each credential slot's environment variable, and the opt-in admitting an `opaque` `destroy`
+Operations named; on a **Target declaration** the Kinds accepted, the Capabilities and the hosts
+granted, each credential slot's environment variable, and the opt-in admitting an `opaque` `destroy`
 (§4); on a **Manifest** each Operation's Kind, its Repeatability, its opacity, the auth scheme, and the
 Capabilities required; on a **Repository declaration** the `hyper` version pin and the retention
 policy. Only a Procedure has Steps, so only a Procedure carries a Kind, Target, Bound or envelope mark,
