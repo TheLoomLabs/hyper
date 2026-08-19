@@ -1,0 +1,8 @@
+  DEFINITION  │  definitions/preview-dns.yaml            no baseline — no Store
+  ────────────┼────────────────────────────────────────────────────────────────
+              │ kind: definition
+              │ definition: preview-dns
+              │ provider: cloudflare-dns
+              │ kinds: [mutate]
+              │ destroy: [delete_dns_record]
+              │ targets: [cloudflare-prod]

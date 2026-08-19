@@ -109,6 +109,34 @@ func topLevelFields(root *yaml.Node, names ...string) map[string]*yaml.Node {
 	return found
 }
 
+// DeclaredName is the name an artefact declares for itself: the scalar under
+// the top-level key its kind names itself with — definition:, procedure:,
+// provider: or target: — and "" where that key is absent, carries something
+// other than a plain scalar, or the file did not parse at all.
+//
+// It is one reader for the four because the four kinds name themselves by one
+// rule and differ only in the word (§3, §12). The rule it holds is the one every
+// name in the repository resolves by: a name is matched against what the
+// artefact declares rather than against its filename, so a case-insensitive
+// filesystem cannot decide what resolves and what does not (§9, ADR-0060). A
+// key the artefact never wrote answers nothing rather than guessing, which is
+// ADR-0064's rule — what is wrong with an artefact is check's to report and
+// never a reader's to substitute for. Only top-level keys are read: a Step's
+// own definition: is a Step's, and no artefact is named by a key nested inside
+// it.
+//
+// The two named readers beside it — ManifestProviderName and
+// TargetDeclarationName — are this reader under the key each of them fixes, and
+// they keep their names because a caller folding the Provider namespace is
+// asking for a Provider's name rather than for a key's scalar (issue #118).
+func DeclaredName(root *yaml.Node, key string) string {
+	named := topLevelFields(root, key)[key]
+	if named == nil || named.Kind != yaml.ScalarNode {
+		return ""
+	}
+	return named.Value
+}
+
 // position reports where to point a problem that has no node of its own to
 // point at. (1, 1) is the file itself, the same fallback schema.Check's own
 // position uses for the same reason.

@@ -1,0 +1,2 @@
+{"type":"problem","file":"definitions/half-written.yaml","line":1,"column":1,"field":"","error_code":"strict-yaml-violation","message":"did not find expected ',' or ']'"}
+{"type":"result","truncated":false}

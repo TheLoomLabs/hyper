@@ -257,11 +257,7 @@ func BuildProviderIndex(manifestRoots []*yaml.Node) ProviderIndex {
 // two folds of one rule written twice is where the day comes that a name is in
 // the namespace and not on the list.
 func ManifestProviderName(root *yaml.Node) string {
-	nameVal := topLevelFields(root, "provider")["provider"]
-	if nameVal == nil || nameVal.Kind != yaml.ScalarNode {
-		return ""
-	}
-	return nameVal.Value
+	return DeclaredName(root, "provider")
 }
 
 // BuildTargetIndex adds one entry per targets/ root whose target: is a

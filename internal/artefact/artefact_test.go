@@ -327,3 +327,43 @@ func TestCheckTargetDeclaration_EnvNestedInsideAnotherKeyOfAMalformedSlotIsFlagg
 		t.Errorf("Field = %q, want auth.token.extra.env for the nested env:", malformed[1].Field)
 	}
 }
+
+// TestDeclaredName_ReadsTheKeyTheKindNamesAndNothingElse is the rule every name
+// in the repository resolves by, read from the artefact's own bytes: the scalar
+// under the key its kind declares itself with, and "" where that key is absent
+// or is not a plain scalar (§9, ADR-0060, ADR-0064). It is one reader for the
+// four keys because a Definition, a Procedure, a Manifest and a Target
+// declaration name themselves by one rule and differ only in the word (issue
+// #118).
+func TestDeclaredName_ReadsTheKeyTheKindNamesAndNothingElse(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		source string
+		key    string
+		want   string
+	}{
+		{"a Definition", "kind: definition\ndefinition: preview-dns\nprovider: cloudflare-dns\n", "definition", "preview-dns"},
+		{"a Procedure", "kind: procedure\nprocedure: retire-preview-dns\n", "procedure", "retire-preview-dns"},
+		{"a Manifest", "kind: provider\nprovider: cloudflare-dns\n", "provider", "cloudflare-dns"},
+		{"a Target declaration", "kind: target-declaration\ntarget: local\n", "target", "local"},
+		{"a key the artefact never wrote", "kind: repository-declaration\nversion: 1.4.0\n", "procedure", ""},
+		{"a key carrying a mapping rather than a name", "kind: definition\ndefinition: {a: b}\n", "definition", ""},
+		{"a key belonging to something nested", "kind: procedure\nsteps:\n  - definition: preview-dns\n", "definition", ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got := DeclaredName(parse(t, c.source), c.key); got != c.want {
+				t.Errorf("DeclaredName(%s) = %q, want %q", c.key, got, c.want)
+			}
+		})
+	}
+}
+
+// TestDeclaredName_AnArtefactThatDidNotParseNamesNothing is ADR-0064's rule at
+// this reader: a file hyper could not read contributes no name to any
+// namespace, and what is wrong with it is check's to report rather than this
+// reader's to panic on.
+func TestDeclaredName_AnArtefactThatDidNotParseNamesNothing(t *testing.T) {
+	if got := DeclaredName(nil, "definition"); got != "" {
+		t.Errorf("DeclaredName of a nil root = %q, want no name at all", got)
+	}
+}

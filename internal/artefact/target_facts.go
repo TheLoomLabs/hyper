@@ -110,9 +110,5 @@ func envVariable(val *yaml.Node) string {
 // one declaration by construction rather than by two folds agreeing (§9, issue
 // #112).
 func TargetDeclarationName(root *yaml.Node) string {
-	nameVal := topLevelFields(root, "target")["target"]
-	if nameVal == nil || nameVal.Kind != yaml.ScalarNode {
-		return ""
-	}
-	return nameVal.Value
+	return DeclaredName(root, "target")
 }

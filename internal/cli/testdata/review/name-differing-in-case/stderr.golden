@@ -1,0 +1,3 @@
+hyper review: no artefact named "Preview-DNS" in this repository's Definition, Procedure, Provider or Target namespaces
+  hyper providers and hyper targets list two of the four
+  a repository-relative path — one containing / or ending .yaml — names any artefact with a file

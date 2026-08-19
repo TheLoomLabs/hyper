@@ -1,0 +1,2 @@
+FILE                           LINE  FIELD  ERROR_CODE             MESSAGE
+definitions/half-written.yaml  1            strict-yaml-violation  did not find expected ',' or ']'

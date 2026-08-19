@@ -1,0 +1,7 @@
+  DEFINITION  │  definitions/orphan.yaml                 no baseline — no Store
+  ────────────┼────────────────────────────────────────────────────────────────
+              │ kind: definition
+              │ definition: orphan
+              │ provider: not-there
+              │ kinds: [read]
+              │ targets: [nowhere]

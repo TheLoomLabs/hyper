@@ -197,3 +197,35 @@ func (l sourceLines) through(first, last int) string {
 	}
 	return string(l.source[l.starts[first-1]:end])
 }
+
+// SourceLines is a file's own lines, in order, each without the newline that
+// ended it: the numbering §8 states for a review, counted from one over every
+// line including blank ones, and the bytes the working tree holds on each of
+// them.
+//
+// It is the whole-file reading of the index OperationSource takes a range out
+// of, and it is that index promoted rather than a second one written beside it
+// (issue #118). `operation` copies the lines declaring one Operation and a
+// review copies all of them; both are the file's own bytes cut at its own
+// newlines, and two readers of one file must not be able to disagree about
+// where a line begins — a review's line numbers are what its citations resolve
+// against, and `operation`'s range is what a reviewer's digest covers.
+//
+// Nothing is re-encoded on the way through. A line's leading indentation, its
+// trailing spaces and a carriage return an editor left before the newline are
+// the artefact's own bytes and are handed back as they were read; what is taken
+// off is the one byte that says where the line ended. A file whose last line
+// carries no newline has the same lines as one whose editor wrote one, and an
+// empty file has no line at all — zero documents is valid YAML, and a review of
+// nothing is not a review of one blank line.
+func SourceLines(source []byte) []string {
+	if len(source) == 0 {
+		return nil
+	}
+	indexed := readSourceLines(source)
+	lines := make([]string, 0, indexed.count())
+	for n := 1; n <= indexed.count(); n++ {
+		lines = append(lines, strings.TrimSuffix(indexed.text(n), "\n"))
+	}
+	return lines
+}

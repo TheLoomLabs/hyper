@@ -356,3 +356,64 @@ func TestOperationSource_TheBlockEndsWhereTheFileDedentsOutOfIt(t *testing.T) {
 		t.Error("the range runs past the end of the operations: block and into the file's own comment")
 	}
 }
+
+// TestSourceLines_IsEveryLineOfTheFileVerbatim is the promotion `hyper review`
+// asked for: `operation` reads a range of a file's lines and a review reads all
+// of them, off the same index (issue #118). Every line of the working tree's
+// file renders — comments in place, indentation unchanged, blank lines counted
+// — so what this answers is the file's own bytes cut at its own newlines and
+// nothing else.
+func TestSourceLines_IsEveryLineOfTheFileVerbatim(t *testing.T) {
+	lines := SourceLines([]byte(widgetManifestWithComments))
+
+	// The expectation is taken from the fixture by the standard library
+	// rather than written out a second time: what the criterion asks is that
+	// the reader hands back the file's own lines, so the other side of the
+	// comparison may not be a copy of them made by hand.
+	want := strings.Split(strings.TrimSuffix(widgetManifestWithComments, "\n"), "\n")
+	if !slices.Equal(lines, want) {
+		t.Errorf("SourceLines gave %d lines, want %d:\n got:  %q\n want: %q", len(lines), len(want), lines, want)
+	}
+}
+
+// TestSourceLines_CountsFromOneOverEveryLineIncludingBlankOnes is the numbering
+// every citation on the review surface resolves against (§8): line n of the
+// file is lines[n-1], and a blank line is a line like any other.
+func TestSourceLines_CountsFromOneOverEveryLineIncludingBlankOnes(t *testing.T) {
+	lines := SourceLines([]byte(widgetManifestWithComments))
+
+	// Line 11 of the fixture is the blank line between the first Operation
+	// and the comment heading the second, counted off the constant above.
+	if got := lines[10]; got != "" {
+		t.Errorf("line 11 is %q, want the blank line the fixture writes there", got)
+	}
+	if got, want := lines[11], "  # Archives the widget rather than deleting it: the API has no delete."; got != want {
+		t.Errorf("line 12 is %q, want %q", got, want)
+	}
+}
+
+// TestSourceLines_ALastLineWithNoNewlineIsStillALine holds the two endings a
+// file can have against one numbering: an author whose editor wrote no final
+// newline has the same number of lines as one whose editor did, and neither
+// gains an empty line at the end that the review would render as a blank one.
+func TestSourceLines_ALastLineWithNoNewlineIsStillALine(t *testing.T) {
+	terminated := SourceLines([]byte("kind: repository-declaration\nversion: 1.4.0\n"))
+	bare := SourceLines([]byte("kind: repository-declaration\nversion: 1.4.0"))
+
+	want := []string{"kind: repository-declaration", "version: 1.4.0"}
+	if !slices.Equal(terminated, want) {
+		t.Errorf("a file ending in a newline gave %q, want %q", terminated, want)
+	}
+	if !slices.Equal(bare, want) {
+		t.Errorf("a file ending without one gave %q, want %q", bare, want)
+	}
+}
+
+// TestSourceLines_AnEmptyFileHasNoLines is the degenerate reading: zero
+// documents is valid YAML and a file with no bytes has no line to render, which
+// is a review of nothing rather than a review of one blank line.
+func TestSourceLines_AnEmptyFileHasNoLines(t *testing.T) {
+	if lines := SourceLines(nil); len(lines) != 0 {
+		t.Errorf("SourceLines of an empty file gave %q, want no lines at all", lines)
+	}
+}

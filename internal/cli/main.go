@@ -99,6 +99,7 @@ type repositoryCommand func(args []string, stdout, stderr io.Writer, lookupenv f
 // `unknown command` below.
 var repositoryCommands = map[string]repositoryCommand{
 	"check":     RunCheck,
+	"review":    RunReview,
 	"providers": RunProviders,
 	"provider":  RunProvider,
 	"operation": RunOperation,
