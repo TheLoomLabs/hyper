@@ -501,10 +501,10 @@ $ hyper review procedures/retire-preview-envs.yaml
   hetzner-staging  staging  mutate destroy    read mutate destroy  m d        delete_server
 
   FLAGS   index into the gutter above — no flag states anything the gutter does not
-  UNBOUNDED  line 15  step label    mutate with no declared bound
-  DESTROY    line 24  step retire   delete_server, bound 5
-  WIDENED    line 34  step retire   bound 3 → 5 since a91f0c2
-  ENVELOPE   line 3   ok            no step reaches a target outside [local, staging]
+  UNBOUNDED  line 15  step label   mutate with no declared bound
+  DESTROY    line 24  step retire  delete_server, bound 5
+  WIDENED    line 34  step retire  bound 3 → 5 since a91f0c2
+  ENVELOPE   line 3   ok           no step reaches a target outside [local, staging]
 ```
 
 ## The Comparison

@@ -99,9 +99,9 @@ $ hyper review procedures/retire-preview-envs.yaml
                     │ ~     bound: 5
 
   FLAGS   index into the gutter above — no flag states anything the gutter does not
-  DESTROY    line 24  step retire   delete_server, bound 5
-  WIDENED    line 34  step retire   bound 3 → 5 since a91f0c2
-  ENVELOPE   line 3   ok            no step reaches a target outside [local, staging]
+  DESTROY    line 24  step retire  delete_server, bound 5
+  WIDENED    line 34  step retire  bound 3 → 5 since a91f0c2
+  ENVELOPE   line 3   ok           no step reaches a target outside [local, staging]
 ```
 
 `WIDENED` is the review surface reporting that an agent widened a destroy Bound — before anything
