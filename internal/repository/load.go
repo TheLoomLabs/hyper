@@ -80,6 +80,14 @@ type Loaded struct {
 	// is what a surface states a row off (issue #112). They are built from
 	// one fold, so the two can never mean different files by one name.
 	TargetDeclarations map[string]*yaml.Node
+	// DefinitionDeclarations is the Definition namespace's other half, and
+	// it is here for TargetDeclarations' own reason on the other end of one
+	// relation: Definitions answers what a Step's definition: resolves to,
+	// and this carries the file that name was read from, which is what
+	// `review`'s AUTHORITY table states a row off (issue #121). The two are
+	// built from one fold, so no surface can mean a different file by one
+	// name than the check does.
+	DefinitionDeclarations map[string]*yaml.Node
 }
 
 // LoadedManifest is one member of the Provider namespace as the commands that
@@ -137,15 +145,17 @@ func Load(repoRoot string) (Loaded, error) {
 
 	declarations := targetDeclarationsByName(artefacts)
 	targets := artefact.BuildTargetIndex(sortedByName(declarations))
+	definitions := definitionDeclarationsByName(artefacts)
 	manifests := manifestsByName(artefacts)
 	return Loaded{
-		Artefacts:          artefacts,
-		Providers:          artefact.BuildProviderIndex(manifestRoots(sortedByName(manifests))),
-		Targets:            targets,
-		Definitions:        artefact.BuildDefinitionIndex(rootsUnder(artefacts, "definitions/"), targets),
-		Procedures:         artefact.BuildProcedureIndex(rootsUnder(artefacts, "procedures/")),
-		Manifests:          manifests,
-		TargetDeclarations: declarations,
+		Artefacts:              artefacts,
+		Providers:              artefact.BuildProviderIndex(manifestRoots(sortedByName(manifests))),
+		Targets:                targets,
+		Definitions:            artefact.BuildDefinitionIndex(sortedByName(definitions), targets),
+		Procedures:             artefact.BuildProcedureIndex(rootsUnder(artefacts, "procedures/")),
+		Manifests:              manifests,
+		TargetDeclarations:     declarations,
+		DefinitionDeclarations: definitions,
 	}, nil
 }
 
@@ -169,6 +179,29 @@ func targetDeclarationsByName(artefacts []LoadedArtefact) map[string]*yaml.Node 
 			continue
 		}
 		if name := artefact.TargetDeclarationName(a.Root); name != "" {
+			declarations[name] = a.Root
+		}
+	}
+	return declarations
+}
+
+// definitionDeclarationsByName folds the loaded artefacts into the Definition
+// namespace's members, on targetDeclarationsByName's own rule: every
+// definitions/ file that parsed and named itself, and nothing from one that did
+// neither (ADR-0064).
+//
+// It is what the Definition namespace is built from as well as what carries it,
+// which is the whole point of folding first: the index sees one member per name,
+// so the file a Step's definition: resolves to and the file `review`'s
+// AUTHORITY table reads a row off are the same file rather than two walks
+// agreeing about one repository (issue #121).
+func definitionDeclarationsByName(artefacts []LoadedArtefact) map[string]*yaml.Node {
+	declarations := map[string]*yaml.Node{}
+	for _, a := range artefacts {
+		if !a.OK || !strings.HasPrefix(a.Path, "definitions/") {
+			continue
+		}
+		if name := artefact.DeclaredName(a.Root, artefact.KindDefinition); name != "" {
 			declarations[name] = a.Root
 		}
 	}

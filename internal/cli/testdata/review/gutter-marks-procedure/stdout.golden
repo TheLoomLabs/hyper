@@ -74,3 +74,11 @@
                             │
   unresolved                │   - id: no-such-procedure
                             │     procedure: not-there
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION        TARGET   DEFINITION KINDS  TARGET KINDS         EFFECTIVE   DESTROY OPS
+  commands-destroy  local    destroy           read destroy         d           destroy
+  not-there         staging  unresolved        read mutate destroy  unresolved  unresolved
+  orphan            staging  read              read mutate destroy  r           —
+  things            staging  mutate destroy    read mutate destroy  m d         end_thing
+  things-observed   staging  read              read mutate destroy  r           —

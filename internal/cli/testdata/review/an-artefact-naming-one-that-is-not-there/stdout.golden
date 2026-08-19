@@ -5,3 +5,7 @@
               │ provider: not-there
               │ kinds: [read]
               │ targets: [nowhere]
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS  EFFECTIVE   DESTROY OPS
+  orphan      nowhere  read              unresolved    unresolved  —

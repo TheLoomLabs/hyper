@@ -1,0 +1,8 @@
+kind: target-declaration
+target: observed-only
+class: things
+kinds: [read]
+capabilities: [http]
+hosts: [api.things.dev]
+auth:
+  token: {env: THINGS_API_TOKEN}

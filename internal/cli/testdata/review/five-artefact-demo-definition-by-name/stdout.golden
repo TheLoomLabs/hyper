@@ -6,3 +6,7 @@
               │ kinds: [mutate]
               │ destroy: [delete_dns_record]
               │ targets: [cloudflare-prod]
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION   TARGET           DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS
+  preview-dns  cloudflare-prod  mutate destroy    read mutate destroy  m d        delete_dns_record

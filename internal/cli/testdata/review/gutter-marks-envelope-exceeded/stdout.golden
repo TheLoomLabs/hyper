@@ -10,3 +10,7 @@
                        │     target: local
                        │     args:
                        │       command: [uname, -a]
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION  TARGET  DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS
+  commands    local   read              read destroy  r          —

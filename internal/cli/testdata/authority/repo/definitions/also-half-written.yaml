@@ -1,0 +1,3 @@
+kind: definition
+definition: also-half-written
+  targets: [staging]

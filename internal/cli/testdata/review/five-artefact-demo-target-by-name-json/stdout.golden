@@ -1,2 +1,4 @@
 {"type":"artefact","kind":"target-declaration","path":"targets/cloudflare-prod.yaml","baseline_absent":"no-store"}
+{"type":"authority","definition":"preview-dns","target":"cloudflare-prod","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["delete_dns_record"]}
+{"type":"authority","definition":"preview-dns-observed","target":"cloudflare-prod","definition_kinds":["read"],"target_kinds":["read","mutate","destroy"],"effective":["read"],"destroy_operations":[]}
 {"type":"result","truncated":false}

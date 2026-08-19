@@ -46,3 +46,7 @@
                             │       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
                             │       record_id: {item: $.id}
                             │     bound: 5
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION   TARGET           DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS
+  preview-dns  cloudflare-prod  mutate destroy    read mutate destroy  m d        delete_dns_record

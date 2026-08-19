@@ -10,4 +10,9 @@
 {"type":"gutter","line":65,"marker":"unresolved"}
 {"type":"gutter","line":70,"marker":"staging"}
 {"type":"gutter","line":73,"marker":"unresolved"}
+{"type":"authority","definition":"commands-destroy","target":"local","definition_kinds":["destroy"],"target_kinds":["read","destroy"],"effective":["destroy"],"destroy_operations":["destroy"]}
+{"type":"authority","definition":"not-there","target":"staging","target_kinds":["read","mutate","destroy"]}
+{"type":"authority","definition":"orphan","target":"staging","definition_kinds":["read"],"target_kinds":["read","mutate","destroy"],"effective":["read"],"destroy_operations":[]}
+{"type":"authority","definition":"things","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["end_thing"]}
+{"type":"authority","definition":"things-observed","target":"staging","definition_kinds":["read"],"target_kinds":["read","mutate","destroy"],"effective":["read"],"destroy_operations":[]}
 {"type":"result","truncated":false}

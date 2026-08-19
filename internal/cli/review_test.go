@@ -43,6 +43,15 @@ func sourceOf(t *testing.T, page string) []string {
 		if !past {
 			continue
 		}
+		if line == "" {
+			// The source ends at the one line beneath the rule that
+			// carries no gutter at all: the blank separating the
+			// AUTHORITY block, which is a table of its own and not
+			// one of the artefact's lines. A line the *artefact*
+			// left empty is not this — it renders as its gutter,
+			// trimmed, and still carries the bar (§8).
+			break
+		}
 		bar := strings.Index(line, "│")
 		if bar < 0 {
 			t.Fatalf("line %q beneath the rule carries no gutter; every rendered line does", line)
@@ -669,6 +678,13 @@ func markersOf(t *testing.T, page string) map[int]string {
 		if !past {
 			continue
 		}
+		if rendered == "" {
+			// The gutter ends at the blank separating the AUTHORITY
+			// block, whose lines are a table of their own and mark
+			// nothing. A line the artefact left empty still carries
+			// the bar (§8).
+			break
+		}
 		line++
 		bar := strings.Index(rendered, "│")
 		if bar < 0 {
@@ -1167,7 +1183,10 @@ steps:
 	// ranged review would put it.
 	lines := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")
 	written := strings.Split(strings.TrimSuffix(source, "\n"), "\n")
-	rendered := lines[len(lines)-len(written):]
+	// The source opens at the rule rather than closing at the last line of
+	// the page: what stands beneath it is the AUTHORITY block (§8).
+	rule := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "┼") })
+	rendered := lines[rule+1 : rule+1+len(written)]
 	for i, line := range rendered {
 		bar := strings.Index(line, "│")
 		if bar < 0 {
@@ -1217,6 +1236,7 @@ steps:
 		`{"type":"gutter","line":3,"marker":"envelope ok"}`,
 		`{"type":"gutter","line":5,"marker":"mutate! staging"}`,
 		`{"type":"gutter","line":9,"marker":"DESTROY staging"}`,
+		`{"type":"authority","definition":"things","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["end_thing"]}`,
 		`{"type":"result","truncated":false}`,
 	}
 	if got := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n"); !slices.Equal(got, want) {
@@ -1287,5 +1307,390 @@ steps:
 		if !strings.Contains(stdout, want) {
 			t.Errorf("the stream is\n%s\nwant a row carrying %s", stdout, want)
 		}
+	}
+}
+
+// authorityOf is the AUTHORITY block read back off the page: every line from
+// its caption to the end of the rendering, each with the screen's own indent
+// taken off, and nothing at all where the block did not render.
+//
+// It finds the block by its caption rather than by counting lines from the
+// bottom, which is what lets a case assert that the block is *absent* — the
+// thing §8 distinguishes from an empty one (ADR-0069).
+func authorityOf(page string) []string {
+	lines := strings.Split(strings.TrimSuffix(page, "\n"), "\n")
+	for n, line := range lines {
+		if !strings.HasPrefix(strings.TrimLeft(line, " "), "AUTHORITY") {
+			continue
+		}
+		block := make([]string, 0, len(lines)-n)
+		for _, rest := range lines[n:] {
+			block = append(block, strings.TrimPrefix(rest, "  "))
+		}
+		return block
+	}
+	return nil
+}
+
+// authorityRepo is a repository with both ends of the relation in it: one
+// Target two Definitions claim, one Target nothing claims, and a Procedure
+// binding one of the pairs twice.
+func authorityRepo(t *testing.T) string {
+	t.Helper()
+	root := newRepo(t)
+	writeFile(t, root+"/providers/things.yaml", providerDeclaring)
+	writeFile(t, root+"/targets/staging.yaml",
+		"kind: target-declaration\ntarget: staging\nclass: things\nkinds: [read, mutate, destroy]\ncapabilities: [http]\nhosts: [api.things.dev]\n")
+	writeFile(t, root+"/targets/unclaimed.yaml",
+		"kind: target-declaration\ntarget: unclaimed\nclass: things\nkinds: [read, destroy]\ncapabilities: [http]\nhosts: [api.things.dev]\n")
+	writeFile(t, root+"/definitions/things.yaml",
+		"kind: definition\ndefinition: things\nprovider: things\nkinds: [mutate]\ndestroy: [end_thing]\ntargets: [staging]\n")
+	writeFile(t, root+"/definitions/things-observed.yaml",
+		"kind: definition\ndefinition: things-observed\nprovider: things\nkinds: [read]\ntargets: [staging]\n")
+	return root
+}
+
+// TestRunReview_ADefinitionRendersARowPerTargetItClaims is the left end of the
+// relation, and the whole of what one row states: the claimed Kinds with
+// `destroy` derived at that column, the accepted Kinds, their intersection as
+// initials, and the `destroy` Operations named (§5, §8).
+func TestRunReview_ADefinitionRendersARowPerTargetItClaims(t *testing.T) {
+	root := authorityRepo(t)
+
+	stdout, stderr, exit := runReview(t, root, "definitions/things.yaml")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+	want := []string{
+		"AUTHORITY   assembled from definitions/ and targets/",
+		"DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS",
+		"things      staging  mutate destroy    read mutate destroy  m d        end_thing",
+	}
+	if got := authorityOf(stdout); !slices.Equal(got, want) {
+		t.Errorf("the block reads\n%q\nwant\n%q", got, want)
+	}
+}
+
+// TestRunReview_ATargetDeclarationRendersARowPerDefinitionThatClaimsIt is the
+// rendering an unaided reading withholds: the columns, their order and the
+// caption do not move, and no column is elided because its value repeats
+// (ADR-0069).
+func TestRunReview_ATargetDeclarationRendersARowPerDefinitionThatClaimsIt(t *testing.T) {
+	root := authorityRepo(t)
+
+	stdout, stderr, exit := runReview(t, root, "staging")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+	want := []string{
+		"AUTHORITY   assembled from definitions/ and targets/",
+		"DEFINITION       TARGET   DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS",
+		"things           staging  mutate destroy    read mutate destroy  m d        end_thing",
+		"things-observed  staging  read              read mutate destroy  r          —",
+	}
+	if got := authorityOf(stdout); !slices.Equal(got, want) {
+		t.Errorf("the block reads\n%q\nwant\n%q", got, want)
+	}
+}
+
+// TestRunReview_ATargetDeclarationNothingClaimsRendersAnExplicitEmptyState is
+// the line between absent and empty: an edit to any file in definitions/ puts a
+// row here, so the block renders and says there is none — a granted `destroy`
+// with no claimant being either a Target awaiting its Definition or one whose
+// Definition was deleted (§8, ADR-0012, ADR-0069).
+func TestRunReview_ATargetDeclarationNothingClaimsRendersAnExplicitEmptyState(t *testing.T) {
+	root := authorityRepo(t)
+
+	stdout, _, exit := runReview(t, root, "unclaimed")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	want := []string{
+		"AUTHORITY   assembled from definitions/ and targets/",
+		"no Definition claims this Target",
+	}
+	if got := authorityOf(stdout); !slices.Equal(got, want) {
+		t.Errorf("the block reads\n%q\nwant\n%q", got, want)
+	}
+}
+
+// TestRunReview_AManifestAndARepositoryDeclarationRenderNoTable is the absence
+// that is ruled rather than discovered: neither artefact is a member of any
+// pair, so no edit to any file produces a row and an empty block there would
+// assert a supply that does not exist (§8, ADR-0069).
+func TestRunReview_AManifestAndARepositoryDeclarationRenderNoTable(t *testing.T) {
+	root := authorityRepo(t)
+
+	for _, named := range []string{"providers/things.yaml", "hyper.yaml"} {
+		stdout, _, exit := runReview(t, root, named)
+		if exit != cli.ExitClean {
+			t.Fatalf("exit = %d reviewing %s, want a clean review", exit, named)
+		}
+		if strings.Contains(stdout, "AUTHORITY") || strings.Contains(stdout, "claims this Target") {
+			t.Errorf("the review of %s reads\n%s\nwant no table at all — no header, no empty body, no sentence", named, stdout)
+		}
+	}
+}
+
+// TestRunReview_AProcedureRendersOneRowPerDistinctPairItsStepsBind is the
+// artefact that supplies neither end, and the ordering that is refused on it:
+// two Steps sharing a pairing collapse to one row, and the rows sort by
+// (Target, Definition) rather than following the marker column (§8, ADR-0069).
+func TestRunReview_AProcedureRendersOneRowPerDistinctPairItsStepsBind(t *testing.T) {
+	root := authorityRepo(t)
+	writeFile(t, root+"/procedures/subject.yaml", `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: end
+    definition: things
+    operation: end_thing
+    target: staging
+  - id: look
+    definition: things-observed
+    operation: delete_everything
+    target: staging
+  - id: end-again
+    definition: things
+    operation: end_thing
+    target: staging
+`)
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	want := []string{
+		"AUTHORITY   assembled from definitions/ and targets/",
+		"DEFINITION       TARGET   DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS",
+		"things           staging  mutate destroy    read mutate destroy  m d        end_thing",
+		"things-observed  staging  read              read mutate destroy  r          —",
+	}
+	if got := authorityOf(stdout); !slices.Equal(got, want) {
+		t.Errorf("the block reads\n%q\nwant\n%q — sorted, and one row per distinct pairing", got, want)
+	}
+}
+
+// TestRunReview_AnAbsentTargetDeclarationEmptiesTwoCellsNotTheRow is §8's own
+// rule: dropping the row would say the third Target was never claimed, and the
+// claimed Kinds and the named `destroy` Operations are this artefact's own
+// (ADR-0026).
+func TestRunReview_AnAbsentTargetDeclarationEmptiesTwoCellsNotTheRow(t *testing.T) {
+	root := authorityRepo(t)
+	writeFile(t, root+"/definitions/things.yaml",
+		"kind: definition\ndefinition: things\nprovider: things\nkinds: [mutate]\ndestroy: [end_thing]\ntargets: [staging, nowhere]\n")
+
+	stdout, _, exit := runReview(t, root, "definitions/things.yaml")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	want := []string{
+		"AUTHORITY   assembled from definitions/ and targets/",
+		"DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS         EFFECTIVE   DESTROY OPS",
+		"things      nowhere  mutate destroy    unresolved           unresolved  end_thing",
+		"things      staging  mutate destroy    read mutate destroy  m d         end_thing",
+	}
+	if got := authorityOf(stdout); !slices.Equal(got, want) {
+		t.Errorf("the block reads\n%q\nwant\n%q", got, want)
+	}
+}
+
+// TestRunReview_ATargetDeclarationThatWillNotParseCarriesTheSameWord is the
+// other absence: a supply that is present and will not parse has no accepted
+// Kinds to render, and the two differ in nothing this table can act on
+// (ADR-0064, ADR-0069).
+func TestRunReview_ATargetDeclarationThatWillNotParseCarriesTheSameWord(t *testing.T) {
+	root := authorityRepo(t)
+	writeFile(t, root+"/targets/staging.yaml", "kind: target-declaration\ntarget: staging\n  broken: [")
+
+	stdout, _, exit := runReview(t, root, "definitions/things.yaml")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review — the fault is in a file the reviewer did not ask about", exit)
+	}
+	if got := authorityOf(stdout); len(got) != 3 || !strings.Contains(got[2], "unresolved") {
+		t.Errorf("the block reads\n%q\nwant one row carrying unresolved", got)
+	}
+}
+
+// TestRunReview_ADiscoveryFailureIsCountedBeneathTheTable is the one absence
+// with no cell to carry it: a Definition claiming this Target that did not
+// parse contributes nothing at all, so the table says how many and where to
+// take it — and the review still exits 0, exit 1 being for the artefact under
+// review (§8, §9, ADR-0069).
+func TestRunReview_ADiscoveryFailureIsCountedBeneathTheTable(t *testing.T) {
+	root := authorityRepo(t)
+	writeFile(t, root+"/definitions/half-written.yaml", "kind: definition\ndefinition: half\n  targets: [")
+
+	stdout, _, exit := runReview(t, root, "staging")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	block := authorityOf(stdout)
+	if len(block) == 0 {
+		t.Fatalf("the review carries no AUTHORITY block:\n%s", stdout)
+	}
+	last := block[len(block)-1]
+	if want := "1 definition did not load · hyper check"; last != want {
+		t.Errorf("the block ends %q, want %q", last, want)
+	}
+	if strings.Contains(last, "half") {
+		t.Errorf("the line reads %q; it names no member", last)
+	}
+}
+
+// TestRunReview_TheDiscoveryCountRendersOnlyWhereItIsNonZero is the other half
+// of that line: a repository whose definitions/ all loaded says nothing, on the
+// shape §8 gives the `git diff` row below it.
+func TestRunReview_TheDiscoveryCountRendersOnlyWhereItIsNonZero(t *testing.T) {
+	root := authorityRepo(t)
+
+	stdout, _, exit := runReview(t, root, "staging")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if strings.Contains(stdout, "did not load") {
+		t.Errorf("the review reads\n%s\nwant no discovery count — every definitions/ file loaded", stdout)
+	}
+}
+
+// TestRunReview_TheWireCarriesOneAuthorityRowPerRenderedRow is §8's own row:
+// the Kinds as arrays of their full names rather than the page's initials, and
+// `destroy_operations` written empty rather than omitted where the Definition
+// names none — the supply is there and names nothing (§7, §8).
+func TestRunReview_TheWireCarriesOneAuthorityRowPerRenderedRow(t *testing.T) {
+	root := authorityRepo(t)
+
+	stdout, _, exit := runReview(t, root, "staging", "--json")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	for _, want := range []string{
+		`{"type":"authority","definition":"things","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["end_thing"]}`,
+		`{"type":"authority","definition":"things-observed","target":"staging","definition_kinds":["read"],"target_kinds":["read","mutate","destroy"],"effective":["read"],"destroy_operations":[]}`,
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("the stream is\n%s\nwant a row carrying %s", stdout, want)
+		}
+	}
+}
+
+// TestRunReview_AnUnsuppliedCellIsAbsentFromTheWire is the ordinary absence
+// rule where the page writes `unresolved`: a member with no supply is absent
+// from the object entirely, where one that is supplied and empty is written
+// empty — the two being the distinction the whole table is built on (§7, §8).
+func TestRunReview_AnUnsuppliedCellIsAbsentFromTheWire(t *testing.T) {
+	root := authorityRepo(t)
+	writeFile(t, root+"/definitions/things.yaml",
+		"kind: definition\ndefinition: things\nprovider: things\nkinds: [mutate]\ndestroy: [end_thing]\ntargets: [nowhere]\n")
+
+	stdout, _, exit := runReview(t, root, "definitions/things.yaml", "--json")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	want := `{"type":"authority","definition":"things","target":"nowhere","definition_kinds":["mutate","destroy"],"destroy_operations":["end_thing"]}`
+	if !strings.Contains(stdout, want) {
+		t.Errorf("the stream is\n%s\nwant a row carrying %s", stdout, want)
+	}
+}
+
+// TestRunReview_NoAuthorityRowIsEmittedWhereTheTableIsAbsent is the wire half
+// of the two artefacts that are members of no pair: a rendering that emits no
+// rows emits no rows (ADR-0069).
+func TestRunReview_NoAuthorityRowIsEmittedWhereTheTableIsAbsent(t *testing.T) {
+	root := authorityRepo(t)
+
+	for _, named := range []string{"providers/things.yaml", "hyper.yaml"} {
+		stdout, _, exit := runReview(t, root, named, "--json")
+		if exit != cli.ExitClean {
+			t.Fatalf("exit = %d reviewing %s, want a clean review", exit, named)
+		}
+		if strings.Contains(stdout, `"type":"authority"`) {
+			t.Errorf("the stream for %s is\n%s\nwant no authority row", named, stdout)
+		}
+	}
+}
+
+// TestRunReview_TwoRunsAgainstOneRepositoryAreByteIdentical is what the sort is
+// for: the row set on a Target declaration is discovered across a map, and a
+// rendering that followed the walk would differ between two runs of one binary
+// against one repository (§8).
+func TestRunReview_TwoRunsAgainstOneRepositoryAreByteIdentical(t *testing.T) {
+	root := authorityRepo(t)
+
+	first, _, _ := runReview(t, root, "staging")
+	for range 8 {
+		if again, _, _ := runReview(t, root, "staging"); again != first {
+			t.Fatalf("two renderings of one review differ:\n%s\n---\n%s", first, again)
+		}
+	}
+}
+
+// TestRunReview_ADefinitionClaimingNoTargetSaysSoInItsOwnWords is the empty
+// state on the end of the relation it was not written for: an edit to *this*
+// file puts a row here, so the block renders — and what it says is true of a
+// Definition. The Target declaration's sentence would state the wrong fact on
+// this screen (§8, ADR-0069).
+func TestRunReview_ADefinitionClaimingNoTargetSaysSoInItsOwnWords(t *testing.T) {
+	root := authorityRepo(t)
+	writeFile(t, root+"/definitions/unclaiming.yaml",
+		"kind: definition\ndefinition: unclaiming\nprovider: things\nkinds: [read]\ntargets: []\n")
+
+	stdout, _, exit := runReview(t, root, "definitions/unclaiming.yaml")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	want := []string{
+		"AUTHORITY   assembled from definitions/ and targets/",
+		"this Definition claims no Target",
+	}
+	if got := authorityOf(stdout); !slices.Equal(got, want) {
+		t.Errorf("the block reads\n%q\nwant\n%q", got, want)
+	}
+}
+
+// TestRunReview_AProcedureBindingNoPairSaysSoInItsOwnWords is the third
+// sentence, on the artefact that supplies neither end: a Procedure whose only
+// Step is a nested invocation binds no pairing of its own, and an edit to its
+// steps: puts a row here (§3, §8).
+func TestRunReview_AProcedureBindingNoPairSaysSoInItsOwnWords(t *testing.T) {
+	root := authorityRepo(t)
+	writeFile(t, root+"/procedures/inner.yaml", "kind: procedure\nprocedure: inner\ntargets: []\nsteps: []\n")
+	writeFile(t, root+"/procedures/subject.yaml", `kind: procedure
+procedure: subject
+targets: []
+steps:
+  - id: nested
+    procedure: inner
+`)
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	want := []string{
+		"AUTHORITY   assembled from definitions/ and targets/",
+		"no Step binds a Definition to a Target",
+	}
+	if got := authorityOf(stdout); !slices.Equal(got, want) {
+		t.Errorf("the block reads\n%q\nwant\n%q", got, want)
+	}
+}
+
+// TestRunReview_ADefinitionsKindsRenderAsWritten is ReadDefinitionFacts's rule
+// held at the column: the claim is not reduced or re-sorted, and the one thing
+// guarded is the derived member — a Definition that writes `destroy` in kinds:
+// and names a `destroy` Operation states the claim once (§3, §8).
+func TestRunReview_ADefinitionsKindsRenderAsWritten(t *testing.T) {
+	root := authorityRepo(t)
+	writeFile(t, root+"/definitions/loud.yaml",
+		"kind: definition\ndefinition: loud\nprovider: things\nkinds: [destroy, read]\ndestroy: [end_thing]\ntargets: [staging]\n")
+
+	stdout, _, exit := runReview(t, root, "definitions/loud.yaml")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	block := authorityOf(stdout)
+	if len(block) != 3 || !strings.Contains(block[2], "destroy read ") {
+		t.Errorf("the block reads\n%q\nwant the kinds: list as written, with no second destroy appended", block)
 	}
 }

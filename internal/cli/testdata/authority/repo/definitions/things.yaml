@@ -1,0 +1,6 @@
+kind: definition
+definition: things
+provider: things
+kinds: [mutate]
+destroy: [end_thing]
+targets: [staging, observed-only, wont-parse, nowhere]

@@ -122,8 +122,13 @@ func RunReview(args []string, stdout, stderr io.Writer, lookupenv func(string) (
 	// page in this package.
 	absent, sentence := rankedAbsence(reviewed)
 	rows := append([]render.Row{newArtefactRow(reviewed, absent)}, gutterRows(reviewed)...)
+	rows = append(rows, authorityRows(reviewed.authority)...)
 	page := func(w io.Writer, rows []render.Row) error {
-		return writeReviewPage(w, rows, sentence, reviewed.source)
+		return writeReviewPage(w, rows, reviewPage{
+			sentence:  sentence,
+			source:    reviewed.source,
+			authority: reviewed.authority,
+		})
 	}
 	if code := writeAnswer("review", stdout, stderr, parsed.json, rows, render.NewResultRow(false), page); code != 0 {
 		return code
@@ -149,6 +154,11 @@ type reviewedArtefact struct {
 	source   []string
 	marks    artefact.ProcedureMarks
 	problems []problem.Problem
+
+	// authority is the one relation §5 states, read from whichever end this
+	// artefact supplies. Three of the five artefacts supply an end and two
+	// are members of no pair at all (§8, ADR-0069).
+	authority authorityBlock
 }
 
 // newReviewedArtefact is the resolved artefact read as the thing under review,
@@ -188,13 +198,14 @@ func newReviewedArtefact(found resolvedArtefact, loaded repository.Loaded) revie
 			artefact.BuildProcedureGraph(procedureRoots(loaded.Artefacts), loaded.Providers, loaded.Definitions))
 	}
 	return reviewedArtefact{
-		kind:     kind,
-		path:     file,
-		name:     artefact.DeclaredName(a.Root, kind.nameKey),
-		cadence:  declared,
-		source:   artefact.SourceLines(a.Bytes),
-		marks:    marks,
-		problems: a.Problems,
+		kind:      kind,
+		path:      file,
+		name:      artefact.DeclaredName(a.Root, kind.nameKey),
+		cadence:   declared,
+		source:    artefact.SourceLines(a.Bytes),
+		marks:     marks,
+		problems:  a.Problems,
+		authority: readAuthority(found, loaded),
 	}
 }
 
@@ -277,6 +288,20 @@ func kindOf(loadedPath string) (artefactKind, bool) {
 		}
 	}
 	return artefactKind{}, false
+}
+
+// locationOf is where an artefact of that kind is read from: the directory §12
+// maps the kind: value to, or the file itself for the one artefact keyed by its
+// filename. It reads the same table kindOf reads backwards, so a surface that
+// counts what is in a location and the resolution that decides what a location
+// means cannot name two different directories.
+func locationOf(wire string) string {
+	for _, mapped := range artefactKinds {
+		if mapped.kind.wire == wire {
+			return mapped.location
+		}
+	}
+	return ""
 }
 
 // resolveArtefact is the positional resolved to the artefact under review, in
@@ -842,6 +867,13 @@ const (
 	// column is padded and the rule is drawn by. The column itself is as
 	// wide as the widest marker in the rendering and the kind heading it.
 	reviewMarkerPad = len(reviewFieldGap)
+	// reviewCaptionGap is what stands between a block's name and the line
+	// saying what the block is. It is wider than the gap between two
+	// columns, and by one character rather than by an alignment: the caption
+	// is a title and its second half a sentence, so nothing beneath it is
+	// aligned against either, and §8 renders `AUTHORITY` and `FLAGS` alike
+	// with it however long their names are.
+	reviewCaptionGap = "   "
 	// reviewSourceGap is what stands between the bar and the artefact's own
 	// line. It is one character wide because the change column is not drawn
 	// at all in this milestone — no range opens, so that column has no
@@ -863,8 +895,9 @@ const (
 // review is stacked renderings and not a table of like rows, which is why
 // writeAnswer takes a page function at all.
 //
-// source is closed over rather than carried on a row: `review --json` emits the
-// annotations and never the source, the consumer already having the file (§8).
+// The page's own supply is closed over rather than carried on a row: `review
+// --json` emits the annotations and never the source, the consumer already
+// having the file (§8).
 //
 // The gutter is two columns and here the second one is not drawn at all. There
 // is no Store in this milestone and so no range ever opens, which means the
@@ -872,7 +905,7 @@ const (
 // characters left of where a ranged review would put it — the absence being the
 // state §8 names rather than a column pending its first mark. A blank column
 // one character wide is the one thing this screen may not do.
-func writeReviewPage(w io.Writer, rows []render.Row, sentence string, source []string) error {
+func writeReviewPage(w io.Writer, rows []render.Row, page reviewPage) error {
 	if len(rows) == 0 {
 		return nil
 	}
@@ -881,7 +914,7 @@ func writeReviewPage(w io.Writer, rows []render.Row, sentence string, source []s
 		return nil
 	}
 
-	facts := headerFacts(header, sentence)
+	facts := headerFacts(header, page.sentence)
 
 	// The marker column is as wide as the widest marker in this rendering,
 	// or the kind heading it where that is wider, and a marker is never
@@ -898,7 +931,7 @@ func writeReviewPage(w io.Writer, rows []render.Row, sentence string, source []s
 		}
 	}
 
-	lines := make([]string, 0, len(facts)+len(source)+1)
+	lines := make([]string, 0, len(facts)+len(page.source)+1)
 	for i, fact := range facts {
 		heading := ""
 		if i == 0 {
@@ -911,7 +944,7 @@ func writeReviewPage(w io.Writer, rows []render.Row, sentence string, source []s
 	lines = append(lines, reviewIndent+
 		strings.Repeat("─", marker+reviewMarkerPad)+"┼"+
 		strings.Repeat("─", widestOf(facts)+len(reviewFieldGap)))
-	for n, line := range source {
+	for n, line := range page.source {
 		lines = append(lines, gutterLine(gutter(marked[n+1], marker)+reviewSourceGap, line))
 	}
 
@@ -920,7 +953,21 @@ func writeReviewPage(w io.Writer, rows []render.Row, sentence string, source []s
 			return err
 		}
 	}
-	return nil
+	return writeAuthorityBlock(w, header.Kind, rows, page.authority)
+}
+
+// reviewPage is what the screen renders that no row carries: the header's
+// absence sentence, the artefact's own lines, and what the `AUTHORITY` block
+// says about itself.
+//
+// The source is here rather than on a row because `review --json` emits the
+// annotations and never the source, the consumer already having the file; the
+// other two are here for ADR-0069's own reason, a rendering that emits no rows
+// having nothing on the wire to carry its absence on (§8, ADR-0026).
+type reviewPage struct {
+	sentence  string
+	source    []string
+	authority authorityBlock
 }
 
 // markersByLine is the rendering's marker cells keyed by the line each stands

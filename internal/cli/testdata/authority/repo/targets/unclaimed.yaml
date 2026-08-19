@@ -1,0 +1,8 @@
+kind: target-declaration
+target: unclaimed
+class: things
+kinds: [read, destroy]
+capabilities: [http]
+hosts: [api.things.dev]
+auth:
+  token: {env: THINGS_API_TOKEN}

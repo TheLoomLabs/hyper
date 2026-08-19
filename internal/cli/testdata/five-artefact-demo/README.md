@@ -26,9 +26,15 @@ artefacts in it and of the one Provider that has no file anywhere (issue #118):
 ```
 hyper review procedures/retire-preview-dns.yaml  → the Procedure under its header, marked in the gutter
 hyper review preview-dns                         → the same, resolved by the name it declares
+hyper review cloudflare-prod                     → the relation read from the end a Target declaration supplies
 hyper review hyper.yaml                          → the artefact a path is the only way to reach
 hyper review shell                               → the bytes compiled into the binary
 ```
+
+`cloudflare-prod` is the one this repository answers that no other corpus can:
+two Definitions claim it, so its `AUTHORITY` table renders §8's own worked block
+byte for byte — the reverse index this repository already holds, read from the
+end where nothing else on the screen says who took the grant (ADR-0069).
 
 Every way that positional can fail lives beside them — a name matching nothing, a
 name differing only in case, a path matching nothing, the pseudo-path no caller
@@ -38,11 +44,11 @@ and none carries one of its own.
 
 ## Why the repository sits here and not in a case
 
-It is one repository and twenty-nine cases, in six corpora: the four commands'
+It is one repository and thirty cases, in six corpora: the four commands'
 eight above, `check/`'s two clean cases, the two beside `targets`'s own that run
 it again under an environment supplying `CLOUDFLARE_API_TOKEN` — where the
 credential column reads present and nothing else in the answer moves — and
-`review/`'s seventeen.
+`review/`'s eighteen.
 
 A copy per case is how it began, and a Provider whose Operations moved under one
 command's golden file and not another's is exactly the drift that would have

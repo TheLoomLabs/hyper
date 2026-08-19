@@ -3,4 +3,5 @@
 {"type":"gutter","line":6,"marker":"mutate! cloudflare-prod"}
 {"type":"gutter","line":16,"marker":"mutate cloudflare-prod"}
 {"type":"gutter","line":32,"marker":"DESTROY cloudflare-prod"}
+{"type":"authority","definition":"preview-dns","target":"cloudflare-prod","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["delete_dns_record"]}
 {"type":"result","truncated":false}
