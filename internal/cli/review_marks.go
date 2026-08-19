@@ -62,21 +62,36 @@ const (
 	markerMemberGap = " "
 )
 
-// envelopeStates is the envelope mark's two states, each in the page's
-// notation and the wire's. Both render: a review does not run `check` (§9), so
-// an envelope the Steps exceed renders like any other artefact's and the review
-// still exits 0 — the mark is what says so, and a mark that went silent there
-// would leave the all-clear state indistinguishable from an unmarked line.
+// envelopeStates is the envelope mark's two states, each in the sigil the page
+// draws and the word the wire and the `FLAGS` block state. Both render: a
+// review does not run `check` (§9), so an envelope the Steps exceed renders
+// like any other artefact's and the review still exits 0 — the mark is what
+// says so, and a mark that went silent there would leave the all-clear state
+// indistinguishable from an unmarked line.
 //
 // The all-clear pair is §8's own. The exceeded pair is minted here, on the
 // relation §8 fixes between the two notations rather than on a rendering it
 // states: §8 renders the state that holds and §12 says the name has two, so
 // what the other one looks like is under-determined and this is the reading
 // that keeps one sigil answering one word.
-var envelopeStates = map[bool]struct{ page, wire string }{
-	true:  {markerEnvelope + " ✓", markerEnvelope + " ok"},
-	false: {markerEnvelope + " ✗", markerEnvelope + " exceeded"},
+//
+// The state is a member rather than a substring of the wire's marker because
+// three renderings read it: the marker cell, the row it goes out on, and the
+// coordinate column of the `envelope` flag that indexes the same line (§12).
+var envelopeStates = map[bool]envelopeState{
+	true:  {"✓", "ok"},
+	false: {"✗", "exceeded"},
 }
+
+// envelopeState is one of the two, in the two notations one mark and one flag
+// row render it in.
+type envelopeState struct{ sigil, state string }
+
+// page and wire are the envelope mark in the two notations the marker column
+// carries: the name and its sigil for the eye, the name and its state for the
+// wire.
+func (s envelopeState) page() string { return markerEnvelope + markerMemberGap + s.sigil }
+func (s envelopeState) wire() string { return markerEnvelope + markerMemberGap + s.state }
 
 // reviewMarker is one line's marker cell before it is composed: the line it
 // stands beside, and either the fields the marker composes from or a whole-cell
@@ -111,43 +126,75 @@ type reviewMarker struct {
 	fields []string
 }
 
-// readMarkers is the artefact under review read as the cells its marker column
-// carries, in line order — which is the order the rows go out in, a consumer
-// being unable to re-sort what it has already printed (§8, §9).
+// reviewMarks is one reading of the artefact under review: the cells its marker
+// column carries, and the flags that index them.
+//
+// The two travel together because they come out of one reading and must: every
+// `FLAGS` row cites a line the gutter marked, and what makes that hold by
+// construction rather than by two readings agreeing is that both are derived
+// from the same marks (§8, §12, ADR-0026).
+type reviewMarks struct {
+	markers []reviewMarker
+	flags   []reviewFlag
+}
+
+// readMarks is the artefact under review read into both, each in the order its
+// own surface renders it — the markers in line order, which is the order the
+// rows go out in, a consumer being unable to re-sort what it has already
+// printed (§8, §9); the flags in line order too, with a file-level row last
+// (ADR-0054).
 //
 // The five rosters are five, and the dispatch is the whole of what differs
-// between them: what each artefact marks is §8's, and every one of them
-// composes, aligns and goes out through the same two functions below. That is
-// what keeps the change column present on all five and Procedure-only on none
-// of them (§8, issue #122).
+// between them: what each artefact marks is §8's and what it flags is §12's,
+// and every one of them composes, aligns and goes out through the same
+// functions below. That is what keeps the change column present on all five and
+// Procedure-only on none of them (§8, issue #122).
 //
 // Only a Procedure is read against the repository. Its Kind comes from a
 // Manifest two directories away and its envelope quantifies over every Step's
 // `target:` at once; the other four derive every mark they carry from the file
 // being read, which is why they are handed a root and nothing else.
-func readMarkers(found resolvedArtefact, loaded repository.Loaded) []reviewMarker {
+//
+// A Repository declaration reads a roster and flags none of it. Its two marks
+// are the pin every Run is gated on and the retention policy bounding
+// Compaction, and neither is blast radius — so the block renders its empty
+// state, which is the fact rather than a roster left short (§8, §12).
+func readMarks(found resolvedArtefact, loaded repository.Loaded) reviewMarks {
 	root := found.artefact.Root
 
-	var markers []reviewMarker
+	var marks reviewMarks
 	switch found.kind.wire {
 	case artefact.KindProcedure:
 		// The transitive walk needs every procedures/ file at once, which
 		// is the same graph `check` builds once per run and for the same
 		// reason: a nested invocation's own file, to any depth (issue #96).
 		graph := artefact.BuildProcedureGraph(procedureRoots(loaded.Artefacts), loaded.Providers, loaded.Definitions)
-		markers = procedureMarkers(artefact.ReadProcedureMarks(
-			root, loaded.Providers, loaded.Definitions, loaded.Targets, graph))
+		read := artefact.ReadProcedureMarks(root, loaded.Providers, loaded.Definitions, loaded.Targets, graph)
+		marks = reviewMarks{procedureMarkers(read), procedureFlags(read, manifestPathIn(loaded))}
 	case artefact.KindDefinition:
-		markers = definitionMarkers(artefact.ReadDefinitionMarks(root))
+		read := artefact.ReadDefinitionMarks(root)
+		marks = reviewMarks{definitionMarkers(read), definitionFlags(read)}
 	case artefact.KindTargetDeclaration:
-		markers = targetDeclarationMarkers(artefact.ReadTargetDeclarationMarks(root))
+		read := artefact.ReadTargetDeclarationMarks(root)
+		marks = reviewMarks{targetDeclarationMarkers(read), targetDeclarationFlags(read)}
 	case artefact.KindProvider:
-		markers = manifestMarkers(artefact.ReadManifestMarks(root))
+		read := artefact.ReadManifestMarks(root)
+		marks = reviewMarks{manifestMarkers(read), manifestFlags(read)}
 	case artefact.KindRepositoryDeclaration:
-		markers = repositoryDeclarationMarkers(artefact.ReadRepositoryDeclarationMarks(root))
+		marks = reviewMarks{markers: repositoryDeclarationMarkers(artefact.ReadRepositoryDeclarationMarks(root))}
 	}
-	slices.SortStableFunc(markers, func(a, b reviewMarker) int { return a.line - b.line })
-	return markers
+	slices.SortStableFunc(marks.markers, func(a, b reviewMarker) int { return a.line - b.line })
+	sortFlags(marks.flags)
+	return marks
+}
+
+// manifestPathIn is where a Provider's Manifest loaded from, by the name a
+// Definition binds it under — the load's own fold, so the file a flag names and
+// the file a Step's Operation resolved against are the same one by construction
+// (issue #109). It answers "" for a name the fold does not hold, which is a name
+// that resolved to nothing.
+func manifestPathIn(loaded repository.Loaded) func(string) string {
+	return func(provider string) string { return loaded.Manifests[provider].Path }
 }
 
 // procedureMarkers is §8's roster on a Procedure: the envelope check beside the
@@ -156,7 +203,7 @@ func procedureMarkers(marks artefact.ProcedureMarks) []reviewMarker {
 	var markers []reviewMarker
 	if line := marks.EnvelopeLine; line > 0 {
 		state := envelopeStates[marks.EnvelopeHolds]
-		markers = append(markers, reviewMarker{line: line, whole: state.page, wholeWire: state.wire})
+		markers = append(markers, reviewMarker{line: line, whole: state.page(), wholeWire: state.wire()})
 	}
 	for _, step := range marks.Steps {
 		markers = append(markers, newStepMarker(step))

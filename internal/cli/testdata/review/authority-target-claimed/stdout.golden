@@ -14,3 +14,6 @@
   things           staging  mutate destroy    read mutate destroy  m d        end_thing
   things-observed  staging  read              read mutate destroy  r          —
   2 definitions did not load · hyper check
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  DESTROY  line 4  destroy accepted

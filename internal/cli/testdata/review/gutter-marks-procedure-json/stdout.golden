@@ -15,4 +15,14 @@
 {"type":"authority","definition":"orphan","target":"staging","definition_kinds":["read"],"target_kinds":["read","mutate","destroy"],"effective":["read"],"destroy_operations":[]}
 {"type":"authority","definition":"things","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["end_thing"]}
 {"type":"authority","definition":"things-observed","target":"staging","definition_kinds":["read"],"target_kinds":["read","mutate","destroy"],"effective":["read"],"destroy_operations":[]}
+{"type":"flag","flag":"unbounded","cites_line":13,"step":"make"}
+{"type":"flag","flag":"destroy","cites_line":32,"step":"retire"}
+{"type":"flag","flag":"destroy","cites_line":44,"step":"scrub"}
+{"type":"flag","flag":"opaque","cites_line":44,"step":"scrub"}
+{"type":"flag","flag":"unbounded","cites_line":44,"step":"scrub"}
+{"type":"flag","flag":"unresolved","cites_line":55,"step":"no-such-definition"}
+{"type":"flag","flag":"unresolved","cites_line":60,"step":"no-such-operation"}
+{"type":"flag","flag":"unresolved","cites_line":65,"step":"no-such-provider"}
+{"type":"flag","flag":"unresolved","cites_line":73,"step":"no-such-procedure"}
+{"type":"flag","flag":"envelope","cites_line":4}
 {"type":"result","truncated":false}

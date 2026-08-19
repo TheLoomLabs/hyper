@@ -453,6 +453,76 @@ func writeGolden(t *testing.T, path string, data []byte) {
 	}
 }
 
+// TestGoldenCorpora_EveryFlagCitesALineTheGutterMarked is the relation `FLAGS`
+// rests on, held over every checked-in stream at once: a flag cites a line the
+// gutter already marked, and introduces no claim of its own (§8, §12,
+// ADR-0026).
+//
+// It is asserted here rather than per case, and that is the point of putting
+// `cites_line` on every row: a flag citing a line no `gutter` row marked is
+// mechanically detectable across the whole corpus, where a per-case eyeball
+// would find a breach only where somebody happened to look. A name added to the
+// vocabulary, or a roster pointed at the wrong line, fails here without anyone
+// having written a case for it.
+//
+// Like the two assertions beside it, it reads the golden files rather than
+// driving anything: a stream is found by its case's argv carrying --json, and
+// the streams that carry no flag row are the commands that render no flags.
+func TestGoldenCorpora_EveryFlagCitesALineTheGutterMarked(t *testing.T) {
+	var judged int
+	for _, c := range goldenCases(t) {
+		if !slices.Contains(c.argv, "--json") {
+			continue
+		}
+		stdout := readFile(t, filepath.Join(c.dir, "stdout.golden"))
+		if stdout == "" {
+			continue
+		}
+
+		marked := map[int]bool{}
+		var flags []struct {
+			flag string
+			line int
+		}
+		for i, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+			var row struct {
+				Type      string `json:"type"`
+				Line      int    `json:"line"`
+				Flag      string `json:"flag"`
+				CitesLine int    `json:"cites_line"`
+			}
+			if err := json.Unmarshal([]byte(line), &row); err != nil {
+				t.Errorf("%s: line %d is not one JSON object: %v", c.name, i+1, err)
+				continue
+			}
+			switch row.Type {
+			case "gutter":
+				marked[row.Line] = true
+			case "flag":
+				flags = append(flags, struct {
+					flag string
+					line int
+				}{row.Flag, row.CitesLine})
+			}
+		}
+
+		judged += len(flags)
+		for _, f := range flags {
+			if !marked[f.line] {
+				t.Errorf("%s: the %s flag cites line %d, which no gutter row in the same stream marked", c.name, f.flag, f.line)
+			}
+		}
+	}
+
+	// A corpus with no flag row in any stream would hold this vacuously. The
+	// fence is that the walk found rows to judge, not how many: cases are
+	// added freely, and a number here would be a registration by another
+	// name.
+	if judged == 0 {
+		t.Fatal("no --json case in any corpus carries a flag row; the relation held vacuously")
+	}
+}
+
 // TestGoldenCorpora_AJSONStreamIsTypedRowsEndingInItsTerminalRow is §8's two
 // rules about the wire, asserted over every corpus at once: every row opens
 // with the type a consumer discriminates on, and the last row is the terminal

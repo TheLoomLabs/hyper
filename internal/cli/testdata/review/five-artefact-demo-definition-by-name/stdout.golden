@@ -10,3 +10,6 @@
   AUTHORITY   assembled from definitions/ and targets/
   DEFINITION   TARGET           DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS
   preview-dns  cloudflare-prod  mutate destroy    read mutate destroy  m d        delete_dns_record
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  DESTROY  line 5  destroy claimed for delete_dns_record

@@ -11,3 +11,7 @@
   DEFINITION        TARGET  DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS
   commands          local   read              read destroy  r          —
   commands-destroy  local   destroy           read destroy  d          destroy
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  DESTROY  line 4  destroy accepted
+  OPAQUE   line 6  an opaque destroy admitted

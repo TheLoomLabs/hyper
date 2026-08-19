@@ -82,3 +82,15 @@
   orphan            staging  read              read mutate destroy  r           —
   things            staging  mutate destroy    read mutate destroy  m d         end_thing
   things-observed   staging  read              read mutate destroy  r           —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  UNBOUNDED   line 13  step make                mutate with no declared bound
+  DESTROY     line 32  step retire              end_thing, bound 5
+  DESTROY     line 44  step scrub               destroy
+  OPAQUE      line 44  step scrub               destroy reaches an effect hyper cannot describe
+  UNBOUNDED   line 44  step scrub               an opaque destroy takes no bound
+  UNRESOLVED  line 55  step no-such-definition  definition: not-there — no definitions/not-there.yaml
+  UNRESOLVED  line 60  step no-such-operation   operation: not_there — no such Operation in providers/things.yaml
+  UNRESOLVED  line 65  step no-such-provider    provider: not-installed — no built-in Provider and no providers/not-installed.yaml
+  UNRESOLVED  line 73  step no-such-procedure   procedure: not-there — no procedures/not-there.yaml
+  ENVELOPE    line 4   ok                       no step reaches a target outside [local, staging]

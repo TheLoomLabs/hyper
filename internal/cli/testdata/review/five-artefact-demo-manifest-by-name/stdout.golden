@@ -65,3 +65,6 @@
                              │       properties:
                              │         zone_id: {type: string}
                              │         record_id: {type: string}
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  DESTROY  line 53  delete_dns_record declares destroy

@@ -13,3 +13,6 @@
   DEFINITION            TARGET           DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS
   preview-dns           cloudflare-prod  mutate destroy    read mutate destroy  m d        delete_dns_record
   preview-dns-observed  cloudflare-prod  read              read mutate destroy  r          —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  DESTROY  line 4  destroy accepted

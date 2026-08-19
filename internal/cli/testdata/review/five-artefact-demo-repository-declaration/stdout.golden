@@ -4,3 +4,6 @@
   1.4.0       │ version: 1.4.0
               │ digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
   90d         │ retention: 90d
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  no line the gutter marked draws a flag

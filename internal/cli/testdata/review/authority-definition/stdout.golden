@@ -13,3 +13,6 @@
   things      observed-only  mutate destroy    read                 —           end_thing
   things      staging        mutate destroy    read mutate destroy  m d         end_thing
   things      wont-parse     mutate destroy    unresolved           unresolved  end_thing
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  DESTROY  line 5  destroy claimed for end_thing

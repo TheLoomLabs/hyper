@@ -621,6 +621,9 @@ func TestRunReview_TheWireCarriesTheGlossesPartsAndNeverTheComposedString(t *tes
 		// no Steps still declaring the envelope none of them exceeds
 		// (issue #120).
 		`{"type":"gutter","line":3,"marker":"envelope ok"}`,
+		// And the flag that indexes it, which is the row every
+		// Procedure review carries (issue #123).
+		`{"type":"flag","flag":"envelope","cites_line":3}`,
 		`{"type":"result","truncated":false}`,
 	}
 	if got := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n"); !slices.Equal(got, want) {
@@ -1250,6 +1253,9 @@ steps:
 		`{"type":"gutter","line":5,"marker":"mutate! staging"}`,
 		`{"type":"gutter","line":9,"marker":"DESTROY staging"}`,
 		`{"type":"authority","definition":"things","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["end_thing"]}`,
+		`{"type":"flag","flag":"unbounded","cites_line":5,"step":"make"}`,
+		`{"type":"flag","flag":"destroy","cites_line":9,"step":"retire"}`,
+		`{"type":"flag","flag":"envelope","cites_line":3}`,
 		`{"type":"result","truncated":false}`,
 	}
 	if got := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n"); !slices.Equal(got, want) {
@@ -1837,12 +1843,15 @@ func TestRunReview_UnresolvedRendersOnNoArtefactButAProcedure(t *testing.T) {
 }
 
 // authorityOf is the AUTHORITY block read back off the page: every line from
-// its caption to the end of the rendering, each with the screen's own indent
+// its caption to the blank line beneath it, each with the screen's own indent
 // taken off, and nothing at all where the block did not render.
 //
 // It finds the block by its caption rather than by counting lines from the
 // bottom, which is what lets a case assert that the block is *absent* — the
-// thing §8 distinguishes from an empty one (ADR-0069).
+// thing §8 distinguishes from an empty one (ADR-0069). It ends at the blank
+// line for the same reason: the `FLAGS` block stands beneath this one on every
+// artefact, and a reading that ran to the end of the page would make a case
+// about the table a case about both.
 func authorityOf(page string) []string {
 	lines := strings.Split(strings.TrimSuffix(page, "\n"), "\n")
 	for n, line := range lines {
@@ -1851,6 +1860,9 @@ func authorityOf(page string) []string {
 		}
 		block := make([]string, 0, len(lines)-n)
 		for _, rest := range lines[n:] {
+			if rest == "" {
+				break
+			}
 			block = append(block, strings.TrimPrefix(rest, "  "))
 		}
 		return block

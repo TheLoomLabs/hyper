@@ -14,3 +14,7 @@
   AUTHORITY   assembled from definitions/ and targets/
   DEFINITION  TARGET  DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS
   commands    local   read              read destroy  r          —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  OPAQUE    line 5  step reach  read reaches an effect hyper cannot describe
+  ENVELOPE  line 3  exceeded    a step reaches outside [staging]

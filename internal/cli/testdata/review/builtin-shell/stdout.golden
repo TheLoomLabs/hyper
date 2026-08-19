@@ -82,3 +82,13 @@
                                      │       type: object
                                      │       properties:
                                      │         command: {type: array, items: {type: string}}
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  OPAQUE   line 7   read reaches an effect hyper cannot describe
+  OPAQUE   line 22  mutate reaches an effect hyper cannot describe
+  OPAQUE   line 37  mutate_once reaches an effect hyper cannot describe
+  OPAQUE   line 51  mutate_skip_if_recorded reaches an effect hyper cannot describe
+  DESTROY  line 66  destroy declares destroy
+  OPAQUE   line 66  destroy reaches an effect hyper cannot describe
+  DESTROY  line 75  destroy_once declares destroy
+  OPAQUE   line 75  destroy_once reaches an effect hyper cannot describe

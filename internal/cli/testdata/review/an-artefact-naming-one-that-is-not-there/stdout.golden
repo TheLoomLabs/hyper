@@ -9,3 +9,6 @@
   AUTHORITY   assembled from definitions/ and targets/
   DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS  EFFECTIVE   DESTROY OPS
   orphan      nowhere  read              unresolved    unresolved  —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  no line the gutter marked draws a flag

@@ -149,8 +149,8 @@ func TestReadManifestMarks_MarksTheSchemeTheCapabilitiesAndEveryOperation(t *tes
 	}
 
 	want := []OperationMark{
-		{Line: 9, Kind: "read", Repeatability: "repeatable"},
-		{Line: 21, Kind: "destroy", Repeatability: "run-once"},
+		{Line: 9, Name: "list_things", Kind: "read", Repeatability: "repeatable"},
+		{Line: 21, Name: "end_thing", Kind: "destroy", Repeatability: "run-once"},
 	}
 	if got := marks.Operations; !slices.Equal(got, want) {
 		t.Errorf("the Operations mark %v, want %v", got, want)
@@ -218,7 +218,7 @@ operations:
 	if marks.Auth.Line != 0 || len(marks.Auth.Values) != 0 {
 		t.Errorf("auth: marks %v beside line %d, want no line and nothing derived", marks.Auth.Values, marks.Auth.Line)
 	}
-	want := []OperationMark{{Line: 7, Kind: "mutate", Repeatability: "repeatable", Opaque: true}}
+	want := []OperationMark{{Line: 7, Name: "run", Kind: "mutate", Repeatability: "repeatable", Opaque: true}}
 	if got := marks.Operations; !slices.Equal(got, want) {
 		t.Errorf("the Operation marks %v, want %v", got, want)
 	}

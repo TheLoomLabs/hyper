@@ -141,6 +141,11 @@ type ManifestMarks struct {
 // the line its key is written on — which is the line that binds the claim, an
 // Operation's body being everything indented beneath its name.
 //
+// Name is the key itself. It is no part of the mark — the marker stands beside
+// the line the name is written on and would only repeat it — and it is what a
+// flag indexing that line names, a Manifest carrying no coordinate on the wire
+// for the row to be read by (§8, §12).
+//
 // Kind is what the Manifest declares and is never inferred from the Operation's
 // name (§12), and it is "" where the entry declares none legibly.
 //
@@ -156,6 +161,7 @@ type ManifestMarks struct {
 // the request block because no artefact anywhere declares it (§12).
 type OperationMark struct {
 	Line          int
+	Name          string
 	Kind          string
 	Repeatability string
 	Opaque        bool
@@ -223,6 +229,7 @@ func operationMarks(opsVal *yaml.Node) []OperationMark {
 		info := operationInfoFromNode(op)
 		marks = append(marks, OperationMark{
 			Line:          key.Line,
+			Name:          key.Value,
 			Kind:          info.Kind,
 			Repeatability: effectiveRepeatability(info),
 			Opaque:        info.IsShell,

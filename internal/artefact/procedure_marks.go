@@ -20,6 +20,12 @@ import (
 // where the Procedure declares no targets: at all — there being no line to mark
 // and the missing key being check's to report.
 //
+// EnvelopeTargets are the Targets that line declares, in the file's own order
+// and as written, including one that resolves to no declaration. It is the
+// envelope the mark is a verdict on, which is what an index of that verdict
+// states rather than restating the verdict (§8, §12): the values are the fact
+// and how they are punctuated is the rendering surface's.
+//
 // EnvelopeHolds is whether every Step and every nested invocation this reader
 // could derive an envelope contribution from stays inside the declared
 // envelope. The comparisons are envelope-exceeded's — a bound Target outside
@@ -38,9 +44,10 @@ import (
 // jobs: check reports what is wrong with the artefact, and a review annotates
 // what hyper derived from these lines (ADR-0026, ADR-0064).
 type ProcedureMarks struct {
-	EnvelopeLine  int
-	EnvelopeHolds bool
-	Steps         []StepMark
+	EnvelopeLine    int
+	EnvelopeTargets []string
+	EnvelopeHolds   bool
+	Steps           []StepMark
 }
 
 // StepMark is one entry of a Procedure's steps: as the gutter marks it, in the
@@ -49,20 +56,42 @@ type ProcedureMarks struct {
 // Line is the line the entry opens on, which is the line that binds the claim:
 // a Step's own `- id:`, and a nested invocation's.
 //
+// ID is the id: the entry declares, "" where it declares none legibly. It is
+// the coordinate a flag citing this line carries — a Step is named by its id:
+// on every surface in the tool — and no part of the mark: the gutter stands
+// beside the line and needs no name for it (§8, §12).
+//
 // Unresolved is §8's one mark for four absences: a definition:, an operation:,
 // a bound Provider or a nested procedure: that names nothing. It is one name
 // and not four because the gutter marks and does not classify — which name
 // failed is FLAGS' text — and a mark that fired carries nothing else: no Kind
 // to read, no opacity, and no contribution to the envelope check.
 //
+// Absent is which of those four it was, set exactly where Unresolved is: the
+// key that carried the name, the name itself, and the Provider an Operation was
+// looked for on. It is the classification the gutter does not make and the flag
+// does, and it is carried as the facts rather than as a sentence — what a
+// rendering says about them is the rendering surface's (§8, §12).
+//
 // Kind is the Operation's declared Kind, read from the Manifest and never
 // inferred from the Operation's name (§12). It is "" on a nested invocation,
 // which invokes no Operation and has no blast radius of its own to declare.
+//
+// Operation is the operation: the Step names, which resolved: a flag indexing
+// this line names what is being invoked, where the marker beside it carries the
+// Kind that invocation reaches. It is "" on a nested invocation for Kind's own
+// reason.
 //
 // Bounded is whether the Step declares a bound: at all, whatever its Kind. It
 // is the fact rather than the mark: a mutate Step with none is marked mutate!
 // and a destroy Step with none is bound-missing, a static check's to report,
 // so the rendering of this fact differs by Kind and the reading does not (§4).
+//
+// Bound is that Bound's value as the Step wrote it, "" where the Step declares
+// none or declares one this cannot read. The two are one key read for two
+// questions — whether a Bound stands behind the Step, and what it says — and a
+// value that would not read is a bound: check's to report and a fact this
+// states nothing about (ADR-0064).
 //
 // Opaque is whether the Operation's request uses an Opaque Capability, which is
 // read off the request and declared beside no Operation anywhere (§12).
@@ -72,11 +101,34 @@ type ProcedureMarks struct {
 // name order — the envelope §3 states, walked to any depth.
 type StepMark struct {
 	Line       int
+	ID         string
 	Unresolved bool
+	Absent     AbsentName
 	Kind       string
+	Operation  string
 	Bounded    bool
+	Bound      string
 	Opaque     bool
 	Targets    []string
+}
+
+// AbsentName is the name that resolved to nothing on a Step the gutter marks
+// unresolved: the key it was written under — definition, operation, provider or
+// procedure — the name it named, and, where the key is operation, the Provider
+// whose Manifest it was looked for in.
+//
+// Name is "" where the key carried nothing legible to resolve at all, which is
+// a different absence from a name that resolved to nothing and is why the name
+// is carried rather than assumed present.
+//
+// The key is the authoring format's own, and provider is one of the four
+// although no Step writes it: a Step's definition: resolves and the Definition
+// it found names a Provider that does not, which is a name on the Step's own
+// line failing one hop out (§3, §4).
+type AbsentName struct {
+	Key      string
+	Name     string
+	Provider string
 }
 
 // ReadProcedureMarks reads a Procedure's own root into the marks its gutter
@@ -93,7 +145,11 @@ type StepMark struct {
 // envelope mark (§8).
 func ReadProcedureMarks(root *yaml.Node, providers ProviderIndex, definitions DefinitionIndex, targets TargetIndex, graph ProcedureGraph) ProcedureMarks {
 	declaredTargets, declaredKinds := procedureEnvelope(root, targets)
-	marks := ProcedureMarks{EnvelopeLine: topLevelKeyLine(root, "targets"), EnvelopeHolds: true}
+	marks := ProcedureMarks{
+		EnvelopeLine:    topLevelKeyLine(root, "targets"),
+		EnvelopeTargets: scalarSequence(topLevelFields(root, "targets")["targets"]),
+		EnvelopeHolds:   true,
+	}
 
 	stepsVal := topLevelFields(root, "steps")["steps"]
 	if stepsVal == nil || stepsVal.Kind != yaml.SequenceNode {
@@ -103,13 +159,15 @@ func ReadProcedureMarks(root *yaml.Node, providers ProviderIndex, definitions De
 	memo := map[string]procedureReach{}
 	for _, entry := range stepsVal.Content {
 		line, _ := position(entry)
-		fields := topLevelFields(entry, "definition", "operation", "target", "bound", "procedure")
+		fields := topLevelFields(entry, "id", "definition", "operation", "target", "bound", "procedure")
+
+		id, _ := resolveScalar(fields["id"])
 
 		var mark StepMark
 		if fields["procedure"] != nil {
-			mark = invocationMark(line, fields["procedure"], graph, memo)
+			mark = invocationMark(line, id, fields["procedure"], graph, memo)
 		} else {
-			mark = stepMark(line, fields, providers, definitions)
+			mark = stepMark(line, id, fields, providers, definitions)
 			// The Kind half of the envelope, which only a Step has: a
 			// nested invocation declares none, and reading its empty
 			// Kind against the union would put every Procedure that
@@ -136,35 +194,41 @@ func ReadProcedureMarks(root *yaml.Node, providers ProviderIndex, definitions De
 // envelope contribution: an unresolved Step contributes nothing for the reason
 // it carries no Kind — the derivation the mark would have carried is the
 // derivation the check would have read (§8).
-func stepMark(line int, fields map[string]*yaml.Node, providers ProviderIndex, definitions DefinitionIndex) StepMark {
-	unresolved := StepMark{Line: line, Unresolved: true}
+func stepMark(line int, id string, fields map[string]*yaml.Node, providers ProviderIndex, definitions DefinitionIndex) StepMark {
+	unresolved := func(absent AbsentName) StepMark {
+		return StepMark{Line: line, ID: id, Unresolved: true, Absent: absent}
+	}
 
 	defName, ok := resolveScalar(fields["definition"])
 	if !ok {
-		return unresolved
+		return unresolved(AbsentName{Key: "definition"})
 	}
 	defInfo, haveDef := definitions[defName]
 	if !haveDef {
-		return unresolved
+		return unresolved(AbsentName{Key: "definition", Name: defName})
 	}
 	provider, haveProvider := providers[defInfo.ProviderName]
 	if !haveProvider {
-		return unresolved
+		return unresolved(AbsentName{Key: "provider", Name: defInfo.ProviderName})
 	}
 	opName, ok := resolveScalar(fields["operation"])
 	if !ok {
-		return unresolved
+		return unresolved(AbsentName{Key: "operation", Provider: defInfo.ProviderName})
 	}
 	op, haveOp := provider.Operations[opName]
 	if !haveOp {
-		return unresolved
+		return unresolved(AbsentName{Key: "operation", Name: opName, Provider: defInfo.ProviderName})
 	}
 
+	bound, _ := resolveScalar(fields["bound"])
 	mark := StepMark{
-		Line:    line,
-		Kind:    op.Kind,
-		Bounded: fields["bound"] != nil,
-		Opaque:  op.IsShell,
+		Line:      line,
+		ID:        id,
+		Kind:      op.Kind,
+		Operation: opName,
+		Bounded:   fields["bound"] != nil,
+		Bound:     bound,
+		Opaque:    op.IsShell,
 	}
 	if targetName, named := resolveScalar(fields["target"]); named {
 		mark.Targets = []string{targetName}
@@ -186,13 +250,13 @@ func stepMark(line int, fields map[string]*yaml.Node, providers ProviderIndex, d
 // deriving a Procedure's reach a second way, so the gutter and the check
 // cannot disagree about what a Procedure reaches. memo is the caller's, so a
 // Procedure invoked from several lines of one file is walked once.
-func invocationMark(line int, procVal *yaml.Node, graph ProcedureGraph, memo map[string]procedureReach) StepMark {
+func invocationMark(line int, id string, procVal *yaml.Node, graph ProcedureGraph, memo map[string]procedureReach) StepMark {
 	name, ok := resolveScalar(procVal)
 	if !ok {
-		return StepMark{Line: line, Unresolved: true}
+		return StepMark{Line: line, ID: id, Unresolved: true, Absent: AbsentName{Key: "procedure"}}
 	}
 	if _, known := graph[name]; !known {
-		return StepMark{Line: line, Unresolved: true}
+		return StepMark{Line: line, ID: id, Unresolved: true, Absent: AbsentName{Key: "procedure", Name: name}}
 	}
-	return StepMark{Line: line, Targets: sortedNames(walkProcedure(name, graph, memo, map[string]bool{}).targets)}
+	return StepMark{Line: line, ID: id, Targets: sortedNames(walkProcedure(name, graph, memo, map[string]bool{}).targets)}
 }

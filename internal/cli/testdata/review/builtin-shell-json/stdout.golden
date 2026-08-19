@@ -6,4 +6,12 @@
 {"type":"gutter","line":51,"marker":"mutate skip-if-recorded opaque"}
 {"type":"gutter","line":66,"marker":"DESTROY repeatable opaque"}
 {"type":"gutter","line":75,"marker":"DESTROY run-once opaque"}
+{"type":"flag","flag":"opaque","cites_line":7}
+{"type":"flag","flag":"opaque","cites_line":22}
+{"type":"flag","flag":"opaque","cites_line":37}
+{"type":"flag","flag":"opaque","cites_line":51}
+{"type":"flag","flag":"destroy","cites_line":66}
+{"type":"flag","flag":"opaque","cites_line":66}
+{"type":"flag","flag":"destroy","cites_line":75}
+{"type":"flag","flag":"opaque","cites_line":75}
 {"type":"result","truncated":false}

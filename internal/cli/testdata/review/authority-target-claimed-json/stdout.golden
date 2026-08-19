@@ -5,4 +5,5 @@
 {"type":"gutter","line":8,"marker":"THINGS_API_TOKEN"}
 {"type":"authority","definition":"things","target":"staging","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["end_thing"]}
 {"type":"authority","definition":"things-observed","target":"staging","definition_kinds":["read"],"target_kinds":["read","mutate","destroy"],"effective":["read"],"destroy_operations":[]}
+{"type":"flag","flag":"destroy","cites_line":4}
 {"type":"result","truncated":false}

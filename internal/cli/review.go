@@ -122,6 +122,7 @@ func RunReview(args []string, stdout, stderr io.Writer, lookupenv func(string) (
 	absent, sentence := rankedAbsence(reviewed)
 	rows := append([]render.Row{newArtefactRow(reviewed, absent)}, gutterRows(reviewed.markers)...)
 	rows = append(rows, authorityRows(reviewed.authority)...)
+	rows = append(rows, flagRows(reviewed.flags)...)
 	page := func(w io.Writer, rows []render.Row) error {
 		return writeReviewPage(w, rows, reviewPage{
 			sentence:  sentence,
@@ -159,6 +160,12 @@ type reviewedArtefact struct {
 	// column does with a marker is every kind's (§8, issue #122).
 	markers []reviewMarker
 
+	// flags are §12's index into those marks, in the order both surfaces
+	// carry them. They are read alongside the markers rather than after
+	// them, which is what makes every row cite a line the gutter marked by
+	// construction (§8, §12, issue #123).
+	flags []reviewFlag
+
 	// authority is the one relation §5 states, read from whichever end this
 	// artefact supplies. Three of the five artefacts supply an end and two
 	// are members of no pair at all (§8, ADR-0069).
@@ -195,13 +202,15 @@ func newReviewedArtefact(found resolvedArtefact, loaded repository.Loaded) revie
 	if kind.wire == artefact.KindProcedure {
 		declared = artefact.ProcedureCadence(a.Root)
 	}
+	marks := readMarks(found, loaded)
 	return reviewedArtefact{
 		kind:      kind,
 		path:      file,
 		name:      artefact.DeclaredName(a.Root, kind.nameKey),
 		cadence:   declared,
 		source:    artefact.SourceLines(a.Bytes),
-		markers:   readMarkers(found, loaded),
+		markers:   marks.markers,
+		flags:     marks.flags,
 		problems:  a.Problems,
 		authority: readAuthority(found, loaded),
 	}
@@ -687,7 +696,10 @@ func writeReviewPage(w io.Writer, rows []render.Row, page reviewPage) error {
 			return err
 		}
 	}
-	return writeAuthorityBlock(w, header.Kind, rows, page.authority)
+	if err := writeAuthorityBlock(w, header.Kind, rows, page.authority); err != nil {
+		return err
+	}
+	return writeFlagsBlock(w, rows)
 }
 
 // reviewPage is what the screen renders that no row carries: the header's
