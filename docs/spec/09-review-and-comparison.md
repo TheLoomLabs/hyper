@@ -388,7 +388,7 @@ a marked one — and a three-row table read as the whole answer is the one table
 **`FLAGS`** is the one editorial surface, and it is an index rather than a voice: it ranks nothing,
 claims nothing, and points. Every row cites a line the gutter already marked and introduces no claim of
 its own; a flag citing a line the gutter did not mark is a defect in the renderer rather than a
-rendering. The vocabulary is seven names and §12 states them.
+rendering. The vocabulary is eight names and §12 states them.
 
 **A flag may read the text of any line the gutter marked, and cites the one line carrying its
 subject.** The bound that matters is that it never leaves the gutter, not that it never leaves one row
