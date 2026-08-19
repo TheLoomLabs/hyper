@@ -1,0 +1,10 @@
+kind: procedure
+procedure: inner
+targets: [staging]
+steps:
+  - id: enumerate
+    definition: things-observed
+    operation: list_things
+    target: staging
+    args:
+      page_size: "100"

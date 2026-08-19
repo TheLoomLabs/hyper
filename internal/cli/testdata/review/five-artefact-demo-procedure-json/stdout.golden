@@ -1,2 +1,6 @@
 {"type":"artefact","kind":"procedure","path":"procedures/retire-preview-dns.yaml","baseline_absent":"no-store","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3}
+{"type":"gutter","line":3,"marker":"envelope ok"}
+{"type":"gutter","line":6,"marker":"mutate! cloudflare-prod"}
+{"type":"gutter","line":16,"marker":"mutate cloudflare-prod"}
+{"type":"gutter","line":32,"marker":"DESTROY cloudflare-prod"}
 {"type":"result","truncated":false}

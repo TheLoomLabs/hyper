@@ -81,6 +81,13 @@ type procedureGraphInfo struct {
 	cadenceColumn int
 }
 
+// ProcedureGraph is every procedures/ file's own per-file facts, keyed by the
+// name it declares: the namespace the transitive walk recurses through, and
+// what a review's own gutter reads a nested invocation's transitive envelope
+// off of (§4, §5, §8, issues #96, #120). Its members are unexported because
+// what a caller does with the graph is walk it, never read one file's entry.
+type ProcedureGraph map[string]procedureGraphInfo
+
 // BuildProcedureGraph reads roots into the namespace CheckProcedureGraph
 // walks: one procedureGraphInfo per procedures/ file whose procedure: is a
 // legible scalar, on BuildProcedureIndex's own rule — a root whose
@@ -91,8 +98,8 @@ type procedureGraphInfo struct {
 // and operation: resolve against, needed here only to read a Step's own
 // Kind, Repeatability and secret-output fact — every other fact about a
 // Step is procedure.go's own file-local checks' business, not this walk's.
-func BuildProcedureGraph(roots []ProcedureRoot, providers ProviderIndex, definitions DefinitionIndex) map[string]procedureGraphInfo {
-	graph := map[string]procedureGraphInfo{}
+func BuildProcedureGraph(roots []ProcedureRoot, providers ProviderIndex, definitions DefinitionIndex) ProcedureGraph {
+	graph := ProcedureGraph{}
 	for _, r := range roots {
 		nameVal := topLevelFields(r.Root, "procedure")["procedure"]
 		if nameVal == nil || nameVal.Kind != yaml.ScalarNode {
@@ -184,7 +191,7 @@ type procedureReach struct {
 // inside of. A name absent from graph — an invocation naming nothing,
 // already reported by procedure.go's own artefact-absent — contributes an
 // empty procedureReach the same way (§4, §5, issue #96).
-func walkProcedure(name string, graph map[string]procedureGraphInfo, memo map[string]procedureReach, visiting map[string]bool) procedureReach {
+func walkProcedure(name string, graph ProcedureGraph, memo map[string]procedureReach, visiting map[string]bool) procedureReach {
 	if r, ok := memo[name]; ok {
 		return r
 	}
@@ -228,7 +235,7 @@ func walkProcedure(name string, graph map[string]procedureGraphInfo, memo map[st
 // the cadence: line of the Procedure declaring the recurrence rather than
 // wherever in the graph the fact was read, since that line is the one an
 // author can act on: narrow the Cadence away, or edit the Step.
-func CheckProcedureGraph(graph map[string]procedureGraphInfo) []problem.Problem {
+func CheckProcedureGraph(graph ProcedureGraph) []problem.Problem {
 	memo := map[string]procedureReach{}
 	var problems []problem.Problem
 
@@ -273,7 +280,7 @@ func CheckProcedureGraph(graph map[string]procedureGraphInfo) []problem.Problem 
 // sortedProcedureNames returns graph's own keys in byte order, so
 // CheckProcedureGraph's own output is deterministic across a map's
 // unordered iteration.
-func sortedProcedureNames(graph map[string]procedureGraphInfo) []string {
+func sortedProcedureNames(graph ProcedureGraph) []string {
 	names := make([]string, 0, len(graph))
 	for name := range graph {
 		names = append(names, name)

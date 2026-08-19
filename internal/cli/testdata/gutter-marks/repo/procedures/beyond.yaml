@@ -1,0 +1,10 @@
+kind: procedure
+procedure: beyond
+targets: [staging]
+steps:
+  - id: reach
+    definition: commands
+    operation: read
+    target: local
+    args:
+      command: [uname, -a]

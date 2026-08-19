@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -15,9 +16,17 @@ import (
 )
 
 // RunReview implements `hyper review <artefact>` — §8's Definition review of
-// the artefact named. In this milestone it renders the artefact and nothing
-// derived about it: every line of the working tree's file, verbatim, beneath a
-// header saying what is being read (issue #118).
+// the artefact named: every line of the working tree's file, verbatim, beneath
+// a header saying what is being read (issue #118), annotated in place by the
+// gutter to its left (issue #120).
+//
+// What the gutter marks on a Procedure is what a reviewer with the file open in
+// a diff cannot see, because none of it is in the file: each Step's Kind,
+// declared in a Manifest two directories away and never inferable from the
+// Operation's name; the Target it binds; whether a `mutate` carries a Bound;
+// whether the Operation's request is one `hyper` cannot describe; and the
+// envelope check, which quantifies over every Step's `target:` at once. The
+// other four artefacts' rosters are their own and land with them.
 //
 // It is `check` and `provider` in every other respect: the same globals, the
 // same gate before the load, the same stream discipline, and the same reach —
@@ -78,10 +87,11 @@ func RunReview(args []string, stdout, stderr io.Writer, lookupenv func(string) (
 		return ExitUsage
 	}
 
-	reviewed, code := resolveArtefact(named, loaded, stderr)
+	found, code := resolveArtefact(named, loaded, stderr)
 	if code != 0 {
 		return code
 	}
+	reviewed := newReviewedArtefact(found, loaded)
 
 	// Found and faulty is the one thing that is not a rendering: an artefact
 	// the load could not read is reported as `check` reports it, one row per
@@ -102,13 +112,16 @@ func RunReview(args []string, stdout, stderr io.Writer, lookupenv func(string) (
 	// on the page, so the two surfaces cannot name different absences.
 	//
 	// The page and the --json stream then come out of one row list
-	// (ADR-0026). The source is not on that list: a review does not
-	// decompose into rows the way the change tables do, so `review --json`
-	// emits the annotations and never the source, the consumer already
-	// having the file (§8). So the page closes over the lines it renders,
-	// exactly as `check`'s closes over the count its clean line names.
+	// (ADR-0026): the header, and one `gutter` row per rendered line the
+	// gutter has something to say about. The source is not on that list: a
+	// review does not decompose into rows the way the change tables do, so
+	// `review --json` emits the annotations and never the source, the
+	// consumer already having the file (§8). So the page closes over the
+	// lines it renders, exactly as `check`'s closes over the count its clean
+	// line names, and reads the annotations off the rows like every other
+	// page in this package.
 	absent, sentence := rankedAbsence(reviewed)
-	rows := []render.Row{newArtefactRow(reviewed, absent)}
+	rows := append([]render.Row{newArtefactRow(reviewed, absent)}, gutterRows(reviewed)...)
 	page := func(w io.Writer, rows []render.Row) error {
 		return writeReviewPage(w, rows, sentence, reviewed.source)
 	}
@@ -134,13 +147,19 @@ type reviewedArtefact struct {
 	name     string
 	cadence  string
 	source   []string
+	marks    artefact.ProcedureMarks
 	problems []problem.Problem
 }
 
-// newReviewedArtefact is one loaded artefact read as the thing under review,
+// newReviewedArtefact is the resolved artefact read as the thing under review,
 // and it is one constructor because the two forms of the positional resolve to
 // the same value: which form found it is a fact about the argument and not
 // about the artefact.
+//
+// It runs once, after the positional has settled, which is why the resolution
+// above answers with a resolvedArtefact rather than with this: a Procedure's
+// marks are read against the whole repository, and a constructor called once
+// per candidate would build that walk for artefacts nobody is going to review.
 //
 // The Cadence is read on a Procedure and nowhere else. It is a Procedure's
 // declaration (§10), so a key of that name on another artefact is not one — and
@@ -152,14 +171,21 @@ type reviewedArtefact struct {
 // rest (ADR-0039); this surface has a path column of openable files, and what
 // stands in it for an artefact that has none is nothing at all — the header's
 // sentence beside it already says where the bytes are (ADR-0068).
-func newReviewedArtefact(a repository.LoadedArtefact, kind artefactKind) reviewedArtefact {
+func newReviewedArtefact(found resolvedArtefact, loaded repository.Loaded) reviewedArtefact {
+	a, kind := found.artefact, found.kind
 	file := a.Path
 	if file == artefact.BuiltinShellProviderPath {
 		file = ""
 	}
 	declared := ""
+	marks := artefact.ProcedureMarks{}
 	if kind.wire == artefact.KindProcedure {
 		declared = artefact.ProcedureCadence(a.Root)
+		// The transitive walk needs every procedures/ file at once, which
+		// is the same graph `check` builds once per run and for the same
+		// reason: a nested invocation's own file, to any depth (issue #96).
+		marks = artefact.ReadProcedureMarks(a.Root, loaded.Providers, loaded.Definitions, loaded.Targets,
+			artefact.BuildProcedureGraph(procedureRoots(loaded.Artefacts), loaded.Providers, loaded.Definitions))
 	}
 	return reviewedArtefact{
 		kind:     kind,
@@ -167,8 +193,19 @@ func newReviewedArtefact(a repository.LoadedArtefact, kind artefactKind) reviewe
 		name:     artefact.DeclaredName(a.Root, kind.nameKey),
 		cadence:  declared,
 		source:   artefact.SourceLines(a.Bytes),
+		marks:    marks,
 		problems: a.Problems,
 	}
+}
+
+// resolvedArtefact is what the positional resolved to: one artefact the load
+// walked, and what kind the load's path says it is. It is the resolution's
+// answer and not the review's subject — reading those bytes into what the page
+// renders is newReviewedArtefact's, and it happens once, on the one artefact
+// that survived the ambiguity below.
+type resolvedArtefact struct {
+	artefact repository.LoadedArtefact
+	kind     artefactKind
 }
 
 // artefactKind is one of §12's five artefact `kind:` values with the three
@@ -250,7 +287,7 @@ func kindOf(loadedPath string) (artefactKind, bool) {
 // first: a name is never tried as a path and a path is never tried as a name.
 // A form that fell back to the other would make which artefact `hyper review
 // deploy` renders depend on what else is in the repository (§9, ADR-0060).
-func resolveArtefact(named string, loaded repository.Loaded, stderr io.Writer) (reviewedArtefact, int) {
+func resolveArtefact(named string, loaded repository.Loaded, stderr io.Writer) (resolvedArtefact, int) {
 	if isPathForm(named) {
 		return resolveByPath(named, loaded, stderr)
 	}
@@ -271,7 +308,7 @@ func isPathForm(named string) bool {
 // against nothing else: the built-in Manifest's pseudo-path is not a file and
 // is not reachable this way, which is the other half of why both forms are
 // mandatory (ADR-0039, ADR-0068).
-func resolveByPath(named string, loaded repository.Loaded, stderr io.Writer) (reviewedArtefact, int) {
+func resolveByPath(named string, loaded repository.Loaded, stderr io.Writer) (resolvedArtefact, int) {
 	wanted := path.Clean(named)
 	for _, a := range loaded.Artefacts {
 		if a.Path == artefact.BuiltinShellProviderPath {
@@ -288,10 +325,10 @@ func resolveByPath(named string, loaded repository.Loaded, stderr io.Writer) (re
 		if !known {
 			continue
 		}
-		return newReviewedArtefact(a, kind), 0
+		return resolvedArtefact{artefact: a, kind: kind}, 0
 	}
 	fmt.Fprint(stderr, unresolvedArtefactPath(named))
-	return reviewedArtefact{}, ExitUsage
+	return resolvedArtefact{}, ExitUsage
 }
 
 // resolveByName matches the positional against the artefacts' own declared
@@ -315,8 +352,8 @@ func resolveByPath(named string, loaded repository.Loaded, stderr io.Writer) (re
 // file that failed to parse is one of them — and that is where §9's *found and
 // faulty* exits 1 with `check`'s row. The two forms differing there is the
 // namespaces differing, not two answers to one question.
-func resolveByName(named string, loaded repository.Loaded, stderr io.Writer) (reviewedArtefact, int) {
-	var matched []reviewedArtefact
+func resolveByName(named string, loaded repository.Loaded, stderr io.Writer) (resolvedArtefact, int) {
+	var matched []resolvedArtefact
 	for _, a := range loaded.Artefacts {
 		kind, known := kindOf(a.Path)
 		if !known || kind.nameKey == "" {
@@ -325,16 +362,16 @@ func resolveByName(named string, loaded repository.Loaded, stderr io.Writer) (re
 		if artefact.DeclaredName(a.Root, kind.nameKey) != named {
 			continue
 		}
-		matched = append(matched, newReviewedArtefact(a, kind))
+		matched = append(matched, resolvedArtefact{artefact: a, kind: kind})
 	}
 
 	switch {
 	case len(matched) == 0:
 		fmt.Fprint(stderr, unresolvedArtefactName(named))
-		return reviewedArtefact{}, ExitUsage
+		return resolvedArtefact{}, ExitUsage
 	case len(matched) > 1:
 		fmt.Fprint(stderr, ambiguousArtefactName(named, matched))
-		return reviewedArtefact{}, ExitUsage
+		return resolvedArtefact{}, ExitUsage
 	}
 	return matched[0], 0
 }
@@ -376,7 +413,7 @@ func unresolvedArtefactPath(named string) string {
 // It says which kinds it matched, because that is the whole of what is
 // ambiguous, and points at the path form, which is the one positional that
 // names a file and cannot be ambiguous at all.
-func ambiguousArtefactName(named string, matched []reviewedArtefact) string {
+func ambiguousArtefactName(named string, matched []resolvedArtefact) string {
 	nouns := make([]string, 0, len(matched))
 	for _, m := range matched {
 		nouns = append(nouns, "a "+m.kind.noun)
@@ -469,6 +506,270 @@ func newArtefactRow(reviewed reviewedArtefact, absent string) artefactRow {
 // in a table of like rows, and the page renders it as writeReviewPage writes it
 // (ADR-0026).
 func (r artefactRow) Cells() []string { return nil }
+
+// The gutter's own vocabulary: the words and sigils the marker column is
+// written in.
+//
+// One marker class has two notations and the rest have one. `envelope ✓` on the
+// page is `envelope ok` on the wire — one fact in the two notations, exactly as
+// `~` and `changed: true` will be — and everything else goes out as the page's
+// own string with its alignment padding collapsed (§8).
+//
+// `DESTROY` is not a second pair. It is upper-case on both surfaces, §8's own
+// row carrying `"DESTROY staging"`: the upper case is how this vocabulary
+// spells that Kind rather than a rendering of a word the wire states otherwise.
+// What §12 spells in kebab-case is a `flag` row's name, which is a different
+// surface's member and lands with it.
+const (
+	// markerUnresolved is §8's one mark for a name the gutter must follow
+	// that resolves to nothing. One name and not four: the gutter marks and
+	// does not classify, and which name failed is `FLAGS`' text.
+	markerUnresolved = "unresolved"
+	// markerOpaque is the token standing between a Kind and its Target on a
+	// Step invoking an Operation whose request uses an Opaque Capability.
+	markerOpaque = "opaque"
+	// markerDestroy is how this vocabulary spells the Kind `destroy`:
+	// upper-case, on the strongest fact the column carries, and upper-case
+	// on both surfaces (§8).
+	markerDestroy = "DESTROY"
+	// markerUnbounded is what a `mutate` Step with no declared Bound carries
+	// after its Kind. A `destroy` Step with none carries no `!`: that is
+	// `bound-missing`, a static check, and `check`'s to report (§4, §12).
+	markerUnbounded = "!"
+	// markerEnvelope heads the Procedure's own envelope check, which stands
+	// beside its `targets:` line and takes no part in the Kind/Target
+	// alignment, being a different marker class.
+	markerEnvelope = "envelope"
+)
+
+// envelopeStates is the envelope mark's two states, each in the page's
+// notation and the wire's. Both render: a review does not run `check` (§9), so
+// an envelope the Steps exceed renders like any other artefact's and the review
+// still exits 0 — the mark is what says so, and a mark that went silent there
+// would leave the all-clear state indistinguishable from an unmarked line.
+//
+// The all-clear pair is §8's own. The exceeded pair is minted here, on the
+// relation §8 fixes between the two notations rather than on a rendering it
+// states: §8 renders the state that holds and §12 says the name has two, so
+// what the other one looks like is under-determined and this is the reading
+// that keeps one sigil answering one word.
+var envelopeStates = map[bool]struct{ page, wire string }{
+	true:  {markerEnvelope + " ✓", markerEnvelope + " ok"},
+	false: {markerEnvelope + " ✗", markerEnvelope + " exceeded"},
+}
+
+// reviewMarker is one line's marker cell before it is composed: the line it
+// stands beside, and either the fields a Step's own marker composes from or a
+// whole-cell marker that takes no part in their alignment.
+//
+// It is decomposed here and composed once below, which is the opposite of what
+// a `gutter` row does and for the reason that row states: the row carries the
+// string the page renders, because a decomposition on the wire is a second
+// rendering of one fact and the second one can be wrong about the first (§8).
+// The fields exist on this side of the composition because the alignment is a
+// fact about the whole rendering rather than about one marker — the Kind field
+// is padded to the widest Kind token in *this* rendering — so nothing can be
+// composed until every marker is known.
+type reviewMarker struct {
+	line int
+	// whole is a marker occupying the cell entire, in the page's notation
+	// and the wire's. The two differ on the envelope mark alone and are
+	// equal everywhere else; both are set, so nothing downstream has to know
+	// which class it is holding.
+	whole, wholeWire string
+	// kind, opaque and target are the three fields a Step's marker composes
+	// from, in §8's order: a Kind, its opacity and its Target are one Step's
+	// claim rendered in one cell.
+	kind   string
+	opaque bool
+	target string
+}
+
+// reviewMarkers is the artefact under review read as the cells its marker
+// column carries, in line order — which is the order the rows go out in, a
+// consumer being unable to re-sort what it has already printed (§8, §9).
+//
+// Only a Procedure has Steps, so only a Procedure carries a Kind, a Target or
+// an envelope mark; the other four artefacts' rosters are their own and land
+// with them. An artefact this milestone marks nothing on has an empty column,
+// which is the marker column at the width of the kind heading and no lie by
+// omission: nothing was derived, so nothing is withheld.
+func reviewMarkers(reviewed reviewedArtefact) []reviewMarker {
+	var markers []reviewMarker
+	if line := reviewed.marks.EnvelopeLine; line > 0 {
+		state := envelopeStates[reviewed.marks.EnvelopeHolds]
+		markers = append(markers, reviewMarker{line: line, whole: state.page, wholeWire: state.wire})
+	}
+	for _, step := range reviewed.marks.Steps {
+		markers = append(markers, newStepMarker(step))
+	}
+	slices.SortStableFunc(markers, func(a, b reviewMarker) int { return a.line - b.line })
+	return markers
+}
+
+// newStepMarker is one Step's marker: `unresolved` where a name it must follow
+// resolved to nothing, and otherwise its Kind, its opacity and its Target.
+//
+// A nested invocation carries no Kind and its Target field is the transitive
+// envelope it reaches, the Targets joined by a space: what a Procedure's own
+// line derives is what everything it invokes may touch, which is a set where a
+// Step's is one name (§3, §8).
+func newStepMarker(step artefact.StepMark) reviewMarker {
+	if step.Unresolved {
+		return reviewMarker{line: step.Line, whole: markerUnresolved, wholeWire: markerUnresolved}
+	}
+	return reviewMarker{
+		line:   step.Line,
+		kind:   kindToken(step),
+		opaque: step.Opaque,
+		target: strings.Join(step.Targets, " "),
+	}
+}
+
+// kindToken is the Kind field's own token: the Kind the Manifest declares, with
+// `destroy` upper-cased and a `mutate` carrying no Bound marked `!`. It is ""
+// on a nested invocation, which declares no Kind — the field is still padded
+// there, so what a Procedure invokes lines up under the Targets its own Steps
+// bind.
+func kindToken(step artefact.StepMark) string {
+	switch {
+	case step.Kind == "destroy":
+		return markerDestroy
+	case step.Kind == "mutate" && !step.Bounded:
+		return step.Kind + markerUnbounded
+	default:
+		return step.Kind
+	}
+}
+
+// gutterRow is one **rendered line** of the review and not one marked cell: it
+// carries the line, and the marker column's rendered text where that cell has
+// content. A line with content in either column gets a row and a line with
+// neither gets none — which is why nothing here is emitted for the change
+// column: no range opens in this milestone, so that column has no content and
+// no width (§8).
+//
+// The marker goes out as the string the page renders with its alignment padding
+// collapsed to single spaces, rather than decomposed into a Kind, a Target and
+// a Bound. A decomposition is a second rendering of the same fact and the second
+// one can be wrong about the first, which is exactly what the `artefact` row
+// above goes the other way about and says why: a marker is one derived fact in
+// one cell, where the gloss is several facts with several supplies sharing a
+// line (§8, ADR-0063).
+type gutterRow struct {
+	Type   string `json:"type"`
+	Line   int    `json:"line"`
+	Marker string `json:"marker,omitempty"`
+
+	// markerText is the marker in the notation the page renders it in — the
+	// alignment padding, and the sigils `✓` and `DESTROY` the wire spells in
+	// words. It is off the wire because the wire carries the collapsed
+	// string, and it is on the row because the page is written from the rows
+	// (ADR-0026): both come out of one composition, so what the page prints
+	// and what the row carries cannot disagree.
+	markerText string
+}
+
+// Cells is empty: the gutter is drawn beside the artefact's own lines rather
+// than tabulated, and writeReviewPage is what puts a marker where it belongs
+// (ADR-0026).
+func (r gutterRow) Cells() []string { return nil }
+
+// gutterRows is the marker column as the rows both surfaces are written from:
+// each marker composed once, against the widths this rendering fixes, and
+// carried in the page's notation and the wire's.
+//
+// The two widths are read off the whole rendering rather than off one marker.
+// The Kind field is padded to the widest Kind token, then two spaces, then the
+// Target, which is what makes `read` and `mutate!` line their Targets up under
+// each other (§8).
+//
+// The opacity field is padded the same way, and that is this surface's reading
+// rather than §8's rule: §8 fixes the Kind field's padding and says only that
+// the `opaque` token sits between the Kind and the Target. Padded is what keeps
+// the Targets a column — a marker composes within itself, and reading down the
+// column *is* the step table, which a field appearing on some lines and not
+// others would break at the one place the eye is reading. It takes no width at
+// all where no marker in the rendering is opaque, which is the discipline the
+// change column already holds one column left: a blank column is the one thing
+// this screen may not draw. So §8's own renderings, which carry no opaque Step,
+// come out exactly as its two-field rule gives.
+func gutterRows(reviewed reviewedArtefact) []render.Row {
+	markers := reviewMarkers(reviewed)
+
+	kind, opaque := 0, false
+	for _, m := range markers {
+		if width := utf8.RuneCountInString(m.kind); width > kind {
+			kind = width
+		}
+		opaque = opaque || m.opaque
+	}
+
+	rows := make([]render.Row, 0, len(markers))
+	for _, m := range markers {
+		rows = append(rows, gutterRow{
+			Type:       "gutter",
+			Line:       m.line,
+			Marker:     m.wire(),
+			markerText: m.page(kind, opaque),
+		})
+	}
+	return rows
+}
+
+// page is the marker as the screen draws it: a whole-cell marker as it stands,
+// and otherwise the Kind field padded to kind, the opacity field where this
+// rendering has one, and the Target, each separated by the least gap this
+// screen puts between two things on one line.
+//
+// It ends where its last field does. A marker whose Target is empty is a Step
+// that named none, and the padding behind it is this page's rather than the
+// marker's — a cell does not end in run-up any more than a line does
+// (ADR-0026).
+func (m reviewMarker) page(kind int, opaque bool) string {
+	if m.whole != "" {
+		return m.whole
+	}
+	fields := []string{padTo(m.kind, kind)}
+	if opaque {
+		fields = append(fields, padTo(m.opaqueToken(), utf8.RuneCountInString(markerOpaque)))
+	}
+	return strings.TrimRight(strings.Join(append(fields, m.target), reviewFieldGap), " ")
+}
+
+// wire is the same marker with its alignment padding collapsed to single
+// spaces: the page's string, field for field. A whole-cell marker answers with
+// its own wire notation instead, which is the envelope mark and nothing else
+// (§8).
+//
+// What that costs is that a marker's fields are not recoverable from the string
+// — a nested invocation reaching two Targets goes out `"production staging"`,
+// which reads like a Kind and a Target — and §8 takes the cost outright: the
+// row carries the string the page renders rather than a decomposition, because
+// a decomposition is a second rendering of one fact and the second one can be
+// wrong about the first. A consumer wanting the fields reads the artefact.
+func (m reviewMarker) wire() string {
+	if m.whole != "" {
+		return m.wholeWire
+	}
+	var fields []string
+	for _, field := range []string{m.kind, m.opaqueToken(), m.target} {
+		if field != "" {
+			fields = append(fields, field)
+		}
+	}
+	return strings.Join(fields, " ")
+}
+
+// opaqueToken is the opacity field's own text: the token where the Step invokes
+// an Operation whose request uses an Opaque Capability, and nothing where it
+// does not.
+func (m reviewMarker) opaqueToken() string {
+	if m.opaque {
+		return markerOpaque
+	}
+	return ""
+}
 
 // absenceStage is one stage of §8's absent-baseline pipeline: the name §12
 // closes the set at, and what the header's sentence says where this stage is
@@ -582,12 +883,20 @@ func writeReviewPage(w io.Writer, rows []render.Row, sentence string, source []s
 
 	facts := headerFacts(header, sentence)
 
-	// The marker column is as wide as the widest marker in this rendering
-	// and the kind heading it, and in this milestone there is no marker to
-	// widen it (§8). Nothing else on the screen is sized to anything: §9's
-	// truncation discipline governs a result set, and an artefact has
-	// neither an order nor a limit.
+	// The marker column is as wide as the widest marker in this rendering,
+	// or the kind heading it where that is wider, and a marker is never
+	// truncated: a Target name is an identity in a reviewed artefact, and
+	// eliding a character of one is this screen stating something other than
+	// what is about to be approved (§8). Nothing else on the screen is sized
+	// to anything either: §9's truncation discipline governs a result set,
+	// and an artefact has neither an order nor a limit.
+	marked := markersByLine(rows)
 	marker := utf8.RuneCountInString(header.markerHeading())
+	for _, text := range marked {
+		if width := utf8.RuneCountInString(text); width > marker {
+			marker = width
+		}
+	}
 
 	lines := make([]string, 0, len(facts)+len(source)+1)
 	for i, fact := range facts {
@@ -602,8 +911,8 @@ func writeReviewPage(w io.Writer, rows []render.Row, sentence string, source []s
 	lines = append(lines, reviewIndent+
 		strings.Repeat("─", marker+reviewMarkerPad)+"┼"+
 		strings.Repeat("─", widestOf(facts)+len(reviewFieldGap)))
-	for _, line := range source {
-		lines = append(lines, gutterLine(gutter("", marker)+reviewSourceGap, line))
+	for n, line := range source {
+		lines = append(lines, gutterLine(gutter(marked[n+1], marker)+reviewSourceGap, line))
 	}
 
 	for _, line := range lines {
@@ -612,6 +921,22 @@ func writeReviewPage(w io.Writer, rows []render.Row, sentence string, source []s
 		}
 	}
 	return nil
+}
+
+// markersByLine is the rendering's marker cells keyed by the line each stands
+// beside — the page's own index into the rows it is written from, and the one
+// place the page reads a `gutter` row. Every line number here is the working
+// tree's, counted from one over every line of the file including blank ones,
+// which is the numbering a flag's citation and a `gutter` row's `line` share
+// (§8).
+func markersByLine(rows []render.Row) map[int]string {
+	marked := map[int]string{}
+	for _, row := range rows {
+		if g, drawn := row.(gutterRow); drawn {
+			marked[g.Line] = g.markerText
+		}
+	}
+	return marked
 }
 
 // markerHeading is the word standing at the top of the marker column: the
@@ -684,10 +1009,22 @@ func gutterLine(prefix, content string) string {
 // Width is counted in runes rather than bytes: the screen is aligned for an
 // eye, and an em dash is one column wide however many bytes it takes.
 func inColumn(s string, width int) string {
+	if utf8.RuneCountInString(s) >= width {
+		return s + reviewFieldGap
+	}
+	return padTo(s, width)
+}
+
+// padTo is s padded out to that width with spaces, and s itself where it is
+// already at or past it. It is inColumn without the overflow gap, which is what
+// a field *inside* a marker needs: the gap between a Kind and its Target is the
+// composition's and is written once, where a column that supplied its own would
+// double it on the widest token in the rendering.
+func padTo(s string, width int) string {
 	if run := utf8.RuneCountInString(s); run < width {
 		return s + strings.Repeat(" ", width-run)
 	}
-	return s + reviewFieldGap
+	return s
 }
 
 // widestOf is the widest of the lines given, in runes.

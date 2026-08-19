@@ -1,0 +1,5 @@
+kind: definition
+definition: commands-destroy
+provider: shell
+destroy: [destroy]
+targets: [local]

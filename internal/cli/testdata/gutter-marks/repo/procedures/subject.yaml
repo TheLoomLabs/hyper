@@ -1,0 +1,74 @@
+# Every mark the gutter carries on a Procedure, on one screen.
+kind: procedure
+procedure: subject
+targets: [local, staging]
+steps:
+  - id: enumerate  # a read, and the Target it binds
+    definition: things-observed
+    operation: list_things
+    target: staging
+    args:
+      page_size: "100"
+
+  - id: make
+    definition: things
+    operation: make_thing
+    target: staging
+    args:
+      name: preview-42
+
+  - id: make-bounded
+    definition: things
+    operation: make_thing
+    target: staging
+    over:
+      values:
+        - preview-43
+        - preview-44
+    args:
+      name: {item: $}
+    bound: 4
+
+  - id: retire
+    definition: things
+    operation: end_thing
+    target: staging
+    over:
+      assets:
+        - field: name
+          starts_with: preview-
+    args:
+      thing_id: {item: $.id}
+    bound: 5
+
+  - id: scrub
+    definition: commands-destroy
+    operation: destroy
+    target: local
+    over:
+      assets:
+        - field: stdout
+          starts_with: preview-
+    args:
+      command: [rm, -rf, /srv/preview]
+
+  - id: no-such-definition
+    definition: not-there
+    operation: list_things
+    target: staging
+
+  - id: no-such-operation
+    definition: things
+    operation: not_there
+    target: staging
+
+  - id: no-such-provider
+    definition: orphan
+    operation: list_things
+    target: staging
+
+  - id: nested
+    procedure: inner
+
+  - id: no-such-procedure
+    procedure: not-there

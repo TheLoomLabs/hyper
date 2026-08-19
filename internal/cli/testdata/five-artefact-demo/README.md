@@ -24,7 +24,7 @@ Milestone 3 asks it the fifth question — *what is about to be approved* — of
 artefacts in it and of the one Provider that has no file anywhere (issue #118):
 
 ```
-hyper review procedures/retire-preview-dns.yaml  → the Procedure, verbatim, under its header
+hyper review procedures/retire-preview-dns.yaml  → the Procedure under its header, marked in the gutter
 hyper review preview-dns                         → the same, resolved by the name it declares
 hyper review hyper.yaml                          → the artefact a path is the only way to reach
 hyper review shell                               → the bytes compiled into the binary

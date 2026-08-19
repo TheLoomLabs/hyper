@@ -1,0 +1,8 @@
+kind: target-declaration
+target: staging
+class: things
+kinds: [read, mutate, destroy]
+capabilities: [http]
+hosts: [api.things.dev]
+auth:
+  token: {env: THINGS_API_TOKEN}

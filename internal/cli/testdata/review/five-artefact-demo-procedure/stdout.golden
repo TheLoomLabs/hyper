@@ -1,48 +1,48 @@
-  PROCEDURE  │  procedures/retire-preview-dns.yaml      no baseline — no Store
-             │  03:00 UTC every Monday · ≈4.3 runs/month
-  ───────────┼────────────────────────────────────────────────────────────────
-             │ kind: procedure
-             │ procedure: retire-preview-dns
-             │ targets: [cloudflare-prod]
-             │ cadence: "0 3 * * 1"
-             │ steps:
-             │   - id: publish
-             │     definition: preview-dns
-             │     operation: create_dns_record
-             │     target: cloudflare-prod
-             │     args:
-             │       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
-             │       name: preview-42.example.com
-             │       type: A
-             │       content: 203.0.113.10
-             │
-             │   - id: publish-aliases
-             │     definition: preview-dns
-             │     operation: create_dns_record
-             │     target: cloudflare-prod
-             │     over:
-             │       values:
-             │         - docs.preview-42.example.com
-             │         - api.preview-42.example.com
-             │         - cdn.preview-42.example.com
-             │     args:
-             │       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
-             │       name: {item: $}
-             │       type: CNAME
-             │       content: preview-42.example.com
-             │     bound: 3
-             │
-             │   - id: retire
-             │     definition: preview-dns
-             │     operation: delete_dns_record
-             │     target: cloudflare-prod
-             │     over:
-             │       assets:
-             │         - field: name
-             │           starts_with: preview-
-             │         - field: created_on
-             │           older_than: 14d
-             │     args:
-             │       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
-             │       record_id: {item: $.id}
-             │     bound: 5
+  PROCEDURE                 │  procedures/retire-preview-dns.yaml      no baseline — no Store
+                            │  03:00 UTC every Monday · ≈4.3 runs/month
+  ──────────────────────────┼────────────────────────────────────────────────────────────────
+                            │ kind: procedure
+                            │ procedure: retire-preview-dns
+  envelope ✓                │ targets: [cloudflare-prod]
+                            │ cadence: "0 3 * * 1"
+                            │ steps:
+  mutate!  cloudflare-prod  │   - id: publish
+                            │     definition: preview-dns
+                            │     operation: create_dns_record
+                            │     target: cloudflare-prod
+                            │     args:
+                            │       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+                            │       name: preview-42.example.com
+                            │       type: A
+                            │       content: 203.0.113.10
+                            │
+  mutate   cloudflare-prod  │   - id: publish-aliases
+                            │     definition: preview-dns
+                            │     operation: create_dns_record
+                            │     target: cloudflare-prod
+                            │     over:
+                            │       values:
+                            │         - docs.preview-42.example.com
+                            │         - api.preview-42.example.com
+                            │         - cdn.preview-42.example.com
+                            │     args:
+                            │       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+                            │       name: {item: $}
+                            │       type: CNAME
+                            │       content: preview-42.example.com
+                            │     bound: 3
+                            │
+  DESTROY  cloudflare-prod  │   - id: retire
+                            │     definition: preview-dns
+                            │     operation: delete_dns_record
+                            │     target: cloudflare-prod
+                            │     over:
+                            │       assets:
+                            │         - field: name
+                            │           starts_with: preview-
+                            │         - field: created_on
+                            │           older_than: 14d
+                            │     args:
+                            │       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+                            │       record_id: {item: $.id}
+                            │     bound: 5

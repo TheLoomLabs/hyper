@@ -1,0 +1,5 @@
+kind: definition
+definition: orphan
+provider: not-installed
+kinds: [read]
+targets: [staging]

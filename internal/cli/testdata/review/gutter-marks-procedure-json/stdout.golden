@@ -1,0 +1,13 @@
+{"type":"artefact","kind":"procedure","path":"procedures/subject.yaml","baseline_absent":"no-store"}
+{"type":"gutter","line":4,"marker":"envelope ok"}
+{"type":"gutter","line":6,"marker":"read staging"}
+{"type":"gutter","line":13,"marker":"mutate! staging"}
+{"type":"gutter","line":20,"marker":"mutate staging"}
+{"type":"gutter","line":32,"marker":"DESTROY staging"}
+{"type":"gutter","line":44,"marker":"DESTROY opaque local"}
+{"type":"gutter","line":55,"marker":"unresolved"}
+{"type":"gutter","line":60,"marker":"unresolved"}
+{"type":"gutter","line":65,"marker":"unresolved"}
+{"type":"gutter","line":70,"marker":"staging"}
+{"type":"gutter","line":73,"marker":"unresolved"}
+{"type":"result","truncated":false}

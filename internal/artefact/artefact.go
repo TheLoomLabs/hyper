@@ -109,6 +109,24 @@ func topLevelFields(root *yaml.Node, names ...string) map[string]*yaml.Node {
 	return found
 }
 
+// topLevelKeyLine is the line root's own top-level key of that name is
+// written on, and 0 where it writes none. It is topLevelFields' other half:
+// that walk answers with a key's value and this one with the key itself,
+// which is what a surface annotating a *line* needs — §8 marks the
+// targets: line, and a block sequence's first member is a line below the
+// key that names it.
+func topLevelKeyLine(root *yaml.Node, name string) int {
+	if root == nil || root.Kind != yaml.MappingNode {
+		return 0
+	}
+	for i := 0; i+1 < len(root.Content); i += 2 {
+		if key := root.Content[i]; key.Kind == yaml.ScalarNode && key.Value == name {
+			return key.Line
+		}
+	}
+	return 0
+}
+
 // DeclaredName is the name an artefact declares for itself: the scalar under
 // the top-level key its kind names itself with — definition:, procedure:,
 // provider: or target: — and "" where that key is absent, carries something

@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
 )
@@ -594,6 +595,10 @@ func TestRunReview_TheWireCarriesTheGlossesPartsAndNeverTheComposedString(t *tes
 
 	want := []string{
 		`{"type":"artefact","kind":"procedure","path":"procedures/nightly.yaml","baseline_absent":"no-store","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3}`,
+		// The envelope mark rides between them, a Procedure declaring
+		// no Steps still declaring the envelope none of them exceeds
+		// (issue #120).
+		`{"type":"gutter","line":3,"marker":"envelope ok"}`,
 		`{"type":"result","truncated":false}`,
 	}
 	if got := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n"); !slices.Equal(got, want) {
@@ -639,5 +644,648 @@ func TestRunReview_ACadenceOnAnArtefactThatIsNotAProcedureIsNotOne(t *testing.T)
 	}
 	if header := headerOf(t, stdout); len(header) != 1 {
 		t.Errorf("the header is %q, want one line: a Target declaration declares no Cadence", header)
+	}
+}
+
+// markersOf is the marker column a review rendered, read back off the page:
+// every line beneath the rule that carries something left of the bar, keyed by
+// the line of the artefact it stands beside.
+//
+// It reads the column rather than the whole line for the reason sourceOf reads
+// the other half: what a case about a marker asks is what the cell says, and a
+// case that spelled the padding out would fail the day another marker in the
+// same rendering widens the column.
+func markersOf(t *testing.T, page string) map[int]string {
+	t.Helper()
+
+	markers := map[int]string{}
+	line := 0
+	past := false
+	for _, rendered := range strings.Split(strings.TrimSuffix(page, "\n"), "\n") {
+		if strings.Contains(rendered, "┼") {
+			past = true
+			continue
+		}
+		if !past {
+			continue
+		}
+		line++
+		bar := strings.Index(rendered, "│")
+		if bar < 0 {
+			t.Fatalf("line %q beneath the rule carries no gutter; every rendered line does", rendered)
+		}
+		if marker := strings.TrimSpace(rendered[:bar]); marker != "" {
+			markers[line] = marker
+		}
+	}
+	return markers
+}
+
+// providerDeclaring is a Manifest whose one Operation is named against its
+// Kind: `delete_everything` declaring `read` is what a gutter reading the
+// Manifest renders `read` and a gutter guessing from the name renders
+// otherwise (§12).
+const providerDeclaring = `kind: provider
+provider: things
+schema-version: 1
+class: things
+capabilities: [http]
+operations:
+  delete_everything:
+    kind: read
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /things
+    record:
+      identity: $.id
+      fields: {id: $.id}
+  make_thing:
+    kind: mutate
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /things
+    record:
+      identity: $.id
+      fields: {id: $.id}
+  end_thing:
+    kind: destroy
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /things/{thing_id}
+`
+
+// reviewRepo is a repository with a Provider, a Definition claiming every Kind
+// and a Target declaration granting them, so that a case about a Procedure's
+// gutter is about the Procedure. procedure is written to
+// procedures/subject.yaml, which is what every case below reviews.
+func reviewRepo(t *testing.T, procedure string) string {
+	t.Helper()
+	root := newRepo(t)
+	writeFile(t, root+"/providers/things.yaml", providerDeclaring)
+	writeFile(t, root+"/targets/staging.yaml",
+		"kind: target-declaration\ntarget: staging\nclass: things\nkinds: [read, mutate, destroy]\ncapabilities: [http]\nhosts: [api.things.dev]\n")
+	// Two Definitions against one Provider, because a Definition observes
+	// or effects and never both (ADR-0032): the Records a series holds take
+	// their type from the Kinds claimed, and one claim spanning both would
+	// write an Observation and an Asset into one series.
+	writeFile(t, root+"/definitions/things.yaml",
+		"kind: definition\ndefinition: things\nprovider: things\nkinds: [mutate]\ndestroy: [end_thing]\ntargets: [staging]\n")
+	writeFile(t, root+"/definitions/things-observed.yaml",
+		"kind: definition\ndefinition: things-observed\nprovider: things\nkinds: [read]\ntargets: [staging]\n")
+	writeFile(t, root+"/procedures/subject.yaml", procedure)
+	return root
+}
+
+// TestRunReview_AStepsKindIsReadFromTheManifestAndMarkedBesideItsLine is the
+// gutter's first fact: the Kind an Operation declares, marked beside the line
+// that binds it, and never inferred from the Operation's name (§8, §12).
+func TestRunReview_AStepsKindIsReadFromTheManifestAndMarkedBesideItsLine(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: look
+    definition: things-observed
+    operation: delete_everything
+    target: staging
+`)
+
+	stdout, stderr, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+	if got, want := markersOf(t, stdout)[5], "read  staging"; got != want {
+		t.Errorf("the marker beside line 5 is %q, want %q", got, want)
+	}
+}
+
+// TestRunReview_AMutateStepWithNoBoundIsMarkedWithTheBang is §8's one mark
+// whose absence no static check reports: a `mutate` Step with no declared Bound
+// is `mutate!`, and one carrying a Bound is `mutate`. `check` is silent on it by
+// design, so the gutter is where the fact is rendered at all (§4, §8).
+//
+// The two Steps sit in one rendering, which is also where the Kind field's
+// padding shows: `mutate` and `mutate!` line their Targets up under each other.
+func TestRunReview_AMutateStepWithNoBoundIsMarkedWithTheBang(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: unbounded
+    definition: things
+    operation: make_thing
+    target: staging
+  - id: bounded
+    definition: things
+    operation: make_thing
+    target: staging
+    bound: 3
+`)
+
+	stdout, stderr, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+
+	markers := markersOf(t, stdout)
+	if got, want := markers[5], "mutate!  staging"; got != want {
+		t.Errorf("the Step with no bound: is marked %q, want %q", got, want)
+	}
+	if got, want := markers[9], "mutate   staging"; got != want {
+		t.Errorf("the Step carrying a bound: is marked %q, want %q", got, want)
+	}
+}
+
+// TestRunReview_ADestroyStepRendersDESTROYAndCarriesNoBang is the other half of
+// the same rule. `destroy` renders upper-case for the eye, and a `destroy` Step
+// with no `bound:` gets no `!`: that is `bound-missing`, a static check, and
+// `check`'s to report — there is no `DESTROY!` marker (§4, §8, §12).
+func TestRunReview_ADestroyStepRendersDESTROYAndCarriesNoBang(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: retire
+    definition: things
+    operation: end_thing
+    target: staging
+`)
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got, want := markersOf(t, stdout)[5], "DESTROY  staging"; got != want {
+		t.Errorf("the destroy Step is marked %q, want %q", got, want)
+	}
+}
+
+// TestRunReview_TheProceduresTargetsLineCarriesTheEnvelopeMark is the one mark
+// that is not a Step's: the envelope check quantifies over every Step's
+// `target:` at once, so it stands beside the line that declares the envelope
+// and takes no part in the Kind/Target alignment (§8).
+func TestRunReview_TheProceduresTargetsLineCarriesTheEnvelopeMark(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: look
+    definition: things-observed
+    operation: delete_everything
+    target: staging
+`)
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got, want := markersOf(t, stdout)[3], "envelope ✓"; got != want {
+		t.Errorf("the targets: line is marked %q, want %q", got, want)
+	}
+}
+
+// TestRunReview_AnEnvelopeTheStepsExceedStillRendersAndExitsZero is what
+// separates this surface from `check`: a review does not run it and does not
+// decline, so an artefact carrying `envelope-exceeded` renders like any other
+// and the mark is what says so (§8, §9, ADR-0064).
+func TestRunReview_AnEnvelopeTheStepsExceedStillRendersAndExitsZero(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: []
+steps:
+  - id: look
+    definition: things-observed
+    operation: delete_everything
+    target: staging
+`)
+
+	stdout, stderr, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want the artefact rendered and nothing refused", exit, stderr)
+	}
+	markers := markersOf(t, stdout)
+	if got, want := markers[3], "envelope ✗"; got != want {
+		t.Errorf("the targets: line is marked %q, want %q", got, want)
+	}
+	if got, want := markers[5], "read  staging"; got != want {
+		t.Errorf("the Step outside the envelope is marked %q, want %q — the Step's own claim is unchanged", got, want)
+	}
+}
+
+// TestRunReview_AStepInvokingAnOpaqueOperationIsMarkedOpaqueBesideItsKind is
+// §8's third gutter fact: opacity is a Manifest fact exactly as a Kind is, and
+// the gutter carries it for the reason it carries the Kind — what `hyper`
+// cannot describe is not readable from the Step's own lines. The token sits
+// between the Kind and the Target (§8, §12).
+func TestRunReview_AStepInvokingAnOpaqueOperationIsMarkedOpaqueBesideItsKind(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [local]
+steps:
+  - id: run
+    definition: commands
+    operation: read
+    target: local
+`)
+	writeFile(t, root+"/targets/local.yaml",
+		"kind: target-declaration\ntarget: local\nclass: local\nkinds: [read]\ncapabilities: [shell]\n")
+	writeFile(t, root+"/definitions/commands.yaml",
+		"kind: definition\ndefinition: commands\nprovider: shell\nkinds: [read]\ntargets: [local]\n")
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got, want := markersOf(t, stdout)[5], "read  opaque  local"; got != want {
+		t.Errorf("the Step invoking an Opaque Operation is marked %q, want %q", got, want)
+	}
+}
+
+// TestRunReview_ANestedInvocationRendersItsTransitiveEnvelope is §8's
+// composition rule in the gutter: what a nested invocation's own line derives
+// is the transitive envelope §3 states — what everything it invokes may touch,
+// to any depth — and that envelope reaches this Procedure's own envelope mark.
+func TestRunReview_ANestedInvocationRendersItsTransitiveEnvelope(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: inner
+    procedure: deeper
+`)
+	writeFile(t, root+"/procedures/deeper.yaml", `kind: procedure
+procedure: deeper
+targets: [staging]
+steps:
+  - id: onwards
+    procedure: deepest
+`)
+	writeFile(t, root+"/procedures/deepest.yaml", "kind: procedure\nprocedure: deepest\ntargets: [staging]\nsteps: []\n")
+
+	stdout, stderr, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+	markers := markersOf(t, stdout)
+	if got, want := markers[5], "staging"; got != want {
+		t.Errorf("the invocation is marked %q, want %q", got, want)
+	}
+	if got, want := markers[3], "envelope ✓"; got != want {
+		t.Errorf("the targets: line is marked %q, want %q", got, want)
+	}
+}
+
+// TestRunReview_ATransitiveEnvelopeOutsideTheDeclaredOneReachesTheMark is the
+// other side of it, one level down: `deepest` binds a Target `subject` never
+// declared, and the envelope mark on `subject`'s own `targets:` line is what
+// says so — which is the walk `envelope-exceeded` already makes, read again
+// rather than made twice.
+func TestRunReview_ATransitiveEnvelopeOutsideTheDeclaredOneReachesTheMark(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: inner
+    procedure: deeper
+`)
+	writeFile(t, root+"/procedures/deeper.yaml", `kind: procedure
+procedure: deeper
+targets: [staging]
+steps:
+  - id: onwards
+    procedure: deepest
+`)
+	writeFile(t, root+"/procedures/deepest.yaml", "kind: procedure\nprocedure: deepest\ntargets: [production]\nsteps: []\n")
+	writeFile(t, root+"/targets/production.yaml",
+		"kind: target-declaration\ntarget: production\nclass: things\nkinds: [read]\ncapabilities: [http]\nhosts: [api.things.dev]\n")
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	markers := markersOf(t, stdout)
+	if got, want := markers[5], "production staging"; got != want {
+		t.Errorf("the invocation is marked %q, want %q", got, want)
+	}
+	if got, want := markers[3], "envelope ✗"; got != want {
+		t.Errorf("the targets: line is marked %q, want %q", got, want)
+	}
+}
+
+// TestRunReview_ANameResolvingToNothingIsMarkedUnresolved is §8's fourth mark
+// and the one that fires where the other three cannot: a review does not run
+// `check` and does not decline, so a Step whose `definition:`, `operation:` or
+// bound Provider is not there renders like any other line with the mark its
+// derivation would have carried — one name and not four, the gutter marking and
+// not classifying, and a blank cell would say `read` by omission on the one
+// screen that may not (§8, §12, ADR-0026, ADR-0064).
+func TestRunReview_ANameResolvingToNothingIsMarkedUnresolved(t *testing.T) {
+	// Every unresolved Step binds a Target this Procedure never declared,
+	// so the envelope mark below is the assertion that an unresolved Step
+	// contributes nothing to the check: were the mark reading a `target:`
+	// whose Step it could derive nothing else about, it would read `✗`.
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: no-definition
+    definition: not-there
+    operation: delete_everything
+    target: elsewhere
+  - id: no-operation
+    definition: things
+    operation: not-there
+    target: elsewhere
+  - id: no-provider
+    definition: orphan
+    operation: delete_everything
+    target: elsewhere
+  - id: no-procedure
+    procedure: not-there
+`)
+	writeFile(t, root+"/definitions/orphan.yaml",
+		"kind: definition\ndefinition: orphan\nprovider: not-there\nkinds: [read]\ntargets: [staging]\n")
+
+	stdout, stderr, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want the artefact rendered and nothing refused", exit, stderr)
+	}
+	markers := markersOf(t, stdout)
+	for _, line := range []int{5, 9, 13, 17} {
+		if got, want := markers[line], "unresolved"; got != want {
+			t.Errorf("line %d is marked %q, want %q", line, got, want)
+		}
+	}
+	if got, want := markers[3], "envelope ✓"; got != want {
+		t.Errorf("the targets: line is marked %q, want %q — an unresolved Step contributes no envelope", got, want)
+	}
+}
+
+// columnWidthOf is the marker column's own width, read back off the rule that
+// spans it: the rule opens with the screen's indent and runs to the junction,
+// carrying the column and the gap that separates it from the bar.
+func columnWidthOf(t *testing.T, page string) int {
+	t.Helper()
+
+	for _, line := range strings.Split(page, "\n") {
+		junction := strings.Index(line, "┼")
+		if junction < 0 {
+			continue
+		}
+		return utf8.RuneCountInString(line[:junction]) - len("  ") - len("  ")
+	}
+	t.Fatalf("the page carries no rule:\n%s", page)
+	return 0
+}
+
+// TestRunReview_NoMarkerIsTruncatedHoweverLongTheTargetName is §8's rule about
+// what this screen may not do: a Target name is an identity in a reviewed
+// artefact, and eliding a character of one is the review stating something
+// other than what is about to be approved. Nothing here is sized to the
+// terminal — §9's truncation discipline governs a result set, which has an
+// order and a limit, and an artefact has neither.
+func TestRunReview_NoMarkerIsTruncatedHoweverLongTheTargetName(t *testing.T) {
+	long := strings.Repeat("staging-", 30) + "eu-central"
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [`+long+`]
+steps:
+  - id: look
+    definition: things-observed
+    operation: delete_everything
+    target: `+long+`
+`)
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got, want := markersOf(t, stdout)[5], "read  "+long; got != want {
+		t.Errorf("the marker is %q, want %q", got, want)
+	}
+	if got, want := columnWidthOf(t, stdout), utf8.RuneCountInString("read  "+long); got != want {
+		t.Errorf("the marker column is %d wide, want %d — as wide as the widest marker in the rendering", got, want)
+	}
+}
+
+// TestRunReview_TheMarkerColumnFallsBackToTheKindHeading is the other half of
+// the width rule: the column is as wide as the widest marker, or the word
+// heading it where that is wider, so the heading is never the thing that gets
+// clipped (§8).
+func TestRunReview_TheMarkerColumnFallsBackToTheKindHeading(t *testing.T) {
+	// No targets: line, so no envelope mark, and one Step whose whole
+	// marker is narrower than `PROCEDURE`. The missing key is a fault
+	// `check` reports and this surface renders past (ADR-0064).
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+steps:
+  - id: look
+    definition: things-observed
+    operation: delete_everything
+    target: eu
+`)
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got, want := markersOf(t, stdout)[4], "read  eu"; got != want {
+		t.Errorf("the marker is %q, want %q", got, want)
+	}
+	if got, want := columnWidthOf(t, stdout), utf8.RuneCountInString("PROCEDURE"); got != want {
+		t.Errorf("the marker column is %d wide, want %d — the kind heading is wider than every marker", got, want)
+	}
+}
+
+// TestRunReview_ACommentRendersInPlaceAndEntersNoMarker is §8's rule about
+// whose text the column carries: the gutter carries what `hyper` derived about
+// a line, and a column two authors write into is one where a marker and a
+// comment contend for a cell that holds one of them. A comment is source, it
+// renders verbatim inside the line it was written on, and it is read for
+// nothing else (§3, §8).
+func TestRunReview_ACommentRendersInPlaceAndEntersNoMarker(t *testing.T) {
+	source := `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  # the one Step, and what an author thought of it
+  - id: look  # reads and writes nothing
+    definition: things-observed
+    operation: delete_everything
+    target: staging
+`
+	root := reviewRepo(t, source)
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+
+	want := strings.Split(strings.TrimSuffix(source, "\n"), "\n")
+	if got := sourceOf(t, stdout); !slices.Equal(got, want) {
+		t.Errorf("the source rendered as\n %q\nwant\n %q", got, want)
+	}
+	markers := markersOf(t, stdout)
+	if got, want := markers[6], "read  staging"; got != want {
+		t.Errorf("the Step's own line is marked %q, want %q", got, want)
+	}
+	if marker, marked := markers[5]; marked {
+		t.Errorf("the comment's own line is marked %q; nothing an author wrote enters the marker column", marker)
+	}
+}
+
+// TestRunReview_TheChangeColumnStaysSeparateAndZeroWide is §8's two-column
+// rule at the one milestone where the second column has no supply: no range
+// opens, so the change column has no content **and no width**, and the source
+// sits one character right of the bar. No marker composes a change mark into
+// itself — reading down the marker column *is* the step table, and a fact about
+// the artefact's history interleaved into it is that column ceasing to be one
+// table's.
+func TestRunReview_TheChangeColumnStaysSeparateAndZeroWide(t *testing.T) {
+	source := `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: look
+    definition: things-observed
+    operation: delete_everything
+    target: staging
+`
+	root := reviewRepo(t, source)
+
+	stdout, _, exit := runReview(t, root, "subject")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+
+	// One character stands between the bar and the artefact's own line, and
+	// it is the gap: the column that would have carried the change mark is
+	// not drawn at all, so the source sits two characters left of where a
+	// ranged review would put it.
+	lines := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")
+	written := strings.Split(strings.TrimSuffix(source, "\n"), "\n")
+	rendered := lines[len(lines)-len(written):]
+	for i, line := range rendered {
+		bar := strings.Index(line, "│")
+		if bar < 0 {
+			t.Fatalf("the line %q carries no gutter", line)
+		}
+		if got, want := line[bar+len("│"):], " "+written[i]; got != want {
+			t.Errorf("the line %q stands to the right of the bar, want %q", got, want)
+		}
+	}
+	if strings.Contains(stdout, "~") {
+		t.Errorf("the page carries a change mark; no range opens in this milestone:\n%s", stdout)
+	}
+}
+
+// TestRunReview_TheWireCarriesOneGutterRowPerRenderedLineWithContent is §8's
+// `gutter` row: one rendered **line** and not one marked cell, carrying the
+// marker as the string the page renders with its alignment padding collapsed to
+// single spaces. `envelope ✓` goes out `envelope ok` and `DESTROY` goes out as
+// it renders — the sigil and the word are one fact in two notations, exactly as
+// `~` and `changed: true` will be.
+//
+// The rows are the annotations and never the source: the consumer already has
+// the file (§8).
+func TestRunReview_TheWireCarriesOneGutterRowPerRenderedLineWithContent(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: make
+    definition: things
+    operation: make_thing
+    target: staging
+  - id: retire
+    definition: things
+    operation: end_thing
+    target: staging
+    bound: 5
+`)
+
+	stdout, _, exit := runReview(t, root, "subject", "--json")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+
+	want := []string{
+		`{"type":"artefact","kind":"procedure","path":"procedures/subject.yaml","baseline_absent":"no-store"}`,
+		`{"type":"gutter","line":3,"marker":"envelope ok"}`,
+		`{"type":"gutter","line":5,"marker":"mutate! staging"}`,
+		`{"type":"gutter","line":9,"marker":"DESTROY staging"}`,
+		`{"type":"result","truncated":false}`,
+	}
+	if got := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n"); !slices.Equal(got, want) {
+		t.Errorf("the stream is\n %q\nwant\n %q", got, want)
+	}
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(line, "definition: things") {
+			t.Errorf("the stream carries the source: %q", line)
+		}
+	}
+}
+
+// TestRunReview_ALineWithNothingInEitherColumnGetsNoRow is the other half of
+// that rule, and it is what keeps the stream the annotations rather than the
+// file: a line the gutter says nothing about is a line with no row, so the
+// count of rows is the count of facts.
+func TestRunReview_ALineWithNothingInEitherColumnGetsNoRow(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [staging]
+steps:
+  - id: look
+    definition: things-observed
+    operation: delete_everything
+    target: staging
+`)
+
+	stdout, _, exit := runReview(t, root, "subject", "--json")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got, want := strings.Count(stdout, `"type":"gutter"`), 2; got != want {
+		t.Errorf("the stream carries %d gutter rows, want %d — one for targets: and one for the Step:\n%s", got, want, stdout)
+	}
+}
+
+// TestRunReview_AnUnresolvedAndAnOpaqueMarkerGoOutAsThePageComposesThem holds
+// the collapse at the two markers whose page notation has padding of more than
+// one kind: a whole-cell marker that takes no part in the Kind/Target
+// alignment, and one carrying the opacity field between them.
+func TestRunReview_AnUnresolvedAndAnOpaqueMarkerGoOutAsThePageComposesThem(t *testing.T) {
+	root := reviewRepo(t, `kind: procedure
+procedure: subject
+targets: [local]
+steps:
+  - id: run
+    definition: commands
+    operation: destroy
+    target: local
+  - id: lost
+    definition: not-there
+    operation: read
+    target: local
+`)
+	writeFile(t, root+"/targets/local.yaml",
+		"kind: target-declaration\ntarget: local\nclass: local\nkinds: [destroy]\ncapabilities: [shell]\nopaque-destroy: true\n")
+	writeFile(t, root+"/definitions/commands.yaml",
+		"kind: definition\ndefinition: commands\nprovider: shell\ndestroy: [destroy]\ntargets: [local]\n")
+
+	stdout, _, exit := runReview(t, root, "subject", "--json")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	for _, want := range []string{
+		`{"type":"gutter","line":5,"marker":"DESTROY opaque local"}`,
+		`{"type":"gutter","line":9,"marker":"unresolved"}`,
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("the stream is\n%s\nwant a row carrying %s", stdout, want)
+		}
 	}
 }

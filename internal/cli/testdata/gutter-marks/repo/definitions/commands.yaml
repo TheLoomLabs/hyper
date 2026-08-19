@@ -1,0 +1,5 @@
+kind: definition
+definition: commands
+provider: shell
+kinds: [read]
+targets: [local]

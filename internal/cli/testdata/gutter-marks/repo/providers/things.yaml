@@ -1,0 +1,51 @@
+kind: provider
+provider: things
+schema-version: 1
+class: things
+capabilities: [http]
+operations:
+  list_things:
+    kind: read
+    repeatability: repeatable
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /v1/things
+      query: {per_page: "{page_size}"}
+    input:
+      type: object
+      properties:
+        page_size: {type: string}
+    record:
+      over: $.body.things
+      identity: $.id
+      fields: {id: $.id, name: $.name}
+  make_thing:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /v1/things
+      body: {name: "{name}"}
+    input:
+      type: object
+      properties:
+        name: {type: string}
+    record:
+      identity: "{name}"
+      fields: {id: $.body.id, name: $.body.name}
+  end_thing:
+    kind: destroy
+    repeatability: repeatable
+    deadline: 30s
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /v1/things/{thing_id}
+    input:
+      type: object
+      properties:
+        thing_id: {type: string}

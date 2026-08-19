@@ -1,0 +1,12 @@
+  PROCEDURE            │  procedures/beyond.yaml                  no baseline — no Store
+  ─────────────────────┼────────────────────────────────────────────────────────────────
+                       │ kind: procedure
+                       │ procedure: beyond
+  envelope ✗           │ targets: [staging]
+                       │ steps:
+  read  opaque  local  │   - id: reach
+                       │     definition: commands
+                       │     operation: read
+                       │     target: local
+                       │     args:
+                       │       command: [uname, -a]
