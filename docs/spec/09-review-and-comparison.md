@@ -496,9 +496,9 @@ $ hyper review procedures/retire-preview-envs.yaml
                     │ ~     bound: 5
 
   AUTHORITY   assembled from definitions/ and targets/
-  DEFINITION       TARGET   DEFINITION KINDS     TARGET KINDS         EFFECTIVE  DESTROY OPS
-  uptime           local    read                 read                 r          —
-  hetzner-staging  staging  mutate destroy       read mutate destroy  m d        delete_server
+  DEFINITION       TARGET   DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS
+  uptime           local    read              read                 r          —
+  hetzner-staging  staging  mutate destroy    read mutate destroy  m d        delete_server
 
   FLAGS   index into the gutter above — no flag states anything the gutter does not
   UNBOUNDED  line 15  step label    mutate with no declared bound
