@@ -7,11 +7,12 @@
 // two-key check: it sits beneath the layer Providers exist at, and it is not a
 // Target.
 //
-// What this milestone has landed is the branch's creation (issue #126) and the
-// canonical encoding every file on it is written in (issue #127). The read
-// half, the Head, the Journal, the path grammar and the push retry are the
-// milestone's later tickets; the git layer they all go through is here already,
-// unexported, and stays that way until a caller outside this package earns it.
+// What this milestone has landed is the branch's creation (issue #126), the
+// canonical encoding every file on it is written in (issue #127) and the path
+// grammar every file on it is named by (issue #128). The read half, the Head,
+// the Journal's file shapes and the push retry are the milestone's later
+// tickets; the git layer they all go through is here already, unexported, and
+// stays that way until a caller outside this package earns it.
 //
 // The encoder is the same shape: §7 states rules no command in this milestone
 // can reach, so they are verified at this package's own seam rather than
@@ -35,11 +36,6 @@ const (
 // RemoteName is the remote the Store is looked for on and pushed to. It is
 // `origin` and it is not configurable, for BranchName's own reason.
 const RemoteName = "origin"
-
-// IntroductionPath is where the branch introduces itself, and it is the one
-// path in the whole Store that carries no Run id: every other path names the
-// Run that wrote it, and this file is written by no Run (§12, ADR-0076).
-const IntroductionPath = "STORE.md"
 
 // Introduction is STORE.md, entire. It is written once, when the Store is
 // created, and never again — a second `init` that rewrote it would be the one
