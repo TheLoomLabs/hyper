@@ -1,0 +1,1 @@
+hyper check: not inside a git repository; pass --repo-dir or set HYPER_REPO_DIR

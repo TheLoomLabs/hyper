@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/version"
@@ -24,17 +25,18 @@ var testFacts = version.Facts{
 	Arch:      "amd64",
 }
 
-// process stands in for the two reads cli.Main is handed rather than makes —
-// the environment and the working directory — and records whether either was
-// touched. Counting the calls is the only way the exemption can be asserted
-// rather than assumed: `version` and `completions` are exempt from the pin gate
-// because they resolve no repository, and a branch that never asks where it is
-// standing cannot have reached one (§9, ADR-0020).
+// process stands in for the three reads cli.Main is handed rather than makes —
+// the environment, the working directory and the clock — and records whether
+// any of them was touched. Counting the calls is the only way the exemption can
+// be asserted rather than assumed: `version` and `completions` are exempt from
+// the pin gate because they resolve no repository, and a branch that never asks
+// where it is standing cannot have reached one (§9, ADR-0020).
 type process struct {
 	wd        string
 	wdErr     error
 	getwd     int
 	lookupenv int
+	now       int
 }
 
 func (p *process) Getwd() (string, error) {
@@ -51,9 +53,25 @@ func (p *process) LookupEnv(string) (string, bool) {
 	return "", false
 }
 
+// Now answers one fixed instant, and counts the reads of it beside the other
+// two. Nothing behind the dispatch calls it in this milestone — the clock is
+// threaded ahead of the Store that needs it (§7, issue #125) — so every count
+// it takes is zero today; it is here rather than passed as a bare time.Now
+// because the day a command reads a clock is the day these cases must be able
+// to say which ones did.
+func (p *process) Now() time.Time {
+	p.now++
+	return fixedInstant
+}
+
+// fixedInstant is the clock the stand-in answers with: one instant, so a case
+// that ever compares a rendering of it compares a fixed string rather than the
+// time the suite happened to run.
+var fixedInstant = time.Date(2026, time.April, 2, 9, 41, 14, 221_000_000, time.UTC)
+
 // untouched says the process was never read, which is the shape of the
-// exemption: no working directory, no environment, and therefore no repository
-// root and no gate.
+// exemption: no working directory, no environment, no clock, and therefore no
+// repository root and no gate.
 func (p *process) untouched(t *testing.T) {
 	t.Helper()
 	if p.getwd != 0 {
@@ -61,6 +79,9 @@ func (p *process) untouched(t *testing.T) {
 	}
 	if p.lookupenv != 0 {
 		t.Errorf("the environment was read %d times, want it left alone", p.lookupenv)
+	}
+	if p.now != 0 {
+		t.Errorf("the clock was read %d times, want it left alone", p.now)
 	}
 }
 
@@ -70,7 +91,7 @@ func TestMain_NoArgumentsIsUsageError(t *testing.T) {
 	p := &process{wd: t.TempDir()}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main(nil, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitUsage {
+	if exit := cli.Main(nil, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitUsage {
 		t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
 	}
 	if !strings.HasPrefix(stderr.String(), "usage: hyper ") {
@@ -90,7 +111,7 @@ func TestMain_UnknownCommandNamesWhatWasTyped(t *testing.T) {
 	p := &process{wd: t.TempDir()}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"bogus"}, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitUsage {
+	if exit := cli.Main([]string{"bogus"}, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitUsage {
 		t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
 	}
 	if got := stderr.String(); !strings.Contains(got, `"bogus"`) {
@@ -117,7 +138,7 @@ func TestMain_ExemptCommandsReadNothingOfTheProcess(t *testing.T) {
 			p := &process{wdErr: errors.New("getwd: no such file or directory")}
 			var stdout, stderr bytes.Buffer
 
-			exit := cli.Main(argv, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts)
+			exit := cli.Main(argv, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts)
 
 			if exit != cli.ExitClean {
 				t.Errorf("exit = %d, want 0; stderr=%q", exit, stderr.String())
@@ -141,7 +162,7 @@ func TestMain_VersionStatesTheFactsItWasHanded(t *testing.T) {
 	p := &process{wd: t.TempDir()}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"version"}, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitClean {
+	if exit := cli.Main([]string{"version"}, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want 0; stderr=%q", exit, stderr.String())
 	}
 	if got, want := stdout.String(), testFacts.Page(); got != want {
@@ -165,7 +186,7 @@ func TestMain_CheckIsGatedOnTheVersionInThoseFacts(t *testing.T) {
 	p := &process{wd: repo}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitRefused {
+	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitRefused {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitRefused, stderr.String())
 	}
 	if stdout.Len() != 0 {
@@ -188,7 +209,7 @@ func TestMain_CheckReportsAWorkingDirectoryItCannotRead(t *testing.T) {
 	p := &process{wdErr: errors.New("getwd: no such file or directory")}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.LookupEnv, p.Getwd, testFacts); exit != cli.ExitProblems {
+	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitProblems {
 		t.Errorf("exit = %d, want %d; stderr=%q", exit, cli.ExitProblems, stderr.String())
 	}
 	if got := stderr.String(); !strings.Contains(got, "getwd: no such file or directory") {

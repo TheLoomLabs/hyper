@@ -2,8 +2,10 @@ package cli_test
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -11,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/version"
@@ -113,26 +116,51 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //     page it renders; version is only the string the pin gate compares, for
 //     the many cases that care about nothing else. Absent both, the version is
 //     1.4.0.
-//   - wd, optional: the working directory, relative to the case directory.
+//   - wd, optional: the working directory. It is relative to the case
+//     directory, or — where the case materialises a repository, the fixture
+//     then being a copy somewhere else entirely — relative to that copy's root.
+//   - now, optional: an RFC 3339 instant, the clock the entry point is handed
+//     and the date on every commit the fixture itself makes. Absent, the
+//     harness's stated constant.
+//   - git, store/, remote, remote-store/, find-root, no-git-root, optional:
+//     the git fixture, which golden_fixture_test.go states in full. A case
+//     supplying none of them is driven exactly as it was before issue #125 —
+//     same directory, same argv — which is every case that landed before it.
 //
 // Its stdout.golden, stderr.golden and exit.golden are compared byte for byte,
-// and regenerated in place behind -update.
+// and regenerated in place behind -update; so are store.golden and
+// remote.golden, where the case supplies them.
 func TestGolden(t *testing.T) {
 	for _, c := range goldenCases(t) {
 		t.Run(c.name, func(t *testing.T) {
-			args, wd := c.invocation(t)
+			run := c.invocation(t)
 
 			var stdout, stderr bytes.Buffer
-			getwd := func() (string, error) { return wd, nil }
-			exit := cli.Main(args, &stdout, &stderr, c.environment(t), getwd, c.facts(t))
+			getwd := func() (string, error) { return run.wd, nil }
+			instant := c.instant(t)
+			now := func() time.Time { return instant }
+			exit := cli.Main(run.args, &stdout, &stderr, c.environment(t), getwd, now, c.facts(t))
 
 			compareGolden(t, c.dir, stdout.Bytes(), stderr.Bytes(), exit)
+			run.compareBranches(t, c.dir)
 		})
 	}
 }
 
+// goldenRun is one case resolved into what it takes to drive it: the arguments
+// the entry point receives, the working directory they are read against, and
+// the git fixture the case asked for — which for every case that asks for none
+// is the zero value, built by nothing and rendering nothing.
+type goldenRun struct {
+	args    []string
+	wd      string
+	inputs  fixtureInputs
+	fixture gitFixture
+}
+
 // invocation resolves what the process would hand the entry point: the
-// arguments, and the working directory they are read against.
+// arguments, and the working directory they are read against — materialising
+// the case's repository first, where it asked for one.
 //
 // --repo-dir is synthesised here rather than written into an argv because the
 // fixture's path is only known at run time — but the rule is the case's and not
@@ -150,21 +178,90 @@ func TestGolden(t *testing.T) {
 // all naming it (issue #105); the twelve cases against the five-artefact
 // demonstration repository share testdata/five-artefact-demo/repo the same way,
 // across five corpora, each of them naming it (issue #116).
-func (c goldenCase) invocation(t *testing.T) (args []string, wd string) {
+//
+// The two paths §9 states and no case could reach until now are here too, and
+// both are the absence of that synthesis rather than an argument added to it: a
+// case carrying find-root is driven with no --repo-dir at all, so the root is
+// the one resolveRepoRoot walks up to, and a case carrying no-git-root is
+// driven from a directory with no git root above it, which is the walk finding
+// nothing (issue #125).
+func (c goldenCase) invocation(t *testing.T) goldenRun {
 	t.Helper()
 
-	wd = c.abs(t, ".")
-	args = c.argv
+	run := goldenRun{args: c.argv, wd: c.abs(t, "."), inputs: c.fixtureInputs()}
+	if fault := run.inputs.fault(); fault != "" {
+		t.Fatalf("case %s %s", c.name, fault)
+	}
 
-	if repo := filepath.Join(c.dir, "repo"); isDir(repo) {
-		wd = c.abs(t, "repo")
-		args = append([]string{c.argv[0], "--repo-dir", wd}, c.argv[1:]...)
+	// The repository the invocation stands in, wherever it turned out to be:
+	// the copy, for a materialised case, and the checked-in repo/ for the
+	// cases that have always been driven straight off the disk.
+	root := ""
+	switch {
+	case run.inputs.materialised():
+		run.fixture = c.materialise(t, run.inputs)
+		root = run.fixture.root
+	case run.inputs.repo:
+		root = c.abs(t, "repo")
+	}
+	if root != "" {
+		run.wd = root
+		if !run.inputs.findRoot {
+			run.args = append([]string{c.argv[0], "--repo-dir", root}, c.argv[1:]...)
+		}
+	}
+	if run.inputs.noGitRoot {
+		run.wd = outsideAnyRepository(t)
 	}
 
 	if w := readFile(t, filepath.Join(c.dir, "wd")); w != "" {
-		wd = c.abs(t, strings.TrimSpace(w))
+		named := strings.TrimSpace(w)
+		// A materialised case's fixture is a copy in a temp directory, so
+		// a path into it is relative to that copy's root; every other
+		// case's wd is relative to its own directory, which is what
+		// testdata/exemption's three ../repo mean.
+		if run.inputs.materialised() {
+			run.wd = filepath.Join(run.fixture.root, filepath.FromSlash(named))
+		} else {
+			run.wd = c.abs(t, named)
+		}
 	}
-	return args, wd
+	return run
+}
+
+// compareBranches holds the case's two branch goldens against what the run
+// left on the branch — store.golden the local refs/heads/hyper-store, and
+// remote.golden the same ref on origin — or, under -update, rewrites the ones
+// the case supplies from what just ran.
+//
+// A golden the case does not supply is not written, which is what leaves every
+// landed case untouched by a -update run: the axis is opted into by the file
+// being there, so a new case asserting a branch starts by creating an empty one
+// and regenerating it. A case supplying neither asserts nothing about any
+// branch.
+func (r goldenRun) compareBranches(t *testing.T, dir string) {
+	t.Helper()
+
+	if r.inputs.storeGolden {
+		compareBranchGolden(t, filepath.Join(dir, "store.golden"), r.fixture.render(t, r.fixture.root))
+	}
+	if r.inputs.remoteGolden {
+		compareBranchGolden(t, filepath.Join(dir, "remote.golden"), r.fixture.render(t, r.fixture.origin))
+	}
+}
+
+// compareBranchGolden holds one rendered branch against its golden file, byte
+// for byte, on compareGolden's own footing and behind the same one flag.
+func compareBranchGolden(t *testing.T, path, rendered string) {
+	t.Helper()
+
+	if *update {
+		writeGolden(t, path, []byte(rendered))
+		return
+	}
+	if want := readFile(t, path); rendered != want {
+		t.Errorf("%s mismatch:\n got:  %q\n want: %q", filepath.Base(path), rendered, want)
+	}
 }
 
 // abs resolves a path named by a case against the case's own directory, which
@@ -322,6 +419,81 @@ func compareGolden(t *testing.T, dir string, stdout, stderr []byte, exit int) {
 	}
 	if exit != wantExit {
 		t.Errorf("exit = %d, want %d", exit, wantExit)
+	}
+}
+
+// TestMain holds the criterion no single case can: nothing a test run does
+// reaches the checked-in testdata/ tree. Every fixture golden_fixture_test.go
+// builds lives under t.TempDir() — the copy, its .git, the bare origin, git's
+// own configuration — and the way to know that stayed true is to weigh the
+// corpora before the suite and after it.
+//
+// It sits here rather than beside the fixture it is watching, because it is the
+// package's one entry point and governs every test in it, this file's corpus
+// assertions included.
+//
+// Under -update it does not, because rewriting golden files is exactly what
+// that flag is for.
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if *update {
+		os.Exit(m.Run())
+	}
+
+	before := testdataDigest()
+	code := m.Run()
+	if after := testdataDigest(); after != before {
+		fmt.Fprintln(os.Stderr, "testdata/ moved during the run; a fixture is being built inside the checked-in corpora rather than in a temp directory")
+		if code == 0 {
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
+
+// testdataDigest is one digest over every file under testdata/ — each path and
+// then its bytes — so that a file added, removed, rewritten or renamed moves it.
+func testdataDigest() string {
+	sum := sha256.New()
+	err := filepath.WalkDir("testdata", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(sum, "%s\n", filepath.ToSlash(path))
+		if entry.IsDir() {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		sum.Write(data)
+		return nil
+	})
+	if err != nil {
+		return "unreadable: " + err.Error()
+	}
+	return fmt.Sprintf("%x", sum.Sum(nil))
+}
+
+// TestGoldenCorpora_NoCaseCarriesACheckedInGitDirectory is the reason the git
+// fixture is built at run time, standing where the workaround used to: a case's
+// repository is materialised into a temp directory, so a .git under testdata/ is
+// either a fixture built in the wrong place or one committed by hand — and git
+// will not carry a nested repository's contents anyway, so the second would
+// arrive at a fresh clone as something else entirely (issue #125).
+func TestGoldenCorpora_NoCaseCarriesACheckedInGitDirectory(t *testing.T) {
+	err := filepath.WalkDir("testdata", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Name() == ".git" {
+			t.Errorf("%s is checked in; a case's repository is materialised at run time, in a temp directory", path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 

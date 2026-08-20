@@ -7,23 +7,26 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
 
 // dispatch is the one line of main(), with the two streams redirected and
-// nothing else changed: the same entry point, handed the same four reads of
+// nothing else changed: the same entry point, handed the same five reads of
 // the same process. The cases below are about what the binary does when it is
 // standing somewhere in particular, so they drive the real os.LookupEnv,
 // os.Getwd and build facts rather than stand-ins — cli.Main's own behaviour
-// against a fabricated process is internal/cli/main_test.go's (issue #107).
+// against a fabricated process is internal/cli/main_test.go's (issue #107) —
+// including the clock, which nothing behind the dispatch calls yet and which
+// this file therefore drives as the real time.Now, exactly as main() does.
 //
 // Keeping this a single call is the point: anything it did that main() does
 // not would be a second entry point, and these cases would stop testing the
 // binary.
 func dispatch(args []string, stdout, stderr io.Writer) int {
-	return cli.Main(args, stdout, stderr, os.LookupEnv, os.Getwd, version.Current())
+	return cli.Main(args, stdout, stderr, os.LookupEnv, os.Getwd, time.Now, version.Current())
 }
 
 func TestDispatch_NoArgsIsUsageError(t *testing.T) {

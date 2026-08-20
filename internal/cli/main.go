@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
@@ -22,9 +23,18 @@ import (
 //
 // Everything a command reads from the process is a parameter, which is the
 // property #100 established and this must not lose: the arguments, the
-// environment, the working directory, and the facts the build stamped. Nothing
-// in the body below reaches the process for itself, which is what makes the
-// whole dispatch exercisable without a subprocess.
+// environment, the working directory, the clock, and the facts the build
+// stamped. Nothing in the body below reaches the process for itself, which is
+// what makes the whole dispatch exercisable without a subprocess.
+//
+// now is the fourth of those reads and the one nothing behind this dispatch
+// calls yet: retention is an age and every commit the Store writes takes both
+// its dates from a clock, so the milestone that writes a branch needs one
+// threaded rather than reached for (§7, issue #125). The signature moves once,
+// here, rather than inside the command that first needs it — a clock read from
+// the process by whichever function happened to want one is the property this
+// parameter exists to prevent, and it is cheaper to hold before there is a
+// caller than after.
 //
 // getwd is a function rather than a resolved path because the exemption is a
 // property of this dispatch and not of the commands behind it. `version` and
@@ -36,7 +46,7 @@ import (
 // facts is threaded whole rather than the bare version string it carries:
 // RunVersion needs all of it, the gate needs the version out of it, and passing
 // the value keeps Main deterministic under test.
-func Main(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), getwd func() (string, error), facts version.Facts) int {
+func Main(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), getwd func() (string, error), now func() time.Time, facts version.Facts) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: hyper <command> [args...]")
 		return ExitUsage
