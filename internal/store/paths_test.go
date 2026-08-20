@@ -117,22 +117,32 @@ func TestRecordPath_EncodesAllThreeIdentitySegments(t *testing.T) {
 	}
 }
 
-func TestPaths_RefuseAStepThatIsNotAPosition(t *testing.T) {
-	// A Step's position begins at one, so a zero is a caller's arithmetic
-	// rather than a Step: the two forms carrying <nnnn> refuse it rather
-	// than writing a path outside the grammar.
+func TestPaths_RefuseWhatNoPathCanBeBuiltFrom(t *testing.T) {
+	// Everything a constructor builds is a path the parser reads back, so
+	// what cannot be one is refused where it is handed over rather than
+	// written into an append-only branch and found later (§12, ADR-0011).
 	for name, build := range map[string]func(){
-		"a Record version": func() {
+		"a Record version at no position": func() {
 			store.RecordPath(store.Identity{Target: "local", Definition: "uptime", Name: "a"}, theRun(t), 0)
 		},
-		"a Step file": func() {
+		"a Step file at no position": func() {
 			store.JournalEntry{Run: theRun(t), Started: theInstant}.StepPath(0)
+		},
+		"an identity carrying no name": func() {
+			store.RecordPath(store.Identity{Target: "local", Definition: "uptime"}, theRun(t), 1)
+		},
+		"an identity carrying no target": func() {
+			store.RecordPath(store.Identity{Definition: "uptime", Name: "a"}, theRun(t), 1)
+		},
+		"a Run closing its own entry": func() {
+			run := theRun(t)
+			store.JournalEntry{Run: run, Started: theInstant}.ClosedByPath(run)
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			defer func() {
 				if recover() == nil {
-					t.Errorf("step 0 built a path, want it refused")
+					t.Errorf("a path was built, want it refused")
 				}
 			}()
 			build()
@@ -175,15 +185,17 @@ func TestRecordPath_EncodesALeadingDotAndNotOneElsewhere(t *testing.T) {
 	// A leading dot is encoded and a dot anywhere else is not (§12): the
 	// segments `.` and `..` are the two a filesystem reads as a walk, and
 	// `.git` is the directory a checkout of this branch would land beside.
-	for _, tc := range []struct{ in, want string }{
-		{".hidden", "%2Ehidden"},
-		{".", "%2E"},
-		{"..", "%2E."},
-		{"status.hyper.dev", "status.hyper.dev"},
+	for name, tc := range map[string]struct{ in, want string }{
+		"a hidden file's name":         {".hidden", "%2Ehidden"},
+		"the directory itself":         {".", "%2E"},
+		"the directory above":          {"..", "%2E."},
+		"a dot anywhere but the front": {"status.hyper.dev", "status.hyper.dev"},
 	} {
-		if got := segmentOf(t, tc.in); got != tc.want {
-			t.Errorf("%q encodes as %q, want %q", tc.in, got, tc.want)
-		}
+		t.Run(name, func(t *testing.T) {
+			if got := segmentOf(t, tc.in); got != tc.want {
+				t.Errorf("%q encodes as %q, want %q", tc.in, got, tc.want)
+			}
+		})
 	}
 }
 
@@ -216,21 +228,23 @@ func TestRecordPath_NumbersAStepInTheRunsWrittenOrder(t *testing.T) {
 	// <nnnn> is zero-padded to four digits and widens beyond four rather
 	// than wrapping (§12), so a Run of ten thousand Steps writes ten
 	// thousand paths rather than two Steps into one.
-	for _, tc := range []struct {
+	for name, tc := range map[string]struct {
 		step int
 		want string
 	}{
-		{1, "0001"},
-		{42, "0042"},
-		{9999, "9999"},
-		{10000, "10000"},
-		{123456, "123456"},
+		"the first Step":                 {1, "0001"},
+		"one inside the width":           {42, "0042"},
+		"the last Step four digits hold": {9999, "9999"},
+		"the one that widens it":         {10000, "10000"},
+		"one far past it":                {123456, "123456"},
 	} {
-		got := store.RecordPath(store.Identity{Target: "local", Definition: "uptime", Name: "a"}, theRun(t), tc.step)
-		want := "records/local/uptime/a/" + theRunID + "-" + tc.want + ".json"
-		if got != want {
-			t.Errorf("step %d gives %q, want %q", tc.step, got, want)
-		}
+		t.Run(name, func(t *testing.T) {
+			got := store.RecordPath(store.Identity{Target: "local", Definition: "uptime", Name: "a"}, theRun(t), tc.step)
+			want := "records/local/uptime/a/" + theRunID + "-" + tc.want + ".json"
+			if got != want {
+				t.Errorf("step %d gives %q, want %q", tc.step, got, want)
+			}
+		})
 	}
 }
 
@@ -239,8 +253,12 @@ func TestRecordPath_NumbersAStepInTheRunsWrittenOrder(t *testing.T) {
 // through an encoder reached behind it.
 func segmentOf(t *testing.T, name string) string {
 	t.Helper()
-	path := store.RecordPath(store.Identity{Target: "local", Definition: "uptime", Name: name}, theRun(t), 1)
+	return segmentIn(t, store.RecordPath(store.Identity{Target: "local", Definition: "uptime", Name: name}, theRun(t), 1))
+}
 
+// segmentIn is the `name` segment of a Record version's path.
+func segmentIn(t *testing.T, path string) string {
+	t.Helper()
 	segments := strings.Split(path, "/")
 	if len(segments) != 5 {
 		t.Fatalf("record path %q is %d segments, want 5", path, len(segments))
@@ -271,6 +289,13 @@ func TestRecordPath_CutsAnOverLongSegmentOnAnEscapeBoundary(t *testing.T) {
 			strings.Repeat("a", 201),
 			strings.Repeat("a", 200) + "~a92efd82109373e5",
 		},
+		"an escape closing on the cut, taken whole": {
+			// `%C3` occupies the 198th, 199th and 200th bytes, so
+			// the cut falls where the rule names it and the escape
+			// it ends is kept entire.
+			strings.Repeat("a", 197) + "üü",
+			strings.Repeat("a", 197) + "%C3~4dc838f990f63735",
+		},
 		"an escape spanning the cut, backed off two bytes": {
 			// The 199th byte opens `%C3`, so a cut at 200 would
 			// take `%C` and leave a path that decodes to nothing.
@@ -283,12 +308,15 @@ func TestRecordPath_CutsAnOverLongSegmentOnAnEscapeBoundary(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			got := segmentOf(t, tc.in)
-			if got != tc.want {
+			path := store.RecordPath(store.Identity{Target: "local", Definition: "uptime", Name: tc.in}, theRun(t), 1)
+
+			if got := segmentIn(t, path); got != tc.want {
 				t.Errorf("segment = %q, want %q", got, tc.want)
 			}
-			if cut, _, _ := strings.Cut(got, "~"); strings.Count(cut, "%")*3 != countEscapedBytes(cut) {
-				t.Errorf("the cut fell inside an escape: %q", cut)
+			// The parser refuses an escape cut through the middle,
+			// so a cut path it accepts is a cut that cleared one.
+			if _, err := store.ParsePath(path); err != nil {
+				t.Errorf("ParsePath(%q) = %v, want a cut segment to be a path", path, err)
 			}
 		})
 	}
@@ -310,19 +338,6 @@ func TestRecordPath_SeparatesTwoIdentitiesSharingTheirFirstTwoHundredBytes(t *te
 	if want := strings.Repeat("a", 200) + "~bd99f8b68b44f2b7"; second != want {
 		t.Errorf("segment = %q, want %q", second, want)
 	}
-}
-
-// countEscapedBytes counts the bytes of s that belong to a `%XX` escape, walking
-// from the left: three per escape that is whole, and fewer where one was cut.
-func countEscapedBytes(s string) int {
-	escaped := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '%' {
-			escaped += min(3, len(s)-i)
-			i += 2
-		}
-	}
-	return escaped
 }
 
 // The Journal's four forms. All of them sit under the entry's own directory —
@@ -396,12 +411,18 @@ func TestParsePath_RoundTripsEveryFormItWasBuiltFrom(t *testing.T) {
 	}{
 		"the introduction": {store.IntroductionPath, store.Path{Form: store.FormIntroduction}},
 		"a Record version": {record, store.Path{Form: store.FormRecord, Run: run, Step: 12}},
-		"run.json":         {entry.RunPath(), store.Path{Form: store.FormRun, Run: run}},
-		"a Step file":      {entry.StepPath(9999), store.Path{Form: store.FormStep, Run: run, Step: 9999}},
-		"outcome.json":     {entry.OutcomePath(), store.Path{Form: store.FormOutcome, Run: run}},
+		"run.json":         {entry.RunPath(), store.Path{Form: store.FormRun, Run: run, Entry: run}},
+		"a Step file": {
+			entry.StepPath(9999),
+			store.Path{Form: store.FormStep, Run: run, Entry: run, Step: 9999},
+		},
+		"outcome.json": {entry.OutcomePath(), store.Path{Form: store.FormOutcome, Run: run, Entry: run}},
 		"a closing write": {
+			// The Run speaking wrote it and the Run spoken about
+			// owns the entry it sits in, which is the one form
+			// where the two are not one Run (ADR-0076).
 			entry.ClosedByPath(closer),
-			store.Path{Form: store.FormClosedBy, Run: run, Closer: closer},
+			store.Path{Form: store.FormClosedBy, Run: closer, Entry: run},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -433,6 +454,7 @@ func TestParsePath_RefusesAPathOutsideTheSixForms(t *testing.T) {
 		"a date of the wrong width":         "journal/2026/4/2/" + run + "/run.json",
 		"a file the entry does not hold":    "journal/2026/04/02/" + run + "/started.json",
 		"a closer that is not a Run id":     "journal/2026/04/02/" + run + "/closed-by/the-other-run.json",
+		"a Run closing its own entry":       "journal/2026/04/02/" + run + "/closed-by/" + run + ".json",
 		"a segment carrying a raw space":    "records/local/uptime/web 01/" + run + "-0001.json",
 		"a segment escaped in lowercase":    "records/local/uptime/%c3%9cber/" + run + "-0001.json",
 		"a segment escaped by half":         "records/local/uptime/%C3%9/" + run + "-0001.json",

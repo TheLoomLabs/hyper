@@ -71,7 +71,7 @@ func ParseRunID(text string) (RunID, error) {
 		if len(group) != widths[i] {
 			return RunID{}, fmt.Errorf("%q is not a UUID: group %d is %d digits, want %d", text, i+1, len(group), widths[i])
 		}
-		if strings.TrimLeft(group, lowerHex) != "" {
+		if !isLowerHex(group) {
 			return RunID{}, fmt.Errorf("%q is not a UUID: %q is not lowercase hexadecimal", text, group)
 		}
 	}
@@ -114,6 +114,11 @@ func MintRunID(now time.Time) RunID {
 // The three are one path segment each under the grammar, and they travel
 // together because they are one fact — which series is this — rather than three
 // arguments that happen to be adjacent.
+//
+// It is the same identity IdentityDigest is taken over, at a different grain:
+// the digest is over the names of an Expansion's members, which are one Record
+// identity each under a Step's own Definition and Target (ADR-0070), and this is
+// one whole identity, which is what a path needs and a digest does not.
 type Identity struct {
 	Target     string
 	Definition string
@@ -138,7 +143,21 @@ func RecordPath(id Identity, run RunID, step int) string {
 // seriesDir is the directory one Record's versions sit in, and the whole of what
 // a Head lookup lists. It is unexported until a reader outside this file needs
 // it, which is milestone 4.6's.
+//
+// It is where an identity is required to be one: an empty component encodes to
+// an empty segment, which is a path git cannot hold and the parser refuses, so
+// the three are checked here rather than at the encoder — the encoder writes
+// bytes, and which three components make an identity is this file's fact (§2).
 func seriesDir(id Identity) string {
+	for _, component := range []struct{ role, value string }{
+		{"target", id.Target},
+		{"definition", id.Definition},
+		{"name", id.Name},
+	} {
+		if component.value == "" {
+			impossible("an identity carries no %s: a Record is identified by its Target, its Definition and a name (§2)", component.role)
+		}
+	}
 	return "records/" + encodeSegment(id.Target) + "/" + encodeSegment(id.Definition) + "/" + encodeSegment(id.Name)
 }
 
@@ -148,15 +167,34 @@ func seriesDir(id Identity) string {
 // of the first's, which on an append-only branch is the one thing that cannot
 // happen (ADR-0011).
 //
-// A position below one is not a position. It panics rather than writing a path
-// outside the grammar, this being hyper's own counter and never anything read
-// from the world: the alternative is a `-001.json` in the record, minted by a
-// caller that had nothing to do with an error had it been handed one.
+// A position below one is not a position, and no rendering of one is a path.
 func stepNumber(step int) string {
 	if step < 1 {
-		panic(fmt.Sprintf("store: step %d is not a position: the first Step in a Run is 1", step))
+		impossible("step %d is not a position: the first Step in a Run is 1", step)
 	}
 	return fmt.Sprintf("%04d", step)
+}
+
+// impossible panics: a path constructor was handed something no path in §12's
+// six forms can be built from — a Step at no position, an identity component
+// that is not one, a Run closing its own entry.
+//
+// It panics rather than answering an error, on the reasoning canonical.go's own
+// unreachable branch records: what a constructor would otherwise return is a
+// path outside the grammar, and it is being written into an append-only branch
+// by the next line. None of the three arrives from the world. A Step's position
+// is hyper's own counter; the Run closing an entry is hyper's own id; and an
+// identity component that is empty is stopped upstream of every write, by the
+// identity check §7 states and §6 fires at Expansion — the caller this message
+// is addressed to, since a path constructor is downstream of it and cannot
+// decline on its behalf.
+//
+// It is deliberately not called a refusal. A Refusal is a Run outcome a
+// guardrail reaches before any effect touches the world (§6), and this is
+// hyper's own arithmetic being wrong, which is not a thing a Run outcome has a
+// name for.
+func impossible(format string, args ...any) {
+	panic("store: " + fmt.Sprintf(format, args...))
 }
 
 // unreserved is the set an identity segment carries as itself: A–Z, a–z, 0–9,
@@ -169,6 +207,14 @@ const unreserved = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01234567
 // RFC 3986 says so, and one rule with a stated exception is readable where two
 // conventions and no rule is what an implementer guesses at.
 const upperHex = "0123456789ABCDEF"
+
+// isLowerHex answers whether every digit of s is a lowercase hexadecimal one,
+// which is what a Run id's groups and a truncation suffix both are: every
+// hexadecimal digit hyper writes is lowercase, and the percent-escape above is
+// the one stated exception (§7).
+func isLowerHex(s string) bool {
+	return s != "" && strings.TrimLeft(s, lowerHex) == ""
+}
 
 // segmentLimit is the width an encoded segment is cut at, and digestWidth the
 // number of digest digits the cut one carries after it (§12). The cut is at 200
@@ -201,8 +247,9 @@ func encodeSegment(component string) string {
 	return encoded[:cutWidth(encoded)] + "~" + hex.EncodeToString(sum[:])[:digestWidth]
 }
 
-// cutWidth is the width the cut takes: the last position at or below
-// segmentLimit that opens a byte rather than sitting inside an escape.
+// cutWidth is how wide the surviving prefix is: the last position at or below
+// segmentLimit that opens a byte rather than sitting inside an escape, which is
+// both where the cut falls and how much of the segment it keeps.
 //
 // Cutting on an escape boundary is not an optimisation. A cut through the middle
 // of a `%C3` leaves a path that decodes to nothing — and a reader that decoded
@@ -284,6 +331,9 @@ func (e JournalEntry) OutcomePath() string { return e.dir() + "/outcome.json" }
 // two files rather than one contested one — the reaper's inference and the
 // owner's observation both stand, and hyper picks no side (§7, ADR-0076).
 func (e JournalEntry) ClosedByPath(closer RunID) string {
+	if closer == e.Run {
+		impossible("run %s is closing its own entry: the Run that owns an entry writes outcome.json (§12, ADR-0076)", e.Run)
+	}
 	return e.dir() + "/closed-by/" + closer.text + ".json"
 }
 
@@ -316,29 +366,9 @@ const (
 	FormClosedBy
 )
 
-// String names the form the way §12's table does, so that a message reporting
-// one names the row a reader can look up.
-func (f Form) String() string {
-	switch f {
-	case FormIntroduction:
-		return "the introduction"
-	case FormRecord:
-		return "a Record version"
-	case FormRun:
-		return "run.json"
-	case FormStep:
-		return "a Step file"
-	case FormOutcome:
-		return "outcome.json"
-	case FormClosedBy:
-		return "a closing write"
-	}
-	return "no form"
-}
-
-// Path is what a Store path says about itself: which form it is, which Run it
-// belongs to, which Run wrote it where those differ, and which Step it names
-// where the form has one.
+// Path is what a Store path says about itself: which form it is, which Run
+// wrote it, whose entry it sits in, and which Step it names where the form has
+// one.
 //
 // What it does not carry is an identity. A Record version's three segments are
 // percent-encoded and an over-long one is truncated, so decoding them recovers a
@@ -348,14 +378,21 @@ func (f Form) String() string {
 type Path struct {
 	// Form is which of the six forms this is.
 	Form Form
-	// Run is the Run the path belongs to: the one that wrote it in every
-	// form but the closing write, where it is the entry's own Run — the dead
-	// one — and Closer names the Run speaking. It is the zero id on the
-	// introduction, which no Run wrote (ADR-0076).
+	// Run is the Run that wrote the path, on every form but the
+	// introduction, which no Run wrote — the invariant the whole grammar is
+	// arranged around (ADR-0076). On a closing write it is the Run speaking,
+	// never the entry's own.
 	Run RunID
-	// Closer is the Run making the claim on a closing write, and the zero id
-	// on every other form.
-	Closer RunID
+	// Entry is the Run whose Journal entry the path sits in: the same Run on
+	// the three a Run writes into its own entry, the dead Run on a closing
+	// write, and the zero id on the two forms that are not Journal entries.
+	//
+	// It is written even where it repeats Run, rather than left to a caller
+	// to derive from the form. *Who wrote this* and *whose entry is this*
+	// are two questions, they part on exactly one form, and a field a caller
+	// has to know when to read is a field that is read wrong on the form it
+	// was written for.
+	Entry RunID
 	// Step is the Step's position on the two forms carrying one — a Record
 	// version and a Step file — and zero on the rest, a Step's positions
 	// beginning at one.
@@ -375,6 +412,8 @@ func ParsePath(path string) (Path, error) {
 	return parsed, nil
 }
 
+// parsePath is ParsePath without the path in the message, which the one caller
+// wraps on rather than every arm of the grammar carrying it.
 func parsePath(path string) (Path, error) {
 	if path == IntroductionPath {
 		return Path{Form: FormIntroduction}, nil
@@ -440,32 +479,37 @@ func parseJournalPath(segments []string) (Path, error) {
 
 	switch tail := segments[5:]; {
 	case len(tail) == 1 && tail[0] == "run.json":
-		return Path{Form: FormRun, Run: run}, nil
+		return Path{Form: FormRun, Run: run, Entry: run}, nil
 
 	case len(tail) == 1 && tail[0] == "outcome.json":
-		return Path{Form: FormOutcome, Run: run}, nil
+		return Path{Form: FormOutcome, Run: run, Entry: run}, nil
 
-	case len(tail) == 2 && tail[0] == "steps":
-		number, found := strings.CutSuffix(tail[1], ".json")
+	case len(tail) == 2:
+		// The two directories under an entry hold files and nothing
+		// else, so the extension is cut once for both rather than
+		// twice with two ways of saying the same thing.
+		name, found := strings.CutSuffix(tail[1], ".json")
 		if !found {
-			return Path{}, fmt.Errorf("a Step file is a .json file")
+			return Path{}, fmt.Errorf("every file an entry holds is a .json file")
 		}
-		step, err := parseStepNumber(number)
-		if err != nil {
-			return Path{}, err
-		}
-		return Path{Form: FormStep, Run: run, Step: step}, nil
+		switch tail[0] {
+		case "steps":
+			step, err := parseStepNumber(name)
+			if err != nil {
+				return Path{}, err
+			}
+			return Path{Form: FormStep, Run: run, Entry: run, Step: step}, nil
 
-	case len(tail) == 2 && tail[0] == "closed-by":
-		id, found := strings.CutSuffix(tail[1], ".json")
-		if !found {
-			return Path{}, fmt.Errorf("a closing write is a .json file")
+		case "closed-by":
+			closer, err := ParseRunID(name)
+			if err != nil {
+				return Path{}, err
+			}
+			if closer == run {
+				return Path{}, fmt.Errorf("run %s closes its own entry: a closing write is a Run closing an entry it does not own (ADR-0076)", run)
+			}
+			return Path{Form: FormClosedBy, Run: closer, Entry: run}, nil
 		}
-		closer, err := ParseRunID(id)
-		if err != nil {
-			return Path{}, err
-		}
-		return Path{Form: FormClosedBy, Run: run, Closer: closer}, nil
 	}
 	return Path{}, fmt.Errorf("an entry holds run.json, steps/, outcome.json and closed-by/, and nothing else")
 }
@@ -496,7 +540,7 @@ func checkIdentitySegment(segment string) error {
 		return fmt.Errorf("an identity segment is not empty")
 	case truncated && len(digest) != digestWidth:
 		return fmt.Errorf("a truncated segment carries %d digest digits, want %d", len(digest), digestWidth)
-	case truncated && strings.TrimLeft(digest, lowerHex) != "":
+	case truncated && !isLowerHex(digest):
 		return fmt.Errorf("%q is not lowercase hexadecimal", digest)
 	case truncated && (len(body) > segmentLimit || len(body) < segmentLimit-2):
 		return fmt.Errorf("a segment cut at %d is %d bytes wide, and the cut clears an escape by at most two", segmentLimit, len(body))
