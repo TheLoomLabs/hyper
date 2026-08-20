@@ -8,15 +8,17 @@
 // Target.
 //
 // What this milestone has landed is the branch's creation (issue #126), the
-// canonical encoding every file on it is written in (issue #127) and the path
-// grammar every file on it is named by (issue #128). The read half, the Head,
-// the Journal's file shapes and the push retry are the milestone's later
-// tickets; the git layer they all go through is here already, unexported, and
-// stays that way until a caller outside this package earns it.
+// canonical encoding every file on it is written in (issue #127), the path
+// grammar every file on it is named by (issue #128) and the five shapes it
+// holds (issue #129) — a Record version, run.json, a Step file, outcome.json
+// and a closing write, each with a schema version of its own. The read half,
+// the Head and the push retry are the milestone's later tickets; the git layer
+// they all go through is here already, unexported, and stays that way until a
+// caller outside this package earns it.
 //
-// The encoder is the same shape: §7 states rules no command in this milestone
-// can reach, so they are verified at this package's own seam rather than
-// through a command that does not exist yet.
+// The shapes are the encoder's own case: §7 states rules no command in this
+// milestone can reach, so they are verified at this package's own seam rather
+// than through a command that does not exist yet.
 package store
 
 import "time"
