@@ -7,11 +7,15 @@
 // two-key check: it sits beneath the layer Providers exist at, and it is not a
 // Target.
 //
-// What this milestone lands is the branch's creation and nothing else (issue
-// #126). The read half, the Head, the Journal, canonical JSON, the path grammar
-// and the push retry are the milestone's later tickets; the git layer they all
-// go through is here already, unexported, and stays that way until a caller
-// outside this package earns it.
+// What this milestone has landed is the branch's creation (issue #126) and the
+// canonical encoding every file on it is written in (issue #127). The read
+// half, the Head, the Journal, the path grammar and the push retry are the
+// milestone's later tickets; the git layer they all go through is here already,
+// unexported, and stays that way until a caller outside this package earns it.
+//
+// The encoder is the same shape: §7 states rules no command in this milestone
+// can reach, so they are verified at this package's own seam rather than
+// through a command that does not exist yet.
 package store
 
 import "time"
