@@ -85,6 +85,13 @@ func aTombstone(t *testing.T, id store.Identity, run string, step int, at time.T
 	return version
 }
 
+// pathOf is where a seeded version sits: the path its own identity, Run and
+// Step build, which is the one a case asserts against and the one the reader
+// answers with.
+func pathOf(version store.RecordVersion) string {
+	return store.RecordPath(version.Identity, version.Run, version.Step)
+}
+
 // seededStore is a repository whose Store branch holds the versions handed, and
 // the handle on it. It is the shape every case below opens with: a branch that
 // exists, files on it, and nothing else anywhere.
@@ -232,8 +239,8 @@ func TestSeries_AnswersTheMetadataWithoutTheFields(t *testing.T) {
 	if head.Metadata != seeded.Metadata {
 		t.Errorf("the Head's metadata is %+v, want the seeded %+v", head.Metadata, seeded.Metadata)
 	}
-	if head.File != store.RecordPath(seeded.Identity, seeded.Run, seeded.Step) {
-		t.Errorf("the Head sits at %q, want %q", head.File, store.RecordPath(seeded.Identity, seeded.Run, seeded.Step))
+	if head.File != pathOf(seeded) {
+		t.Errorf("the Head sits at %q, want %q", head.File, pathOf(seeded))
 	}
 
 	version, err := held.Read(head)
@@ -270,6 +277,13 @@ func TestSeries_ReadsTheIdentityFromTheFileAndNotFromThePath(t *testing.T) {
 	}
 	if !strings.Contains(head.File, "~") {
 		t.Errorf("the seeded path is %q, which is not the truncated one this case is about", head.File)
+	}
+
+	// And the file opens by the name it sits under, escapes, digest suffix
+	// and all — the path a truncated identity builds is a path, not a
+	// spelling only a listing can use.
+	if _, err := held.Read(head); err != nil {
+		t.Errorf("Read over %q: %v", head.File, err)
 	}
 }
 
@@ -369,7 +383,7 @@ func TestSeries_TheOrdinalMovesWhenAnInteriorVersionIsRemoved(t *testing.T) {
 		t.Fatalf("the Head is ordinal %d of three versions, want 3", got.Ordinal)
 	}
 
-	r.removeFromStore(store.RecordPath(interior.Identity, interior.Run, interior.Step))
+	r.removeFromStore(pathOf(interior))
 	reopened, err := store.Open(r.root, theInstant)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -448,7 +462,7 @@ func TestRead_SurfacesTheSchemaCeilingRatherThanGuessing(t *testing.T) {
 		t.Fatalf("Init: %v", err)
 	}
 	ahead := strings.Replace(string(seeded.Encode()), `"schema_version": 1`, `"schema_version": 2`, 1)
-	r.seedFiles(r.root, map[string]string{store.RecordPath(seeded.Identity, seeded.Run, seeded.Step): ahead})
+	r.seedFiles(r.root, map[string]string{pathOf(seeded): ahead})
 
 	held, err := store.Open(r.root, theInstant)
 	if err != nil {
@@ -463,7 +477,7 @@ func TestRead_SurfacesTheSchemaCeilingRatherThanGuessing(t *testing.T) {
 	if unsupported.Written != 2 || unsupported.Known != store.RecordSchemaVersion {
 		t.Errorf("the condition is %+v, want the file's 2 against this reader's %d", unsupported, store.RecordSchemaVersion)
 	}
-	if !strings.Contains(err.Error(), store.RecordPath(seeded.Identity, seeded.Run, seeded.Step)) {
+	if !strings.Contains(err.Error(), pathOf(seeded)) {
 		t.Errorf("the error is %q, want it to name the file it could not read", err)
 	}
 }

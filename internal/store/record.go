@@ -57,6 +57,10 @@ type RecordVersion struct {
 // Metadata is everything a version says about itself but its content: which
 // series it belongs to, what wrote it, when, and whether it is the destruction.
 //
+// The word is §7's own — *a Record version is one file, holding that version's
+// projected content and its metadata together* — and the split here is that
+// sentence's two halves made two values.
+//
 // It is a value of its own because that is the grain the reader answers at.
 // Ordering a series and naming a version need every member of this and no byte
 // of the content, so a listing of a thousand versions holds a thousand of these

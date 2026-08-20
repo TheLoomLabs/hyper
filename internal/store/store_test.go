@@ -230,7 +230,7 @@ func (r *repo) seedVersions(gitdir string, versions ...store.RecordVersion) stri
 
 	files := map[string]string{}
 	for _, version := range versions {
-		files[store.RecordPath(version.Identity, version.Run, version.Step)] = string(version.Encode())
+		files[pathOf(version)] = string(version.Encode())
 	}
 	return r.seedFiles(gitdir, files)
 }
@@ -443,6 +443,32 @@ func TestInit_FetchesTheBranchOriginAlreadyHolds(t *testing.T) {
 	}
 	if want := map[string]string{"STORE.md": "a Store somebody else created\n"}; !equalTrees(r.storeTree(r.root), want) {
 		t.Errorf("the branch holds %v, want the remote's %v", r.storeTree(r.root), want)
+	}
+}
+
+// TestInit_LeavesAFullClonesHistoryWhole is the other half of the depth rule,
+// at the command that first fetches. An ordinary `git clone` leaves the Store
+// as a remote-tracking ref with its history whole, so the branch is absent as
+// *this repository's own ref* and present as history — and a depth-1 fetch
+// there would cut what the clone already had, which is `hyper` shortening a
+// Store it did not create (§7, ADR-0074).
+func TestInit_LeavesAFullClonesHistoryWhole(t *testing.T) {
+	r := newRepo(t)
+	bare := r.origin()
+	r.seedStore(bare, store.IntroductionPath, store.Introduction)
+	r.seedFiles(bare, map[string]string{"records/kept": "a second commit on the branch\n"})
+	// The shape a clone is in: the history here, and no branch of its own.
+	r.git("fetch", "--quiet", "origin")
+
+	if _, err := store.Init(r.root, theInstant); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	if shallow := r.text("rev-parse", "--is-shallow-repository"); shallow != "false" {
+		t.Errorf("the clone is shallow: %s; `init` shortened a Store it did not create", shallow)
+	}
+	if depth := len(strings.Fields(r.text("rev-list", store.Ref))); depth != 2 {
+		t.Errorf("the branch holds %d commits, want both — nothing was cut", depth)
 	}
 }
 

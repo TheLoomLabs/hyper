@@ -23,7 +23,10 @@
 // than through a command that does not exist yet.
 package store
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 // The branch, and the ref it is. The name is fixed rather than chosen: there is
 // no setting for it, no flag, and no file it could be configured from
@@ -192,8 +195,11 @@ func Init(repoRoot string, now time.Time) (Initialised, error) {
 
 	case held:
 		// The shape every runner's fresh clone is in. The branch is
-		// fetched rather than re-created, and nothing is written.
-		if err := repo.arrive(); err != nil {
+		// fetched rather than re-created, and nothing is written. The
+		// depth is bringBranch's decision and not this command's: an
+		// ordinary `git clone` holds the Store's history under a
+		// remote-tracking ref, and `init` is not a licence to cut it.
+		if err := repo.bringBranch(); err != nil {
 			return Initialised{}, err
 		}
 		return Initialised{}, nil
@@ -230,4 +236,63 @@ func (g repository) createStore() error {
 		return err
 	}
 	return g.createRef(Ref, commit)
+}
+
+// ErrAbsent is the Store that is not there: neither in the clone nor, where a
+// remote is configured, on it. It is the condition a caller renders as
+// `store-absent` (§12); this package holds no Run and renders no Refusal.
+//
+// The remedy it names is the only one there is. The branch is created by an
+// explicit act and never by a Run, read-only Runs included, because a fetch
+// that failed mid-flight and a branch that never existed look identical from
+// the inside (§7).
+var ErrAbsent = errors.New("the repository holds no " + BranchName + " branch; the Store is created by `hyper store init` and never by a Run")
+
+// Store is a handle on the record as it stands: the repository the branch is a
+// branch of, and the commit the handle was opened at.
+//
+// Every answer it gives is read out of that commit's tree, freshly, with
+// nothing cached between two of them and nothing derived kept anywhere. §7
+// permits local state under `.git/hyper/` that makes a Head lookup faster and
+// states that no answer depends on one existing; this builds none, so *the
+// files are authoritative* is what the code does rather than what it promises.
+//
+// The commit is resolved once so that two answers about one Store are answers
+// about one Store. A Run that syncs, reads a series and then reads another is
+// reading the branch it found, not the branch a second environment pushed to in
+// between.
+type Store struct {
+	repo   repository
+	commit string
+}
+
+// Open answers a handle on the Store the clone holds, and ErrAbsent where it
+// holds none.
+//
+// It reaches no network and never creates anything: putting the branch in hand
+// is Sync's act and creating one is `hyper store init`'s. A caller that wants
+// both syncs first and opens after, which is also the order in which their two
+// failures mean different things.
+//
+// now is the clock the caller threaded. Nothing a read does consumes it; it is
+// the environment every git subprocess in this package is run with, and the
+// commits a later write makes through this handle take both their dates from it
+// (§7).
+func Open(repoRoot string, now time.Time) (*Store, error) {
+	repo, err := open(repoRoot, now)
+	if err != nil {
+		return nil, err
+	}
+	held, err := repo.holdsRef(Ref)
+	if err != nil {
+		return nil, err
+	}
+	if !held {
+		return nil, ErrAbsent
+	}
+	commit, err := repo.resolveRef(Ref)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{repo: repo, commit: commit}, nil
 }

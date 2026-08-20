@@ -1,64 +1,36 @@
 package store
 
-import (
-	"errors"
-	"time"
-)
+import "time"
 
-// The two acts that put the branch in hand: the sync that brings it down from
-// the remote, and the handle that reads what the clone holds (§7, issue #130).
+// The sync: bringing the branch down from the remote, and the depth that one
+// act decides forever (§7, ADR-0074).
 //
-// They are two calls rather than one because their failures are two facts and
-// the caller decides what each one costs. A read-only Run proceeds offline, so
-// a sync that could not reach the remote is not the end of it; a Run that
-// cannot find the Store at all Refuses (`store-absent`), and that is what
-// ErrAbsent says. Folding them together would make an unreachable network read
-// as *there is nothing recorded*, which is the reading that disarms every test
-// run-once and `skip-if-recorded` perform (§7, ADR-0006).
-
-// ErrAbsent is the Store that is not there: neither in the clone nor, where a
-// remote is configured, on it. It is the condition a caller renders as
-// `store-absent` (§12); this package holds no Run and renders no Refusal.
-//
-// The remedy it names is the only one there is. The branch is created by an
-// explicit act and never by a Run, read-only Runs included, because a fetch
-// that failed mid-flight and a branch that never existed look identical from
-// the inside (§7).
-var ErrAbsent = errors.New("the repository holds no " + BranchName + " branch; the Store is created by `hyper store init` and never by a Run")
+// It is a call of its own rather than something Open does, because its failure
+// and Open's are two facts and the caller decides what each one costs. A
+// read-only Run proceeds offline, so a sync that could not reach the remote is
+// not the end of it; a Run that cannot find the Store at all Refuses
+// (`store-absent`). Folding them together would make an unreachable network
+// read as *there is nothing recorded*, which is the reading that disarms every
+// test run-once and `skip-if-recorded` perform (§7, ADR-0006).
 
 // Sync brings the Store branch down from the remote, and is what puts it in
-// hand on a clone that lacks it.
+// hand on a clone that lacks it — which is every runner.
 //
-// **It decides the depth exactly once, at the moment there is nothing to
-// preserve** (§7, ADR-0074). Where the clone does not hold the branch — which
-// is every runner, `actions/checkout` taking one ref — this is the branch's
-// arrival and it is a depth-1 fetch of that one ref. Where the clone holds it
-// already the fetch names no depth, so a Store held whole stays whole and one
-// held shallow is never deepened. Neither is ever a filtered fetch: a version's
-// `written_at` sits inside the file, so ordering a series opens every version
-// of it, and under a blob or tree filter each of those is a lazy fetch that
-// makes *a read-only Run proceeds offline* false wherever the network is.
-//
-// *Holding the branch* is the clone's own ref or the remote-tracking one, and
-// the second is not a refinement: an ordinary `git clone` leaves every branch
-// as a remote-tracking ref and the Store's history whole, and a depth-1 fetch
-// there would cut a history the clone already had — `hyper` shortening a Store
-// it did not create, through the one path where it looks like an arrival.
+// What it decides is whether there is a Store to bring at all; how it is
+// brought, and the depth that decision fixes forever, is bringBranch's (§7,
+// ADR-0074). What comes down lands on the remote-tracking ref, and the local
+// branch is pointed at it only where that loses nothing — see adopt, which is
+// where a Run that wrote and could not push is kept whole.
 //
 // A repository with no remote configured reaches no network at all and reads
 // the branch it has. The absent remote is not a failure: a repository that has
-// never had one is not a repository whose Store is missing. There the question
-// is the branch itself and not the tracking ref: nothing can be fetched, and a
-// tracking ref left by a remote that is gone is not a Store this clone holds.
-//
-// What comes down lands on the remote-tracking ref, and the local branch is
-// pointed at it only where that loses nothing — see adopt, which is where a Run
-// that wrote and could not push is kept whole.
+// never had one is not a repository whose Store is missing. Neither is a remote
+// that holds no branch while this clone does — the Store here stands, and
+// publishing it is the next push's.
 //
 // It answers ErrAbsent where neither side holds the branch, ErrNoRepository
 // where repoRoot holds no git repository, and an ordinary error where the world
-// resisted — a remote that could not be reached, read as a remote holding
-// nothing, is exactly how a second orphan root gets minted (ADR-0074).
+// resisted.
 func Sync(repoRoot string, now time.Time) error {
 	repo, err := open(repoRoot, now)
 	if err != nil {
@@ -74,40 +46,99 @@ func Sync(repoRoot string, now time.Time) error {
 		return err
 	}
 	if !remote {
+		// With no remote there is one question and one answer, and
+		// nothing on this arm reaches a network: the branch is here, or
+		// there is no Store. A tracking ref is not asked after here —
+		// removing a remote takes its tracking refs with it, so with no
+		// remote configured there is none to hold anything.
 		if local {
 			return nil
 		}
 		return ErrAbsent
 	}
 
-	tracked, err := repo.holdsRef(trackingRef)
+	held, err := repo.holdsBranch()
 	if err != nil {
 		return err
 	}
-	if local || tracked {
-		if err := repo.fetchIncremental(RemoteName, Ref, trackingRef); err != nil {
+
+	if !held {
+		// The one look before the arrival, and it decides between two
+		// answers rather than confirming one. An empty listing is *the
+		// remote does not hold it* and an error is the world resisting;
+		// a remote that could not be reached, read as a remote holding
+		// nothing, is exactly how a second orphan root gets minted
+		// (ADR-0074).
+		published, err := repo.remoteHoldsRef(RemoteName, Ref)
+		if err != nil {
 			return err
 		}
-		return repo.adopt()
+		if !published {
+			return ErrAbsent
+		}
 	}
 
-	// The one look before the arrival. An empty listing is *the remote does
-	// not hold it* and an error is the world resisting, and the two are
-	// never folded together.
-	published, err := repo.remoteHoldsRef(RemoteName, Ref)
+	if err := repo.bringBranch(); err != nil {
+		if !local {
+			return err
+		}
+		// The branch is here and the remote has none. That is not a
+		// failed sync: the Store this clone holds stands, and the push
+		// that publishes it is the next one's — an `init` whose push
+		// was rejected leaves exactly this state. Anything else is the
+		// world resisting and the error stands, which is why the remote
+		// is asked again rather than git's own words read. It is the
+		// second reach at the remote and it is on the failing path
+		// alone, so an ordinary sync is one.
+		published, asked := repo.remoteHoldsRef(RemoteName, Ref)
+		if asked != nil || published {
+			return err
+		}
+		return nil
+	}
+	return nil
+}
+
+// holdsBranch says whether the clone holds the Store branch at all: its own
+// ref, or the remote-tracking ref left by a clone of a repository that already
+// had one.
+//
+// The second is not a refinement. An ordinary `git clone` leaves every branch
+// as a remote-tracking ref and the Store's history whole, so a clone that holds
+// it only that way is a clone holding the Store — and a depth-1 fetch there
+// would cut a history it already had, `hyper` shortening a Store it did not
+// create through the one path where it looks like an arrival (ADR-0074).
+func (g repository) holdsBranch() (bool, error) {
+	for _, ref := range []string{Ref, trackingRef} {
+		held, err := g.holdsRef(ref)
+		if err != nil || held {
+			return held, err
+		}
+	}
+	return false, nil
+}
+
+// bringBranch brings the branch down from the remote and points the local ref
+// at what came, deciding the depth on whether the clone already holds it.
+//
+// **The depth is decided exactly once, at the moment there is nothing to
+// preserve** (§7, ADR-0074). A clone that does not hold the branch takes the
+// tip and no history: this is the arrival, and it is every runner's, an
+// `actions/checkout` taking one ref. A clone that holds it names no depth, so a
+// Store held whole stays whole and one held shallow is never deepened.
+//
+// It is the one place either decision is made, so `store init` finding the
+// branch on the remote and a Run syncing at start cannot answer it differently.
+func (g repository) bringBranch() error {
+	held, err := g.holdsBranch()
 	if err != nil {
 		return err
 	}
-	if !published {
-		return ErrAbsent
+	fetch := g.fetchShallow
+	if held {
+		fetch = g.fetchIncremental
 	}
-	return repo.arrive()
-}
-
-// arrive brings the branch down to a clone that does not hold it: the tip and
-// no history, and the local ref pointed at what came.
-func (g repository) arrive() error {
-	if err := g.fetchShallow(RemoteName, Ref, trackingRef); err != nil {
+	if err := fetch(RemoteName, Ref, trackingRef); err != nil {
 		return err
 	}
 	return g.adopt()
@@ -118,15 +149,17 @@ func (g repository) arrive() error {
 //
 // The Store is append-only and never force-pushed, so the ordinary case is that
 // the fetched tip is a descendant of the local branch and pointing at it is a
-// fast-forward — or that there is no local branch at all, which is the arrival.
+// fast-forward — or that there is no local branch at all, which is the arrival
+// and the whole of what a fetch into a tracking ref leaves to do.
 //
 // **Where the local branch holds commits the remote does not, it is left
 // exactly where it is.** That is a Run that wrote and could not push, and §7
 // states what happens to it: what it wrote stands locally and goes out with the
 // next Run that pushes, which re-applies the whole unpushed set onto the
-// fetched tip. Moving the ref here would discard that set, and failing here
-// would make the state §7 calls ordinary a Store nothing could sync again. The
-// re-application itself is the push's, and the push is milestone 4.7's.
+// fetched tip. Moving the ref here would discard that set — the one act
+// append-only forbids, arriving at the ref rather than at a file — so the two
+// lines that detect it are not the push retry arriving early but what keeps
+// this one from being a write. The re-application is milestone 4.7's.
 func (g repository) adopt() error {
 	tip, err := g.resolveRef(trackingRef)
 	if err != nil {
@@ -144,61 +177,9 @@ func (g repository) adopt() error {
 	if err != nil {
 		return err
 	}
-	if local == tip {
-		return nil
-	}
-	unpushed, err := g.carriesCommitsOutside(local, tip)
-	if err != nil || unpushed {
+	behind, err := g.isAncestor(local, tip)
+	if err != nil || !behind {
 		return err
 	}
 	return g.moveRef(Ref, tip, local)
-}
-
-// Store is a handle on the record as it stands: the repository the branch is a
-// branch of, and the commit the handle was opened at.
-//
-// Every answer it gives is read out of that commit's tree, freshly, with
-// nothing cached between two of them and nothing derived kept anywhere. §7
-// permits local state under `.git/hyper/` that makes a Head lookup faster and
-// states that no answer depends on one existing; this builds none, so *the
-// files are authoritative* is what the code does rather than what it promises.
-//
-// The commit is resolved once so that two answers about one Store are answers
-// about one Store. A Run that syncs, reads a series and then reads another is
-// reading the branch it found, not the branch a second environment pushed to in
-// between.
-type Store struct {
-	repo   repository
-	commit string
-}
-
-// Open answers a handle on the Store the clone holds, and ErrAbsent where it
-// holds none.
-//
-// It reaches no network and never creates anything: putting the branch in hand
-// is Sync's act and creating one is `hyper store init`'s. A caller that wants
-// both syncs first and opens after, which is also the order in which their two
-// failures mean different things.
-//
-// now is the clock the caller threaded. Nothing a read does consumes it; it is
-// the environment every git subprocess in this package is run with, and the
-// commits a later write makes through this handle take both their dates from it
-// (§7).
-func Open(repoRoot string, now time.Time) (*Store, error) {
-	repo, err := open(repoRoot, now)
-	if err != nil {
-		return nil, err
-	}
-	held, err := repo.holdsRef(Ref)
-	if err != nil {
-		return nil, err
-	}
-	if !held {
-		return nil, ErrAbsent
-	}
-	commit, err := repo.resolveRef(Ref)
-	if err != nil {
-		return nil, err
-	}
-	return &Store{repo: repo, commit: commit}, nil
 }

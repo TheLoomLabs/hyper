@@ -92,10 +92,10 @@ func TestCollision_IsDecidedByReadingAndNeverByAttemptingTheWrite(t *testing.T) 
 	)
 
 	tree := r.storeTree(r.root)
-	if _, both := tree[store.RecordPath(lower, runID(t, theEntryRunID), 1)]; !both {
+	if _, both := tree[pathOf(aVersion(t, lower, theEntryRunID, 1, theInstant))]; !both {
 		t.Fatalf("the branch does not hold the lowercase spelling; it holds %v", tree)
 	}
-	if _, both := tree[store.RecordPath(upper, runID(t, theSecondRunID), 1)]; !both {
+	if _, both := tree[pathOf(aVersion(t, upper, theSecondRunID, 1, theInstant))]; !both {
 		t.Fatalf("the branch does not hold the uppercase spelling; the write always succeeds (ADR-0075)")
 	}
 

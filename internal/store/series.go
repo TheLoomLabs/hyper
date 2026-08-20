@@ -23,6 +23,11 @@ import (
 // Version is one version of a series as a listing answers it: what the file
 // says about itself, where it sits, and where it falls in the ordering.
 //
+// It is not the file. RecordVersion is the file — the metadata and the content
+// together, which is what an encode writes and a decode reads — and this is
+// what the branch holds one of, at the grain the Head is derived at. Read is
+// the door from one to the other.
+//
 // It carries no `fields`. Ordering a series and naming a version need every
 // member of the metadata and no byte of the content, so a listing of five
 // hundred versions holds five hundred of these and Read opens the one a caller
@@ -80,7 +85,7 @@ func (s *Store) Series(id Identity) (Series, error) {
 	if err != nil {
 		return Series{}, err
 	}
-	versions, err := s.read(files)
+	versions, err := s.readListing(files)
 	if err != nil {
 		return Series{}, err
 	}
@@ -128,7 +133,7 @@ func (s *Store) Records() ([]Series, error) {
 	if err != nil {
 		return nil, err
 	}
-	versions, err := s.read(files)
+	versions, err := s.readListing(files)
 	if err != nil {
 		return nil, err
 	}
@@ -169,12 +174,19 @@ func (s *Store) Read(version Version) (RecordVersion, error) {
 	return decodeVersion(version.File, contents[0])
 }
 
-// read decodes every file a listing found, in the order it found them.
+// readListing decodes every file a listing found, in the order it found them.
 //
 // It is one batch read for the whole listing rather than a subprocess per file,
 // which is what keeps *finding a Head opens every version of the series* a cost
 // in bytes rather than in processes.
-func (s *Store) read(files []treeFile) ([]Version, error) {
+//
+// Every file is read whole and only its metadata is kept, and that is the
+// honest cost rather than an oversight: `written_at` sits inside the file, so
+// ordering opens all of them anyway, and the decode holds the bytes against a
+// re-encode of what it read, which needs the content. What the split buys is
+// memory and a caller's attention — an enumeration does not hold every Record's
+// content, and nothing that does not need `fields` is handed them.
+func (s *Store) readListing(files []treeEntry) ([]Version, error) {
 	blobs := make([]string, len(files))
 	for i, file := range files {
 		blobs[i] = file.blob
@@ -196,6 +208,14 @@ func (s *Store) read(files []treeFile) ([]Version, error) {
 		// nothing can find again by the identity it carries is one an
 		// enumeration would report and a Head lookup would miss, which
 		// is two answers about one Store that disagree (§7).
+		//
+		// What that costs is stated rather than hidden: one file under
+		// records/ that `hyper` did not write fails every read of the
+		// branch, not just a read of its own series. That is the same
+		// answer the schema ceiling gives one shape over — a file this
+		// reader cannot account for is surfaced rather than read or
+		// skipped — and §12 closes records/ at one form, so there is no
+		// file there this package is entitled to pass over.
 		if built := RecordPath(decoded.Identity, decoded.Run, decoded.Step); built != file.path {
 			return nil, fmt.Errorf("%q holds a version the grammar names %q: a Record version sits at the path its own identity builds (§12)", file.path, built)
 		}
@@ -220,7 +240,7 @@ func decodeVersion(file string, content []byte) (RecordVersion, error) {
 }
 
 // order puts a series' versions in the order the Head is derived from, and
-// numbers them.
+// numbers them. It sorts in place and hands back the slice it was given.
 //
 // The instant first, and the file name where two versions share one. §7 says
 // the file name and ADR-0011 says the Run id; they are the same rule at two

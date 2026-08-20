@@ -283,8 +283,7 @@ func (g repository) remoteHoldsRef(remote, ref string) (bool, error) {
 // preserve: this is the branch's arrival in the clone, and `hyper` never
 // deepens a Store and never shortens one it did not create.
 func (g repository) fetchShallow(remote, src, dst string) error {
-	_, err := g.run(nil, "fetch", "--quiet", "--depth=1", "--no-tags", "--", remote, src+":"+dst)
-	return err
+	return g.fetch(remote, src, dst, "--depth=1")
 }
 
 // fetchIncremental brings one ref up to date and names no depth, which is the
@@ -296,23 +295,35 @@ func (g repository) fetchShallow(remote, src, dst string) error {
 // `hyper` never deepens a Store and never shortens one it did not create
 // (ADR-0074). It is unfiltered for the reason above.
 func (g repository) fetchIncremental(remote, src, dst string) error {
-	_, err := g.run(nil, "fetch", "--quiet", "--no-tags", "--", remote, src+":"+dst)
+	return g.fetch(remote, src, dst)
+}
+
+// fetch is the call both are: one ref, named explicitly on both sides rather
+// than left to the remote's configured refspec — a checkout having left that
+// pinned to the one ref it took (ADR-0071) — and whatever depth the caller
+// named, which is the only thing that separates them.
+//
+// No filter is written here and none may be: the two above are the whole of how
+// this package fetches, so *never a filtered fetch* is a fact about one line.
+func (g repository) fetch(remote, src, dst string, depth ...string) error {
+	args := append([]string{"fetch", "--quiet", "--no-tags"}, depth...)
+	_, err := g.run(nil, append(args, "--", remote, src+":"+dst)...)
 	return err
 }
 
-// carriesCommitsOutside says whether ref holds commits that other does not —
-// the question *is this ref behind, or has it got something of its own*.
+// isAncestor says whether ref is an ancestor of the commit named — the question
+// *is this ref behind, so that moving it there loses nothing*.
 //
-// It is `rev-list ref ^other` and a look at whether anything came back, rather
+// It is `rev-list ref ^of` and a look at whether anything came back, rather
 // than `merge-base --is-ancestor`, which answers the same question and is a
 // decade younger than every other call in this file (§13). An empty answer is
-// *ref is an ancestor of other*, which is a fast-forward.
-func (g repository) carriesCommitsOutside(ref, other string) (bool, error) {
-	listing, err := g.text(nil, "rev-list", ref, "^"+other)
+// *ref holds no commit that is not already there*, which is a fast-forward.
+func (g repository) isAncestor(ref, of string) (bool, error) {
+	listing, err := g.text(nil, "rev-list", ref, "^"+of)
 	if err != nil {
 		return false, err
 	}
-	return listing != "", nil
+	return listing == "", nil
 }
 
 // resolveRef answers the commit a ref stands at. It is `^{commit}` rather than
@@ -320,15 +331,6 @@ func (g repository) carriesCommitsOutside(ref, other string) (bool, error) {
 // than a tree read that answers nothing further down.
 func (g repository) resolveRef(ref string) (string, error) {
 	return g.text(nil, "rev-parse", "--verify", ref+"^{commit}")
-}
-
-// treeFile is one file on the branch as a read finds it: where it sits, and the
-// blob standing there. It is treeEntry read rather than written, and the two are
-// separate types because a write names a blob it has just made and a read names
-// one it is about to open.
-type treeFile struct {
-	path string
-	blob string
 }
 
 // listTree lists every file under prefix in a commit's tree, recursively.
@@ -348,13 +350,13 @@ type treeFile struct {
 // own making, no symlinks and nothing executable (§12). Anything else on the
 // branch was put there by something that is not `hyper`, and reading it as a
 // Store file is giving it a meaning nothing gave it.
-func (g repository) listTree(commit, prefix string) ([]treeFile, error) {
+func (g repository) listTree(commit, prefix string) ([]treeEntry, error) {
 	listing, err := g.run(nil, "ls-tree", "-r", "-z", commit, "--", prefix)
 	if err != nil {
 		return nil, err
 	}
 
-	var files []treeFile
+	var files []treeEntry
 	for _, entry := range strings.Split(strings.TrimSuffix(string(listing), "\x00"), "\x00") {
 		if entry == "" {
 			continue
@@ -369,7 +371,7 @@ func (g repository) listTree(commit, prefix string) ([]treeFile, error) {
 		if fields[0] != fileMode || fields[1] != "blob" {
 			return nil, fmt.Errorf("%q is a %s at mode %s: the Store holds regular files and nothing else (§12)", path, fields[1], fields[0])
 		}
-		files = append(files, treeFile{path: path, blob: fields[2]})
+		files = append(files, treeEntry{path: path, blob: fields[2]})
 	}
 	return files, nil
 }
@@ -435,8 +437,10 @@ func (g repository) writeBlob(content []byte) (string, error) {
 // written by writeTree and required by listTree (§12).
 const fileMode = "100644"
 
-// treeEntry is one file in a tree the package builds: where it sits, and the
-// blob whose bytes stand there.
+// treeEntry is one file in a Store tree: where it sits, and the blob whose
+// bytes stand there. It is what writeTree is handed and what listTree answers,
+// one type because it is one fact — a tree is a set of these, and which
+// direction it was travelling in is the caller's business.
 type treeEntry struct {
 	path string
 	blob string

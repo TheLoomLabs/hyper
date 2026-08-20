@@ -140,8 +140,8 @@ func TestSync_LeavesABranchHoldingWhatTheRemoteDoesNot(t *testing.T) {
 	if got := r.text("rev-parse", store.Ref); got != unpushed {
 		t.Errorf("%s is %s, want the unpushed %s left standing", store.Ref, got, unpushed)
 	}
-	if got := r.text("rev-parse", "refs/remotes/origin/"+store.BranchName); got != published {
-		t.Errorf("the remote-tracking ref is %s, want the remote's %s — the tip came down", got, published)
+	if got := r.text("rev-parse", "refs/remotes/"+store.RemoteName+"/"+store.BranchName); got != published {
+		t.Errorf("the tracking ref is %s, want the remote's %s — the tip came down", got, published)
 	}
 }
 
@@ -151,29 +151,56 @@ func TestSync_LeavesABranchHoldingWhatTheRemoteDoesNot(t *testing.T) {
 // what would make *a read-only Run proceeds offline* false wherever the network
 // is.
 func TestSync_IsNeverFiltered(t *testing.T) {
-	for _, arrival := range []bool{true, false} {
-		r := newRepo(t)
-		bare := r.origin()
-		r.seedStore(bare, store.IntroductionPath, store.Introduction)
-		r.seedVersions(bare, aVersion(t, theSeries, theEntryRunID, 1, theInstant))
-		if !arrival {
+	for name, hold := range map[string]func(r *repo){
+		"on the branch's arrival": func(*repo) {},
+		"on a branch already here": func(r *repo) {
 			r.git("fetch", "--quiet", "origin", store.Ref+":"+store.Ref)
-		}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newRepo(t)
+			bare := r.origin()
+			r.seedStore(bare, store.IntroductionPath, store.Introduction)
+			r.seedVersions(bare, aVersion(t, theSeries, theEntryRunID, 1, theInstant))
+			hold(r)
 
-		if err := store.Sync(r.root, theInstant); err != nil {
-			t.Fatalf("Sync: %v", err)
-		}
-
-		for _, setting := range []string{"remote.origin.promisor", "remote.origin.partialclonefilter"} {
-			if value, set := r.setting(setting); set {
-				t.Errorf("%s is %q; the Store's content is always read and the fetch is never filtered", setting, value)
+			if err := store.Sync(r.root, theInstant); err != nil {
+				t.Fatalf("Sync: %v", err)
 			}
-		}
-		// A promisor pack is the other half of the same fact: every
-		// object the branch names is here, so nothing is a lazy fetch.
-		if missing := r.text("rev-list", "--objects", "--missing=print", store.Ref); strings.Contains(missing, "?") {
-			t.Errorf("the branch names objects the clone does not hold:\n%s", missing)
-		}
+
+			for _, setting := range []string{"remote.origin.promisor", "remote.origin.partialclonefilter"} {
+				if value, set := r.setting(setting); set {
+					t.Errorf("%s is %q; the Store's content is always read and the fetch is never filtered", setting, value)
+				}
+			}
+			// A promisor pack is the other half of the same fact:
+			// every object the branch names is here, so nothing is
+			// a lazy fetch.
+			if missing := r.text("rev-list", "--objects", "--missing=print", store.Ref); strings.Contains(missing, "?") {
+				t.Errorf("the branch names objects the clone does not hold:\n%s", missing)
+			}
+		})
+	}
+}
+
+// TestSync_ReportsNoFailureForARemoteThatHoldsNoBranch. The Store here stands
+// and publishing it is the next push's — the state an `init` whose push was
+// rejected leaves behind, which §7 says is reachable without anybody doing
+// anything wrong.
+func TestSync_ReportsNoFailureForARemoteThatHoldsNoBranch(t *testing.T) {
+	r := newRepo(t)
+	r.origin()
+	if _, err := store.Init(r.root, theInstant); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	before := r.text("rev-parse", store.Ref)
+	r.gitIn(r.text("config", "remote.origin.url"), "update-ref", "-d", store.Ref)
+
+	if err := store.Sync(r.root, theInstant); err != nil {
+		t.Fatalf("Sync against a remote holding no branch: %v", err)
+	}
+	if after := r.text("rev-parse", store.Ref); after != before {
+		t.Errorf("%s moved from %s to %s", store.Ref, before, after)
 	}
 }
 
