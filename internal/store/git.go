@@ -17,15 +17,15 @@ import (
 // (§7, §13). This file is the whole of that layer: the calls the Store is read
 // and written with, and nothing about what the Store means.
 //
-// It is unexported and it stays that way. Milestone 4.7 adds the removals and
-// the push retry, and milestone 8 reads code-branch objects at a revision for
-// §8's review range and may want a layer of its own — extracting this one then
-// is a move with a caller, and doing it now is a package with none (issue
-// #124).
+// It is unexported and it stays that way. Milestone 8 reads code-branch objects
+// at a revision for §8's review range and may want a layer of its own —
+// extracting this one then is a move with a caller, and doing it now is a
+// package with none (issue #124).
 //
 // Every call here is plumbing: `hash-object`, `mktree`, `commit-tree`,
 // `update-ref`, `show-ref`, `ls-remote`, `fetch`, `push`, `rev-parse`,
-// `ls-tree` and `cat-file`. Each is one git invocation and knows nothing about
+// `rev-list`, `log`, `ls-tree`, `diff-tree` and `cat-file`. Each is one git
+// invocation and knows nothing about
 // the Store; store.go, sync.go and series.go compose them into the Store's own
 // acts, which is why a method like createStore hangs off this file's type and
 // lives in one of those. There is no worktree, no temporary directory, no
@@ -351,7 +351,15 @@ func (g repository) resolveRef(ref string) (string, error) {
 // branch was put there by something that is not `hyper`, and reading it as a
 // Store file is giving it a meaning nothing gave it.
 func (g repository) listTree(commit, prefix string) ([]treeEntry, error) {
-	listing, err := g.run(nil, "ls-tree", "-r", "-z", commit, "--", prefix)
+	// An empty prefix is the whole tree and is spelled by naming no
+	// pathspec at all: git refuses the empty string as one outright, and
+	// substituting "." for it would be this file inventing a second
+	// spelling of *everything* for the one caller that wants it.
+	args := []string{"ls-tree", "-r", "-z", commit}
+	if prefix != "" {
+		args = append(args, "--", prefix)
+	}
+	listing, err := g.run(nil, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -446,13 +454,62 @@ type treeEntry struct {
 	blob string
 }
 
-// writeTree assembles a tree from entries and answers its id. It goes through
-// `mktree`, which reads its entries on stdin and writes an object: there is no
-// index file to point at, no `read-tree`, and nothing on disk at any point.
+// treeMode is the mode a subtree entry carries. It stands beside fileMode for
+// the same reason: the Store holds files, and the directories above them are
+// git's own structure rather than anything §12 names, so neither mode is ever a
+// value a caller supplies.
+const treeMode = "040000"
+
+// writeTree assembles a tree from entries whose paths may carry slashes, and
+// answers the root tree's id.
+//
+// It goes through `mktree`, which reads its entries on stdin and writes an
+// object: there is no index file to point at, no `read-tree`, and nothing on
+// disk at any point (ADR-0075). `mktree` writes one tree level and refuses a
+// path with a slash in it outright, so the nesting is done here — the entries
+// are grouped by their first segment and each group becomes a subtree of its
+// own, bottom up, until one tree stands over all of them.
+//
+// The alternative is a temporary index file, which is what a `read-tree` plus
+// `update-index` plus `write-tree` costs. It is rejected for what it is rather
+// than for what it does: an index is a file on disk holding the shape of the
+// Store, which is the one thing this package promises never to write. The
+// recursion below costs one `mktree` per directory in the tree and leaves
+// nothing behind at all.
+//
+// Entry order is not normalised here because `mktree` normalises it — git's
+// tree ordering sorts a directory as though its name ended in a slash, which is
+// exactly the rule an implementation gets wrong by hand.
 func (g repository) writeTree(entries []treeEntry) (string, error) {
-	var listing strings.Builder
+	// The listing is built in one pass and the subtrees in a second, so
+	// that a directory named twice is one recursion rather than two: the
+	// order the names were first seen decides nothing (mktree sorts), and
+	// holding them is what keeps the walk deterministic under test.
+	var files []treeEntry
+	var dirs []string
+	nested := map[string][]treeEntry{}
 	for _, entry := range entries {
+		name, rest, below := strings.Cut(entry.path, "/")
+		if !below {
+			files = append(files, treeEntry{path: name, blob: entry.blob})
+			continue
+		}
+		if _, seen := nested[name]; !seen {
+			dirs = append(dirs, name)
+		}
+		nested[name] = append(nested[name], treeEntry{path: rest, blob: entry.blob})
+	}
+
+	var listing strings.Builder
+	for _, entry := range files {
 		fmt.Fprintf(&listing, "%s blob %s\t%s\n", fileMode, entry.blob, entry.path)
+	}
+	for _, dir := range dirs {
+		subtree, err := g.writeTree(nested[dir])
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(&listing, "%s tree %s\t%s\n", treeMode, subtree, dir)
 	}
 	return g.text([]byte(listing.String()), "mktree")
 }
@@ -463,6 +520,156 @@ func (g repository) writeTree(entries []treeEntry) (string, error) {
 // the repository or from the wall clock.
 func (g repository) commitParentlessTree(tree, message string) (string, error) {
 	return g.text(nil, "commit-tree", tree, "-m", message)
+}
+
+// commitOnto commits a tree with one parent and answers the commit's id. It is
+// every commit the Store takes after its root: a Run's write, a Compaction's
+// removal, and a commit re-applied onto a fetched tip.
+//
+// The identity and both dates come from the environment open resolved, which is
+// what makes a fixture's branch reproducible and `git log` on the Store honest
+// about when a Compaction ran (§7).
+func (g repository) commitOnto(tree, parent, message string) (string, error) {
+	return g.text(nil, "commit-tree", tree, "-p", parent, "-m", message)
+}
+
+// commitsSince lists the commits a ref holds that another does not, oldest
+// first — *every local commit the remote does not hold*, which is the set §7
+// defines the push re-application over.
+//
+// Oldest first because they are re-applied in the order they were written: a
+// path a later commit removed and an earlier one wrote must end up removed, and
+// replaying them in the order they happened is what decides that without a
+// rule of its own.
+func (g repository) commitsSince(ref, excluding string) ([]string, error) {
+	listing, err := g.text(nil, "rev-list", "--reverse", ref, "^"+excluding)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Fields(listing), nil
+}
+
+// messageOf answers a commit's message, whole and untouched.
+//
+// %B is the subject and the body together, exactly as the commit carries them.
+// A re-applied commit keeps the message the commit it re-applies was written
+// with, because `git log` on the Store is the account of what happened to it
+// (§7, §13) — and an account that lost a Run's own line to a rebase would be
+// the record's own history rewritten by a retry.
+func (g repository) messageOf(commit string) (string, error) {
+	message, err := g.run(nil, "log", "-1", "--format=%B", commit)
+	if err != nil {
+		return "", err
+	}
+	// `git log` ends %B with a newline of its own, and commit-tree adds one
+	// where the message lacks it; trimming the trailing run keeps a message
+	// that survives one round trip identical to itself.
+	return strings.TrimRight(string(message), "\n"), nil
+}
+
+// pathOperation is one thing a commit did to one path: wrote it, or removed it.
+// It is the grain §7's re-application is defined at — *every path operation in
+// every local commit the remote does not hold* — and the noun is operation
+// rather than write because `compact` is the first thing in the tool that
+// removes (issue #131).
+type pathOperation struct {
+	path string
+	// blob is what stands at the path afterwards, and is empty where the
+	// operation is the removal. A removal is the absence of a blob rather
+	// than a flag beside one, so there is no state where the two disagree.
+	blob string
+}
+
+// removes says the operation takes the path off the tree.
+func (op pathOperation) removes() bool { return op.blob == "" }
+
+// applyOnto answers the tree a set of path operations makes of a commit's tree.
+//
+// A write names the blob the operation already carries: the object is in the
+// database, so applying a write is naming an id in a tree and never hashing
+// bytes again. **A removal whose path the tree no longer holds is a no-op** —
+// which is what a Compaction is built out of, and what makes one re-appliable
+// onto a tip another environment has already compacted (§7, issue #131).
+//
+// It is the one place a Store tree is derived from another, and both callers
+// are the same act at different grains: `compact` applies the removals it
+// decided to the commit it read, and a rejected push applies each unpushed
+// commit's operations to the tip it fetched.
+func (g repository) applyOnto(commit string, operations []pathOperation) (string, error) {
+	files, err := g.listTree(commit, "")
+	if err != nil {
+		return "", err
+	}
+
+	held := make(map[string]string, len(files))
+	for _, entry := range files {
+		held[entry.path] = entry.blob
+	}
+	for _, operation := range operations {
+		if operation.removes() {
+			delete(held, operation.path)
+			continue
+		}
+		held[operation.path] = operation.blob
+	}
+
+	entries := make([]treeEntry, 0, len(held))
+	for path, blob := range held {
+		entries = append(entries, treeEntry{path: path, blob: blob})
+	}
+	// Sorted so that one tree is built from one listing however the map was
+	// walked. `mktree` normalises the order it is given, so this decides
+	// nothing about the object — it decides that the calls are the same
+	// calls twice, which is what a test of them can hold.
+	slices.SortFunc(entries, func(a, b treeEntry) int { return strings.Compare(a.path, b.path) })
+	return g.writeTree(entries)
+}
+
+// operationsIn answers what one commit did to the tree, path by path, against
+// its parent — or against nothing at all, where it is a root.
+//
+// It is `diff-tree` in git's raw form rather than `--name-status`, because the
+// object id on the right-hand side is exactly what a re-application needs: the
+// blob is already written, so replaying a write is naming it in a tree and
+// never hashing bytes again.
+func (g repository) operationsIn(commit string) ([]pathOperation, error) {
+	// --no-renames because a rename record carries two paths rather than
+	// one and this parser reads pairs: rename detection is a repository
+	// setting, so it is turned off here rather than assumed off.
+	listing, err := g.run(nil, "diff-tree", "-r", "-z", "--no-commit-id", "--no-renames", "--root", commit)
+	if err != nil {
+		return nil, err
+	}
+
+	trimmed := strings.TrimSuffix(string(listing), "\x00")
+	if trimmed == "" {
+		return nil, nil
+	}
+	// Every record is a header and a path, so an odd count is a listing
+	// that stopped mid-record. It is a fault rather than a record dropped:
+	// this answer decides what a retry re-applies, and a re-application
+	// short one operation is a write or a removal silently lost.
+	records := strings.Split(trimmed, "\x00")
+	if len(records)%2 != 0 {
+		return nil, fmt.Errorf("git diff-tree answered %d fields for %s, which is not a whole number of raw diff records", len(records), commit)
+	}
+
+	operations := make([]pathOperation, 0, len(records)/2)
+	for i := 0; i < len(records); i += 2 {
+		// `:<srcmode> <dstmode> <srcsha> <dstsha> <status>` and then the
+		// path, each NUL-terminated. A status of D leaves the
+		// destination id all zeros, which is the removal.
+		fields := strings.Fields(records[i])
+		if len(fields) != 5 || !strings.HasPrefix(fields[0], ":") {
+			return nil, fmt.Errorf("git diff-tree wrote %q, which is not a raw diff record", records[i])
+		}
+		operation := pathOperation{path: records[i+1]}
+		if fields[4] != "D" {
+			operation.blob = fields[3]
+		}
+		operations = append(operations, operation)
+	}
+	return operations, nil
 }
 
 // createRef points a ref at a commit, and only where the ref is not there

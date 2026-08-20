@@ -39,14 +39,26 @@ func gateOnVersionPin(command, repoRoot, binaryVersion string, stderr io.Writer)
 		return ExitUsage
 	}
 
-	// The Refusal renders as two lines on stderr with stdout left silent,
-	// whichever mode the caller was invoked in: a Refusal is not a row, so
-	// --json opens no stream to carry it (§9). §8's caret form is milestone
-	// 8's renderer.
 	if result := pin.Check(present, data, binaryVersion); result.Refused {
-		fmt.Fprintf(stderr, "refused: %s\n  %s\n", result.Code, result.Message)
-		return ExitRefused
+		return refuse(stderr, result.Code, result.Message)
 	}
 
 	return 0
+}
+
+// refuse renders a Refusal and answers the exit code its caller returns.
+//
+// It is two lines on stderr with stdout left silent, whichever mode the caller
+// was invoked in: a Refusal is not a row, so --json opens no stream to carry it
+// (§9). §8's caret form is milestone 8's renderer, and this is the form every
+// Refusal a command makes takes until it lands.
+//
+// It is one function rather than the same two lines at each site because the
+// milestone that reaches a second code is the one that would otherwise mint a
+// second rendering of the first: the pin gate's two codes and `compact`'s
+// store-absent and store-schema-unsupported are four Refusals and one shape
+// (§12, issue #131).
+func refuse(stderr io.Writer, code, message string) int {
+	fmt.Fprintf(stderr, "refused: %s\n  %s\n", code, message)
+	return ExitRefused
 }

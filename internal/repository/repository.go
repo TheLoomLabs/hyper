@@ -63,8 +63,8 @@ func artefactFiles(repoRoot string) ([]string, error) {
 			files = append(files, dir+"/"+entry.Name())
 		}
 	}
-	if info, err := os.Stat(filepath.Join(repoRoot, "hyper.yaml")); err == nil && !info.IsDir() {
-		files = append(files, "hyper.yaml")
+	if info, err := os.Stat(filepath.Join(repoRoot, DeclarationPath)); err == nil && !info.IsDir() {
+		files = append(files, DeclarationPath)
 	}
 	return files, nil
 }

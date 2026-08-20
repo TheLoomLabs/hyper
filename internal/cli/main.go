@@ -132,4 +132,9 @@ var repositoryCommands = map[string]repositoryCommand{
 	// RunStore reads it, so the group's grammar is stated in one place
 	// rather than split between the table and the command (§9, issue #126).
 	"store": RunStore,
+	// The second command that reads the record, and the first thing in the
+	// tool that removes anything. It takes the clock for `store`'s reason
+	// and for one of its own: every commit hyper writes takes both its dates
+	// from it, and retention is an age (§7, issue #131).
+	"compact": RunCompact,
 }

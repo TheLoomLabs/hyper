@@ -90,6 +90,33 @@ type Loaded struct {
 	DefinitionDeclarations map[string]*yaml.Node
 }
 
+// DeclarationPath is where the Repository declaration sits: `hyper.yaml`, at
+// the repository root rather than in a directory, and the one artefact keyed by
+// its filename (§3, §12).
+//
+// It is spelled here because this is where the walk that finds it is, and
+// because a command that reads a declared fact off it — `compact` reads
+// `retention:` — must not have to know the name to ask (issue #131).
+const DeclarationPath = "hyper.yaml"
+
+// Declaration answers the Repository declaration's parsed root, and nil where
+// the repository has none or its file would not parse.
+//
+// Nil is an answer rather than a fault, on the load's own rule: what a single
+// file can do wrong is carried on that file's LoadedArtefact and stops nothing
+// else (issue #88). Every caller reads nil the way a lookup into a nil mapping
+// already reads — every key answers absent — so a command that reads a declared
+// fact off it gets *the repository declared nothing* rather than an error it
+// would have to invent a rendering for (ADR-0064).
+func (l Loaded) Declaration() *yaml.Node {
+	for _, a := range l.Artefacts {
+		if a.Path == DeclarationPath {
+			return a.Root
+		}
+	}
+	return nil
+}
+
 // LoadedManifest is one member of the Provider namespace as the commands that
 // report a Provider read it: the name the Manifest declares for itself, the
 // origin §12 reads off where its bytes loaded from, those exact bytes, and what

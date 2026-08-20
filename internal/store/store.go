@@ -11,12 +11,14 @@
 // canonical encoding every file on it is written in (issue #127), the path
 // grammar every file on it is named by (issue #128), the five shapes it holds
 // (issue #129) — a Record version, run.json, a Step file, outcome.json and a
-// closing write, each with a schema version of its own — and the read half
-// (issue #130): the sync that puts the branch in hand, the series the branch
-// holds, the Head derived from a listing and the case fold a collision is
-// decided under. The Journal reader and the push retry are the milestone's
-// later tickets; the git layer they all go through is here already,
-// unexported, and stays that way until a caller outside this package earns it.
+// closing write, each with a schema version of its own — the read half (issue
+// #130): the sync that puts the branch in hand, the series the branch holds,
+// the Head derived from a listing and the case fold a collision is decided
+// under — and the removal (issue #131): Compaction's predicate, the one commit
+// it writes, and the push that re-applies an unpushed set of path operations
+// onto a fetched tip. The Journal reader is the milestone's remaining ticket;
+// the git layer they all go through is here already, unexported, and stays that
+// way until a caller outside this package earns it.
 //
 // The shapes are the encoder's own case: §7 states rules no command in this
 // milestone can reach, so they are verified at this package's own seam rather
@@ -264,6 +266,13 @@ var ErrAbsent = errors.New("the repository holds no " + BranchName + " branch; t
 type Store struct {
 	repo   repository
 	commit string
+	// now is the clock this handle was opened at, and it is a member rather
+	// than a parameter of the one call that reads it: two answers about one
+	// Store are answers at one instant, exactly as they are answers about
+	// one commit. Retention is an age, so a Compaction measures against
+	// this and never against a clock it reached for itself (§7, ADR-0034's
+	// own rule one layer down).
+	now time.Time
 }
 
 // Open answers a handle on the Store the clone holds, and ErrAbsent where it
@@ -274,10 +283,11 @@ type Store struct {
 // both syncs first and opens after, which is also the order in which their two
 // failures mean different things.
 //
-// now is the clock the caller threaded. Nothing a read does consumes it; it is
-// the environment every git subprocess in this package is run with, and the
-// commits a later write makes through this handle take both their dates from it
-// (§7).
+// now is the clock the caller threaded. It is the environment every git
+// subprocess in this package is run with, so the commits a write makes through
+// this handle take both their dates from it, and it is the instant a Compaction
+// measures retention against — one clock, read once, for everything this handle
+// goes on to answer (§7).
 func Open(repoRoot string, now time.Time) (*Store, error) {
 	repo, err := open(repoRoot, now)
 	if err != nil {
@@ -294,5 +304,5 @@ func Open(repoRoot string, now time.Time) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{repo: repo, commit: commit}, nil
+	return &Store{repo: repo, commit: commit, now: now}, nil
 }

@@ -357,10 +357,22 @@ func leadingDigits(s string) (digits, rest string) {
 }
 
 func (t Timestamp) write(dst []byte, _ int) []byte {
-	// The fraction is cut rather than rounded, which is what Format does and
-	// what the fixed width wants: a rounded 23:59:59.9999 would name the
-	// next day, and a timestamp in the Store is when something happened.
-	return quote(dst, time.Time(t).UTC().Format("2006-01-02T15:04:05.000")+"Z")
+	return quote(dst, InstantText(time.Time(t)))
+}
+
+// InstantText writes an instant in the one timestamp form the Store holds: RFC
+// 3339, UTC, Z mandatory, milliseconds always to three digits.
+//
+// It is exported because a surface that *reports* a Store instant writes the
+// same string the Store holds — `compact`'s `written_at` names a version by
+// when it was written, and a second formatting of one instant is two spellings
+// of a fact §12 fixes at one (issue #131).
+//
+// The fraction is cut rather than rounded, which is what Format does and what
+// the fixed width wants: a rounded 23:59:59.9999 would name the next day, and a
+// timestamp in the Store is when something happened.
+func InstantText(t time.Time) string {
+	return t.UTC().Format("2006-01-02T15:04:05.000") + "Z"
 }
 
 func (secret) write(dst []byte, _ int) []byte {

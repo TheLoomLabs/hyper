@@ -1,0 +1,22 @@
+{
+  "definition": "uptime",
+  "fields": {
+    "observed_at": "2026-03-31T09:41:14.221Z",
+    "reachable": true
+  },
+  "name": "status.hyper.dev",
+  "operation": "get_status",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "observation",
+  "run_id": "01984f4d-6fc2-7e37-a063-8d4f9c027e3b",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-03-31T09:41:14.221Z"
+}

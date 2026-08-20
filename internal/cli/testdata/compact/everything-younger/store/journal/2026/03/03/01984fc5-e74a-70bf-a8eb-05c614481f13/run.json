@@ -1,0 +1,20 @@
+{
+  "dry_run": false,
+  "procedure": "watch-uptime",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "run_id": "01984fc5-e74a-70bf-a8eb-05c614481f13",
+  "schema_version": 1,
+  "started_at": "2026-03-03T09:41:14.221Z",
+  "trigger": {
+    "actor": "hyper-bot",
+    "cause": "cron",
+    "executor": "github-actions",
+    "job_url": "https://github.com/TheLoomLabs/hyper/actions/runs/3417/job/9021",
+    "run_attempt": 1,
+    "run_id": "3417"
+  }
+}

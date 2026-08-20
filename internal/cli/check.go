@@ -149,7 +149,7 @@ func checkArtefact(a repository.LoadedArtefact, loaded repository.Loaded) []prob
 	switch {
 	case a.Path == artefact.BuiltinShellProviderPath:
 		return artefact.CheckBuiltinShellProvider()
-	case a.Path == "hyper.yaml":
+	case a.Path == repository.DeclarationPath:
 		return artefact.CheckRepositoryDeclaration(a.Path, a.Root)
 	case strings.HasPrefix(a.Path, "targets/"):
 		return artefact.CheckTargetDeclaration(a.Path, a.Root)

@@ -1,0 +1,242 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2023/10/15/01984fc5-e74a-70bf-a8eb-05c614481f13/outcome.json (94 bytes)
+{
+  "ended_at": "2023-10-15T09:41:16.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2023/10/15/01984fc5-e74a-70bf-a8eb-05c614481f13/run.json (586 bytes)
+{
+  "dry_run": false,
+  "procedure": "watch-uptime",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "run_id": "01984fc5-e74a-70bf-a8eb-05c614481f13",
+  "schema_version": 1,
+  "started_at": "2023-10-15T09:41:14.221Z",
+  "trigger": {
+    "actor": "hyper-bot",
+    "cause": "cron",
+    "executor": "github-actions",
+    "job_url": "https://github.com/TheLoomLabs/hyper/actions/runs/3417/job/9021",
+    "run_attempt": 1,
+    "run_id": "3417"
+  }
+}
+=== records/cloudflare-prod/preview-dns/preview-42.example.com/01984f6f-81e4-7059-8285-af60be24905d-0001.json (726 bytes)
+{
+  "definition": "preview-dns",
+  "fields": {
+    "record_id": "01984f6f-81e4-7059-8285-af60be24905d"
+  },
+  "name": "preview-42.example.com",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "asset",
+  "run_id": "01984f6f-81e4-7059-8285-af60be24905d",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2023-10-15T09:41:14.221Z"
+}
+=== records/cloudflare-prod/preview-dns/preview-42.example.com/01984f70-92f5-706a-9396-b071cf35a16e-0001.json (726 bytes)
+{
+  "definition": "preview-dns",
+  "fields": {
+    "record_id": "01984f70-92f5-706a-9396-b071cf35a16e"
+  },
+  "name": "preview-42.example.com",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "asset",
+  "run_id": "01984f70-92f5-706a-9396-b071cf35a16e",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2024-01-23T09:41:14.221Z"
+}
+=== records/cloudflare-prod/preview-dns/preview-42.example.com/01984f81-a306-707b-a4a7-c182d046b27f-0001.json (726 bytes)
+{
+  "definition": "preview-dns",
+  "fields": {
+    "record_id": "01984f81-a306-707b-a4a7-c182d046b27f"
+  },
+  "name": "preview-42.example.com",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "asset",
+  "run_id": "01984f81-a306-707b-a4a7-c182d046b27f",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2024-05-02T09:41:14.221Z"
+}
+=== records/cloudflare-prod/preview-dns/preview-43.example.com/01984f92-b417-708c-b5b8-d293e157c380-0001.json (738 bytes)
+{
+  "definition": "preview-dns",
+  "fields": {
+    "observed_at": "2023-10-15T09:41:14.221Z",
+    "reachable": true
+  },
+  "name": "preview-43.example.com",
+  "operation": "get_status",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "observation",
+  "run_id": "01984f92-b417-708c-b5b8-d293e157c380",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2023-10-15T09:41:14.221Z"
+}
+=== records/cloudflare-prod/preview-dns/preview-43.example.com/01984fa3-c528-709d-86c9-e3a4f268d491-0001.json (738 bytes)
+{
+  "definition": "preview-dns",
+  "fields": {
+    "observed_at": "2024-01-23T09:41:14.221Z",
+    "reachable": true
+  },
+  "name": "preview-43.example.com",
+  "operation": "get_status",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "observation",
+  "run_id": "01984fa3-c528-709d-86c9-e3a4f268d491",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2024-01-23T09:41:14.221Z"
+}
+=== records/cloudflare-prod/preview-dns/preview-43.example.com/01984fb4-d639-70ae-97da-f4b503379e02-0001.json (747 bytes)
+{
+  "definition": "preview-dns",
+  "fields": {
+    "record_id": "01984fb4-d639-70ae-97da-f4b503379e02"
+  },
+  "name": "preview-43.example.com",
+  "operation": "delete_dns_record",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "asset",
+  "run_id": "01984fb4-d639-70ae-97da-f4b503379e02",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "tombstone": true,
+  "written_at": "2024-05-02T09:41:14.221Z"
+}
+=== records/local/uptime/status.hyper.dev/01984f1a-3c9f-7b04-9c2e-4f0b8d61a3e7-0001.json (717 bytes)
+{
+  "definition": "uptime",
+  "fields": {
+    "observed_at": "2025-04-02T09:41:14.221Z",
+    "reachable": true
+  },
+  "name": "status.hyper.dev",
+  "operation": "get_status",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "observation",
+  "run_id": "01984f1a-3c9f-7b04-9c2e-4f0b8d61a3e7",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2025-04-02T09:41:14.221Z"
+}
+=== records/local/uptime/status.hyper.dev/01984f4d-6fc2-7e37-a063-8d4f9c027e3b-0001.json (717 bytes)
+{
+  "definition": "uptime",
+  "fields": {
+    "observed_at": "2026-03-03T09:41:14.221Z",
+    "reachable": true
+  },
+  "name": "status.hyper.dev",
+  "operation": "get_status",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "observation",
+  "run_id": "01984f4d-6fc2-7e37-a063-8d4f9c027e3b",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-03-03T09:41:14.221Z"
+}
+=== records/local/uptime/status.hyper.dev/01984f5e-70d3-7f48-b174-9e5fad138f4c-0001.json (717 bytes)
+{
+  "definition": "uptime",
+  "fields": {
+    "observed_at": "2026-04-01T09:41:14.221Z",
+    "reachable": true
+  },
+  "name": "status.hyper.dev",
+  "operation": "get_status",
+  "provenance": {
+    "definition_revision": "9a8b7c6d5e4f30211203948576a7b8c9d0e1f223",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "record_type": "observation",
+  "run_id": "01984f5e-70d3-7f48-b174-9e5fad138f4c",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-01T09:41:14.221Z"
+}

@@ -1,0 +1,2 @@
+refused: store-schema-unsupported
+  records/local/uptime/status.hyper.dev/01984f1a-3c9f-7b04-9c2e-4f0b8d61a3e7-0001.json: the file was written at schema version 2 and this hyper reads 1 — install a hyper that reads it
