@@ -32,8 +32,12 @@ entry — is a genuine disagreement about what happened, and `hyper` fails rathe
   Run of a given Step is a backward scan through date-partitioned Journal directories, stopping at
   the first match. This is the named workload any future local index exists to serve.
 - **Ordering trusts two synchronised clocks.** `written_at` is UTC from the writer, ties broken by
-  Run id. This is only load-bearing when two writers race on the same Record, which the Actions
-  concurrency group and the store lock already make rare.
+  the **file name**, byte-wise. This is only load-bearing when two writers race on the same Record,
+  which the Actions concurrency group and the store lock already make rare. This line said *the Run
+  id* until [#130](https://github.com/TheLoomLabs/hyper/issues/130) implemented the Head; the file
+  name is `<run-id>-<nnnn>` (§12), so the two are one rule at two grains and the finer one is the
+  rule — two Steps of one Run writing one identity write two paths that the Run id alone could not
+  order. §7 states the file name and is authoritative.
 - **Reaping stays append-only.** A Run that closes another Run's crashed entry creates its
   `outcome.json`; it does not edit anything the dead Run wrote.
 - **A Tombstone does not end a series.** It is an ordinary version carrying `tombstone: true`, so
