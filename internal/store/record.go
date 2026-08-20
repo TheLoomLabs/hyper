@@ -35,6 +35,34 @@ const (
 // version: a Record is the projection its Manifest declared, and a blob nobody
 // reviews has no business on a branch whose whole point is that it can be read.
 type RecordVersion struct {
+	Metadata
+	// Fields is the projected content, nested under its own key rather than
+	// sitting beside the metadata: a projected field's name is a Provider
+	// author's to choose, and flat would need a reserved list of metadata
+	// names for it to steer around — a list that cannot grow safely on a
+	// branch no rule may rewrite. Nested, the two namespaces are disjoint
+	// forever and there is no check to state or forget (§7, ADR-0011).
+	//
+	// A field a Manifest declares secret is Secret here, which writes the
+	// marker in the position the value would occupy (ADR-0007). The Store
+	// holds nothing else about it, so a decode answers that marker as the
+	// string it is — §7's own rule that a projected value reading the same
+	// is not a case hyper disambiguates.
+	//
+	// Nil and empty are one value: a version carrying no projected content
+	// at all, which only a Tombstone may be. A decode answers nil.
+	Fields Mapping
+}
+
+// Metadata is everything a version says about itself but its content: which
+// series it belongs to, what wrote it, when, and whether it is the destruction.
+//
+// It is a value of its own because that is the grain the reader answers at.
+// Ordering a series and naming a version need every member of this and no byte
+// of the content, so a listing of a thousand versions holds a thousand of these
+// and reads the content of the one a caller went on to ask for (§7, issue
+// #130).
+type Metadata struct {
 	// Identity is the series this version belongs to, unencoded and in
 	// full. It is restated here rather than read back out of the path
 	// because the path is lossy — the grammar truncates an over-long
@@ -63,22 +91,6 @@ type RecordVersion struct {
 	// abc* would be unreadable in a browser and in a diff, which is exactly
 	// where this field set is read.
 	Provenance Provenance
-	// Fields is the projected content, nested under its own key rather than
-	// sitting beside the metadata: a projected field's name is a Provider
-	// author's to choose, and flat would need a reserved list of metadata
-	// names for it to steer around — a list that cannot grow safely on a
-	// branch no rule may rewrite. Nested, the two namespaces are disjoint
-	// forever and there is no check to state or forget (§7, ADR-0011).
-	//
-	// A field a Manifest declares secret is Secret here, which writes the
-	// marker in the position the value would occupy (ADR-0007). The Store
-	// holds nothing else about it, so a decode answers that marker as the
-	// string it is — §7's own rule that a projected value reading the same
-	// is not a case hyper disambiguates.
-	//
-	// Nil and empty are one value: a version carrying no projected content
-	// at all, which only a Tombstone may be. A decode answers nil.
-	Fields Mapping
 	// Tombstone marks the destruction. A Tombstone is an ordinary version
 	// of the series carrying this marker, the previous Head's Fields copied
 	// forward, and the Operation, Run and Step every version carries

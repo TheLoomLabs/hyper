@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -16,21 +17,21 @@ import (
 // (§7, §13). This file is the whole of that layer: the calls the Store is read
 // and written with, and nothing about what the Store means.
 //
-// It is unexported and it stays that way. Milestone 4.6 adds the read half and
-// 4.7 the removals and the push retry, and milestone 8 reads code-branch
-// objects at a revision for §8's review range and may want a layer of its own —
-// extracting this one then is a move with a caller, and doing it now is a
-// package with none (issue #124).
+// It is unexported and it stays that way. Milestone 4.7 adds the removals and
+// the push retry, and milestone 8 reads code-branch objects at a revision for
+// §8's review range and may want a layer of its own — extracting this one then
+// is a move with a caller, and doing it now is a package with none (issue
+// #124).
 //
 // Every call here is plumbing: `hash-object`, `mktree`, `commit-tree`,
-// `update-ref`, `show-ref`, `ls-remote`, `fetch` and `push`. Each is one git
-// invocation and knows nothing about the Store; store.go composes them into the
-// Store's own acts, which is why a method like createStore hangs off this file's
-// type and lives in that one. There is no
-// worktree, no temporary directory, no hidden checkout and no byte of Store
-// content as an ordinary file on disk, so no command below reads or writes the
-// working tree and no `git checkout` appears anywhere in the package
-// (ADR-0075).
+// `update-ref`, `show-ref`, `ls-remote`, `fetch`, `push`, `rev-parse`,
+// `ls-tree` and `cat-file`. Each is one git invocation and knows nothing about
+// the Store; store.go, sync.go and series.go compose them into the Store's own
+// acts, which is why a method like createStore hangs off this file's type and
+// lives in one of those. There is no worktree, no temporary directory, no
+// hidden checkout and no byte of Store content as an ordinary file on disk, so
+// no command below reads or writes the working tree and no `git checkout`
+// appears anywhere in the package (ADR-0075).
 
 // repository is one repository as this package reaches it: where it sits, and
 // the environment every git subprocess is run with. Both are resolved once, by
@@ -272,7 +273,7 @@ func (g repository) remoteHoldsRef(remote, ref string) (bool, error) {
 	return listing != "", nil
 }
 
-// fetchRef brings one ref down from the remote, the tip and no history.
+// fetchShallow brings one ref down from the remote, the tip and no history.
 //
 // It is depth-1 and it is never filtered: no blob filter, no tree filter, no
 // partial clone. The Store's history is never read and its content always is,
@@ -281,9 +282,135 @@ func (g repository) remoteHoldsRef(remote, ref string) (bool, error) {
 // ADR-0074). The depth is decided here, at the one moment there is nothing to
 // preserve: this is the branch's arrival in the clone, and `hyper` never
 // deepens a Store and never shortens one it did not create.
-func (g repository) fetchRef(remote, ref string) error {
-	_, err := g.run(nil, "fetch", "--quiet", "--depth=1", "--no-tags", "--", remote, ref+":"+ref)
+func (g repository) fetchShallow(remote, src, dst string) error {
+	_, err := g.run(nil, "fetch", "--quiet", "--depth=1", "--no-tags", "--", remote, src+":"+dst)
 	return err
+}
+
+// fetchIncremental brings one ref up to date and names no depth, which is the
+// whole of what separates it from the call above.
+//
+// Naming no depth is what leaves a clone that holds the Store whole holding it
+// whole, and leaves one that holds it shallow exactly as shallow as it was:
+// git carries the shallow boundary forward rather than deciding it again, so
+// `hyper` never deepens a Store and never shortens one it did not create
+// (ADR-0074). It is unfiltered for the reason above.
+func (g repository) fetchIncremental(remote, src, dst string) error {
+	_, err := g.run(nil, "fetch", "--quiet", "--no-tags", "--", remote, src+":"+dst)
+	return err
+}
+
+// carriesCommitsOutside says whether ref holds commits that other does not —
+// the question *is this ref behind, or has it got something of its own*.
+//
+// It is `rev-list ref ^other` and a look at whether anything came back, rather
+// than `merge-base --is-ancestor`, which answers the same question and is a
+// decade younger than every other call in this file (§13). An empty answer is
+// *ref is an ancestor of other*, which is a fast-forward.
+func (g repository) carriesCommitsOutside(ref, other string) (bool, error) {
+	listing, err := g.text(nil, "rev-list", ref, "^"+other)
+	if err != nil {
+		return false, err
+	}
+	return listing != "", nil
+}
+
+// resolveRef answers the commit a ref stands at. It is `^{commit}` rather than
+// the bare name so that a ref pointing at anything else is a fault here rather
+// than a tree read that answers nothing further down.
+func (g repository) resolveRef(ref string) (string, error) {
+	return g.text(nil, "rev-parse", "--verify", ref+"^{commit}")
+}
+
+// treeFile is one file on the branch as a read finds it: where it sits, and the
+// blob standing there. It is treeEntry read rather than written, and the two are
+// separate types because a write names a blob it has just made and a read names
+// one it is about to open.
+type treeFile struct {
+	path string
+	blob string
+}
+
+// listTree lists every file under prefix in a commit's tree, recursively.
+//
+// It reads the tree objects and never a working tree: there is no checkout, no
+// temporary directory and no byte of Store content on disk at any point
+// (ADR-0075). `-z` is what makes the listing exact — git quotes an unusual path
+// in its ordinary output, and a quoted path is a second spelling of a name this
+// package builds and parses in one form.
+//
+// A prefix naming nothing answers an empty listing rather than a fault: a
+// branch that holds no Record series at all is a Store with nothing recorded
+// yet, which is the state every Store begins in (§7).
+//
+// Every entry is held to being a regular file, which is the read half of the
+// rule writeTree states: the Store holds files at 100644, no directories of its
+// own making, no symlinks and nothing executable (§12). Anything else on the
+// branch was put there by something that is not `hyper`, and reading it as a
+// Store file is giving it a meaning nothing gave it.
+func (g repository) listTree(commit, prefix string) ([]treeFile, error) {
+	listing, err := g.run(nil, "ls-tree", "-r", "-z", commit, "--", prefix)
+	if err != nil {
+		return nil, err
+	}
+
+	var files []treeFile
+	for _, entry := range strings.Split(strings.TrimSuffix(string(listing), "\x00"), "\x00") {
+		if entry == "" {
+			continue
+		}
+		// `<mode> SP <type> SP <object> TAB <path>`, which is git's
+		// oldest listing and the one every version of it writes.
+		head, path, named := strings.Cut(entry, "\t")
+		fields := strings.Fields(head)
+		if !named || len(fields) != 3 {
+			return nil, fmt.Errorf("git ls-tree wrote %q, which is not <mode> <type> <object> and a path", entry)
+		}
+		if fields[0] != fileMode || fields[1] != "blob" {
+			return nil, fmt.Errorf("%q is a %s at mode %s: the Store holds regular files and nothing else (§12)", path, fields[1], fields[0])
+		}
+		files = append(files, treeFile{path: path, blob: fields[2]})
+	}
+	return files, nil
+}
+
+// readBlobs answers the bytes of every blob named, in the order they were
+// named.
+//
+// It is one `cat-file --batch` for the whole listing rather than one call per
+// file, which is the difference between a Head lookup costing a process and a
+// series of five hundred versions costing five hundred of them. Ordering a
+// series opens every version of it (§7), so this is the call every read in the
+// package ends at.
+func (g repository) readBlobs(objects []string) ([][]byte, error) {
+	if len(objects) == 0 {
+		return nil, nil
+	}
+	batch, err := g.run([]byte(strings.Join(objects, "\n")+"\n"), "cat-file", "--batch")
+	if err != nil {
+		return nil, err
+	}
+
+	contents := make([][]byte, 0, len(objects))
+	rest := batch
+	for _, object := range objects {
+		// `<object> SP <type> SP <size> LF`, the content, and one LF.
+		header, body, split := bytes.Cut(rest, []byte("\n"))
+		if !split {
+			return nil, fmt.Errorf("git cat-file answered no header for %s", object)
+		}
+		fields := strings.Fields(string(header))
+		if len(fields) != 3 {
+			return nil, fmt.Errorf("git cat-file wrote %q for %s, which is not <object> <type> <size>", header, object)
+		}
+		size, err := strconv.Atoi(fields[2])
+		if err != nil || size < 0 || size+1 > len(body) {
+			return nil, fmt.Errorf("git cat-file wrote %q for %s, which is not a size this answer carries", header, object)
+		}
+		contents = append(contents, body[:size])
+		rest = body[size+1:]
+	}
+	return contents, nil
 }
 
 // pushRef sends one ref to the remote, named explicitly on both sides for
@@ -302,11 +429,14 @@ func (g repository) writeBlob(content []byte) (string, error) {
 	return g.text(content, "hash-object", "-w", "--stdin")
 }
 
+// fileMode is the mode every entry in a Store tree carries. The Store holds
+// files and no directories of its own making, no symlinks and nothing
+// executable, so it is this package's constant rather than an entry's field —
+// written by writeTree and required by listTree (§12).
+const fileMode = "100644"
+
 // treeEntry is one file in a tree the package builds: where it sits, and the
-// blob whose bytes stand there. Every entry is a regular file at 100644 — the
-// Store holds files and no directories of its own making, no symlinks and
-// nothing executable — so the mode is this package's constant rather than an
-// entry's field (§12).
+// blob whose bytes stand there.
 type treeEntry struct {
 	path string
 	blob string
@@ -318,7 +448,7 @@ type treeEntry struct {
 func (g repository) writeTree(entries []treeEntry) (string, error) {
 	var listing strings.Builder
 	for _, entry := range entries {
-		fmt.Fprintf(&listing, "100644 blob %s\t%s\n", entry.blob, entry.path)
+		fmt.Fprintf(&listing, "%s blob %s\t%s\n", fileMode, entry.blob, entry.path)
 	}
 	return g.text([]byte(listing.String()), "mktree")
 }
@@ -338,5 +468,15 @@ func (g repository) commitParentlessTree(tree, message string) (string, error) {
 // a silent overwrite of somebody else's root.
 func (g repository) createRef(ref, commit string) error {
 	_, err := g.run(nil, "update-ref", ref, commit, "")
+	return err
+}
+
+// moveRef points a ref that is already there at a commit, and only where it
+// still stands where the caller last saw it. The old value is named for
+// createRef's own reason one state over: a ref that moved between the look and
+// the write is a second writer, and overwriting it is the act append-only
+// forbids arriving at the ref rather than at a file.
+func (g repository) moveRef(ref, commit, from string) error {
+	_, err := g.run(nil, "update-ref", ref, commit, from)
 	return err
 }

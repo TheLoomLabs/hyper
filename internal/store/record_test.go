@@ -30,13 +30,15 @@ var theProvenance = store.Provenance{
 func recordVersion(t *testing.T) store.RecordVersion {
 	t.Helper()
 	return store.RecordVersion{
-		Identity:   store.Identity{Target: "cloudflare-prod", Definition: "preview-dns", Name: "preview-42.example.com"},
-		RecordType: store.RecordAsset,
-		Run:        entryRun(t),
-		Step:       1,
-		Operation:  "create_dns_record",
-		WrittenAt:  time.Date(2026, 8, 6, 9, 41, 14, 221_000_000, time.UTC),
-		Provenance: theProvenance,
+		Metadata: store.Metadata{
+			Identity:   store.Identity{Target: "cloudflare-prod", Definition: "preview-dns", Name: "preview-42.example.com"},
+			RecordType: store.RecordAsset,
+			Run:        entryRun(t),
+			Step:       1,
+			Operation:  "create_dns_record",
+			WrittenAt:  time.Date(2026, 8, 6, 9, 41, 14, 221_000_000, time.UTC),
+			Provenance: theProvenance,
+		},
 		Fields: store.Mapping{
 			"created_on": store.String("2026-08-06T09:41:14Z"),
 			"id":         store.String("372e67954025e0ba6aaa6d586b9e0b59"),
@@ -132,7 +134,7 @@ func TestRecordVersion_WritesTheSecretMarkerInThePositionTheValueWouldOccupy(t *
 // carries are three ordinary keys and one marker (§7, ADR-0011).
 
 func TestTombstone_IsTheFileSectionSevenPublishes(t *testing.T) {
-	version := store.RecordVersion{
+	version := store.RecordVersion{Metadata: store.Metadata{
 		Identity:   store.Identity{Target: "cloudflare-prod", Definition: "preview-dns", Name: "5b2d84f16c0a39e7d5182bfa604c7e93"},
 		RecordType: store.RecordAsset,
 		Run:        entryRun(t),
@@ -141,7 +143,7 @@ func TestTombstone_IsTheFileSectionSevenPublishes(t *testing.T) {
 		WrittenAt:  time.Date(2026, 8, 6, 9, 43, 36, 512_000_000, time.UTC),
 		Provenance: theProvenance,
 		Tombstone:  true,
-	}
+	}}
 
 	const want = `{
   "definition": "preview-dns",

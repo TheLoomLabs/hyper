@@ -9,12 +9,14 @@
 //
 // What this milestone has landed is the branch's creation (issue #126), the
 // canonical encoding every file on it is written in (issue #127), the path
-// grammar every file on it is named by (issue #128) and the five shapes it
-// holds (issue #129) — a Record version, run.json, a Step file, outcome.json
-// and a closing write, each with a schema version of its own. The read half,
-// the Head and the push retry are the milestone's later tickets; the git layer
-// they all go through is here already, unexported, and stays that way until a
-// caller outside this package earns it.
+// grammar every file on it is named by (issue #128), the five shapes it holds
+// (issue #129) — a Record version, run.json, a Step file, outcome.json and a
+// closing write, each with a schema version of its own — and the read half
+// (issue #130): the sync that puts the branch in hand, the series the branch
+// holds, the Head derived from a listing and the case fold a collision is
+// decided under. The Journal reader and the push retry are the milestone's
+// later tickets; the git layer they all go through is here already,
+// unexported, and stays that way until a caller outside this package earns it.
 //
 // The shapes are the encoder's own case: §7 states rules no command in this
 // milestone can reach, so they are verified at this package's own seam rather
@@ -38,6 +40,16 @@ const (
 // RemoteName is the remote the Store is looked for on and pushed to. It is
 // `origin` and it is not configurable, for BranchName's own reason.
 const RemoteName = "origin"
+
+// trackingRef is where a fetch puts what the remote holds: the ordinary
+// remote-tracking ref, which is also what a `git clone` of a repository that
+// already had a Store leaves behind.
+//
+// A fetch lands here rather than on the branch itself because the two are two
+// facts — what the remote holds, and what this clone holds — and they part
+// exactly where a Run wrote commits it could not push. Pointing the branch at
+// what came is a separate act, and it happens only where it loses nothing (§7).
+const trackingRef = "refs/remotes/" + RemoteName + "/" + BranchName
 
 // Introduction is STORE.md, entire. It is written once, when the Store is
 // created, and never again — a second `init` that rewrote it would be the one
@@ -181,7 +193,7 @@ func Init(repoRoot string, now time.Time) (Initialised, error) {
 	case held:
 		// The shape every runner's fresh clone is in. The branch is
 		// fetched rather than re-created, and nothing is written.
-		if err := repo.fetchRef(RemoteName, Ref); err != nil {
+		if err := repo.arrive(); err != nil {
 			return Initialised{}, err
 		}
 		return Initialised{}, nil

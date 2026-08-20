@@ -34,6 +34,16 @@ import (
 // answer to *which series is this* is inside the file, where the Record version
 // restates its target, definition and name unencoded and in full (§7).
 
+// recordsPrefix is what every Record version's path begins with, and the whole
+// of what an enumeration of the branch's series is listed over. It is spelled
+// here with the others so that nothing outside this file joins a Store path
+// together (§12).
+const recordsPrefix = "records/"
+
+// seriesPrefix is the listing one series' versions are read from: the series'
+// own directory, and the separator that keeps the listing inside it.
+func seriesPrefix(id Identity) string { return seriesDir(id) + "/" }
+
 // IntroductionPath is where the branch introduces itself, and it is the one
 // path in the whole Store that carries no Run id: every other path names the
 // Run that wrote it, and this file is written by no Run (§12, ADR-0076).
@@ -141,8 +151,9 @@ func RecordPath(id Identity, run RunID, step int) string {
 }
 
 // seriesDir is the directory one Record's versions sit in, and the whole of what
-// a Head lookup lists. It is unexported until a reader outside this file needs
-// it, which is milestone 4.6's.
+// a Head lookup lists. It is unexported and reached through seriesPrefix above,
+// which is what the reader lists: nothing outside this file builds a Store path,
+// and a directory without its separator is half of one.
 //
 // It is where an identity is required to be one: an empty component encodes to
 // an empty segment, which is a path git cannot hold and the parser refuses, so
@@ -158,7 +169,7 @@ func seriesDir(id Identity) string {
 			impossible("an identity carries no %s: a Record is identified by its Target, its Definition and a name (§2)", component.role)
 		}
 	}
-	return "records/" + encodeSegment(id.Target) + "/" + encodeSegment(id.Definition) + "/" + encodeSegment(id.Name)
+	return recordsPrefix + encodeSegment(id.Target) + "/" + encodeSegment(id.Definition) + "/" + encodeSegment(id.Name)
 }
 
 // stepNumber writes <nnnn>: the Step's position in the Run's written order, the

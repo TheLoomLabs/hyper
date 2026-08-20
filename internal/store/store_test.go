@@ -3,9 +3,11 @@ package store_test
 import (
 	"bytes"
 	"errors"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -115,11 +117,19 @@ func (r *repo) gitIn(dir string, args ...string) []byte {
 // path, which is the only axis the callers above differ on.
 func (r *repo) run(dir string, stdin []byte, args ...string) []byte {
 	r.t.Helper()
+	return r.runWith(dir, r.env, stdin, args...)
+}
+
+// runWith is the same with the environment named, which one caller needs: a
+// tree is built here through a temporary index, and GIT_INDEX_FILE is how a
+// fixture points git at one without a worktree.
+func (r *repo) runWith(dir string, env []string, stdin []byte, args ...string) []byte {
+	r.t.Helper()
 
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
-	cmd.Env = r.env
+	cmd.Env = env
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}
@@ -170,6 +180,59 @@ func (r *repo) seedStore(gitdir, name, content string) string {
 	}
 	r.git("push", "--quiet", gitdir, commit+":"+store.Ref)
 	return commit
+}
+
+// seedFiles adds one commit to the Store branch of the repository at gitdir,
+// holding the files handed on top of whatever the branch already holds, and
+// answers the new commit.
+//
+// The tree is assembled through a temporary index rather than a checkout, for
+// the reason the package itself never checks the Store out: a fixture that
+// needed a worktree would be testing a shape §7 forbids (ADR-0075). The objects
+// are written in the clone and pushed where the branch being seeded is the bare
+// remote's, which is what seedStore does one file at a time.
+func (r *repo) seedFiles(gitdir string, files map[string]string) string {
+	r.t.Helper()
+
+	index := filepath.Join(r.t.TempDir(), "index")
+	env := append(slices.Clone(r.env), "GIT_INDEX_FILE="+index)
+
+	parent := ""
+	if r.hasStoreBranch(gitdir) {
+		parent = r.textIn(gitdir, "rev-parse", store.Ref)
+		r.runWith(r.root, env, nil, "read-tree", parent)
+	}
+	for _, path := range slices.Sorted(maps.Keys(files)) {
+		blob := strings.TrimSpace(string(r.run(r.root, []byte(files[path]), "hash-object", "-w", "--stdin")))
+		r.runWith(r.root, env, nil, "update-index", "--add", "--cacheinfo", "100644,"+blob+","+path)
+	}
+	tree := strings.TrimSpace(string(r.runWith(r.root, env, nil, "write-tree")))
+
+	commit := []string{"commit-tree", tree, "-m", "a Run that already happened"}
+	if parent != "" {
+		commit = append(commit, "-p", parent)
+	}
+	written := r.text(commit...)
+	if gitdir == r.root {
+		r.git("update-ref", store.Ref, written)
+		return written
+	}
+	r.git("push", "--quiet", gitdir, written+":"+store.Ref)
+	return written
+}
+
+// seedVersions is seedFiles over Record versions, each written to the path the
+// grammar gives it and in the encoding §7 fixes — which is the only shape the
+// reader admits, so a case that seeds one is seeding a file `hyper` could have
+// written.
+func (r *repo) seedVersions(gitdir string, versions ...store.RecordVersion) string {
+	r.t.Helper()
+
+	files := map[string]string{}
+	for _, version := range versions {
+		files[store.RecordPath(version.Identity, version.Run, version.Step)] = string(version.Encode())
+	}
+	return r.seedFiles(gitdir, files)
 }
 
 // storeTree is the Store branch's files at gitdir, rendered as one string per
