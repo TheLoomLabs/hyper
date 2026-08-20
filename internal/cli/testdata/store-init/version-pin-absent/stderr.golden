@@ -1,0 +1,2 @@
+refused: version-pin-absent
+  hyper.yaml carries no version pin — run: hyper project

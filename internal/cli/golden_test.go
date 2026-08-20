@@ -533,11 +533,32 @@ func TestGoldenCorpora_EveryGoldenTripleIsDrivenBySomething(t *testing.T) {
 // is a rule for readers, and nothing else would notice it lapsing.
 func TestGoldenCorpora_ACasesDirectorySaysWhichCommandItExercises(t *testing.T) {
 	for _, c := range goldenCases(t) {
-		command := c.argv[0]
-		if filepath.Base(c.dir) != command && filepath.Base(filepath.Dir(c.dir)) != command {
-			t.Errorf("case %s exercises %q; want it in a directory named %q, or one directly beneath it", c.name, command, command)
+		names := corpusNames(c.argv[0])
+		if !slices.Contains(names, filepath.Base(c.dir)) && !slices.Contains(names, filepath.Base(filepath.Dir(c.dir))) {
+			t.Errorf("case %s exercises %q; want it in a directory named one of %q, or one directly beneath one", c.name, c.argv[0], names)
 		}
 	}
+}
+
+// corpusNames is what a command's corpus may be called: its own name, and — for
+// the one command in §9's tree that has a sub-verb — the noun and the verb
+// hyphenated.
+//
+// The second form exists because a noun-grouped command's name is two words. A
+// caller types `hyper store init`, so `store-init` is what that command is
+// called, and a corpus filed under the bare noun would be the right name only
+// while `init` is the only verb (§9, issue #126). The bare noun stays admissible
+// for the same reason the group exists: a case about the group's own grammar —
+// `hyper store` with no verb at all — belongs beside the verb's cases rather
+// than in a corpus of its own.
+func corpusNames(command string) []string {
+	names := []string{command}
+	if command == "store" {
+		for _, verb := range cli.StoreSubVerbs() {
+			names = append(names, command+"-"+verb)
+		}
+	}
+	return names
 }
 
 // TestGoldenCorpora_StdoutCarriesNothingButTheAnswer is §9's stream discipline

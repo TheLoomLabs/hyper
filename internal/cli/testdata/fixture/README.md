@@ -34,11 +34,12 @@ before the suite and after it.
   not mint a second root against. Its two goldens are the pair: the marker
   locally, the tree on the remote.
 
-The Store content here is a placeholder and is meant to be. §7's encoding, its
-path grammar and `STORE.md`'s prose are milestone 4.2 and 4.3's; what these
-files are for is proving that the bytes a case seeds are the bytes the branch
-holds, in sorted order, and that an absent branch and an empty one are two
-different answers.
+The Store content here is a placeholder and is meant to be. §7's encoding and
+its path grammar are milestone 4.3's, and `STORE.md`'s prose landed with 4.2 in
+`internal/store` — where `../store-init/` holds it against the branch the tool
+actually writes. What these files are for is proving that the bytes a case seeds
+are the bytes the branch holds, in sorted order, and that an absent branch and
+an empty one are two different answers.
 
 **Neither branch golden renders a commit id, a tree id, an author or a date.**
 Nothing `hyper` answers about the record is defined over the branch's commits

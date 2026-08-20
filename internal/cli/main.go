@@ -27,14 +27,13 @@ import (
 // stamped. Nothing in the body below reaches the process for itself, which is
 // what makes the whole dispatch exercisable without a subprocess.
 //
-// now is the fourth of those reads and the one nothing behind this dispatch
-// calls yet: retention is an age and every commit the Store writes takes both
-// its dates from a clock, so the milestone that writes a branch needs one
-// threaded rather than reached for (§7, issue #125). The signature moves once,
-// here, rather than inside the command that first needs it — a clock read from
-// the process by whichever function happened to want one is the property this
-// parameter exists to prevent, and it is cheaper to hold before there is a
-// caller than after.
+// now is the fourth of those reads, and `store` is the first command behind
+// this dispatch to call it: every commit the Store writes takes both its dates
+// from a clock, so a branch a fixture builds is reproducible and `git log` on
+// the Store is honest (§7, issue #125, issue #126). It reaches one command
+// rather than all of them — clockless below is that distinction — because a
+// clock read from the process by whichever function happened to want one is the
+// property this parameter exists to prevent.
 //
 // getwd is a function rather than a resolved path because the exemption is a
 // property of this dispatch and not of the commands behind it. `version` and
@@ -53,8 +52,8 @@ func Main(args []string, stdout, stderr io.Writer, lookupenv func(string) (strin
 	}
 
 	// The commands inside §9's tree that read a repository, and the whole of
-	// what they share: the complete argv past the command name, the two reads
-	// of the process, and the version the gate compares. They are dispatched
+	// what they share: the complete argv past the command name, the three
+	// reads of the process, and the version the gate compares. They are dispatched
 	// off one table rather than a branch each, so the working directory —
 	// resolved for them and for nobody else — is read in one place however
 	// many of the sixteen land (issue #103, issue #111).
@@ -74,7 +73,7 @@ func Main(args []string, stdout, stderr io.Writer, lookupenv func(string) (strin
 			fmt.Fprintf(stderr, "hyper: %s\n", err)
 			return ExitProblems
 		}
-		return run(args[1:], stdout, stderr, lookupenv, wd, facts.Version)
+		return run(args[1:], stdout, stderr, lookupenv, wd, facts.Version, now)
 	}
 
 	switch args[0] {
@@ -96,11 +95,26 @@ func Main(args []string, stdout, stderr io.Writer, lookupenv func(string) (strin
 }
 
 // repositoryCommand is the shape of a command that reads a repository: the
-// arguments past its own name, the two streams, the two reads of the process it
-// is handed rather than makes, and the version the pin gate compares. Every one
-// of §9's sixteen takes it — the gate is stated once for all of them, and
+// arguments past its own name, the two streams, the three reads of the process
+// it is handed rather than makes, and the version the pin gate compares. Every
+// one of §9's sixteen takes it — the gate is stated once for all of them, and
 // nothing else about a command is Main's business.
-type repositoryCommand func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int
+type repositoryCommand func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string, now func() time.Time) int
+
+// clockless adapts a command that reads no clock to the dispatch's one shape.
+//
+// It exists so that the six commands that landed before the Store keep
+// signatures that say what they read: a clock a command never calls is a
+// parameter its reader has to check the body to discharge, and #100's property
+// is that what a command reads from the process is visible in what it takes.
+// `store` is the first of the sixteen to write anything at all, and every commit
+// `hyper` writes takes both its dates from the threaded clock (§7, issue #125) —
+// so it takes one, and the others say by their shape that they do not.
+func clockless(run func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int) repositoryCommand {
+	return func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string, _ func() time.Time) int {
+		return run(args, stdout, stderr, lookupenv, wd, binaryVersion)
+	}
+}
 
 // repositoryCommands is the dispatch: which command runs, for the commands that
 // stand behind the pin gate. It is not §9's tree — tree.go holds that, and a
@@ -108,10 +122,14 @@ type repositoryCommand func(args []string, stdout, stderr io.Writer, lookupenv f
 // this is the subset the binary implements, and a name absent from it is the
 // `unknown command` below.
 var repositoryCommands = map[string]repositoryCommand{
-	"check":     RunCheck,
-	"review":    RunReview,
-	"providers": RunProviders,
-	"provider":  RunProvider,
-	"operation": RunOperation,
-	"targets":   RunTargets,
+	"check":     clockless(RunCheck),
+	"review":    clockless(RunReview),
+	"providers": clockless(RunProviders),
+	"provider":  clockless(RunProvider),
+	"operation": clockless(RunOperation),
+	"targets":   clockless(RunTargets),
+	// The one noun group, dispatched on its noun: `init` is the verb and
+	// RunStore reads it, so the group's grammar is stated in one place
+	// rather than split between the table and the command (§9, issue #126).
+	"store": RunStore,
 }

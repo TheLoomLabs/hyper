@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/repository"
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
 // A golden case can be a real git repository, and this file is the whole of
@@ -36,22 +37,19 @@ import (
 // bare origin and git's own configuration all live under t.TempDir(), and
 // TestMain below holds testdata/ to that byte for byte.
 
-// The two branches a fixture holds, each spelled once as the name a human says
-// and once as the ref git takes. `git checkout hyper-store` is what §7 promises
-// a reader, and refs/heads/hyper-store is what every plumbing call here names,
-// and they are one string so that the two cannot come apart.
+// The code branch a fixture holds, spelled once as the name a human says and
+// once as the ref git takes.
 //
-// hyper-store is a literal here because no package states it yet: internal/store
-// is milestone 4.3's and this ticket is the prefactor in front of it. When that
-// package lands and exports the name, this pair is what to delete. main is named
-// explicitly rather than left to init.defaultBranch, which is a setting on the
-// machine running the suite and would otherwise reach into a fixture.
+// The Store's two are internal/store's, and this file takes them from there
+// rather than restating them: a fixture that seeded refs/heads/hyper-store while
+// the tool wrote somewhere else would be a corpus asserting the wrong branch in
+// silence, which is precisely what one string in two packages eventually buys
+// (issue #126). main is named explicitly rather than left to init.defaultBranch,
+// which is a setting on the machine running the suite and would otherwise reach
+// into a fixture.
 const (
-	storeBranchName = "hyper-store"
-	codeBranchName  = "main"
-
-	storeBranch = "refs/heads/" + storeBranchName
-	codeBranch  = "refs/heads/" + codeBranchName
+	codeBranchName = "main"
+	codeBranch     = "refs/heads/" + codeBranchName
 )
 
 // The identity every commit the fixture makes carries, author and committer
@@ -75,7 +73,7 @@ const defaultInstant = "2026-04-02T09:41:14.221Z"
 // branch that exists and holds nothing are two different answers — the whole
 // distinction store-absent rests on — and a golden that rendered both as
 // nothing could not tell them apart (§7).
-const absentBranch = "no " + storeBranchName + " branch\n"
+const absentBranch = "no " + store.BranchName + " branch\n"
 
 // fixtureInputs is what a case asked the harness for, read off its own
 // directory. Three of them materialise a repository, one seeds a branch on the
@@ -229,7 +227,7 @@ func (c goldenCase) materialise(t *testing.T, in fixtureInputs) gitFixture {
 	fx.run(t, fx.root, "commit", "--quiet", "--message", "the fixture's working tree", "--allow-empty")
 
 	if in.store {
-		fx.run(t, fx.root, "update-ref", storeBranch, fx.orphan(t, filepath.Join(c.dir, "store")))
+		fx.run(t, fx.root, "update-ref", store.Ref, fx.orphan(t, filepath.Join(c.dir, "store")))
 	}
 	if in.remote {
 		fx.origin = filepath.Join(base, "origin.git")
@@ -241,7 +239,7 @@ func (c goldenCase) materialise(t *testing.T, in fixtureInputs) gitFixture {
 			// its id, so origin gains the branch and the clone gains no
 			// ref to it: hyper-store on the remote only, which is the
 			// state a runner's fresh clone is always in (§7).
-			fx.run(t, fx.root, "push", "--quiet", "origin", fx.orphan(t, filepath.Join(c.dir, "remote-store"))+":"+storeBranch)
+			fx.run(t, fx.root, "push", "--quiet", "origin", fx.orphan(t, filepath.Join(c.dir, "remote-store"))+":"+store.Ref)
 		}
 	}
 	return fx
@@ -275,7 +273,7 @@ func (fx gitFixture) orphan(t *testing.T, dir string) string {
 		blob := indexed.text(t, fx.root, "hash-object", "-w", "--no-filters", "--", filepath.Join(seed, filepath.FromSlash(rel)))
 		indexed.run(t, fx.root, "update-index", "--add", "--cacheinfo", "100644,"+blob+","+rel)
 	}
-	return indexed.text(t, fx.root, "commit-tree", indexed.text(t, fx.root, "write-tree"), "-m", "the fixture's "+storeBranchName)
+	return indexed.text(t, fx.root, "commit-tree", indexed.text(t, fx.root, "write-tree"), "-m", "the fixture's "+store.BranchName)
 }
 
 // render is the Store branch of the repository at gitdir, as a branch golden
@@ -324,7 +322,7 @@ func (fx gitFixture) storeTree(t *testing.T, gitdir string) []treeEntry {
 	t.Helper()
 
 	var entries []treeEntry
-	for _, record := range nulSeparated(fx.run(t, gitdir, "ls-tree", "-r", "-z", storeBranch)) {
+	for _, record := range nulSeparated(fx.run(t, gitdir, "ls-tree", "-r", "-z", store.Ref)) {
 		meta, path, named := strings.Cut(record, "\t")
 		fields := strings.Fields(meta)
 		if !named || len(fields) != 3 {
@@ -342,7 +340,7 @@ func (fx gitFixture) storeTree(t *testing.T, gitdir string) []treeEntry {
 func (fx gitFixture) hasStoreBranch(t *testing.T, gitdir string) bool {
 	t.Helper()
 
-	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", storeBranch)
+	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", store.Ref)
 	cmd.Dir = gitdir
 	cmd.Env = fx.env
 	return cmd.Run() == nil
@@ -757,7 +755,7 @@ func (fx gitFixture) assertCommitsAt(t *testing.T, instant time.Time) {
 
 	branches := []string{codeBranch}
 	if fx.hasStoreBranch(t, fx.root) {
-		branches = append(branches, storeBranch)
+		branches = append(branches, store.Ref)
 	}
 	for _, branch := range branches {
 		if got := fx.text(t, fx.root, "log", "-1", "--format=%an%n%ae%n%at%n%cn%n%ce%n%ct", branch); got != want {
@@ -773,11 +771,11 @@ func (fx gitFixture) assertCommitsAt(t *testing.T, instant time.Time) {
 // be seeding a shape the tool will never meet (§7, ADR-0075).
 func TestGoldenFixture_TheStoreBranchIsAParentlessCommit(t *testing.T) {
 	judged := eachMaterialisedCase(t, func(in fixtureInputs) bool { return in.store }, func(t *testing.T, c goldenCase, fx gitFixture) {
-		if parents := fx.text(t, fx.root, "rev-list", "--parents", "-1", storeBranch); len(strings.Fields(parents)) != 1 {
-			t.Errorf("%s is %q; want a commit id alone, a parentless root carrying no history", storeBranch, parents)
+		if parents := fx.text(t, fx.root, "rev-list", "--parents", "-1", store.Ref); len(strings.Fields(parents)) != 1 {
+			t.Errorf("%s is %q; want a commit id alone, a parentless root carrying no history", store.Ref, parents)
 		}
-		if code, store := fx.text(t, fx.root, "rev-parse", codeBranch), fx.text(t, fx.root, "rev-parse", storeBranch); code == store {
-			t.Errorf("%s and %s are one commit; the Store is a branch of its own", codeBranch, storeBranch)
+		if code, record := fx.text(t, fx.root, "rev-parse", codeBranch), fx.text(t, fx.root, "rev-parse", store.Ref); code == record {
+			t.Errorf("%s and %s are one commit; the Store is a branch of its own", codeBranch, store.Ref)
 		}
 	})
 
@@ -875,7 +873,7 @@ func TestGoldenFixture_AnAbsentBranchAndAnEmptyOneAreDifferentAnswers(t *testing
 			t.Errorf("a repository with no Store renders %q, want the marker %q", got, absentBranch)
 		}
 
-		fx.run(t, fx.root, "update-ref", storeBranch, fx.orphan(t, t.TempDir()))
+		fx.run(t, fx.root, "update-ref", store.Ref, fx.orphan(t, t.TempDir()))
 		if got := fx.render(t, fx.root); got != "" {
 			t.Errorf("a Store branch holding nothing renders %q, want it empty and so distinguishable from an absent one", got)
 		}
@@ -896,8 +894,8 @@ func TestGoldenFixture_NeitherGoldenRendersACommitOrADate(t *testing.T) {
 		rendered := fx.render(t, fx.root)
 
 		for what, unwanted := range map[string]string{
-			"the commit id":        fx.text(t, fx.root, "rev-parse", storeBranch),
-			"the tree id":          fx.text(t, fx.root, "rev-parse", storeBranch+"^{tree}"),
+			"the commit id":        fx.text(t, fx.root, "rev-parse", store.Ref),
+			"the tree id":          fx.text(t, fx.root, "rev-parse", store.Ref+"^{tree}"),
 			"the author":           fixtureIdentityName,
 			"the author's address": fixtureIdentityEmail,
 			"the commit date":      c.instant(t).UTC().Format(time.RFC3339),
@@ -933,10 +931,10 @@ func TestGoldenFixture_TheCodeBranchReachesTheRemote(t *testing.T) {
 		// one this fixture exists to reach (§7).
 		in := c.fixtureInputs()
 		if held, want := fx.hasStoreBranch(t, fx.origin), in.remoteStore; held != want {
-			t.Errorf("origin holds %s: %v, want %v — the case %s a remote-store/", storeBranch, held, want, seedsOrNot(want))
+			t.Errorf("origin holds %s: %v, want %v — the case %s a remote-store/", store.Ref, held, want, seedsOrNot(want))
 		}
 		if held, want := fx.hasStoreBranch(t, fx.root), in.store; held != want {
-			t.Errorf("the clone holds %s: %v, want %v — the case %s a store/", storeBranch, held, want, seedsOrNot(want))
+			t.Errorf("the clone holds %s: %v, want %v — the case %s a store/", store.Ref, held, want, seedsOrNot(want))
 		}
 	})
 
