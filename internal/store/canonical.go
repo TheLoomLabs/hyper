@@ -88,13 +88,19 @@ func Secret(Value) Value { return secret{} }
 type secret struct{}
 
 // Always marks a value written even where the absence rule would drop the key
-// holding it. §7 names three keys that earn it and each is argued for on its own
-// terms: dry_run, always and including false, because a reader that takes its
-// absence for false permanently refuses every run-once Step in the Procedure it
-// rehearsed; members, whenever the identity digest moved and the empty list
-// included, because absence there already means the digest did not move; and
-// expanded_to, whenever a selector exists and the empty list included, because
-// an Expansion that resolved to nothing is not a Step with no selector.
+// holding it. Three keys reach for it and each is argued for on its own terms:
+// members, whenever the identity digest moved and the empty list included,
+// because absence there already means the digest did not move; expanded_to,
+// whenever a selector exists and the empty list included, because an Expansion
+// that resolved to nothing is not a Step with no selector; and dry_run, always
+// and including false, because a reader that takes its absence for false
+// permanently refuses every run-once Step in the Procedure it rehearsed.
+//
+// §7 counts two exceptions and #124 counts three, and both are right: the
+// absence rule is stated over an empty mapping and an empty list, which only the
+// first two ever are. dry_run is a boolean the rule never reached, marked here
+// with them because a shape saying which of its keys survive emptiness in one
+// place is a shape that cannot be read two ways.
 //
 // The encoder holds the rule and not the three names. Which key is an exception
 // is a fact about the shape being written, and a list of names compiled in here
@@ -113,6 +119,12 @@ type always struct{ Value }
 // dropped is itself the empty mapping the rule is about — "would be" rather than
 // "is". It is deliberately not recursive through an array: the rule is stated
 // over a key, and dropping an element would move every element after it.
+//
+// It is a function over a Value rather than a method on the interface, which
+// would otherwise be the closer fit: always embeds the value it marks, so it
+// would inherit that value's answer and report the empty list it exists to keep
+// as one to drop. A default that is right for everything but a container is
+// safer stated once here than overridden there.
 func omitted(v Value) bool {
 	switch v := v.(type) {
 	case Mapping:
@@ -130,11 +142,21 @@ func omitted(v Value) bool {
 // anybody, and all of which would reach the Store as something else.
 //
 // It answers an error where the literal is not a JSON number, and where it is
-// one no float64 can hold: `1e400` is a number hyper cannot write down, and
-// saying so at the door is better than writing `+Inf` onto a branch.
+// one this package could only write down as something else: `1e400` overflows
+// every float64, and saying so at the door is better than writing `+Inf` onto a
+// branch that is hashed.
+//
+// That second check is the float path's and is asked only of a literal that
+// takes it. An integer of four hundred digits overflows a float64 too and is
+// accepted, because an integer is written from its digits and never through a
+// float at all — refusing it would be this package declining to write a number
+// it can write exactly.
 func ParseNumber(literal string) (Number, error) {
 	if !isJSONNumber(literal) {
 		return Number{}, fmt.Errorf("%q is not a JSON number", literal)
+	}
+	if _, exact := new(big.Int).SetString(literal, 10); exact {
+		return Number{literal: literal}, nil
 	}
 	if _, err := strconv.ParseFloat(literal, 64); err != nil {
 		return Number{}, fmt.Errorf("%q is not a number a float64 can hold: %w", literal, err)
@@ -212,6 +234,13 @@ func (n Number) write(dst []byte, _ int) []byte {
 // The two agree wherever both could apply: toString of 1e3 is `1000` and of 1.0
 // is `1`. So this is one convention with the exactness kept where a float64
 // would lose it, rather than two conventions meeting at a seam.
+//
+// Above a float64's exact range they part, and one integer spelled two ways is
+// then written two ways: `1e30` is written `1e+30` and the same magnitude in
+// digits is written in digits. That is what holding a number as its literal
+// costs, and it costs nothing on a Run — each form re-encodes to itself, so
+// neither mints a version, and an upstream that changed which form it sends is
+// an upstream whose bytes moved.
 func (n Number) text() string {
 	if n.literal == "" {
 		return "0"
@@ -221,8 +250,11 @@ func (n Number) text() string {
 	}
 	value, err := strconv.ParseFloat(n.literal, 64)
 	if err != nil {
-		// Unreachable: every Number was built from a literal that parsed.
-		return "0"
+		// Unreachable: ParseNumber and Int are the only two doors, and
+		// both check. It panics rather than writing a nought, this being
+		// the one path where a quiet wrong answer goes into a git blob
+		// and is hashed as though somebody meant it.
+		panic(fmt.Sprintf("store: %q reached the encoder as a Number: %s", n.literal, err))
 	}
 	return ecmaScriptString(value)
 }
@@ -357,39 +389,44 @@ func (m Mapping) written() []string {
 
 func (m Mapping) write(dst []byte, indent int) []byte {
 	keys := m.written()
-	if len(keys) == 0 {
-		return append(dst, '{', '}')
-	}
-	dst = append(dst, '{', '\n')
-	for i, key := range keys {
-		dst = indentBy(dst, indent+1)
-		dst = quote(dst, key)
+	return writeBlock(dst, indent, len(keys), '{', '}', func(dst []byte, i int) []byte {
+		dst = quote(dst, keys[i])
 		dst = append(dst, ':', ' ')
-		dst = m[key].write(dst, indent+1)
-		if i < len(keys)-1 {
-			dst = append(dst, ',')
-		}
-		dst = append(dst, '\n')
-	}
-	dst = indentBy(dst, indent)
-	return append(dst, '}')
+		return m[keys[i]].write(dst, indent+1)
+	})
 }
 
 func (a Array) write(dst []byte, indent int) []byte {
-	if len(a) == 0 {
-		return append(dst, '[', ']')
+	return writeBlock(dst, indent, len(a), '[', ']', func(dst []byte, i int) []byte {
+		return a[i].write(dst, indent+1)
+	})
+}
+
+// writeBlock writes a mapping or an array: the opening bracket, one member per
+// line indented a level in, a comma immediately after every member but the last
+// and then the line ending, and the closing bracket back at the caller's indent
+// — or, holding no member, the inline form.
+//
+// The two shapes share it because they share the rule rather than merely
+// resembling one another. Everything §7 fixes about the layout of a block is
+// stated here once: one member per line at the same indent, the comma against
+// the value, no trailing whitespace. Two copies of that is two places it can
+// drift, on a branch where a version is minted wherever the bytes moved.
+func writeBlock(dst []byte, indent, members int, opener, closer byte, member func(dst []byte, i int) []byte) []byte {
+	if members == 0 {
+		return append(dst, opener, closer)
 	}
-	dst = append(dst, '[', '\n')
-	for i, element := range a {
+	dst = append(dst, opener, '\n')
+	for i := range members {
 		dst = indentBy(dst, indent+1)
-		dst = element.write(dst, indent+1)
-		if i < len(a)-1 {
+		dst = member(dst, i)
+		if i < members-1 {
 			dst = append(dst, ',')
 		}
 		dst = append(dst, '\n')
 	}
 	dst = indentBy(dst, indent)
-	return append(dst, ']')
+	return append(dst, closer)
 }
 
 // indentBy writes one line's leading whitespace: two spaces per level, and
@@ -416,7 +453,11 @@ const lowerHex = "0123456789abcdef"
 //
 // It walks bytes rather than runes precisely so that it cannot rewrite one: a
 // UTF-8 byte is passed through untouched, which is what keeps the bytes it
-// hashes the bytes it was handed.
+// hashes the bytes it was handed. A string that is not UTF-8 is therefore
+// written as it stands rather than repaired — every string reaching here came
+// from a JSON decode or from hyper's own text, both of which are UTF-8, and
+// silently substituting a byte in a record that is hashed and never rewritten is
+// the worse of the two failures.
 func quote(dst []byte, s string) []byte {
 	dst = append(dst, '"')
 	for i := range len(s) {

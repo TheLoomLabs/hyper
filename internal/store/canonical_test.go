@@ -20,7 +20,7 @@ import (
 // way the code computes them, and both were reproduced under `sha256sum` while
 // #124 was written.
 
-func TestIdentityDigestOfThePublishedSet(t *testing.T) {
+func TestIdentityDigest_IsTheValueSectionSevenPublishesForFourNames(t *testing.T) {
 	const want = "sha256:a118a517431e241eac83559919ae969346bf5a3bf6e06c6db3e636f378fcdf12"
 
 	// Deliberately not in sorted order: the digest is a fact about the set,
@@ -32,7 +32,7 @@ func TestIdentityDigestOfThePublishedSet(t *testing.T) {
 	}
 }
 
-func TestIdentityDigestOfTheEmptySet(t *testing.T) {
+func TestIdentityDigest_IsTheConstantSectionSevenPublishesForTheEmptySet(t *testing.T) {
 	const want = "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
 
 	if got := store.IdentityDigest(nil); got != want {
@@ -44,7 +44,7 @@ func TestIdentityDigestOfTheEmptySet(t *testing.T) {
 // presentation — a version is minted only where the bytes moved — so every rule
 // is asserted over bytes rather than over a decoded shape.
 
-func TestEncodeSortsKeysByCodePointAndNestsTwoSpaces(t *testing.T) {
+func TestEncode_SortsKeysByCodePointAndNestsTwoSpaces(t *testing.T) {
 	// Zebra before apple in the literal, and `Z` before `a` in the output:
 	// code point order, which is not what a case-folding sort would give.
 	got := string(store.Encode(store.Mapping{
@@ -71,7 +71,7 @@ func TestEncodeSortsKeysByCodePointAndNestsTwoSpaces(t *testing.T) {
 	}
 }
 
-func TestEncodeWritesTheEmptyMappingAndArrayInline(t *testing.T) {
+func TestEncode_WritesTheEmptyMappingAndArrayInline(t *testing.T) {
 	for name, tc := range map[string]struct {
 		value store.Value
 		want  string
@@ -91,7 +91,7 @@ func TestEncodeWritesTheEmptyMappingAndArrayInline(t *testing.T) {
 	}
 }
 
-func TestEncodeEndsInATrailingLFAndCarriesNoTrailingWhitespace(t *testing.T) {
+func TestEncode_EndsInATrailingLFAndCarriesNoTrailingWhitespace(t *testing.T) {
 	encoded := store.Encode(store.Mapping{
 		"array":   store.Array{store.String("a")},
 		"mapping": store.Mapping{"k": store.String("v")},
@@ -114,7 +114,7 @@ func TestEncodeEndsInATrailingLFAndCarriesNoTrailingWhitespace(t *testing.T) {
 // list is absent rather than written empty (§7) — and three keys are written
 // anyway, because absence at each of them already means something else.
 
-func TestEncodeOmitsAKeyWhoseValueWouldBeEmpty(t *testing.T) {
+func TestEncode_OmitsAKeyWhoseValueWouldBeEmpty(t *testing.T) {
 	got := string(store.Encode(store.Mapping{
 		"fields":    store.Mapping{},
 		"members":   store.Array{},
@@ -137,7 +137,7 @@ func TestEncodeOmitsAKeyWhoseValueWouldBeEmpty(t *testing.T) {
 	}
 }
 
-func TestEncodeWritesAnAlwaysKeyIncludingItsEmptyForm(t *testing.T) {
+func TestAlways_WritesItsKeyIncludingTheEmptyForm(t *testing.T) {
 	got := string(store.Encode(store.Mapping{
 		"dry_run":     store.Always(store.Bool(false)),
 		"expanded_to": store.Always(store.Array{}),
@@ -156,7 +156,7 @@ func TestEncodeWritesAnAlwaysKeyIncludingItsEmptyForm(t *testing.T) {
 	}
 }
 
-func TestAnAlwaysKeyKeepsTheMappingHoldingItPresent(t *testing.T) {
+func TestAlways_KeepsTheMappingHoldingItPresent(t *testing.T) {
 	got := string(store.Encode(store.Mapping{
 		"step": store.Mapping{"expanded_to": store.Always(store.Array{})},
 	}))
@@ -177,7 +177,7 @@ func TestAnAlwaysKeyKeepsTheMappingHoldingItPresent(t *testing.T) {
 // disagree about — and every hexadecimal digit hyper writes is lowercase (§7,
 // ADR-0079).
 
-func TestEncodeEscapesTheMinimumJSONRequires(t *testing.T) {
+func TestEncode_EscapesTheMinimumJSONRequires(t *testing.T) {
 	for name, tc := range map[string]struct{ in, want string }{
 		"the quote and the backslash":                      {"he said \"\\\"", `"he said \"\\\""`},
 		"the short forms":                                  {"\b\f\n\r\t", `"\b\f\n\r\t"`},
@@ -196,7 +196,7 @@ func TestEncodeEscapesTheMinimumJSONRequires(t *testing.T) {
 	}
 }
 
-func TestEveryHexadecimalDigitTheEncoderWritesIsLowercase(t *testing.T) {
+func TestEncode_WritesEveryHexadecimalDigitLowercase(t *testing.T) {
 	// U+001A to U+001F are the control characters whose escape carries a
 	// hexadecimal digit above nine, which is the only place in the encoding
 	// there is a case to get wrong at all.
@@ -210,7 +210,7 @@ func TestEveryHexadecimalDigitTheEncoderWritesIsLowercase(t *testing.T) {
 	}
 }
 
-func TestAKeyIsEscapedTheSameWayAValueIs(t *testing.T) {
+func TestEncode_EscapesAKeyTheSameWayAsAValue(t *testing.T) {
 	got := string(store.Encode(store.Mapping{"a\"b": store.String("v")}))
 
 	if want := "{\n  \"a\\\"b\": \"v\"\n}\n"; want != got {
@@ -235,7 +235,7 @@ func number(t *testing.T, literal string) store.Number {
 	return n
 }
 
-func TestEncodeWritesAnExactIntegerAsItsDecimalDigits(t *testing.T) {
+func TestNumber_WritesAnExactIntegerAsItsDecimalDigits(t *testing.T) {
 	for literal, want := range map[string]string{
 		"0":                "0",
 		"-0":               "0",
@@ -257,7 +257,7 @@ func TestEncodeWritesAnExactIntegerAsItsDecimalDigits(t *testing.T) {
 	}
 }
 
-func TestEncodeWritesANonIntegerAsECMAScriptWouldPrintIt(t *testing.T) {
+func TestNumber_WritesWhatIsNotAnIntegerAsECMAScriptWould(t *testing.T) {
 	for literal, want := range map[string]string{
 		"1.5":      "1.5",
 		"0.1":      "0.1",
@@ -279,7 +279,7 @@ func TestEncodeWritesANonIntegerAsECMAScriptWouldPrintIt(t *testing.T) {
 // The integer beyond a float64's exact range is why a number is held as its
 // literal text rather than round-tripped through a float: 9007199254740993 is
 // 2^53 + 1, and a float64 holding it holds 9007199254740992 instead.
-func TestANumberIsHeldAsItsLiteralRatherThanThroughAFloat(t *testing.T) {
+func TestNumber_IsHeldAsItsLiteralRatherThanThroughAFloat(t *testing.T) {
 	const literal = "9007199254740993"
 
 	if float64(9007199254740993) == float64(9007199254740992) {
@@ -293,7 +293,7 @@ func TestANumberIsHeldAsItsLiteralRatherThanThroughAFloat(t *testing.T) {
 	t.Fatal("2^53 + 1 is representable as a float64 here; the case needs a bigger number")
 }
 
-func TestEveryNumberTheEncoderWritesRoundTripsThroughADecode(t *testing.T) {
+func TestNumber_RoundTripsThroughADecode(t *testing.T) {
 	for _, literal := range []string{
 		"0", "-42", "1000000", "9007199254740993", "1.5", "0.1",
 		"0.000001", "1e-7", "1e21", "1.5e300", "1.0e3",
@@ -318,7 +318,7 @@ func TestEveryNumberTheEncoderWritesRoundTripsThroughADecode(t *testing.T) {
 	}
 }
 
-func TestParseNumberRefusesWhatIsNotAJSONNumber(t *testing.T) {
+func TestParseNumber_RefusesWhatIsNotAJSONNumber(t *testing.T) {
 	for _, literal := range []string{
 		"", " ", "01", "1.", ".5", "+1", "1e", "1e+", "0x10",
 		"Infinity", "NaN", "1_000", "1e400", "--1", "1 2", "1e+-5", "1.2.3",
@@ -331,7 +331,7 @@ func TestParseNumberRefusesWhatIsNotAJSONNumber(t *testing.T) {
 	}
 }
 
-func TestIntIsANumberWithoutALiteralToParse(t *testing.T) {
+func TestInt_IsANumberWithoutALiteralToParse(t *testing.T) {
 	got := string(store.Encode(store.Mapping{
 		"schema_version": store.Int(1),
 		"step":           store.Int(-3),
@@ -353,7 +353,7 @@ func TestIntIsANumberWithoutALiteralToParse(t *testing.T) {
 // two writers fall through to the file-name tie-break is a thousandth of what
 // whole seconds would leave (§7).
 
-func TestEncodeWritesATimestampAtThreeFractionalDigits(t *testing.T) {
+func TestTimestamp_WritesThreeFractionalDigitsInUTC(t *testing.T) {
 	for name, tc := range map[string]struct {
 		instant time.Time
 		want    string
@@ -384,7 +384,7 @@ func TestEncodeWritesATimestampAtThreeFractionalDigits(t *testing.T) {
 	}
 }
 
-func TestLexicographicOrderOverATimestampIsChronologicalOrder(t *testing.T) {
+func TestTimestamp_SortsLexicographicallyIntoChronologicalOrder(t *testing.T) {
 	earlier := store.Encode(store.Timestamp(time.Date(2026, time.August, 6, 9, 41, 14, 9_000_000, time.UTC)))
 	later := store.Encode(store.Timestamp(time.Date(2026, time.August, 6, 9, 41, 14, 90_000_000, time.UTC)))
 
@@ -401,7 +401,7 @@ func TestLexicographicOrderOverATimestampIsChronologicalOrder(t *testing.T) {
 // is a constant, a rotated secret writes identical bytes and correctly mints no
 // version, which is what keeps the byte comparison honest.
 
-func TestASecretIsWrittenAsTheConstantMarker(t *testing.T) {
+func TestSecret_IsWrittenAsTheConstantMarker(t *testing.T) {
 	got := string(store.Encode(store.Mapping{
 		"fields": store.Mapping{
 			"api_token": store.Secret(store.String("s3cr3t-value")),
@@ -424,7 +424,7 @@ func TestASecretIsWrittenAsTheConstantMarker(t *testing.T) {
 	}
 }
 
-func TestTwoDifferentSecretsWriteIdenticalBytes(t *testing.T) {
+func TestSecret_WritesIdenticalBytesForTwoDifferentSecrets(t *testing.T) {
 	rotated := store.Encode(store.Secret(store.String("the-new-token")))
 	previous := store.Encode(store.Secret(store.String("the-old-token")))
 
@@ -436,7 +436,7 @@ func TestTwoDifferentSecretsWriteIdenticalBytes(t *testing.T) {
 	}
 }
 
-func TestASecretSuppressesAWholeStructureRatherThanDescribingIt(t *testing.T) {
+func TestSecret_SuppressesAWholeStructureRatherThanDescribingIt(t *testing.T) {
 	got := string(store.Encode(store.Secret(store.Mapping{
 		"key_id": store.String("kid-7"),
 		"pem":    store.String("-----BEGIN PRIVATE KEY-----"),
@@ -486,7 +486,7 @@ func insideAFile(t *testing.T, v store.Value) string {
 // the key holding one, so there is no nested form to compare an alone form
 // against. Their equality is asserted where it is observable instead — as array
 // elements, in the case above that writes {} and [] inline.
-func TestAValueAloneIsTheValueAsAWholeFile(t *testing.T) {
+func TestEncode_WritesAValueAloneAsItWritesItInAWholeFile(t *testing.T) {
 	for name, value := range map[string]store.Value{
 		"a mapping": store.Mapping{
 			"definition": store.String("preview-dns"),
@@ -522,7 +522,7 @@ func TestAValueAloneIsTheValueAsAWholeFile(t *testing.T) {
 // §7 prints the exact bytes one identity digest is taken over. Asserting them
 // beside the digest is what makes a failing digest diagnosable: the digest says
 // something moved, and this says what.
-func TestTheArrayTheDigestIsTakenOverIsWrittenAsSevenPrintsIt(t *testing.T) {
+func TestEncode_WritesTheDigestedArrayAsSectionSevenPrintsIt(t *testing.T) {
 	got := string(store.Encode(store.Array{
 		store.String("ci-macos"),
 		store.String("ci-riscv"),
@@ -539,5 +539,55 @@ func TestTheArrayTheDigestIsTakenOverIsWrittenAsSevenPrintsIt(t *testing.T) {
 `
 	if got != want {
 		t.Errorf("encoded:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// Two facts about holding a number as its literal, pinned because #129's shapes
+// are written on top of them and neither is obvious from the rules alone.
+
+// An integer is written from its digits and never through a float, so the width
+// a float64 can hold is not this package's limit on one. `1e400` is refused
+// because the float path is the only one that could write it and cannot; the
+// same magnitude spelled in digits is written exactly.
+func TestParseNumber_AcceptsAnIntegerNoFloat64CouldHold(t *testing.T) {
+	huge := "1" + strings.Repeat("0", 400)
+
+	if got := string(store.Encode(number(t, huge))); got != huge+"\n" {
+		t.Errorf("encoded a 401-digit integer as %q", got)
+	}
+	if _, err := store.ParseNumber("1e400"); err == nil {
+		t.Error("ParseNumber(\"1e400\") answered no error")
+	}
+}
+
+// One integer spelled two ways is written two ways, and that is the price of
+// #124's decision that a number is held as its literal rather than round-tripped
+// through a float: the digits are written exactly, and an exponent form is
+// written as ECMAScript would print it, which is what a reviewer reading the
+// branch in a browser sees.
+//
+// It costs nothing on a Run. Both forms are stable under re-encoding, so neither
+// mints a version by itself; only an upstream that changed which form it sends
+// moves the bytes, and there the bytes did move.
+func TestNumber_WritesOneIntegersTwoSpellingsAsEachIsSpelled(t *testing.T) {
+	digits := "1" + strings.Repeat("0", 30)
+
+	for literal, want := range map[string]string{
+		digits: digits,
+		"1e30": "1e+30",
+	} {
+		t.Run(literal, func(t *testing.T) {
+			written := string(store.Encode(number(t, literal)))
+			if written != want+"\n" {
+				t.Fatalf("encoded %s = %q, want %q", literal, written, want)
+			}
+
+			// Stable under re-encoding, which is the property a Run
+			// depends on: what was written re-encodes to itself.
+			again := string(store.Encode(number(t, strings.TrimSuffix(written, "\n"))))
+			if again != written {
+				t.Errorf("re-encoded %q as %q", written, again)
+			}
+		})
 	}
 }
