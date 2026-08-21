@@ -1,0 +1,5 @@
+kind: definition
+definition: uptime-check
+provider: uptime
+kinds: [read]
+targets: [local]

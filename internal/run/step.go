@@ -53,10 +53,11 @@ type binding struct {
 
 // perform runs one Step and answers what became of it.
 //
-// **The Expansion resolves first**, before the Step's first call goes out, and
-// what it declines is a Refusal the Run ends on rather than a fault (§6,
-// expand.go). Past it the members are dispatched in Expansion order, each
-// response projected and each version written only where the bytes moved.
+// **The condition decides first and the Expansion resolves second**, both
+// before the Step's first call goes out, and what either declines is a Refusal
+// the Run ends on rather than a fault (§6, condition.go, expand.go). Past them
+// the members are dispatched in Expansion order, each response projected and
+// each version written only where the bytes moved.
 //
 // The error it answers is what halted the Run, and the Step it answers beside
 // it stands whether or not there is one: a Step that reached a Disposition
@@ -67,7 +68,7 @@ type binding struct {
 // member is attempted, every Observation that succeeded is recorded, and the
 // Run then halts with the rest of the results already on disk. drain.go states
 // why that is not a preference (§6).
-func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, error) {
+func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) {
 	bound, err := resolve(r.request.Repository, authored)
 	if err != nil {
 		return Step{}, nil, err
@@ -78,13 +79,9 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 		OriginDigest:       artefact.ReadManifestFacts(bound.manifest.Root).OriginDigest,
 	}
 	started := r.request.Now()
-
-	held, declined, err := r.expand(bound, authored, position)
-	if err != nil {
-		return Step{}, nil, err
-	}
 	file := store.StepFile{
 		Step: position,
+		Path: authored.Path,
 		StepCode: store.StepCode{
 			ID:         authored.ID,
 			Definition: authored.Definition,
@@ -95,8 +92,33 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 		},
 		StartedAt:  started,
 		Provenance: provenance,
-		Selector:   store.Selector{Declared: held.Selector.Declared, ExpandedTo: held.names()},
 	}
+	reached := Step{
+		Position: position, ID: authored.ID, Path: authored.Path,
+		Kind: file.Kind, Provenance: provenance,
+	}
+
+	// **The condition decides before the Expansion resolves**, so a Step it
+	// does not hold for expands over nothing, reaches no Target and cannot
+	// Refuse on a selector it never resolved (§6, condition.go). Its file
+	// therefore carries no `selector` block at all — a Step that resolved
+	// none holds none (§7).
+	held, declined := r.decided(authored, position)
+	if len(declined) > 0 {
+		reached.Disposition, file.Disposition = store.DispositionRefused, store.DispositionRefused
+		return reached, declined, r.write(file)
+	}
+	if !held {
+		reached.Disposition = store.DispositionSkippedByCondition
+		file.Disposition = reached.Disposition
+		return reached, nil, r.write(file)
+	}
+
+	expanded, declined, err := r.expand(bound, authored, position)
+	if err != nil {
+		return Step{}, nil, err
+	}
+	file.Selector = store.Selector{Declared: expanded.Selector.Declared, ExpandedTo: expanded.names()}
 
 	// A Refusal at a Step's Expansion. The Step file records what actually
 	// happened to that Step — its Disposition, its selector, and what it
@@ -104,12 +126,8 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 	// concluded about anything. The Refusal itself is held on
 	// `outcome.json` and never here (§7, ADR-0061).
 	if len(declined) > 0 {
-		step := Step{
-			Position: position, ID: authored.ID, Kind: file.Kind,
-			Disposition: store.DispositionRefused, Provenance: provenance,
-		}
-		file.Disposition = step.Disposition
-		return step, declined, r.write(file)
+		reached.Disposition, file.Disposition = store.DispositionRefused, store.DispositionRefused
+		return reached, declined, r.write(file)
 	}
 
 	// The calls, dispatched in Expansion order and bounded by the
@@ -119,7 +137,7 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 	//
 	// **Every member is attempted**, whatever any other member's call did,
 	// and what stopped one is read back below in Expansion order.
-	answers, faults := dispatch(bound.detail.ConcurrencyLimit, held.Members, func(resolving member) (conclusion, error) {
+	answers, faults := dispatch(bound.detail.ConcurrencyLimit, expanded.Members, func(resolving member) (conclusion, error) {
 		return r.call(bound, authored, resolving)
 	})
 
@@ -134,7 +152,12 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 	// drain (§6, drain.go). The fault the Run carries is the **first in
 	// Expansion order** and not the first to arrive, which is what keeps
 	// *which fault* out of the completion order's reach as well.
-	names := make([]string, 0, len(held.Members))
+	names := make([]string, 0, len(expanded.Members))
+	// What this Step **acted on**, for the conditions and the references of
+	// the Steps after it: the fields each call concluded, whether or not the
+	// version they would have written moved the bytes. A Record going
+	// unchanged is not a Record going missing (§6, ADR-0030, condition.go).
+	records := make([]store.Mapping, 0, len(expanded.Members))
 	var halted error
 	for at, fault := range faults {
 		if fault != nil {
@@ -145,6 +168,7 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 		}
 		answer := answers[at]
 		names = append(names, answer.name)
+		records = append(records, answer.fields)
 
 		identity := store.Identity{Target: authored.Target, Definition: authored.Definition, Name: answer.name}
 		version := store.RecordVersion{
@@ -154,6 +178,11 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 				Run:        r.id,
 				Step:       position,
 				Operation:  authored.Operation,
+				// The invocation chain, where this Step was reached
+				// through one. A Record version written by a nested
+				// Step carries that Step's `path` as the Step's own
+				// file does (§7, issue #141).
+				Path:       authored.Path,
 				WrittenAt:  r.request.Now(),
 				Provenance: store.Provenance{Run: r.provenance, Step: provenance},
 			},
@@ -176,7 +205,7 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 	// The identity set, and the digest it is written against: the last Run
 	// of this Procedure in which this Step carried one, which is never
 	// simply the previous Run (§7, ADR-0055).
-	previous, err := r.previousDigest(authored.ID)
+	previous, err := r.previousDigest(authored)
 	if err != nil {
 		return Step{}, nil, err
 	}
@@ -198,19 +227,17 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 	// the end of its Expansion accounted for all of it and has nothing for
 	// a second number to say, which is what keeps `n of m` meaning
 	// *unaccounted for* rather than *these two counts differ*.
-	step := Step{
-		Position:    position,
-		ID:          authored.ID,
-		Kind:        file.Kind,
-		Disposition: store.DispositionRan,
-		Records:     len(concluded),
-		Concluded:   true,
-		Provenance:  provenance,
-	}
+	reached.Disposition = store.DispositionRan
+	reached.Records, reached.Concluded = len(concluded), true
 	if halted != nil {
-		step.Expanded = len(held.Members)
+		reached.Expanded = len(expanded.Members)
 	}
-	file.Disposition = step.Disposition
+	// What this Step acted on is held for the Steps after it at the moment
+	// it reaches its Disposition, which is the moment §6 fixes: a Step's
+	// Records are written as each call confirms, and all of it before the
+	// next Step starts.
+	r.acted[stepKey{authored.Namespace, authored.ID}] = records
+	file.Disposition = reached.Disposition
 	file.Identities = store.Concluded(names, previous)
 	// The Step's file goes down whether or not the Expansion drained: a
 	// Step that reached a Disposition wrote its file, and a halted Run
@@ -219,7 +246,40 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 	if err := r.write(file); err != nil {
 		return Step{}, nil, err
 	}
-	return step, nil, halted
+	return reached, nil, halted
+}
+
+// decided evaluates the Step's `when:` and answers whether it holds.
+//
+// A Step carrying none holds unconditionally, which is what a Step with no
+// condition is. Everything else is condition.go's: the Records the named Step
+// of **this Run** acted on, the eleven operators against them, and the skip
+// that propagates where that Step acted on nothing.
+//
+// **A predicate handed a value it cannot compare Refuses here**, as it does at
+// an Expansion and for the same reason: a Record that quietly failed to compare
+// is indistinguishable from one that compared and did not match (§12,
+// ADR-0035). It is a Refusal rather than a halt because it decides before the
+// Step's first call goes out — earlier, in fact, than the Expansion that would
+// have resolved the population (§6, ADR-0072).
+//
+// It reaches no Store and so answers no error. What it reads is what the Steps
+// of this Run already did, which the Run is holding.
+func (r run) decided(authored sequenced, position int) (bool, []Refusal) {
+	when, carried := readCondition(authored.When)
+	if !carried {
+		return true, nil
+	}
+
+	held, mismatch := when.holds(r.acted[stepKey{authored.Namespace, when.Step}], r.started)
+	if mismatch == "" {
+		return held, nil
+	}
+
+	cited := r.citation(authored, position, selector{})
+	return false, []Refusal{r.refusal(CodePredicateTypeMismatch,
+		fmt.Sprintf("on the Record step %s acted on, %s", when.Step, mismatch),
+		cited.at(when.Line, "when."+when.Operator))}
 }
 
 // write puts one Step's file down, which is the last thing that happens at a
@@ -248,7 +308,7 @@ func (r run) write(file store.StepFile) error {
 // is the honest answer for a caller that reached the engine another way: the
 // Step cannot be performed, and a halt says so without claiming an `error_code`
 // no check produced (§12, ADR-0060).
-func resolve(loaded repository.Loaded, authored artefact.Step) (binding, error) {
+func resolve(loaded repository.Loaded, authored sequenced) (binding, error) {
 	// The two halves of the Definition namespace: what the name resolves to,
 	// and the file it was read from. They are folded from one walk, so one
 	// answering and the other not is a repository nobody could have loaded
@@ -256,20 +316,20 @@ func resolve(loaded repository.Loaded, authored artefact.Step) (binding, error) 
 	info, declared := loaded.Definitions[authored.Definition]
 	definition, held := loaded.Definition(authored.Definition)
 	if !declared || !held {
-		return binding{}, fmt.Errorf("step %s names definition %s, which resolves to nothing — hyper check reports it", authored.ID, authored.Definition)
+		return binding{}, fmt.Errorf("step %s names definition %s, which resolves to nothing — hyper check reports it", named(authored), authored.Definition)
 	}
 	manifest, published := loaded.Manifests[info.ProviderName]
 	provider, exposed := loaded.Providers[info.ProviderName]
 	if !published || !exposed {
-		return binding{}, fmt.Errorf("step %s binds definition %s, whose provider %s resolves to nothing — hyper check reports it", authored.ID, authored.Definition, info.ProviderName)
+		return binding{}, fmt.Errorf("step %s binds definition %s, whose provider %s resolves to nothing — hyper check reports it", named(authored), authored.Definition, info.ProviderName)
 	}
 	target, granted := loaded.Targets[authored.Target]
 	if !granted {
-		return binding{}, fmt.Errorf("step %s names target %s, which resolves to nothing — hyper check reports it", authored.ID, authored.Target)
+		return binding{}, fmt.Errorf("step %s names target %s, which resolves to nothing — hyper check reports it", named(authored), authored.Target)
 	}
 	operation, declares := provider.Operations[authored.Operation]
 	if !declares {
-		return binding{}, fmt.Errorf("step %s names operation %s, which %s declares nothing of that name — hyper check reports it", authored.ID, authored.Operation, info.ProviderName)
+		return binding{}, fmt.Errorf("step %s names operation %s, which %s declares nothing of that name — hyper check reports it", named(authored), authored.Operation, info.ProviderName)
 	}
 	return binding{
 		definition: definition, manifest: manifest, provider: provider, target: target, operation: operation,
@@ -298,10 +358,10 @@ type conclusion struct {
 // It is one member's and never the Step's, and the error it answers halts
 // nothing on its own: what a fault here does to the members beside it is the
 // drain, one caller up (§6, drain.go).
-func (r run) call(bound binding, authored artefact.Step, resolving member) (conclusion, error) {
+func (r run) call(bound binding, authored sequenced, resolving member) (conclusion, error) {
 	if bound.operation.Identity == "" {
 		return conclusion{}, fmt.Errorf("step %s binds %s %s, whose record: declares no identity, so hyper cannot say which Record a call would be holding — hyper check reports it",
-			authored.ID, bound.manifest.Name, authored.Operation)
+			named(authored), bound.manifest.Name, authored.Operation)
 	}
 	// The inputs are the Expansion's, resolved for this member before the
 	// first call of the Step went out: an `args:` value arriving from a
@@ -312,14 +372,14 @@ func (r run) call(bound binding, authored artefact.Step, resolving member) (conc
 	reach := artefact.ResolveHost(bound.provider, bound.operation, bound.target,
 		bound.operation.SuppliedHost(inputs))
 	if reach.Reach != artefact.ReachGranted {
-		return conclusion{}, fmt.Errorf("step %s reaches no host %s grants — hyper check reports it", authored.ID, authored.Target)
+		return conclusion{}, fmt.Errorf("step %s reaches no host %s grants — hyper check reports it", named(authored), authored.Target)
 	}
 
 	declaration := artefact.OperationNode(bound.manifest.Root, authored.Operation)
 	declared, legible := capability.ReadRequest(declaration)
 	if !legible {
 		return conclusion{}, fmt.Errorf("step %s binds %s %s, which declares no legible http: block — hyper check reports what is wrong with it",
-			authored.ID, bound.manifest.Name, authored.Operation)
+			named(authored), bound.manifest.Name, authored.Operation)
 	}
 	built, err := declared.Build(reach.Host, inputs)
 	if err != nil {
@@ -354,13 +414,13 @@ func (r run) call(bound binding, authored artefact.Step, resolving member) (conc
 	// (§7, §8).
 	if errors.Is(err, context.DeadlineExceeded) {
 		return conclusion{}, fmt.Errorf("step %s: the Operation's deadline of %s was reached on %s and no response arrived",
-			authored.ID, bound.detail.Deadline, reach.Host)
+			named(authored), bound.detail.Deadline, reach.Host)
 	}
 
 	name, resolved := identityOf(bound.operation, inputs, response)
 	if !resolved {
 		return conclusion{}, fmt.Errorf("step %s: the identity path %s did not resolve against what came back, so hyper cannot say which Record it is holding",
-			authored.ID, bound.operation.Identity)
+			named(authored), bound.operation.Identity)
 	}
 	return conclusion{name: name, fields: projected(bound.operation, projection.Read(declaration).Project(response))}, nil
 }
@@ -494,12 +554,24 @@ func mints(held *store.Store, version store.RecordVersion) (bool, error) {
 // a digest — and each would then read the other's set as its own, writing no
 // members while the digest never moved. §7's rule is *the last Run in which
 // that Step carried a set*, and a Step belongs to the Procedure that wrote it.
-func (r run) previousDigest(id string) (string, error) {
-	for evidence, err := range r.request.Store.Scan(id) {
+//
+// **And so is another invocation chain's.** One Run holds the Steps of every
+// Procedure it invokes, so two nested Procedures may each declare a `status`
+// and both be Steps of one Run — told apart by the `path` their files carry
+// beside that id, which is the same filter one Procedure over (§7, issue #141).
+// Where one Procedure is invoked twice the two chains are one path
+// (sequence.go), and the comparand is then the more recent of the two: §7
+// matches a Step by what it was authored as, and those two Steps were authored
+// as one.
+func (r run) previousDigest(authored sequenced) (string, error) {
+	for evidence, err := range r.request.Store.Scan(authored.ID) {
 		if err != nil {
 			return "", err
 		}
 		if evidence.Entry.RunFile.DryRun || evidence.Entry.RunFile.Procedure != r.request.Procedure {
+			continue
+		}
+		if evidence.Step.Path != authored.Path {
 			continue
 		}
 		if digest := evidence.Step.Identities.Digest; digest != "" {

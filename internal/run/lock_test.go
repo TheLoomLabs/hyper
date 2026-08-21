@@ -17,21 +17,28 @@ import (
 
 // TestLockMode_IsSharedWhereEveryStepIsARead is the monitoring cadence's case,
 // and the reason there are two modes at all.
+//
+// It reads through a nested invocation as well: a Procedure invoking another
+// runs as one Run, so what decides the lock is the Kinds of every Step the walk
+// reaches and not the depth it reached them at (§6, issue #141).
 func TestLockMode_IsSharedWhereEveryStepIsARead(t *testing.T) {
 	loaded := loadFixture(t)
 
-	if got := run.LockMode(loaded, "watch-status"); got != store.Shared {
-		t.Errorf("LockMode(watch-status) = %v, want Shared", got)
+	for _, procedure := range []string{"watch-status", "watch-nested"} {
+		if got := run.LockMode(loaded, procedure); got != store.Shared {
+			t.Errorf("LockMode(%s) = %v, want Shared", procedure, got)
+		}
 	}
 }
 
 // TestLockMode_IsExclusiveWhereAnyStepIsEffectful is the other arm, over both
-// effectful Kinds and over a Procedure whose effectful Step is not its first:
-// *any* effectful Step, and never *the first one decides*.
+// effectful Kinds, over a Procedure whose effectful Step is not its first —
+// *any* effectful Step, and never *the first one decides* — and over one whose
+// only effectful Step is inside a Procedure it invokes.
 func TestLockMode_IsExclusiveWhereAnyStepIsEffectful(t *testing.T) {
 	loaded := loadFixture(t)
 
-	for _, procedure := range []string{"publish-preview", "retire-preview", "read-then-publish"} {
+	for _, procedure := range []string{"publish-preview", "retire-preview", "read-then-publish", "watch-nested-effectful"} {
 		if got := run.LockMode(loaded, procedure); got != store.Exclusive {
 			t.Errorf("LockMode(%s) = %v, want Exclusive", procedure, got)
 		}
@@ -39,17 +46,18 @@ func TestLockMode_IsExclusiveWhereAnyStepIsEffectful(t *testing.T) {
 }
 
 // TestLockMode_IsExclusiveWhereAStepsKindCannotBeRead is the conservative half.
-// A Step whose binding does not resolve, and a nested invocation whose own
-// Steps this walk does not reach, both carry no Kind here — and a Run whose
-// blast radius cannot be read is not a Run that may share the Store.
+// A Step whose binding does not resolve carries no Kind here; an invocation
+// naming a Procedure that is not there, and one that is a cycle, leave Steps
+// the walk never reached at all. A Run whose blast radius cannot be read is not
+// a Run that may share the Store.
 //
-// Neither ever gets as far as its first Step: an unresolvable binding is
-// `check`'s to refuse and an invocation is a decline of its own. The lock is
-// taken before both, so what it does with them is a fact of its own.
+// None of them ever gets as far as its first Step: every one is `check`'s to
+// refuse at Run start. The lock is taken before that, so what it does with them
+// is a fact of its own.
 func TestLockMode_IsExclusiveWhereAStepsKindCannotBeRead(t *testing.T) {
 	loaded := loadFixture(t)
 
-	for _, procedure := range []string{"watch-unresolvable", "watch-nested"} {
+	for _, procedure := range []string{"watch-unresolvable", "watch-nested-absent", "watch-cyclic"} {
 		if got := run.LockMode(loaded, procedure); got != store.Exclusive {
 			t.Errorf("LockMode(%s) = %v, want Exclusive", procedure, got)
 		}
@@ -160,6 +168,26 @@ func loadFixture(t *testing.T) repository.Loaded {
 			"targets: [local]\n" +
 			"steps:\n" +
 			"  - {id: inner, procedure: watch-status}\n",
+		"procedures/watch-nested-effectful.yaml": "" +
+			"kind: procedure\n" +
+			"procedure: watch-nested-effectful\n" +
+			"targets: [local]\n" +
+			"steps:\n" +
+			"  - {id: status, definition: uptime-check, operation: check_http, target: local}\n" +
+			"  - {id: inner, procedure: publish-preview}\n",
+		"procedures/watch-nested-absent.yaml": "" +
+			"kind: procedure\n" +
+			"procedure: watch-nested-absent\n" +
+			"targets: [local]\n" +
+			"steps:\n" +
+			"  - {id: inner, procedure: no-such-procedure}\n",
+		"procedures/watch-cyclic.yaml": "" +
+			"kind: procedure\n" +
+			"procedure: watch-cyclic\n" +
+			"targets: [local]\n" +
+			"steps:\n" +
+			"  - {id: status, definition: uptime-check, operation: check_http, target: local}\n" +
+			"  - {id: again, procedure: watch-cyclic}\n",
 	} {
 		full := filepath.Join(root, filepath.FromSlash(path))
 		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {

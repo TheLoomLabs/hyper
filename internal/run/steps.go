@@ -5,28 +5,15 @@ import (
 	"slices"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
-	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/revision"
 )
 
-// The Steps a Run holds, and the boundary this milestone has to state out loud
-// (§6, §9, issue #136).
-
-// readSteps is the Procedure's Steps in written order — which is the order they
-// run in, the order the Step table renders them in and the order `<nnnn>`
-// counts them by (§6, §8, §12).
+// What this binary does not implement in a Run, and the artefacts a Run read
+// (§6, §9, issues #136, #141).
 //
-// A nested invocation's own Steps are Steps of the one Run and are counted in
-// that order, the invocation itself being no Step and writing no file (§6, §7).
-// Flattening them is issue #141's; until it lands, an invocation is one of the
-// things declineUnbuilt below stops the Run on, so this walk reads the top-level
-// sequence and no deeper.
-func readSteps(procedure repository.LoadedArtefact) []artefact.Step {
-	return artefact.ReadProcedureSteps(procedure.Root)
-}
+// The Steps themselves are sequence.go's: a Run's Steps are the top-level
+// Procedure's and everything it invokes, flattened into one written order.
 
 // NotBuilt is what this binary does not implement in the named Procedure, one
 // line each, and nothing at all where every Step of it is one this milestone
@@ -40,10 +27,15 @@ func readSteps(procedure repository.LoadedArtefact) []artefact.Step {
 //
 // It exists because the alternative is worse than an unimplemented feature. The
 // engine implements the `read` path's semantics; handed a `mutate` Step it
-// would make the call and write an Observation, and handed a Step carrying an
-// `over:` it would make one call and ignore the selector. Both are a binary
-// doing something undefined, which is the one thing `run` may not do on the day
-// it lands.
+// would make the call and write an Observation. That is a binary doing
+// something undefined, which is the one thing `run` may not do on the day it
+// lands.
+//
+// **It walks the flattened sequence**, so an effectful Step reached through a
+// nested invocation declines exactly as one written at the top level does. The
+// invocation itself is no longer among them: a nested invocation runs as part
+// of the one Run (issue #141), and what its Steps are is judged here like any
+// other Step's.
 //
 // It is exported because it decides an **order**, and the order is §9's: a
 // working-tree name resolves against the working tree and needs nothing
@@ -61,79 +53,19 @@ func readSteps(procedure repository.LoadedArtefact) []artefact.Step {
 // so a Step whose binding does not resolve carries no Kind here and is left to
 // the resolution that will report it.
 func NotBuilt(loaded repository.Loaded, procedure string) []string {
-	file, resolved := loaded.Procedure(procedure)
-	if !resolved {
-		return nil
-	}
-
 	var declined []string
-	steps := readSteps(file)
-	for _, step := range steps {
-		reference := stepReference(step)
-		switch {
-		case step.IsInvocation():
+	for _, step := range flatten(loaded, procedure).Steps {
+		if kind := kindOf(loaded, step); kind != "" && kind != "read" {
 			declined = append(declined, fmt.Sprintf(
-				"step %s invokes the Procedure %s, and a nested invocation is not built yet", named(step), step.Invocation))
-		case reference != "":
-			declined = append(declined, fmt.Sprintf(
-				"step %s reads %s through a reference to an earlier Step's Record, and a Step's Record is not readable yet", named(step), reference))
-		case step.When != nil:
-			declined = append(declined, fmt.Sprintf(
-				"step %s carries a when: condition, and conditions are not built yet", named(step)))
-		default:
-			if kind := kindOf(loaded, step); kind != "" && kind != "read" {
-				declined = append(declined, fmt.Sprintf(
-					"step %s is a %s Step, and effectful Steps are not built yet", named(step), kind))
-			}
+				"step %s is a %s Step, and effectful Steps are not built yet", named(step), kind))
 		}
 	}
 	return declined
 }
 
-// stepReference is the `args:` input this Step fills from an earlier Step's
-// Record, and "" where it fills none that way.
-//
-// It is one of the things declineUnbuilt stops the Run on, and it is here
-// rather than at the Expansion that resolves an `{item:}` reference beside it
-// (§6, expand.go). The two reference forms resolve at one moment and against
-// two things: `{item:}` names the Record the Step is ranging over, which the
-// Expansion has in hand, and `{step:, path:}` names the Record an earlier Step
-// of **this Run** acted on — the condition's root, arriving with it (§3, §12,
-// issue #141).
-//
-// Declining it here rather than there is the difference between a Run that
-// stops before Step 1 and a Run that Refuses at Step 4 having already recorded
-// three Steps' worth of the world, under a code that would name the reference
-// as resolving to nothing when what it names is a thing this binary cannot yet
-// read.
-func stepReference(step artefact.Step) string {
-	for _, name := range slices.Sorted(keys(step.Args)) {
-		node := step.Args[name]
-		if node == nil || node.Kind != yaml.MappingNode {
-			continue
-		}
-		for i := 0; i+1 < len(node.Content); i += 2 {
-			if key := node.Content[i]; key.Kind == yaml.ScalarNode && key.Value == "step" {
-				return name + ": {step: " + node.Content[i+1].Value + ", …}"
-			}
-		}
-	}
-	return ""
-}
-
-// named is how a decline names a Step: its authored id, or its position in the
-// sequence where it wrote none. A Step with no id is `check`'s to report and
-// this milestone's to still be able to talk about.
-func named(step artefact.Step) string {
-	if step.ID == "" {
-		return fmt.Sprintf("at line %d", step.Line)
-	}
-	return step.ID
-}
-
 // kindOf is the Kind the Step's Operation declares, and "" where the binding
 // does not resolve far enough to say.
-func kindOf(loaded repository.Loaded, step artefact.Step) string {
+func kindOf(loaded repository.Loaded, step sequenced) string {
 	definition, declared := loaded.Definitions[step.Definition]
 	if !declared {
 		return ""
@@ -146,20 +78,31 @@ func kindOf(loaded repository.Loaded, step artefact.Step) string {
 // row counts the moved lines of — one sentence, so the marker and the count
 // agree by construction (§7, §8).
 //
-// It is the Repository declaration, the top-level Procedure, and per Step its
+// It is the Repository declaration, every Procedure the Run walked — the
+// top-level one and each one it invokes, at any depth — and per Step its
 // Definition, its Target declaration and its Provider's Manifest. The built-in
 // Provider contributes nothing: its bytes are compiled in and it has no blob in
 // the repository at all, so there is nothing for it to differ from (§3, §11).
 //
 // A file named twice is read once: a Procedure whose ten Steps bind one
-// Definition read one Definition.
-func artefactsRead(loaded repository.Loaded, procedure repository.LoadedArtefact, steps []artefact.Step) []revision.File {
-	files := map[string][]byte{procedure.Path: procedure.Bytes}
+// Definition read one Definition, and a Procedure invoked from two places is
+// one file.
+//
+// A nested Procedure's own revision is not Provenance's. `procedure_revision`
+// is the **top-level** Procedure's, the only reading with exactly one value at
+// Run level (ADR-0048); what a nested Procedure's bytes reach here is
+// `repo_dirty` and §8's code-change classes, which is where a Bound widened
+// inside one is reported.
+func artefactsRead(loaded repository.Loaded, walked sequence) []revision.File {
+	files := map[string][]byte{}
 	if declaration, held := loadedAt(loaded, repository.DeclarationPath); held {
 		files[declaration.Path] = declaration.Bytes
 	}
+	for _, procedure := range walked.Procedures {
+		files[procedure.Path] = procedure.Bytes
+	}
 
-	for _, step := range steps {
+	for _, step := range walked.Steps {
 		if definition, held := loaded.Definition(step.Definition); held {
 			files[definition.Path] = definition.Bytes
 		}

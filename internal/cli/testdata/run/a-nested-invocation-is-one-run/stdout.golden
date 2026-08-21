@@ -1,0 +1,7 @@
+STEP  ID                               KIND  DISPOSITION  RECORDS
+1     outer                            read  ran          1
+2     watch-inner.status               read  ran          1
+3     watch-inner.watch-deepest.probe  read  ran          1
+4     last                             read  ran          1
+
+completed · exit 0 · run 01991f10-b118-7c93-8d41-6b2f7ae05c31

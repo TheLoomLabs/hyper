@@ -1,0 +1,21 @@
+kind: procedure
+procedure: watch-when-uncomparable
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev
+
+  - id: guarded
+    definition: uptime-check
+    operation: check_http
+    target: local
+    when:
+      step: probe
+      field: host
+      greater_than: 10
+    args:
+      host: cert.hyper.dev

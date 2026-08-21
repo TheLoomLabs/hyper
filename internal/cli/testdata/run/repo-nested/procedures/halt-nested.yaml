@@ -1,0 +1,20 @@
+kind: procedure
+procedure: halt-nested
+targets: [local]
+steps:
+  - id: outer
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev
+
+  - id: inner
+    procedure: halt-inner
+
+  - id: after
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: db.hyper.dev

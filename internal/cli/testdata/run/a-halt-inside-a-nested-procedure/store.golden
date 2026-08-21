@@ -1,0 +1,107 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f10-b118-7c93-8d41-6b2f7ae05c32/outcome.json (91 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "failed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f10-b118-7c93-8d41-6b2f7ae05c32/run.json (471 bytes)
+{
+  "dry_run": false,
+  "procedure": "halt-nested",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "89a566cbb7ed893d4b9637655f97cbaf96f7d784",
+    "repo_revision": "862e9022f9902026789c4b7ffde81ec6404f77e4"
+  },
+  "run_id": "01991f10-b118-7c93-8d41-6b2f7ae05c32",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f10-b118-7c93-8d41-6b2f7ae05c32/steps/0001.json (641 bytes)
+{
+  "definition": "uptime-check",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "outer",
+  "identities": {
+    "digest": "sha256:71b6b20b46299db0f8ce502940468780b5795732c59cbf3d62f410d1117137e3",
+    "members": [
+      "status.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "077c633cf1996368e8d16880b0bf2d37b6ffe360",
+    "manifest_digest": "sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== journal/2026/04/02/01991f10-b118-7c93-8d41-6b2f7ae05c32/steps/0002.json (643 bytes)
+{
+  "definition": "inventory-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "item",
+  "identities": {
+    "digest": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "members": []
+  },
+  "kind": "read",
+  "operation": "read_item",
+  "path": "halt-inner.item",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "manifest_digest": "sha256:8fb414a6d30775ea9f5bcdaaa677c27d3ace7ef3e2ef78bfac69ba406698c8a1"
+  },
+  "provider": "inventory",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 2,
+  "target": "local"
+}
+=== records/local/uptime-check/status.hyper.dev/01991f10-b118-7c93-8d41-6b2f7ae05c32-0001.json (725 bytes)
+{
+  "definition": "uptime-check",
+  "fields": {
+    "days_left": 34,
+    "host": "status.hyper.dev",
+    "status": 200
+  },
+  "name": "status.hyper.dev",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "077c633cf1996368e8d16880b0bf2d37b6ffe360",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7",
+    "procedure_revision": "89a566cbb7ed893d4b9637655f97cbaf96f7d784",
+    "repo_revision": "862e9022f9902026789c4b7ffde81ec6404f77e4"
+  },
+  "record_type": "observation",
+  "run_id": "01991f10-b118-7c93-8d41-6b2f7ae05c32",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

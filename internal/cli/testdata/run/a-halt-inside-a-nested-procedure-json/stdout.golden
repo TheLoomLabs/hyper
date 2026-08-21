@@ -1,0 +1,8 @@
+{"type":"step","step":1,"id":"outer","kind":"read","disposition":"ran","records":1}
+{"type":"step","step":2,"id":"item","path":"halt-inner.item","kind":"read","disposition":"ran","records":0,"expanded":1}
+{"type":"step","step":3,"id":"never","path":"halt-inner.never","kind":"read","disposition":"never-reached"}
+{"type":"step","step":4,"id":"after","kind":"read","disposition":"never-reached"}
+{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"89a566cbb7ed893d4b9637655f97cbaf96f7d784","repo_revision":"862e9022f9902026789c4b7ffde81ec6404f77e4"}
+{"type":"provenance","step":1,"definition_revision":"077c633cf1996368e8d16880b0bf2d37b6ffe360","manifest_digest":"sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7"}
+{"type":"provenance","step":2,"definition_revision":"ea1dce380f2e3837565ee5671eed8cc88ace5b6b","manifest_digest":"sha256:8fb414a6d30775ea9f5bcdaaa677c27d3ace7ef3e2ef78bfac69ba406698c8a1"}
+{"type":"outcome","outcome":"failed","code":1,"dry_run":false,"run_id":"01991f10-b118-7c93-8d41-6b2f7ae05c34"}

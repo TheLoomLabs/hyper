@@ -42,18 +42,18 @@ import (
 // milestone cannot reach: an input nothing supplies, and an authored literal
 // whose characters do not read. Both are `schema-mismatch` at load, and a Run
 // that reached Step 1 is a Run whose artefacts passed (§6, ADR-0064).
-func (r run) arguments(operation artefact.OperationInfo, authored artefact.Step, resolving member, cited citation) (map[string]schema.Scalar, *Refusal, error) {
+func (r run) arguments(operation artefact.OperationInfo, authored sequenced, resolving member, cited citation) (map[string]schema.Scalar, *Refusal, error) {
 	read := make(map[string]schema.Scalar, len(authored.Args))
 	for _, name := range slices.Sorted(keys(operation.Inputs)) {
 		node := authored.Args[name]
 		if node == nil {
-			return nil, nil, fmt.Errorf("step %s supplies no %s, which %s declares — hyper check reports it", authored.ID, name, authored.Operation)
+			return nil, nil, fmt.Errorf("step %s supplies no %s, which %s declares — hyper check reports it", named(authored), name, authored.Operation)
 		}
 		declared := schema.Type(operation.Inputs[name].Type)
 
 		text := node.Value
 		if node.Kind == yaml.MappingNode {
-			referenced, resolved := resolving.reference(node)
+			referenced, resolved := r.reference(authored, resolving, node)
 			if !resolved {
 				declined := r.refusal(schema.CodeMismatch,
 					fmt.Sprintf("%s resolves to nothing on %s, and every input %s declares is supplied", referenceText(node), expansionMember(resolving.Name, cited), authored.Operation),
@@ -74,7 +74,7 @@ func (r run) arguments(operation artefact.OperationInfo, authored artefact.Step,
 		if !reads {
 			if node.Kind != yaml.MappingNode {
 				return nil, nil, fmt.Errorf("step %s writes %s: %s, which does not read as the %s %s declares it",
-					authored.ID, name, node.Value, declared, authored.Operation)
+					named(authored), name, node.Value, declared, authored.Operation)
 			}
 			declined := r.refusal(schema.CodeMismatch,
 				fmt.Sprintf("%s resolves to %q on %s, which does not read as the %s %s declares %s", referenceText(node), text, expansionMember(resolving.Name, cited), declared, authored.Operation, name),
@@ -86,25 +86,50 @@ func (r run) arguments(operation artefact.OperationInfo, authored artefact.Step,
 	return read, nil, nil
 }
 
+// reference resolves one of the format's two reference forms, which are the
+// only two there are (§3).
+//
+// **They resolve at one moment and against two things.** `{item:}` names the
+// Record the Step is ranging over, which the Expansion has in hand; `{step:,
+// path:}` names the Record an earlier Step of **this Run** acted on, which is
+// the condition's root arriving one key over (§3, §12, condition.go). Both
+// resolve here, before the Step's first call goes out, and one that resolves to
+// nothing supplies no value at all — `schema-mismatch`, rather than a halt.
+func (r run) reference(authored sequenced, resolving member, node *yaml.Node) (store.Value, bool) {
+	if step, path, isStep := stepPath(node); isStep {
+		return soleRecord(r.acted[stepKey{authored.Namespace, step}], path)
+	}
+	return resolving.reference(node)
+}
+
+// soleRecord is the value a `{step:, path:}` reference resolves to over what the
+// Step it names acted on: the path read against **the** Record, and nothing at
+// all where there is not exactly one.
+//
+// A Step that acted on no Record is the skip §6 states — it was skipped by
+// either Disposition, or never reached — and a reference to it resolves to
+// nothing. A Step that acted on several has no one Record for a reference to
+// name: **the shape that is writable names one Record**, which is why `check`
+// already refuses a reference to a Step of `series` cardinality outright (§3,
+// §4, `series-reference`). An expanding Step of `one` cardinality is that same
+// fact arriving at a Run rather than at a load, and it answers the same
+// *resolves to nothing*.
+func soleRecord(acted []store.Mapping, path string) (store.Value, bool) {
+	if len(acted) != 1 {
+		return nil, false
+	}
+	return resolvePath(acted[0], path)
+}
+
 // reference resolves an `{item:}` reference against this member: `$` is the
 // whole of the member, and a path with segments reads the head version of the
 // series the member names (§3, §12).
-//
-// A `{step:, path:}` reference reaches nothing here and answers false, which is
-// the same *resolves to nothing* the path grammar answers: reading an earlier
-// Step's Record is the condition's root and arrives with it (issue #141). It is
-// unreachable while NotBuilt declines such a Step before Step 1.
 func (m member) reference(node *yaml.Node) (store.Value, bool) {
 	path, isItem := itemPath(node)
 	if !isItem {
 		return nil, false
 	}
-	segments, inGrammar := projection.Segments(path)
-	if !inGrammar {
-		return nil, false
-	}
-
-	if len(segments) == 0 {
+	if segments, inGrammar := projection.Segments(path); inGrammar && len(segments) == 0 {
 		// `$` is the whole of what the member is: a `values:` member's
 		// own scalar, and — where the selector ranges over series — the
 		// whole Record, which is not a scalar and so fills no position
@@ -116,7 +141,26 @@ func (m member) reference(node *yaml.Node) (store.Value, bool) {
 		}
 		return m.Head, m.Head != nil
 	}
-	var current store.Value = m.Head
+	return resolvePath(m.Head, path)
+}
+
+// resolvePath reads a path in §12's grammar against one Record's fields, and
+// answers false where the grammar rejects it or a segment names nothing.
+//
+// It is one walk for both reference forms because a Record is one shape at both
+// roots: the Record a Step is ranging over and the Record an earlier Step acted
+// on are the same fields under the same names, and two walks is where the day
+// comes that one of them descends differently.
+func resolvePath(fields store.Mapping, path string) (store.Value, bool) {
+	segments, inGrammar := projection.Segments(path)
+	if !inGrammar {
+		return nil, false
+	}
+	if len(segments) == 0 {
+		return fields, fields != nil
+	}
+
+	var current store.Value = fields
 	for _, name := range segments {
 		mapping, isMapping := current.(store.Mapping)
 		if !isMapping {
@@ -143,6 +187,31 @@ func itemPath(node *yaml.Node) (string, bool) {
 		return "", false
 	}
 	return value.Value, true
+}
+
+// stepPath is the Step and the path a `{step:, path:}` reference names, and
+// false where the mapping is not one.
+//
+// The two keys are read by name rather than by position: a mapping's key order
+// is the author's, and `{path: $.host, step: first}` is the same reference
+// written the other way round.
+func stepPath(node *yaml.Node) (step, path string, isStep bool) {
+	if node.Kind != yaml.MappingNode {
+		return "", "", false
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key, value := node.Content[i], node.Content[i+1]
+		if key.Kind != yaml.ScalarNode || value.Kind != yaml.ScalarNode {
+			continue
+		}
+		switch key.Value {
+		case "step":
+			step = value.Value
+		case "path":
+			path = value.Value
+		}
+	}
+	return step, path, step != ""
 }
 
 // referenceText is a reference as a message names it, which is the mapping as

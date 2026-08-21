@@ -1,0 +1,31 @@
+kind: procedure
+procedure: halt-at-two
+targets: [local]
+steps:
+  - id: one
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev
+
+  - id: two
+    definition: inventory-read
+    operation: read_item
+    target: local
+    args:
+      host: cert.hyper.dev
+
+  - id: three
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: api.hyper.dev
+
+  - id: four
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: db.hyper.dev

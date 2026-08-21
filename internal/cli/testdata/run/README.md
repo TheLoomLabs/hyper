@@ -37,11 +37,11 @@ names one in a **`repo-from`** file instead, and the ones here are:
 - [`repo-watch-status/`](repo-watch-status) — §3's own `uptime` Manifest, one
   `read` Operation, no credential, `class: local`, bound by a Definition and a
   Procedure of one Step with no selector. It is the tracer bullet's repository.
-- [`repo-not-built-yet/`](repo-not-built-yet) — the same, plus the artefacts
-  two later milestones need: a `mutate` Step and a nested invocation. It held a
-  Step carrying an `over:` selector until issue #139 built the Expansion, and
-  that Procedure moved to `repo-expansion/` rather than staying here under a
-  name that had stopped being true.
+- [`repo-not-built-yet/`](repo-not-built-yet) — the same, plus the artefacts a
+  later milestone needs: a `mutate` Step. It held a Step carrying an `over:`
+  selector until issue #139 built the Expansion and a nested invocation until
+  issue #141 built that, and each moved to the corpus of the thing it is now an
+  example of rather than staying here under a name that had stopped being true.
 - [`repo-untracked/`](repo-untracked) — `repo-watch-status` with no
   `definitions/` in it, so the case that adds one through `uncommitted/` is
   running against an artefact git has never seen.
@@ -74,6 +74,18 @@ names one in a **`repo-from`** file instead, and the ones here are:
   one declaring `concurrency: 4`, one declaring `2`, and one declaring nothing
   at all — and four Procedures. What differs between the cases that drive it is
   a Manifest key and nothing else, which is ADR-0045's whole claim.
+- [`repo-nested/`](repo-nested) — the nested invocation (issue #141): the
+  `uptime` Manifest and the `inventory` one whose `identity:` does not resolve,
+  and six Procedures — one invoking a Procedure that invokes a third, one whose
+  nested Procedure halts, and one flat four-Step Procedure that halts at its
+  second. A Procedure invoking another runs as **one** Run, so what these drive
+  is one entry, one outcome and one exit code however deep the invocation goes.
+- [`repo-conditions/`](repo-conditions) — the condition (issue #141): the same
+  `uptime` Manifest with `check_named` beside `check_http`, and four Procedures —
+  one Step guarded by a `when:`, two guarded in sequence, one whose guarded Step
+  carries a selector that would Refuse, and one whose condition is handed a value
+  it cannot compare. Each case serves its own `status`, so what decides whether a
+  condition holds is the case's `serve/` and the artefacts are shared.
 - [`repo-expansion/`](repo-expansion) — the Expansion (issue #139): the same
   `uptime` Manifest with two Operations beside `check_http` — `check_named`,
   whose `identity:` is a template hole and therefore resolves **before** the
@@ -106,7 +118,17 @@ drives.
 | `a-sync-that-could-not-bring-a-branch` | the same failure with no branch in hand: the same stderr line, then `store-absent` at `77`, because what is missing is an act and not a network |
 | `a-later-run-pushes-what-an-earlier-one-stranded` | an earlier Run's unpushed commit and a second environment's published one, over one root: the push is rejected, the **whole** unpushed set is re-applied, and `remote.golden` holds all three Runs |
 | `two-read-steps-push-once` | a two-Step Run with a host each, and what `run_push_test.go` counts the reaches of |
-| `an-effectful-step-declines`, `a-nested-invocation-declines`, `a-step-reference-declines` | the three things this binary does not implement, each declining before Step 1 with no entry written |
+| `an-effectful-step-declines` | the one thing this binary does not implement, declining before Step 1 with no entry written |
+| `a-step-reference-reads-an-earlier-steps-record` | `{step:, path:}` resolved: the second Step's `host:` is the first Step's Record read at its turn, and the two Steps write two versions of one series |
+| `a-nested-invocation-is-one-run` | a Procedure invoking a Procedure that invokes a third: four Steps in one written order, **one** `run.json`, one `outcome.json`, one exit code and one Run id. The three nested Steps carry `path` on their files and on the versions they wrote; the two top-level ones carry none, and the two invocations write no file at all |
+| `a-halt-inside-a-nested-procedure`, `-json` | the halt inside a nested Procedure is a halt of the whole: the Step after the invocation is *never reached* like the one beside it, **neither writes a Step file**, and both still have a row on the page and a `step` row on the wire rendering `–` |
+| `a-run-halted-at-step-two-of-four` | the same arithmetic with no invocation in it: Steps 3 and 4 *never reached*, two Step files in the entry and four rows on the page |
+| `a-condition-that-holds`, `a-condition-that-does-not-hold` | one Procedure and two `serve/` directories: the guarded Step runs where `probe` answered `200` and is *skipped by condition* where it answered `503`, reaching no Target. The skipped Step's file carries no identity set and no selector, and its cell renders `–` |
+| `a-skip-propagates`, `-json` | two conditions in sequence: `middle` is skipped, so `last`'s condition names a Step that wrote no Record in this Run and is skipped in its turn — and the Run **completes** rather than Refusing. The wire says the rest: a *skipped by condition* `step` row carries no `records` key at all |
+| `a-condition-does-not-read-the-store` | the same Procedure over a branch whose head for `middle`'s own Record would satisfy `last`'s condition. It is skipped all the same: a condition reads this Run's Records and never falls through to the Store |
+| `a-condition-reads-an-unchanged-record` | the seeded branch already holds `probe`'s answer, so the Run mints no version — and the guarded Step runs, a Record going unchanged not being a Record going missing |
+| `a-condition-decides-before-the-expansion`, `the-selector-that-condition-spared` | one Procedure whose guarded Step carries a selector that resolves two members to one identity, and two `serve/` directories. Where the condition does not hold the Step expands over nothing and the Run completes; where it holds, the same selector Refuses `record-identity-collision` — which is what says the first case's Expansion never resolved. The Step after it runs in the first and is *never reached* in the second |
+| `a-condition-that-cannot-compare` | a condition handed a value its operator cannot compare: `predicate-type-mismatch` at the second Record root, the Step *refused*, and nothing reached (ADR-0035) |
 | `an-expansion-over-values` | the demonstration §5 writes out: two members, `{item: $}` into the Operation's `host-input:`, two Observations, and `RECORDS 2`. Its `declared` is the authored list and its `expanded_to` is the same order, where the identity set beside them is sorted |
 | `an-expansion-over-observations` | the record form: two seeded series, `{item: $.host}`, and `expanded_to` in **name** order — `zone-a` before `Über-vm`, which is the opposite of the order their percent-encoded paths sort in (ADR-0044). Two further series are seeded where the Expansion may not reach them, one under another Definition and one under another Target the Definition accepts (§5, ADR-0012) |
 | `a-predicate-reads-the-head-version` | a series whose **earlier** version matches the predicate and whose head does not: the Expansion resolves to nothing, `expanded_to` is written `[]`, and `RECORDS` renders `0` rather than the dash |

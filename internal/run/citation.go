@@ -3,7 +3,6 @@ package run
 import (
 	"fmt"
 
-	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
@@ -59,10 +58,15 @@ type citation struct {
 // the node: one reading of `over:` per Step is what keeps the line a Refusal
 // cites and the form the Expansion resolved from being two answers about one
 // key.
-func (r run) citation(authored artefact.Step, position int, over selector) citation {
-	file, _ := r.request.Repository.Procedure(r.request.Procedure)
+//
+// **The file and the index are the Step's own, not the Run's.** A Step reached
+// through a nested invocation was authored in the invoked Procedure's file and
+// sits at its own position in that file's `steps:`, and that pair is what an
+// edit would reach — where `step` beside them is the position in the Run, which
+// is the number the Step table's first column renders (§7, §8, issue #141).
+func (r run) citation(authored sequenced, position int, over selector) citation {
 	return citation{
-		file: file.Path, step: position, id: authored.ID, index: position - 1,
+		file: authored.Declared.Path, step: position, id: authored.ID, index: authored.Index,
 		line: authored.Line, operation: authored.Operation, target: authored.Target,
 		selectorAt: over.Line,
 	}

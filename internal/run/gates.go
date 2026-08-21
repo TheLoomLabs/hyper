@@ -89,7 +89,7 @@ func storedRefusal(refusals []Refusal) []store.RefusalMember {
 // reader of one. What §6 requires is that the environment is read **once**,
 // before Step 1; where that answer is then kept is Perform's, and Perform is
 // where the Run in flight is assembled.
-func (r run) gates(steps []artefact.Step) (credentials, []Refusal, error) {
+func (r run) gates(steps []sequenced) (credentials, []Refusal, error) {
 	loaded := r.request.Repository
 
 	unreadable, unsupported, err := r.request.Store.Readable(pairsOf(steps))
@@ -109,7 +109,7 @@ func (r run) gates(steps []artefact.Step) (credentials, []Refusal, error) {
 		return nil, declined, nil
 	}
 
-	return resolved, sinkRefusals(loaded, r.request.Procedure, steps, r.request.SecretSink), nil
+	return resolved, sinkRefusals(loaded, steps, r.request.SecretSink), nil
 }
 
 // pairsOf is the (Definition, Target) pairs the Procedure makes, each once and
@@ -121,18 +121,15 @@ func (r run) gates(steps []artefact.Step) (credentials, []Refusal, error) {
 // reading one series ten times and reporting one absent variable ten times: the
 // pairs are what the Run binds, not what it does.
 //
-// A nested invocation contributes nothing here and does not need to: it binds
-// no Definition and no Target of its own, and its Steps are Steps of the one
-// Run that the walk reaching them would report. Flattening that walk is issue
-// #141's, and until it lands an invocation declines before any of this is
-// reached.
-func pairsOf(steps []artefact.Step) []store.Pair {
+// A nested invocation contributes nothing of its own and needs to contribute
+// nothing: it binds no Definition and no Target, and its Steps are Steps of the
+// one Run, already flattened into the sequence this walks (issue #141). So a
+// Target a nested Procedure alone binds is one this Run's credential pass
+// resolves, and a Record head under it one the schema test reads.
+func pairsOf(steps []sequenced) []store.Pair {
 	seen := map[store.Pair]bool{}
 	pairs := make([]store.Pair, 0, len(steps))
 	for _, step := range steps {
-		if step.IsInvocation() {
-			continue
-		}
 		pair := store.Pair{Target: step.Target, Definition: step.Definition}
 		if seen[pair] {
 			continue
@@ -229,7 +226,7 @@ type credentialSlot struct{ target, slot string }
 // scheme is `manifest-inconsistent` (§4), and a slot naming no variable is
 // `credential-slot-malformed` (§4). A second opinion here would put two rows
 // on the page for one fault.
-func resolveCredentials(loaded repository.Loaded, steps []artefact.Step, lookupEnv func(string) (string, bool)) (credentials, []Refusal) {
+func resolveCredentials(loaded repository.Loaded, steps []sequenced, lookupEnv func(string) (string, bool)) (credentials, []Refusal) {
 	resolved := credentials{}
 	// asked is the slots the pass has already put to the environment. Two
 	// Definitions naming one Target under one scheme require one slot
@@ -346,20 +343,20 @@ func (r Refusal) coordinate() problem.Problem {
 // The `step` it carries is an **artefact coordinate and never an execution
 // fact**: a Refusal before Step 1 writes no Step file, so the Step it names has
 // no file in the entry at all (§7, ADR-0061).
-func sinkRefusals(loaded repository.Loaded, procedure string, steps []artefact.Step, sink string) []Refusal {
+//
+// It reaches every Step the Run holds, a nested Procedure's included: the
+// walk is over reviewed text and the invocation graph is static, so *which
+// reachable Steps declare secret output* is answered at any depth (§6, issue
+// #141). What each one cites is the file it was **authored** in and its
+// position in that file's own `steps:`, a coordinate being an artefact's and
+// never the Run's flattened order.
+func sinkRefusals(loaded repository.Loaded, steps []sequenced, sink string) []Refusal {
 	if sink != "" {
-		return nil
-	}
-	file, resolved := loaded.Procedure(procedure)
-	if !resolved {
 		return nil
 	}
 
 	var declined []Refusal
-	for index, step := range steps {
-		if step.IsInvocation() {
-			continue
-		}
+	for position, step := range steps {
 		operation, secret := secretOutputOf(loaded, step)
 		if !secret {
 			continue
@@ -367,12 +364,12 @@ func sinkRefusals(loaded repository.Loaded, procedure string, steps []artefact.S
 		declined = append(declined, Refusal{
 			RefusalMember: store.RefusalMember{
 				ErrorCode: CodeSecretSinkAbsent,
-				File:      file.Path,
+				File:      step.Declared.Path,
 				Line:      step.Line,
-				Field:     fmt.Sprintf("steps[%d]", index),
+				Field:     fmt.Sprintf("steps[%d]", step.Index),
 				Message: fmt.Sprintf("%s %s declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>",
 					loaded.Definitions[step.Definition].ProviderName, step.Operation),
-				Step:   index + 1,
+				Step:   position + 1,
 				StepID: step.ID,
 			},
 			Operation: operation,
@@ -387,7 +384,7 @@ func sinkRefusals(loaded repository.Loaded, procedure string, steps []artefact.S
 //
 // A binding that does not resolve declares nothing here, which is `check`'s to
 // report and has already been reported: this gate runs after `check` re-ran.
-func secretOutputOf(loaded repository.Loaded, step artefact.Step) (string, bool) {
+func secretOutputOf(loaded repository.Loaded, step sequenced) (string, bool) {
 	info, declared := loaded.Definitions[step.Definition]
 	if !declared {
 		return "", false

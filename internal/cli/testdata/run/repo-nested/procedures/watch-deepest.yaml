@@ -1,0 +1,10 @@
+kind: procedure
+procedure: watch-deepest
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: api.hyper.dev

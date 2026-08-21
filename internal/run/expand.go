@@ -247,7 +247,7 @@ func (c checks) declined() []Refusal {
 // The error it answers is what halted the Run — reaching the Store, which is
 // nobody's guardrail — and the Refusals are what declined it. A Step reaching
 // neither is a Step whose Expansion resolved.
-func (r run) expand(bound binding, authored artefact.Step, position int) (expansion, []Refusal, error) {
+func (r run) expand(bound binding, authored sequenced, position int) (expansion, []Refusal, error) {
 	held := expansion{Selector: readSelector(authored.Over)}
 	cited := r.citation(authored, position, held.Selector)
 
@@ -348,7 +348,7 @@ func literalMembers(over selector) []member {
 // on the order an author happened to write two conjuncts in — and a candidate an
 // earlier conjunct excluded still has the rest evaluated against it, which is
 // the silence ADR-0035 exists to remove.
-func (r run) seriesMembers(over selector, authored artefact.Step, cited citation) ([]member, []Refusal, error) {
+func (r run) seriesMembers(over selector, authored sequenced, cited citation) ([]member, []Refusal, error) {
 	records, err := r.request.Store.Records()
 	if err != nil {
 		return nil, nil, err
@@ -416,7 +416,7 @@ func (r run) seriesMembers(over selector, authored artefact.Step, cited citation
 // collision Refuses at Expansion or halts the Run: a template hole fills from
 // the resolved inputs before the call, and a `$`-rooted path names a value that
 // exists only once the call has gone out (§3, §6, ADR-0072, issue #144).
-func identityBeforeTheCall(operation artefact.OperationInfo, inputs map[string]schema.Scalar, authored artefact.Step) (string, error) {
+func identityBeforeTheCall(operation artefact.OperationInfo, inputs map[string]schema.Scalar, authored sequenced) (string, error) {
 	if operation.Identity == "" || strings.HasPrefix(operation.Identity, "$") {
 		return "", nil
 	}
@@ -455,7 +455,7 @@ func identityBeforeTheCall(operation artefact.OperationInfo, inputs map[string]s
 // Both are silent where the Operation reads its `identity:` from the response:
 // there is nowhere earlier than the answer to decide it, and what happens then
 // is §6's halt rather than a Refusal (ADR-0072).
-func (r run) collisions(held expansion, authored artefact.Step, cited citation) (sibling, stored []Refusal, err error) {
+func (r run) collisions(held expansion, authored sequenced, cited citation) (sibling, stored []Refusal, err error) {
 	resolved := projectedIdentities(held, authored)
 	if len(resolved) == 0 {
 		return nil, nil, nil
@@ -508,7 +508,7 @@ type resolvedIdentity struct {
 // projectedIdentities is the identities the Expansion resolved, in Expansion
 // order, and nothing at all for the members whose `identity:` reads from a
 // response that has not come back.
-func projectedIdentities(held expansion, authored artefact.Step) []resolvedIdentity {
+func projectedIdentities(held expansion, authored sequenced) []resolvedIdentity {
 	resolved := make([]resolvedIdentity, 0, len(held.Members))
 	for _, member := range held.Members {
 		if member.Identity == "" {

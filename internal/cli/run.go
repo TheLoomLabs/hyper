@@ -579,6 +579,15 @@ func runRows(answer run.Answer) []render.Row {
 		rows = append(rows, runProvenanceRow(answer.Provenance))
 	}
 	for _, step := range answer.Steps {
+		// A Step that was **never reached** wrote no file, so there is
+		// no Step-scoped Provenance for it to carry: §7 splits
+		// Provenance by where each member has exactly one value, and a
+		// Step with no file has no Definition revision it read (§7,
+		// ADR-0043). It has a `step` row all the same — the Step has a
+		// cell — and this is the row it does not have.
+		if step.Disposition == store.DispositionNeverReached {
+			continue
+		}
 		rows = append(rows, stepProvenanceRow(step))
 	}
 	return rows
@@ -750,10 +759,15 @@ func rowsOf[T render.Row](rows []render.Row) []render.Row {
 // `records`, which on such a Step it always does. Where the Step accounted for
 // its whole Expansion there is nothing for a second number to say (§8, issue
 // #140).
+//
+// path is the invocation chain a Step reached through a nested Procedure was
+// reached under, beside its own id and absent on a top-level Step — the same
+// pair the Step file carries (§7, issue #141).
 type stepRow struct {
 	Type        string `json:"type"`
 	Step        int    `json:"step"`
 	ID          string `json:"id"`
+	Path        string `json:"path,omitempty"`
 	Kind        string `json:"kind"`
 	Disposition string `json:"disposition"`
 	Records     *int   `json:"records,omitempty"`
@@ -782,6 +796,7 @@ func stepRowOf(step run.Step) stepRow {
 		Type:        "step",
 		Step:        step.Position,
 		ID:          step.ID,
+		Path:        step.Path,
 		Kind:        string(step.Kind),
 		Disposition: string(step.Disposition),
 	}
@@ -812,7 +827,22 @@ func (r stepRow) Cells() []string {
 	case r.Records != nil:
 		records = fmt.Sprintf("%d", *r.Records)
 	}
-	return []string{fmt.Sprintf("%d", r.Step), r.ID, r.Kind, r.Disposition, records}
+	return []string{fmt.Sprintf("%d", r.Step), r.named(), r.Kind, r.Disposition, records}
+}
+
+// named is what the `ID` column renders: the invocation chain where the Step
+// was reached through a nested Procedure, and the authored id where it sits at
+// the top level.
+//
+// **The table renders nested Steps in the order they ran, under their paths**
+// (§6, §8). The path ends in that id, so the column reads as one name at both
+// depths — `retire.probe` beside `probe` — and the row on the wire carries the
+// two separately, as the Step file does.
+func (r stepRow) named() string {
+	if r.Path != "" {
+		return r.Path
+	}
+	return r.ID
 }
 
 // provenanceRow is which code performed the Run, at one of the two scopes §7

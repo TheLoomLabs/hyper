@@ -1,0 +1,131 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f12-b118-7c93-8d41-6b2f7ae05c51/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f12-b118-7c93-8d41-6b2f7ae05c51/run.json (471 bytes)
+{
+  "dry_run": false,
+  "procedure": "watch-chain",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "1438698049e6553c21d6c5b8227006cf19f6513b",
+    "repo_revision": "5981c76b7fcbecbaea2d2d454171b87a9a2e8cae"
+  },
+  "run_id": "01991f12-b118-7c93-8d41-6b2f7ae05c51",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f12-b118-7c93-8d41-6b2f7ae05c51/steps/0001.json (641 bytes)
+{
+  "definition": "uptime-check",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "first",
+  "identities": {
+    "digest": "sha256:71b6b20b46299db0f8ce502940468780b5795732c59cbf3d62f410d1117137e3",
+    "members": [
+      "status.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "0b07152f4cc4f28c380bf53e252373dc3a4d0019",
+    "manifest_digest": "sha256:b3480ee4ace0eb9ce88f25294ca7fdb7a1392b90c38f196b2ae414575040881d"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== journal/2026/04/02/01991f12-b118-7c93-8d41-6b2f7ae05c51/steps/0002.json (643 bytes)
+{
+  "definition": "uptime-check",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "second",
+  "identities": {
+    "digest": "sha256:71b6b20b46299db0f8ce502940468780b5795732c59cbf3d62f410d1117137e3",
+    "members": [
+      "status.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "check_named",
+  "provenance": {
+    "definition_revision": "0b07152f4cc4f28c380bf53e252373dc3a4d0019",
+    "manifest_digest": "sha256:b3480ee4ace0eb9ce88f25294ca7fdb7a1392b90c38f196b2ae414575040881d"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 2,
+  "target": "local"
+}
+=== records/local/uptime-check/status.hyper.dev/01991f12-b118-7c93-8d41-6b2f7ae05c51-0001.json (725 bytes)
+{
+  "definition": "uptime-check",
+  "fields": {
+    "days_left": 34,
+    "host": "status.hyper.dev",
+    "status": 200
+  },
+  "name": "status.hyper.dev",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "0b07152f4cc4f28c380bf53e252373dc3a4d0019",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:b3480ee4ace0eb9ce88f25294ca7fdb7a1392b90c38f196b2ae414575040881d",
+    "procedure_revision": "1438698049e6553c21d6c5b8227006cf19f6513b",
+    "repo_revision": "5981c76b7fcbecbaea2d2d454171b87a9a2e8cae"
+  },
+  "record_type": "observation",
+  "run_id": "01991f12-b118-7c93-8d41-6b2f7ae05c51",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/uptime-check/status.hyper.dev/01991f12-b118-7c93-8d41-6b2f7ae05c51-0002.json (705 bytes)
+{
+  "definition": "uptime-check",
+  "fields": {
+    "host": "status.hyper.dev",
+    "status": 200
+  },
+  "name": "status.hyper.dev",
+  "operation": "check_named",
+  "provenance": {
+    "definition_revision": "0b07152f4cc4f28c380bf53e252373dc3a4d0019",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:b3480ee4ace0eb9ce88f25294ca7fdb7a1392b90c38f196b2ae414575040881d",
+    "procedure_revision": "1438698049e6553c21d6c5b8227006cf19f6513b",
+    "repo_revision": "5981c76b7fcbecbaea2d2d454171b87a9a2e8cae"
+  },
+  "record_type": "observation",
+  "run_id": "01991f12-b118-7c93-8d41-6b2f7ae05c51",
+  "schema_version": 1,
+  "step": 2,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

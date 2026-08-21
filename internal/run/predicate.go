@@ -78,24 +78,34 @@ func readPredicates(list *yaml.Node) []predicate {
 		if entry.Kind != yaml.MappingNode {
 			continue
 		}
-		held := predicate{Line: entry.Line, Index: index}
-		for i := 0; i+1 < len(entry.Content); i += 2 {
-			key, value := entry.Content[i], entry.Content[i+1]
-			if key.Kind != yaml.ScalarNode {
-				continue
-			}
-			if key.Value == "field" {
-				held.Field = value.Value
-				continue
-			}
-			if held.Operator == "" && slices.Contains(operators, key.Value) {
-				held.Operator, held.Operand = key.Value, value
-				held.Line = key.Line
-			}
-		}
-		read = append(read, held)
+		read = append(read, readPredicate(entry, index))
 	}
 	return read
+}
+
+// readPredicate reads one entry: the `field:` it roots at and the first
+// operator it carries, which is the whole of a predicate at either Record root.
+//
+// It is one function for both roots because a predicate is one thing at both: a
+// condition is this with a `step:` beside it, and reading it twice is where the
+// day comes that the two roots admit different operators (§12, condition.go).
+func readPredicate(entry *yaml.Node, index int) predicate {
+	held := predicate{Line: entry.Line, Index: index}
+	for i := 0; i+1 < len(entry.Content); i += 2 {
+		key, value := entry.Content[i], entry.Content[i+1]
+		if key.Kind != yaml.ScalarNode {
+			continue
+		}
+		if key.Value == "field" {
+			held.Field = value.Value
+			continue
+		}
+		if held.Operator == "" && slices.Contains(operators, key.Value) {
+			held.Operator, held.Operand = key.Value, value
+			held.Line = key.Line
+		}
+	}
+	return held
 }
 
 // holds answers whether this predicate holds of a version's fields, and the

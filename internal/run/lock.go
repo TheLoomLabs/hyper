@@ -21,26 +21,25 @@ import (
 // off the Operation the Step binds and never off the Step, a Kind being
 // declared per Operation in a Manifest and never inferred (ADR-0025).
 //
-// **A Step whose Kind cannot be read is exclusive.** An unresolvable binding
-// and a nested invocation each leave this walk with no Kind to judge — the
-// first because the Definition or the Operation is not there, the second
-// because the invoked Procedure's Steps are not reached until flattening lands
-// (issue #141) — and a Run whose blast radius cannot be read is not a Run that
-// may share the Store. Neither ever gets as far as its first Step: the first is
-// `check`'s to refuse at Run start and the second declines before the Store is
-// located. The lock is taken before both, so what it does with them is a fact
-// of its own rather than one those two paths make unreachable.
+// **A Step whose Kind cannot be read is exclusive**, and so is a Procedure
+// whose Steps this walk could not reach in full. An unresolvable binding leaves
+// no Kind to judge; an invocation naming nothing, and a cycle, leave Steps the
+// walk never saw (sequence.go) — and a Run whose blast radius cannot be read is
+// not a Run that may share the Store. None of them ever gets as far as its
+// first Step: every one is `check`'s to refuse at Run start. The lock is taken
+// before that, so what it does with them is a fact of its own rather than one
+// that path makes unreachable.
 //
 // A Procedure name that resolves to nothing is exclusive on the same reading.
 // It is unreachable from the CLI, which resolves the positional against the
 // namespace first (§9, ADR-0060), and the safe answer costs nothing where
 // nothing can reach it.
 func LockMode(loaded repository.Loaded, procedure string) store.LockMode {
-	file, resolved := loaded.Procedure(procedure)
-	if !resolved {
+	walked := flatten(loaded, procedure)
+	if !walked.Whole {
 		return store.Exclusive
 	}
-	for _, step := range readSteps(file) {
+	for _, step := range walked.Steps {
 		if kindOf(loaded, step) != "read" {
 			return store.Exclusive
 		}

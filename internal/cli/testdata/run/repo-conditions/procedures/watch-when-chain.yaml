@@ -1,0 +1,32 @@
+kind: procedure
+procedure: watch-when-chain
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev
+
+  - id: middle
+    definition: uptime-check
+    operation: check_http
+    target: local
+    when:
+      step: probe
+      field: status
+      equals: 200
+    args:
+      host: cert.hyper.dev
+
+  - id: last
+    definition: uptime-check
+    operation: check_http
+    target: local
+    when:
+      step: middle
+      field: status
+      equals: 200
+    args:
+      host: db.hyper.dev

@@ -202,6 +202,10 @@ type Step struct {
 	ID          string
 	Kind        store.Kind
 	Disposition store.Disposition
+	// Path is the invocation chain this Step was reached through, and empty
+	// on a top-level Step. It is the same member the Step file carries, and
+	// it is what the Step table renders a nested Step under (§7, §8).
+	Path string
 	// Records is the size of the identity set — what the Step concluded
 	// about, and never the versions it wrote (ADR-0030) — and Concluded says
 	// a set exists at all. Three of §12's seven Dispositions conclude about
@@ -258,7 +262,21 @@ func Perform(request Request) Answer {
 		// Procedure that is not there.
 		return failedBeforeTheRun(fmt.Errorf("no Procedure named %s", request.Procedure))
 	}
-	steps := readSteps(procedure)
+	// The Run's Steps: the top-level Procedure's and every nested
+	// invocation's, flattened into the one written order. **A Procedure
+	// invoking another does not start a second Run** (§6, sequence.go).
+	walked := flatten(loaded, request.Procedure)
+	steps := walked.Steps
+	if walked.Cycle != "" {
+		// A Procedure that invokes one it is already inside of. §6 says
+		// a cycle is rejected before the first Step, and §4 states no
+		// code to reject it under — so it stops here, as a fault rather
+		// than a Refusal: a Refusal is `hyper` declining and has a check
+		// to name, and there is no check (§12, ADR-0002).
+		return failedBeforeTheRun(fmt.Errorf(
+			"the invocation graph of %s reaches %s, which is already invoking it — a cycle, and no Run performs one",
+			request.Procedure, walked.Cycle))
+	}
 
 	// What this binary does not implement, restated here as this call's own
 	// precondition. The caller has already asked — NotBuilt is what decides
@@ -275,7 +293,7 @@ func Perform(request Request) Answer {
 	// rather than beside the first Step that needs it because `run.json`
 	// carries the Run-wide half, and `run.json` is written before Step 1
 	// (§6, §7).
-	facts, err := revision.Read(request.RepoRoot, artefactsRead(loaded, procedure, steps))
+	facts, err := revision.Read(request.RepoRoot, artefactsRead(loaded, walked))
 	if err != nil {
 		return failedBeforeTheRun(err)
 	}
@@ -292,6 +310,7 @@ func Perform(request Request) Answer {
 		id:         request.Mint(started),
 		provenance: provenance,
 		started:    started,
+		acted:      acted{},
 	}
 	inFlight.entry = store.JournalEntry{Run: inFlight.id, Started: started}
 	answer := Answer{Run: inFlight.id, Identified: true, Outcome: store.OutcomeCompleted, Provenance: provenance}
@@ -332,25 +351,67 @@ func Perform(request Request) Answer {
 	inFlight.credentials = held
 
 	for position, step := range steps {
-		narrator.Reached(position+1, len(steps), step.ID)
+		narrator.Reached(position+1, len(steps), named(step))
 
 		performed, declined, err := inFlight.perform(position+1, step)
 		if performed.Position != 0 {
 			answer.Steps = append(answer.Steps, performed)
 		}
+		if err == nil && len(declined) == 0 {
+			continue
+		}
+
+		// The Run ends here, and the Steps after this one are *never
+		// reached* — a Disposition each, no file for any of them, and a
+		// row on the page all the same (§7, §12, neverReached below).
+		// Both ways out share it because both are the Run ending: a
+		// fault is the world resisting, and a guardrail declining at
+		// this Step's Expansion or its condition is the one Refusal a
+		// Run reaches past Step 1. Either way it is terminal — the
+		// Steps before it ran and what they did stands, and this one
+		// wrote no Record (§6, §8, ADR-0061).
+		answer.Steps = append(answer.Steps, neverReached(loaded, steps, position+1)...)
 		if err != nil {
 			return inFlight.closed(failed(answer, err))
 		}
-		// A guardrail declining at this Step's Expansion, which is the
-		// one Refusal a Run reaches past Step 1 — and it is terminal
-		// like every other: the Steps before it ran and what they did
-		// stands, and this one wrote nothing (§6, §8, ADR-0061).
-		if len(declined) > 0 {
-			return inFlight.closed(refused(answer, declined))
-		}
+		return inFlight.closed(refused(answer, declined))
 	}
 
 	return inFlight.closed(answer)
+}
+
+// neverReached is the Steps the Run ended before, one entry each, from the
+// position after the one that ended it (§6, §12).
+//
+// **It is the one Disposition of the seven that writes no file at all**, and
+// within a closed entry that absence is its whole representation: a forty-Step
+// Procedure that halted at Step 3 would otherwise write thirty-seven files
+// saying that nothing happened (§7). What it still has is a row on the page and
+// a `step` row on the wire — the Step has a cell — and both render `–` for
+// `RECORDS`, no set existing rather than a set with nothing in it (§8).
+//
+// It reaches every way a Run can end past Step 1, a halt and a Refusal alike:
+// the value says *the Run ended before the Step* and neither of the two is more
+// ended than the other. A Refusal **before** Step 1 leaves none of them, and
+// that is §7's own sentence rather than an exception carved here — such an
+// entry is `run.json` and `outcome.json` and nothing else, and the surface
+// renders no Step table over a Run where no Step was reached (§7, ADR-0061).
+//
+// The Kind is the Operation's, read off the Manifest exactly as a Step that ran
+// reads it: a Step that never ran still binds what it binds, and the column
+// says what this Run would have done (ADR-0025).
+func neverReached(loaded repository.Loaded, steps []sequenced, from int) []Step {
+	unreached := make([]Step, 0, len(steps)-from)
+	for position, step := range steps[from:] {
+		unreached = append(unreached, Step{
+			Position:    from + position + 1,
+			ID:          step.ID,
+			Path:        step.Path,
+			Kind:        store.Kind(kindOf(loaded, step)),
+			Disposition: store.DispositionNeverReached,
+		})
+	}
+	return unreached
 }
 
 // run is one Run in flight: what the engine holds between `run.json` and
@@ -374,6 +435,13 @@ type run struct {
 	// the environment again would be a Run whose second call could send a
 	// credential its own gate never saw (§6, ADR-0007).
 	credentials credentials
+	// acted is what each Step of this Run acted on, filled at that Step's
+	// turn and read by the `when:` conditions and the `{step:, path:}`
+	// references of the Steps after it. It is a mapping rather than a value
+	// on the Run because every method here is a reader of one run value: the
+	// Steps write into what the Run holds and never into the Run
+	// (condition.go).
+	acted acted
 }
 
 // closed writes `outcome.json` and publishes, and answers whatever the Run had

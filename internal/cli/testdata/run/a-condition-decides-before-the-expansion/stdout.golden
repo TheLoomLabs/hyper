@@ -1,0 +1,6 @@
+STEP  ID       KIND  DISPOSITION           RECORDS
+1     probe    read  ran                   1
+2     guarded  read  skipped-by-condition  –
+3     after    read  ran                   1
+
+completed · exit 0 · run 01991f11-b118-7c93-8d41-6b2f7ae05c46

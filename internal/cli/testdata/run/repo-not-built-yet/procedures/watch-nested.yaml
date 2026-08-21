@@ -1,6 +1,0 @@
-kind: procedure
-procedure: watch-nested
-targets: [local]
-steps:
-  - id: inner
-    procedure: watch-status

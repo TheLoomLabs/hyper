@@ -1,0 +1,13 @@
+kind: procedure
+procedure: watch-inner
+targets: [local]
+steps:
+  - id: status
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: cert.hyper.dev
+
+  - id: deeper
+    procedure: watch-deepest
