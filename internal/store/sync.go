@@ -35,9 +35,10 @@ import "time"
 // **What a failure costs is entirely the caller's**, and the two Runs spend it
 // differently: an effectful Run is `failed` at 75, its sync being the push of
 // its own open entry, and a read-only Run tolerates the failure outright and
-// proceeds against whatever branch the clone holds. §7 leaves the second
-// under-determined and internal/cli's locateStore is where it is resolved and
-// written down (issue #138).
+// proceeds against whatever branch the clone holds (§7, ADR-0083). Which of the
+// two this call is being made for is nothing it can see, which is the other
+// reason it is a call of its own; internal/cli's locateStore is where the Kinds
+// are already in hand to decide it.
 func Sync(repoRoot string, now time.Time) error {
 	repo, err := open(repoRoot, now)
 	if err != nil {

@@ -180,8 +180,10 @@ than coarser: four of the seven are `failed`.
 - `2` — a usage error. No Run began, and no member of the outcome triple applies. It covers a
   positional that matches nothing on eight of the nine commands taking one — `install` is the
   exception above — and no row stream opens on this code at all (§9, ADR-0060).
-- `75` — a Run that lost the Store: to the lock (§6), to the sync at Run start (§7), or to a push it
-  could not rebase through in three attempts (§7). `failed`.
+- `75` — a Run that lost the Store: to the lock (§6), to the sync at Run start — which is the effectful
+  Run's, a read-only Run tolerating a sync it could not complete (§7,
+  [ADR-0083](../adr/0083-a-read-only-run-attempts-the-sync-and-tolerates-its-failure.md)) — or to a push
+  it could not rebase through in three attempts (§7). `failed`.
 - `77` — a guardrail declined before any effect reached the world. A Run that refused (§5), and the
   code the version pin gate and an absent Store carry from any command that hits them (§9).
 - `130` — a Run stopped by an interrupt, having drained (§6, ADR-0015). `failed`.

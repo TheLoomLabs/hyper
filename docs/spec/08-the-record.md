@@ -31,7 +31,23 @@ rather than part of it, and that editing it by hand is editing evidence (ADR-001
 
 An effectful Run syncs the Store once, at Run start, and that sync **is** the push of its open Journal
 entry — one reach at the remote rather than two, and the earliest moment at which the Run can know it
-will be able to record what it does. A read-only Run proceeds offline and pushes when it can.
+will be able to record what it does.
+
+**A read-only Run attempts the sync and tolerates its failure.** It proceeds against whatever branch the
+clone holds and pushes when it can; it Refuses `store-absent` only where no branch is in hand *after*
+the attempt; and it is never `75` for a sync it could not complete, that code being the effectful Run's
+([ADR-0083](../adr/0083-a-read-only-run-attempts-the-sync-and-tolerates-its-failure.md)). Proceeding
+offline is surviving a reach that failed rather than declining to make one — a runner's clone holds no
+Store until a fetch brings one, so a read-only Run that never reached the remote would Refuse on every
+scheduled occurrence, and could not be in a position to tell *unreachable now* from *never existed*
+either. It says so on stderr before its first Step: the condition and what it did about it, naming no
+remote. That is narration and not a Refusal — no `error_code`, no row, and stdout carries none of it.
+
+The two Runs part here because their syncs gate different things. An effectful Run's is the push of its
+own entry, so a sync it could not complete means it cannot record an effect it is about to cause. A
+read-only Run's is a fetch, and nothing a `read` Step does is gated on the record — `skip-if-recorded`
+is `mutate`-only and run-once is effectful-only (§12) — so the worst a stale Store costs it is a
+redundant Record version standing beside the one it duplicates.
 
 **The sync takes the tip and no history.** Where the branch is absent from the clone — which is every
 runner, `actions/checkout` taking one ref (§10) — `hyper` creates it with a depth-1 fetch of that one
@@ -77,9 +93,10 @@ that makes a Head lookup or a backward scan faster. It is never committed and ne
 that resolves the credential a checkout left behind (§10), which is what `hyper` fetches and pushes with
 (§11, §13).
 
-An effectful Run that cannot complete it is `failed` with the contention exit code (`75`, §12) and is
-not a Refusal. It is the third way a Run loses the Store, beside the lock (§6) and the push below, and
-it belongs with them rather than with the guardrails: `77` says a verbatim retry will refuse
+An effectful Run that cannot complete that sync is `failed` with the contention exit code (`75`, §12)
+and is not a Refusal. A read-only Run is never here — its failed sync is tolerated above, and the code
+is the effectful Run's. It is the third way a Run loses the Store, beside the lock (§6) and the push
+below, and it belongs with them rather than with the guardrails: `77` says a verbatim retry will refuse
 identically (§12), and a Run that could not reach the remote succeeds on the same retry five minutes
 later. What separates the two codes is whether an act of yours is required — an artefact edit, a `store
 init`, a newer binary — and a network coming back is not one (ADR-0061). What it wrote before it

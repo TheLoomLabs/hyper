@@ -411,24 +411,19 @@ func unresolvedProcedure(loaded repository.Loaded, name string) string {
 // locateStore puts the Store in hand, at the rhythm the Run's own Kinds already
 // decided, and answers the exit code where it could not.
 //
-// **This is where §7's read-only sync is resolved, and the resolution is
-// written here because this is where it is implemented.** §7 says an effectful
-// Run syncs at Run start and that *a read-only Run proceeds offline and pushes
-// when it can*. Read literally, a read-only Run on a runner — where
-// `actions/checkout` takes one ref and the Store branch is absent from the
-// clone — finds no branch, cannot bring one without reaching the remote, and
-// Refuses `store-absent` on every scheduled monitoring Run. That cannot be the
-// intent: the runner shape is the shape §7 spends a paragraph on, and a rule
-// that refuses it refuses the tool's own deployment.
+// **A read-only Run attempts the sync and tolerates its failure** (§7,
+// ADR-0083). It proceeds against whatever branch the clone holds; it Refuses
+// `store-absent` only where no branch is in hand *after* the attempt — which is
+// Open's answer and not the sync's; and **it is never 75 for a sync it could
+// not complete**, that code being the effectful Run's.
 //
-// So a read-only Run **attempts** the sync and **tolerates its failure**. It
-// proceeds against whatever branch the clone holds; it Refuses `store-absent`
-// only where no branch is in hand *after* the attempt — which is Open's answer
-// and not the sync's; and **it is never 75 for a sync it could not complete**,
-// that code being the effectful Run's. The two readings differ only where the
-// network is down and the clone already holds the Store: literally, that Run
-// stops; here, it records what it read and pushes when it can, which is the
-// half of §7's sentence the literal reading throws away.
+// That is a resolution rather than a reading, and the ADR is where it is argued
+// out. §7 said only that *a read-only Run proceeds offline and pushes when it
+// can*, which read literally is a Run that never reaches the remote — and a
+// runner's clone holds no Store until a fetch brings one, so that reading
+// Refuses `store-absent` on every scheduled monitoring Run. The section now
+// states the resolution, and this comment stands beside the code that performs
+// it rather than in place of either.
 //
 // A read-only Run that tolerated a failure **says so**, on stderr, before its
 // first Step. What it says is the condition and what it did about it and never
