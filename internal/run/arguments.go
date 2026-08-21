@@ -114,6 +114,13 @@ func (r run) reference(authored sequenced, resolving member, node *yaml.Node) (s
 // §4, `series-reference`). An expanding Step of `one` cardinality is that same
 // fact arriving at a Run rather than at a load, and it answers the same
 // *resolves to nothing*.
+//
+// **A condition rooted at the same Step reads it differently, and deliberately
+// so** (condition.go): a predicate is a filter and a filter over a population
+// is an AND, where a reference is a value and a value is one thing. The
+// position decides it, as every other legality question in this format does
+// (§3) — and §12 states the rule for neither, both Steps in its text having one
+// Record.
 func soleRecord(acted []store.Mapping, path string) (store.Value, bool) {
 	if len(acted) != 1 {
 		return nil, false

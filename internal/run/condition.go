@@ -106,6 +106,13 @@ func readCondition(when *yaml.Node) (condition, bool) {
 // this Run acted on* rather than one of them. Every Record is evaluated whether
 // or not an earlier one settled the answer, so whether a Run Refuses does not
 // depend on which Record a response happened to project first (ADR-0035).
+//
+// A `{step:, path:}` reference to the same Step answers *resolves to nothing*
+// there instead (arguments.go), and the difference is the position rather than
+// an inconsistency: a filter takes a population and a value takes one thing.
+// §12 states the rule for neither — every earlier Step in its text has one
+// Record — so this is the reading the operator set already has rather than a
+// sentence quoted from it.
 func (c condition) holds(records []store.Mapping, instant time.Time) (bool, string) {
 	if len(records) == 0 {
 		return false, ""
