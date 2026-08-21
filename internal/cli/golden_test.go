@@ -125,6 +125,13 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //   - now, optional: an RFC 3339 instant, the clock the entry point is handed
 //     and the date on every commit the fixture itself makes. Absent, the
 //     harness's stated constant.
+//   - mint, optional: the Run ids the process answers, one per line and in
+//     order. A case whose command mints one and names none fails; that is the
+//     axis, and it is what makes every Store path and every terminal line a
+//     Run writes a checked-in constant (issue #136).
+//   - actor and hostname, optional: who is running hyper and on which machine,
+//     which a Journal entry's Trigger carries — `actor` on both executors and
+//     `host` on `local`. Absent, the harness's stated constants.
 //   - git, store/, remote, remote-store/, find-root, no-git-root, optional:
 //     the git fixture, which golden_fixture_test.go states in full. A case
 //     supplying none of them is driven exactly as it was before issue #125 —
@@ -160,15 +167,15 @@ func TestGolden(t *testing.T) {
 // inputs and nothing else, which is what makes a golden a statement about the
 // command rather than about the machine the suite ran on (issues #134, #135).
 //
-// The other two fail the case rather than answering it. Nothing behind the
-// dispatch mints a Run id or starts a child in this milestone, and that is
-// deliberate — the reads were threaded ahead of the first command to make
-// them — so the corpus is where the claim is checked: a case that reaches one
-// of them is a case whose golden could not have been asserted, and the ticket
-// that first calls one is the ticket that says what a fixture supplies in its
-// place. The dialer is the one that has now been claimed, and golden_serve_test.go
-// is where what a fixture supplies for it is stated; a case that dials without
-// a serve/ directory still fails on the same footing as the other two.
+// Exec fails the case rather than answering it. Nothing behind the dispatch
+// starts a child in this milestone, and that is deliberate — the reads were
+// threaded ahead of the first command to make them — so the corpus is where the
+// claim is checked: a case that reaches it is a case whose golden could not have
+// been asserted, and the ticket that first calls it is the ticket that says what
+// a fixture supplies in its place. The other two have been claimed: the dialer
+// by `probe` and the mint by `run`, and each is opted into by the file a case
+// writes — a serve/ entry, and a mint line — with a case that reaches one and
+// wrote none failing on the footing Exec still stands on.
 func (c goldenCase) process(t *testing.T, run goldenRun) cli.Process {
 	t.Helper()
 
@@ -176,16 +183,87 @@ func (c goldenCase) process(t *testing.T, run goldenRun) cli.Process {
 	return cli.Process{
 		LookupEnv: c.environment(t),
 		Getwd:     func() (string, error) { return run.wd, nil },
+		User:      func() (string, error) { return c.actor(t), nil },
+		Hostname:  func() (string, error) { return c.hostname(t), nil },
 		Now:       func() time.Time { return instant },
-		Mint: func(time.Time) store.RunID {
-			t.Errorf("case %s minted a Run id, and no case in this corpus renders one yet", c.name)
-			return store.RunID{}
-		},
-		Dial: c.dialer(t, instant),
+		Mint:      c.mint(t),
+		Dial:      c.dialer(t, instant),
 		Exec: func(context.Context, []string) *exec.Cmd {
 			t.Errorf("case %s started a child process, and this harness launches none", c.name)
 			return nil
 		},
+	}
+}
+
+// fixtureActor is who a case says is running hyper where it names nobody, and
+// fixtureHostname the machine they are on. Both are stated constants rather
+// than the suite's own for the reason every other read of the process here is
+// one: a Journal entry carries both on the `local` executor (§7), so an entry
+// built from the account and machine the suite ran on is a store.golden nobody
+// can check in.
+const fixtureActor = "igor"
+
+const fixtureHostname = "thinkpad"
+
+// actor is who the case is driven by: what its actor file names, or the stated
+// constant.
+func (c goldenCase) actor(t *testing.T) string {
+	t.Helper()
+
+	if named := strings.TrimSpace(readFile(t, filepath.Join(c.dir, "actor"))); named != "" {
+		return named
+	}
+	return fixtureActor
+}
+
+// hostname is the machine the case is driven on: what its hostname file names,
+// or the stated constant.
+func (c goldenCase) hostname(t *testing.T) string {
+	t.Helper()
+
+	if named := strings.TrimSpace(readFile(t, filepath.Join(c.dir, "hostname"))); named != "" {
+		return named
+	}
+	return fixtureHostname
+}
+
+// mint is the Run ids the case's process answers, in order: one per line of its
+// mint file, and the last determinism axis the corpus has (issue #136).
+//
+// A Run id is minted from the clock and from crypto/rand, and it lands on the
+// terminal line, in the `outcome` row, in `run.json` and in every Store path a
+// Run writes. Threading it is what makes every one of those a checked-in
+// constant — §8 states that a Run id renders **whole** (ADR-0047), and a corpus
+// asserting `<run-id>` could not check the one rendering rule that surface has.
+//
+// A case that mints and lists nothing, or mints more ids than it listed, fails
+// rather than being handed something: the whole point is that the case says
+// which ids its Run has, and a harness that invented one would put a value
+// nobody wrote into a golden.
+func (c goldenCase) mint(t *testing.T) func(time.Time) store.RunID {
+	t.Helper()
+
+	var ids []store.RunID
+	for _, line := range strings.Split(readFile(t, filepath.Join(c.dir, "mint")), "\n") {
+		text := strings.TrimSpace(line)
+		if text == "" {
+			continue
+		}
+		id, err := store.ParseRunID(text)
+		if err != nil {
+			t.Fatalf("case %s: mint names %q: %v", c.name, text, err)
+		}
+		ids = append(ids, id)
+	}
+
+	minted := 0
+	return func(time.Time) store.RunID {
+		if minted >= len(ids) {
+			t.Errorf("case %s minted %d Run ids and its mint file names %d; a case says which ids its Runs have", c.name, minted+1, len(ids))
+			return store.RunID{}
+		}
+		minted++
+		return ids[minted-1]
 	}
 }
 

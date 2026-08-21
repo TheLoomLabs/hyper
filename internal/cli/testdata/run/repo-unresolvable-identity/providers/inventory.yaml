@@ -1,0 +1,22 @@
+kind: provider
+provider: inventory
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  read_item:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /item
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: $.body.id
+      fields:
+        name: $.body.name

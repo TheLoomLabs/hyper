@@ -7,7 +7,7 @@
 // two-key check: it sits beneath the layer Providers exist at, and it is not a
 // Target.
 //
-// What this milestone has landed is the branch's creation (issue #126), the
+// What milestone 4 landed is the branch's creation (issue #126), the
 // canonical encoding every file on it is written in (issue #127), the path
 // grammar every file on it is named by (issue #128), the five shapes it holds
 // (issue #129) — a Record version, run.json, a Step file, outcome.json and a
@@ -22,13 +22,14 @@
 // partitions. The git layer they all go through is here already, unexported,
 // and stays that way until a caller outside this package earns it.
 //
-// The Journal reader has no CLI consumer in this milestone by construction. It
-// is what milestone 5's Run and milestone 8's renderings both stand on, and it
-// is here because the Journal is milestone 4's.
+// The Journal reader had no CLI consumer in milestone 4 by construction. It is
+// what milestone 5's Run and milestone 8's renderings both stand on, and it is
+// here because the Journal is milestone 4's; `hyper run` is now the first
+// caller of the backward scan, of Concluded and of the Head derivation alike.
 //
-// The shapes are the encoder's own case: §7 states rules no command in this
-// milestone can reach, so they are verified at this package's own seam rather
-// than through a command that does not exist yet.
+// The shapes are the encoder's own case: §7 states rules no command reached
+// while they were written, so they are verified at this package's own seam
+// rather than through a command that did not exist yet.
 package store
 
 import (

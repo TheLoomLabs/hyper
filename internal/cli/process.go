@@ -12,7 +12,7 @@ import (
 // Process is everything `hyper` reads from the process it is running in, as one
 // value.
 //
-// It is issue #100's property at the grain a milestone of six reads needs:
+// It is issue #100's property at the grain a milestone of eight reads needs:
 // everything a command reads from the process is a parameter it is handed
 // rather than a package it reaches for, which is what makes the whole dispatch
 // exercisable without a subprocess. What travels beside this value rather than
@@ -24,7 +24,9 @@ import (
 // property starts costing more than it buys, so the reads travel as one value:
 // what a command may read is a type a reader opens rather than a parameter list
 // they count, and the milestone that adds a seventh read changes no signature
-// at all (issue #134).
+// at all (issue #134). The seventh and the eighth landed with `run`, which is
+// the claim made good: User and Hostname were added below and no signature in
+// the tree moved.
 //
 // It is one trade and worth naming. A command handed the whole value says *I
 // may read the process* where its signature used to say *I read the clock and
@@ -57,6 +59,27 @@ type Process struct {
 	// cannot be read does not stop `hyper version` (§9, ADR-0020, issue
 	// #103).
 	Getwd func() (string, error)
+
+	// User is who is running hyper, and Hostname is the machine they are
+	// running it on. Both are read for one value each in the whole tool: a
+	// Journal entry's Trigger carries `actor` on both executors and `host`
+	// on `local`, which is what §8's header renders `igor@thinkpad` from
+	// (§7, §12).
+	//
+	// They are two reads rather than one because they come from two places
+	// — the passwd database and the kernel — and either can answer while
+	// the other does not.
+	//
+	// They are threaded rather than read because everything in this value
+	// is, and because a fact that lands in the record must be a fact a
+	// fixture can supply: an entry whose `host` came from the machine the
+	// suite ran on is a `store.golden` nobody can check in. Each answers an
+	// error the way its standard-library reading does, and a Run that
+	// cannot read the machine writes no `host` at all — the ordinary
+	// absence rule, and better than a constant hyper invented for a machine
+	// it knows nothing about.
+	User     func() (string, error)
+	Hostname func() (string, error)
 
 	// Now is the clock. Every commit `hyper` writes takes both its dates from
 	// it, so a branch a fixture builds is reproducible and `git log` on the

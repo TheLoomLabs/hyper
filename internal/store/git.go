@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/TheLoomLabs/hyper/internal/git"
 )
 
 // git is a subprocess, and it is the one external tool the binary requires
@@ -97,14 +99,12 @@ const (
 // environment is what every git subprocess is run with: the process's own, plus
 // the identity and the two dates.
 //
-// The process's environment is inherited rather than replaced, and that is the
-// one place this layer is deliberately not hermetic. The git `hyper` shells out
-// to is the same git that resolves the credential a checkout left behind (§7,
-// §11), so its configuration, its credential helpers and its SSH agent are all
-// reached the way the operator already set them up. What is overridden is
-// overridden by being written last: os/exec keeps the final value of a repeated
-// name, so the identity and the dates below win over anything the caller's
-// environment happened to set.
+// The process's environment is inherited rather than replaced, less the
+// variables that would redirect git at another repository — internal/git states
+// that rule and holds it for both packages that start a git subprocess. What is
+// overridden here is overridden by being written last: os/exec keeps the final
+// value of a repeated name, so the identity and the dates below win over
+// anything the caller's environment happened to set.
 //
 // A git date is whole seconds, so a clock carrying milliseconds reaches a
 // commit truncated. It is written in git's own raw form — the seconds since the
@@ -116,7 +116,7 @@ const (
 // — which is the one failure mode a Cadence cannot recover from.
 func environment(now time.Time) []string {
 	stamp := fmt.Sprintf("%d +0000", now.Unix())
-	return append(inheritable(os.Environ()),
+	return append(git.Inheritable(os.Environ()),
 		"GIT_AUTHOR_NAME="+CommitName,
 		"GIT_AUTHOR_EMAIL="+CommitEmail,
 		"GIT_AUTHOR_DATE="+stamp,
@@ -125,43 +125,6 @@ func environment(now time.Time) []string {
 		"GIT_COMMITTER_DATE="+stamp,
 		"GIT_TERMINAL_PROMPT=0",
 	)
-}
-
-// redirecting names the environment variables that decide *which* repository
-// git acts on, rather than how it behaves while acting. They are dropped from
-// the environment every call here is made with, because the repository is the
-// one the repository root names and never one an ambient variable does.
-//
-// This is not hypothetical: git sets GIT_DIR and GIT_INDEX_FILE for every hook
-// it runs, so a `hyper store init` invoked from a pre-commit hook would inherit
-// them and write its branch through whatever they point at — silently, and into
-// a repository the caller never named. Nothing else in the environment is
-// touched, the credential helpers and the SSH agent being exactly what §7 says
-// this git is reached for.
-var redirecting = []string{
-	"GIT_DIR",
-	"GIT_WORK_TREE",
-	"GIT_COMMON_DIR",
-	"GIT_INDEX_FILE",
-	"GIT_OBJECT_DIRECTORY",
-	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
-	"GIT_NAMESPACE",
-}
-
-// inheritable is the process's environment with those dropped. A variable is
-// matched on the name before its first "=", which is what an environment entry
-// is; anything malformed enough to have none is passed through untouched rather
-// than guessed at.
-func inheritable(env []string) []string {
-	kept := make([]string, 0, len(env))
-	for _, entry := range env {
-		name, _, named := strings.Cut(entry, "=")
-		if named && slices.Contains(redirecting, name) {
-			continue
-		}
-		kept = append(kept, entry)
-	}
-	return kept
 }
 
 // gitError is a git call that failed, carrying what was run and what git said

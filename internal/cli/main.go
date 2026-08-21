@@ -21,12 +21,12 @@ import (
 // easy.
 //
 // Everything a command reads from the process is a parameter, which is the
-// property #100 established and this must not lose: the arguments, the six
-// reads process.go states, and the facts the build stamped. Nothing in the body
+// property #100 established and this must not lose: the arguments, the reads
+// process.go states, and the facts the build stamped. Nothing in the body
 // below reaches the process for itself, which is what makes the whole dispatch
 // exercisable without a subprocess.
 //
-// process is those six as one value rather than as one parameter each, which is
+// process is those reads as one value rather than as one parameter each, which is
 // the only thing issue #134 changes: the clock reached this signature loose one
 // milestone earlier, three more reads land in this one, and six of them threaded
 // singly is a parameter list a reader counts instead of a type they open. What
@@ -150,4 +150,11 @@ var repositoryCommands = map[string]repositoryCommand{
 	// and still takes the whole value: it dials, and it reads the clock its
 	// tls.days_left counts from (§9, §12, issue #135).
 	"probe": RunProbe,
+	// The tracer bullet, and the only command in the tree that is a Run:
+	// artefact, check, call, projection, Record, Store. It reads every
+	// member of the process there is — the environment for its Trigger, the
+	// working directory the dispatch resolved, the machine's name, the
+	// clock, the mint, the dialer and the launcher — which is what makes it
+	// the command the whole value was assembled for (§6, §9, issue #136).
+	"run": RunRun,
 }

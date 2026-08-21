@@ -348,3 +348,68 @@ func rootsUnder(artefacts []LoadedArtefact, prefix string) []*yaml.Node {
 	}
 	return roots
 }
+
+// The three artefact directories a name is looked up in (§3, §12). The key each
+// kind declares its own name under travels beside the directory at every call
+// site below, because the pairing is what makes a lookup a lookup: a directory
+// searched under the wrong key answers *the repository holds none* about an
+// artefact that is sitting there.
+//
+// Two of the three keys are internal/artefact's own kind: constants, a
+// Definition and a Procedure naming themselves under the word their kind: also
+// carries. A Target declaration does not — its kind: is `target-declaration`
+// and its name key is `target` — which is why TargetDeclarationName exists
+// there and why the key is written out here.
+const (
+	definitionsDir = "definitions"
+	proceduresDir  = "procedures"
+	targetsDir     = "targets"
+)
+
+// Procedure answers the artefact a Procedure name was read from: its path, its
+// exact bytes and what they parsed to.
+//
+// It is the file rather than the parse tree, which is what separates it from
+// the four namespaces above: a Run's Provenance names the git blob id of the
+// **file** the Procedure was read from (§7), and a digest over a parse tree is
+// a second representation of bytes nobody hashed. `Procedures` answers whether
+// a name resolves and this answers what it resolved to.
+func (l Loaded) Procedure(name string) (LoadedArtefact, bool) {
+	return l.declared(proceduresDir, artefact.KindProcedure, name)
+}
+
+// Definition answers the artefact a Definition name was read from, on
+// Procedure's own footing and for its own reason: `definition_revision` is the
+// blob id of the Definition file (§7).
+func (l Loaded) Definition(name string) (LoadedArtefact, bool) {
+	return l.declared(definitionsDir, artefact.KindDefinition, name)
+}
+
+// TargetDeclaration answers the artefact a Target name was read from. Its
+// caller wants the **path** rather than the bytes — a Refusal names the file
+// and the line to edit (§8, ADR-0042) — and a path a surface names must be a
+// path that exists, which is why it is found by walking the load rather than
+// composed from the name: `name-mismatch` pins a basename to a declared name
+// (§4), and this reports where the bytes came from.
+func (l Loaded) TargetDeclaration(name string) (LoadedArtefact, bool) {
+	return l.declared(targetsDir, "target", name)
+}
+
+// declared is the walk all three are: the artefact under dir that parsed and
+// declares name under key.
+//
+// Where two files declare one name it answers the **last** of them, which is
+// not a precedence rule this walk is entitled to either — it is the rule the
+// folds above already have, a map assignment keeping the last write. It is
+// matched here deliberately: a surface that named a different file than the
+// namespace resolved to would report one artefact and act on another, which is
+// the one thing a collision `check` has not yet named must not cost.
+func (l Loaded) declared(dir, key, name string) (LoadedArtefact, bool) {
+	found, ok := LoadedArtefact{}, false
+	for _, a := range l.Artefacts {
+		if a.OK && strings.HasPrefix(a.Path, dir+"/") && artefact.DeclaredName(a.Root, key) == name {
+			found, ok = a, true
+		}
+	}
+	return found, ok
+}

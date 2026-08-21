@@ -222,7 +222,7 @@ func (r Request) Build(host string, inputs map[string]schema.Scalar) (Call, erro
 	call := Call{Host: host, Method: r.Method}
 
 	var err error
-	if call.Path, err = fill("path:", r.Path, inputs); err != nil {
+	if call.Path, err = Fill("path:", r.Path, inputs); err != nil {
 		return Call{}, err
 	}
 	if call.Query, err = fillParameters("query:", r.Query, inputs); err != nil {
@@ -239,6 +239,34 @@ func (r Request) Build(host string, inputs map[string]schema.Scalar) (Call, erro
 		call.Body = body
 	}
 	return call, nil
+}
+
+// Deadline bounds a call by the Operation's own `deadline:` and by nothing
+// else.
+// There is no whole-invocation deadline and no flag: the bound is the Manifest
+// author's, declared beside the request it bounds (§3, §6).
+//
+// seconds is what the Operation declared, and nil where hyper could not read
+// one. A call bounded by nothing is what that answers, rather than a number
+// substituted here: `deadline:` is mandatory and its absence is
+// `schema-mismatch`, which is check's to report and never a performer's to
+// paper over (§4, ADR-0064).
+//
+// It lives here rather than at either caller because the deadline is a fact
+// about the request: reaching one kills the call, and on a `mutate` or
+// `destroy` that is the ambiguity *attempted, outcome unknown* exists to carry
+// (§6). A Probe and a Run's Step both bound their call this way, and two
+// spellings of one deadline is where the day comes that they differ.
+//
+// It is named for the thing an artefact declared and never *Bound*: a Bound is
+// the maximum number of Records an effectful Step may affect (§5), and a second
+// use of that word for a length of time would put the tool's one blast-radius
+// noun on a clock.
+func Deadline(ctx context.Context, seconds *int) (context.Context, context.CancelFunc) {
+	if seconds == nil {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, time.Duration(*seconds)*time.Second)
 }
 
 // Perform makes the call and assembles the response object §12 closes at five
@@ -425,7 +453,7 @@ func parseBody(body io.Reader) (any, bool) {
 	return decoded, true
 }
 
-// fill renders one template against the resolved inputs: every hole replaced
+// Fill renders one template against the resolved inputs: every hole replaced
 // by the text form §12 fixes for the type its input declares, and the rest of
 // the value left exactly as authored. position names the key in the error, so
 // a Manifest with a hole nothing fills says which of its lines it was.
@@ -433,7 +461,12 @@ func parseBody(body io.Reader) (any, bool) {
 // Every position but body: is text on the wire, so there is nothing to type
 // into here and a composition and a whole hole render identically — which is
 // the difference §3 draws at the one sink that has types (ADR-0078).
-func fill(position, template string, inputs map[string]schema.Scalar) (string, error) {
+//
+// It is exported for the one hole outside a request that fills the same way: a
+// `record:`'s `identity:` where it is a template rather than a response path
+// resolves against the same inputs by the same rule (§3, §12). There is one
+// hole syntax in every artefact, so there is one filler.
+func Fill(position, template string, inputs map[string]schema.Scalar) (string, error) {
 	var unfilled string
 	filled := holePattern.ReplaceAllStringFunc(template, func(hole string) string {
 		name := hole[1 : len(hole)-1]
@@ -459,7 +492,7 @@ func fillParameters(position string, parameters []Parameter, inputs map[string]s
 	}
 	filled := make([]Parameter, 0, len(parameters))
 	for _, p := range parameters {
-		value, err := fill(position+p.Name, p.Value, inputs)
+		value, err := Fill(position+p.Name, p.Value, inputs)
 		if err != nil {
 			return nil, err
 		}
@@ -551,7 +584,7 @@ func bodyScalar(node BodyNode, inputs map[string]schema.Scalar) (string, error) 
 		return input.JSON(), nil
 	}
 	if strings.Contains(node.Scalar, "{") {
-		composed, err := fill("body:", node.Scalar, inputs)
+		composed, err := Fill("body:", node.Scalar, inputs)
 		if err != nil {
 			return "", err
 		}

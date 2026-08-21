@@ -1,0 +1,4 @@
+{"type":"step","step":1,"id":"status","kind":"read","disposition":"ran","records":1}
+{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329","repo_revision":"bcce2c10592d43450874312bb51af5ee2188ccc3"}
+{"type":"provenance","step":1,"definition_revision":"077c633cf1996368e8d16880b0bf2d37b6ffe360","manifest_digest":"sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7"}
+{"type":"outcome","outcome":"completed","code":0,"dry_run":false,"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}

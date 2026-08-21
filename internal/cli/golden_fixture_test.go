@@ -84,9 +84,23 @@ const absentBranch = "no " + store.BranchName + " branch\n"
 // before it builds anything — an input that contradicts another is a fault the
 // case is told about, not one it is quietly driven past.
 type fixtureInputs struct {
-	// repo says the case carries a fixture repository, which is what every
+	// repo says the case has a fixture repository, which is what every
 	// other input here is about and what materialisation copies.
 	repo bool
+	// from is the directory the repository is copied from where the case
+	// carries no repo/ of its own: a path relative to the case directory,
+	// named in a repo-from file. It is how a materialised case shares a
+	// repository, which the --repo-dir an argv writes cannot do — a case
+	// that materialises is driven against a copy in a temp directory, so
+	// naming a checked-in path in its own argv would stand it in a
+	// directory that is inside no git repository at all.
+	from string
+	// uncommitted is a directory whose files are written over the working
+	// tree **after** the commit, which is the one state a copied-and-
+	// committed fixture cannot otherwise reach: an artefact that differs
+	// from HEAD, or one that is untracked. It is what `repo_dirty` is
+	// driven by (§7).
+	uncommitted bool
 	// git is the bare marker: materialise, and seed no branch. A case that
 	// wants nothing but a git root asks for it with this and nothing else.
 	git bool
@@ -131,6 +145,8 @@ func (in fixtureInputs) fault() string {
 	switch {
 	case !in.repo && (in.git || in.store || in.remote || in.remoteStore):
 		return "asks for a git fixture and carries no repo/ to make one from"
+	case in.uncommitted && !in.materialised():
+		return "carries an uncommitted/ and materialises no repository; there is no commit for its files to differ from"
 	case in.remoteStore && !in.remote:
 		return "seeds hyper-store on origin and wires no origin; remote-store/ needs a remote marker beside it"
 	case in.noGitRoot && in.repo:
@@ -150,8 +166,11 @@ func (in fixtureInputs) fault() string {
 // checked as the kind it is: a `store` file or a `git/` directory is a case
 // that meant something the harness would otherwise silently not do.
 func (c goldenCase) fixtureInputs() fixtureInputs {
+	from := strings.TrimSpace(readFileAt(filepath.Join(c.dir, "repo-from")))
 	return fixtureInputs{
-		repo:         isDir(filepath.Join(c.dir, "repo")),
+		repo:         isDir(filepath.Join(c.dir, "repo")) || from != "",
+		from:         from,
+		uncommitted:  isDir(filepath.Join(c.dir, "uncommitted")),
 		git:          isFile(filepath.Join(c.dir, "git")),
 		store:        isDir(filepath.Join(c.dir, "store")),
 		remote:       isFile(filepath.Join(c.dir, "remote")),
@@ -215,7 +234,7 @@ func (c goldenCase) materialise(t *testing.T, in fixtureInputs) gitFixture {
 		root: filepath.Join(base, "repo"),
 		env:  fixtureEnvironment(home, c.instant(t)),
 	}
-	if err := os.CopyFS(fx.root, os.DirFS(filepath.Join(c.dir, "repo"))); err != nil {
+	if err := os.CopyFS(fx.root, os.DirFS(c.repository(t, in))); err != nil {
 		t.Fatal(err)
 	}
 
@@ -225,6 +244,14 @@ func (c goldenCase) materialise(t *testing.T, in fixtureInputs) gitFixture {
 	// an assertion about the fixture itself needs no artefact in it — and a
 	// code branch has to exist either way for the remote to hold one.
 	fx.run(t, fx.root, "commit", "--quiet", "--message", "the fixture's working tree", "--allow-empty")
+
+	// After the commit, and deliberately: what uncommitted/ holds is a
+	// working tree that differs from HEAD, which is the state repo_dirty
+	// reports and the one a copied-and-committed fixture cannot otherwise
+	// be in (§7).
+	if in.uncommitted {
+		overwrite(t, filepath.Join(c.dir, "uncommitted"), fx.root)
+	}
 
 	if in.store {
 		fx.run(t, fx.root, "update-ref", store.Ref, fx.orphan(t, filepath.Join(c.dir, "store")))
@@ -243,6 +270,60 @@ func (c goldenCase) materialise(t *testing.T, in fixtureInputs) gitFixture {
 		}
 	}
 	return fx
+}
+
+// overwrite copies a directory's files over another's, replacing what is there.
+//
+// os.CopyFS refuses a path that already exists, which is exactly the case here:
+// an uncommitted/ that only ever added files could not express *an artefact
+// that differs from HEAD*, which is the half of repo_dirty that matters (§7).
+func overwrite(t *testing.T, from, into string) {
+	t.Helper()
+
+	for _, rel := range filesUnder(t, from) {
+		path := filepath.Join(into, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		content, err := os.ReadFile(filepath.Join(from, filepath.FromSlash(rel)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// repository is the directory the case's working tree is copied from: its own
+// repo/, or the one its repo-from names. The second is how materialised cases
+// share a repository — twelve cases against one repository is what the
+// five-artefact demonstration is for, and a materialised case cannot reach it
+// through its argv, being driven against a copy in a temp directory.
+func (c goldenCase) repository(t *testing.T, in fixtureInputs) string {
+	t.Helper()
+
+	if in.from == "" {
+		return filepath.Join(c.dir, "repo")
+	}
+	source := c.abs(t, filepath.FromSlash(in.from))
+	if !isDir(source) {
+		t.Fatalf("case %s names repo-from %s, which is not a directory", c.name, in.from)
+	}
+	return source
+}
+
+// readFileAt reads an optional case input outside a test's scope, treating an
+// absent one as empty. It is readFile without the *testing.T, for the one
+// reader that runs while the inputs are being read rather than while a case is
+// being driven; a file that cannot be read at all reads as absent here and
+// fails where the input is used.
+func readFileAt(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return string(data)
 }
 
 // orphan builds a parentless commit whose tree is dir's files, and returns its
@@ -678,8 +759,8 @@ func TestGoldenFixture_AMaterialisedCaseIsDrivenAgainstTheCopy(t *testing.T) {
 func TestGoldenFixture_TheCommitHoldsTheWholeWorkingTree(t *testing.T) {
 	judged := eachMaterialisedCase(t, anyFixture, func(t *testing.T, c goldenCase, fx gitFixture) {
 		committed := nulSeparated(fx.run(t, fx.root, "ls-tree", "-r", "--name-only", "-z", codeBranch))
-		if want := filesUnder(t, c.abs(t, "repo")); !slices.Equal(committed, want) {
-			t.Errorf("%s holds %q, want the whole of repo/: %q", codeBranch, committed, want)
+		if want := filesUnder(t, c.repository(t, c.fixtureInputs())); !slices.Equal(committed, want) {
+			t.Errorf("%s holds %q, want the whole of the repository it was copied from: %q", codeBranch, committed, want)
 		}
 	})
 
@@ -969,6 +1050,7 @@ func TestGoldenFixture_AnInputWithNothingToActOnIsNamed(t *testing.T) {
 		"a store golden over no branch":            {"repo/", "store.golden"},
 		"a remote golden over no remote":           {"repo/", "git", "remote.golden"},
 		"a repository and nowhere to stand beside": {"repo/", "git", "no-git-root"},
+		"an uncommitted tree over no repository":   {"repo/", "uncommitted/"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if fault := fabricate(t, name, inputs).fixtureInputs().fault(); fault == "" {
@@ -986,6 +1068,7 @@ func TestGoldenFixture_AnInputWithNothingToActOnIsNamed(t *testing.T) {
 		"a store on origin alone":         {"repo/", "remote", "remote-store/", "store.golden", "remote.golden"},
 		"a walk up to the git root":       {"repo/", "git", "find-root"},
 		"a directory under no git root":   {"no-git-root"},
+		"a working tree that moved":       {"repo/", "git", "uncommitted/"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if fault := fabricate(t, name, inputs).fixtureInputs().fault(); fault != "" {

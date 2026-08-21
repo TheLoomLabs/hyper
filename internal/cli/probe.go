@@ -7,7 +7,6 @@ import (
 	"io"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/capability"
@@ -143,7 +142,7 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 	}
 
 	detail := artefact.ReadOperationDetail(manifest.Root, operationName)
-	ctx, cancel := deadline(context.Background(), detail)
+	ctx, cancel := capability.Deadline(context.Background(), detail.DeadlineSeconds)
 	defer cancel()
 
 	response, err := call.Perform(ctx, process.Dial, instant)
@@ -405,19 +404,12 @@ func (d probeDecline) render(stderr io.Writer) int {
 //
 // The deciding is not here. Where a Probe may reach is a fact about the
 // artefacts — the candidate set, the grant, and their intersection (§3,
-// ADR-0029, ADR-0042) — and artefact.ResolveProbeHost is where it is read,
+// ADR-0029, ADR-0042) — and artefact.ResolveHost is where it is read,
 // beside the checks a Step's binding is held to. What is here is what a reader
 // is owed for each answer, which is this surface's alone.
 func probeHost(loaded repository.Loaded, provider, operationName string, operation artefact.OperationInfo, inputs map[string]schema.Scalar) (string, *probeDecline) {
-	// The value the Operation's host-input: names, "" where it names none —
-	// which is the whole of what the resolution needs from the invocation.
-	supplied := ""
-	if operation.HostInput != "" {
-		supplied = inputs[operation.HostInput].Text()
-	}
-
-	reach := artefact.ResolveProbeHost(
-		loaded.Providers[provider], operation, loaded.Targets[localTarget], supplied)
+	reach := artefact.ResolveHost(loaded.Providers[provider], operation,
+		loaded.Targets[localTarget], operation.SuppliedHost(inputs))
 	switch reach.Reach {
 	case artefact.ReachGranted:
 		return reach.Host, nil
@@ -448,7 +440,7 @@ func probeHost(loaded repository.Loaded, provider, operationName string, operati
 // neither has a coordinate, so both say what to author instead of pointing at a
 // line that is not there.
 func hostNotGranted(loaded repository.Loaded, host string) *probeDecline {
-	declaration, declared := loaded.TargetDeclarations[localTarget]
+	localDeclaration, declared := loaded.TargetDeclaration(localTarget)
 	if !declared {
 		return &probeDecline{
 			code: artefact.CodeHostNotGranted,
@@ -458,8 +450,8 @@ func hostNotGranted(loaded repository.Loaded, host string) *probeDecline {
 		}
 	}
 
-	file := localDeclarationPath(loaded)
-	line := artefact.TopLevelKeyLine(declaration, "hosts")
+	file := localDeclaration.Path
+	line := artefact.TopLevelKeyLine(localDeclaration.Root, "hosts")
 	if line == 0 {
 		return &probeDecline{
 			code: artefact.CodeHostNotGranted,
@@ -494,34 +486,6 @@ func granted(host string) string {
 		return "host at all"
 	}
 	return host
-}
-
-// localDeclarationPath is the file the `local` declaration was read from. It is
-// found by walking the load rather than composed from the name, because a path
-// a surface names must be a path that exists: `name-mismatch` pins a basename
-// to a declared name (§4), and this reports where the bytes came from.
-func localDeclarationPath(loaded repository.Loaded) string {
-	for _, a := range loaded.Artefacts {
-		if strings.HasPrefix(a.Path, "targets/") && artefact.TargetDeclarationName(a.Root) == localTarget {
-			return a.Path
-		}
-	}
-	return "targets/" + localTarget + ".yaml"
-}
-
-// deadline bounds the call by the Operation's own `deadline:` and by nothing
-// else. There is no whole-invocation deadline and no flag: the bound is the
-// Manifest author's, declared beside the request it bounds (§3).
-//
-// An Operation whose deadline hyper could not read is bounded by nothing here,
-// which is check's to report rather than this command's to substitute a number
-// for: deadline: is mandatory and its absence is schema-mismatch (§4,
-// ADR-0064).
-func deadline(ctx context.Context, detail artefact.OperationDetail) (context.Context, context.CancelFunc) {
-	if detail.DeadlineSeconds == nil {
-		return context.WithCancel(ctx)
-	}
-	return context.WithTimeout(ctx, time.Duration(*detail.DeadlineSeconds)*time.Second)
 }
 
 // probeResultRow is the whole of a Probe's answer as one row, and its members

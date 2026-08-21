@@ -1,13 +1,13 @@
 // Command hyper is the CLI surface over hyper's core (§9). This file is the
 // whole of what the binary adds to the library behind it: it reads the process
-// — the arguments, the six reads cli.Process names, the facts Go's build
+// — the arguments, the eight reads cli.Process names, the facts Go's build
 // stamped — and hands them to cli.Main, which decides which command runs.
 //
 // No command name appears here, and no dispatch does. This file has no golden
 // coverage, which is the argument gate.go makes for the gate and cli.Main
 // makes for the dispatch behind it (issues #102 and #107).
 //
-// Every one of the six is handed over uncalled, so a read no command makes is a
+// Every one of the eight is handed over uncalled, so a read no command makes is a
 // read that never happens. os.Getwd is the one that shows why: `version` and `completions` stand outside §9's tree of sixteen and
 // resolve no repository, so a working directory that cannot be read must not
 // stop them (§9, ADR-0020). The other five follow the same rule for reasons
@@ -21,6 +21,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"os/user"
 	"syscall"
 	"time"
 
@@ -33,8 +34,9 @@ func main() {
 	os.Exit(cli.Main(os.Args[1:], os.Stdout, os.Stderr, process(), version.Current()))
 }
 
-// process is the real six: the environment, the working directory, the clock,
-// the Run id mint, the dialer and the process launcher. It is the one place in
+// process is the real eight: the environment, the working directory, the user
+// and the machine's name, the clock, the Run id mint, the dialer and the
+// process launcher. It is the one place in
 // the tree where the standard library's readings of the process are named, and
 // it is a function rather than a literal inside main() so that the binary's own
 // cases drive exactly the value main() does rather than a second assembly of it
@@ -43,7 +45,19 @@ func process() cli.Process {
 	return cli.Process{
 		LookupEnv: os.LookupEnv,
 		Getwd:     os.Getwd,
-		Now:       time.Now,
+		// Who is running hyper and on which machine, for the two values
+		// in the tool that carry them: a Journal entry's Trigger writes
+		// `actor` on both executors and `host` on `local` (§7, §12).
+		//
+		// The user comes from the passwd database rather than from
+		// $USER, which is conventional rather than guaranteed and is
+		// absent in a container often enough to matter. os/user falls
+		// back to reading the environment itself where it can do no
+		// better, so what is spelled here is the more reliable of the
+		// two readings and not a second one.
+		User:     currentUser,
+		Hostname: os.Hostname,
+		Now:      time.Now,
 		// store.MintRunID over the instant it is handed. crypto/rand is
 		// beneath it, which is why the mint is threaded and not called
 		// where an id is wanted: the id is written into every Store path a
@@ -64,6 +78,16 @@ func process() cli.Process {
 		Dial: new(tls.Dialer).DialContext,
 		Exec: child,
 	}
+}
+
+// currentUser is who is running hyper, as cli.Process.User: the passwd
+// database's name for the account the process runs under.
+func currentUser() (string, error) {
+	who, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	return who.Username, nil
 }
 
 // child is cli.Process.Exec, which states what the two decisions here are for.

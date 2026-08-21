@@ -68,19 +68,32 @@ func (i Identities) write(m members) {
 // one name: a duplicate that reached the digest would give one set two digests,
 // which is a spurious version minted on the next Run.
 func Concluded(names []string, previous string) Identities {
-	sorted := slices.Compact(slices.Sorted(slices.Values(names)))
-	if sorted == nil {
-		// The empty set is written `[]` where it is written at all, and
-		// a nil slice is the absence one key over. They are one value
-		// everywhere else in this package and two here.
-		sorted = []string{}
-	}
-
+	sorted := Names(names)
 	digest := IdentityDigest(sorted)
 	if digest == previous {
 		return Identities{Digest: digest}
 	}
 	return Identities{Digest: digest, Members: sorted}
+}
+
+// Names is a set of identities as this package holds one: sorted by Unicode
+// code point, and a name repeated kept once.
+//
+// It is exported because the count is read where the set is built and cannot be
+// read back off what is written: an identity set whose digest did not move
+// carries no members at all, and §8's `RECORDS` column is the size of the set
+// rather than of what the entry happened to write (§7, §8, ADR-0030). A caller
+// that counted its own list before handing it over would be counting a
+// different set the day two members of an Expansion resolved to one name.
+//
+// The empty set is `[]` and never nil: nil is the absence one key over, and the
+// two are one value everywhere else in this package and two here.
+func Names(names []string) []string {
+	sorted := slices.Compact(slices.Sorted(slices.Values(names)))
+	if sorted == nil {
+		return []string{}
+	}
+	return sorted
 }
 
 // ReadIdentitySet answers the set a Step concluded about, from the entry in

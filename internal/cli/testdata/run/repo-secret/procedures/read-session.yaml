@@ -1,0 +1,10 @@
+kind: procedure
+procedure: read-session
+targets: [local]
+steps:
+  - id: session
+    definition: session-read
+    operation: read_session
+    target: local
+    args:
+      host: status.hyper.dev
