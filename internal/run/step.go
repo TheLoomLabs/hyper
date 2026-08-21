@@ -139,7 +139,7 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	//
 	// **Every member is attempted**, whatever any other member's call did,
 	// and what stopped one is read back below in Expansion order.
-	answers, faults := dispatch(bound.detail.ConcurrencyLimit, expanded.Members, func(resolving member) (conclusion, error) {
+	answers, faults := dispatch(bound.detail.ConcurrencyLimit, expanded.Members, func(resolving member) (answer, error) {
 		return r.call(bound, authored, resolving)
 	})
 
@@ -155,51 +155,68 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// Expansion order** and not the first to arrive, which is what keeps
 	// *which fault* out of the completion order's reach as well.
 	names := make([]string, 0, len(expanded.Members))
+	// `hyper`'s own account of the work, summed over the Expansion: a
+	// Pattern's attempts, its pages and its poll iterations, supplied by no
+	// Provider (§7, ADR-0018, pattern.go). It is read off every member,
+	// faulted or not — a member that polled four times and then reached the
+	// deadline did four polls, and the file says what `hyper` did to reach
+	// the outcome it reached.
+	var acted account
 	// What this Step **acted on**, for the conditions and the references of
 	// the Steps after it: the fields each call concluded, whether or not the
 	// version they would have written moved the bytes. A Record going
 	// unchanged is not a Record going missing (§6, ADR-0030, condition.go).
 	records := make([]store.Mapping, 0, len(expanded.Members))
 	var halted error
-	for at, fault := range faults {
-		if fault != nil {
+	for at, member := range answers {
+		acted.add(member.account)
+		if fault := faults[at]; fault != nil {
 			if halted == nil {
 				halted = fault
 			}
 			continue
 		}
-		answer := answers[at]
-		names = append(names, answer.name)
-		records = append(records, answer.fields)
+		// One member is one Record on an Operation of `one` cardinality
+		// and one per member of the collection it walked on an Operation
+		// of `series` — every page of it, where a pagination Pattern
+		// walked several. A Pattern changes the number of Records a Step
+		// affects nowhere: what a paginated call reaches is the same
+		// collection an unpaginated one would have, arriving a page at a
+		// time (§3, pattern.go).
+		for _, concluded := range member.records {
+			names = append(names, concluded.name)
+			records = append(records, concluded.fields)
 
-		identity := store.Identity{Target: authored.Target, Definition: authored.Definition, Name: answer.name}
-		version := store.RecordVersion{
-			Metadata: store.Metadata{
-				Identity:   identity,
-				RecordType: store.RecordObservation,
-				Run:        r.id,
-				Step:       position,
-				Operation:  authored.Operation,
-				// The invocation chain, where this Step was reached
-				// through one. A Record version written by a nested
-				// Step carries that Step's `path` as the Step's own
-				// file does (§7, issue #141).
-				Path:       authored.Path,
-				WrittenAt:  r.request.Now(),
-				Provenance: store.Provenance{Run: r.provenance, Step: provenance},
-			},
-			Fields: answer.fields,
-		}
-		moved, err := mints(r.request.Store, version)
-		if err != nil {
-			return Step{}, nil, err
-		}
-		if moved {
-			if err := r.request.Store.Append([]store.Write{{
-				Path:    store.RecordPath(identity, r.id, position),
-				Content: version.Encode(),
-			}}, fmt.Sprintf("Record %s/%s/%s at run %s step %d", identity.Target, identity.Definition, identity.Name, r.id, position)); err != nil {
+			identity := store.Identity{Target: authored.Target, Definition: authored.Definition, Name: concluded.name}
+			version := store.RecordVersion{
+				Metadata: store.Metadata{
+					Identity:   identity,
+					RecordType: store.RecordObservation,
+					Run:        r.id,
+					Step:       position,
+					Operation:  authored.Operation,
+					// The invocation chain, where this Step was
+					// reached through one. A Record version
+					// written by a nested Step carries that
+					// Step's `path` as the Step's own file
+					// does (§7, issue #141).
+					Path:       authored.Path,
+					WrittenAt:  r.request.Now(),
+					Provenance: store.Provenance{Run: r.provenance, Step: provenance},
+				},
+				Fields: concluded.fields,
+			}
+			moved, err := mints(r.request.Store, version)
+			if err != nil {
 				return Step{}, nil, err
+			}
+			if moved {
+				if err := r.request.Store.Append([]store.Write{{
+					Path:    store.RecordPath(identity, r.id, position),
+					Content: version.Encode(),
+				}}, fmt.Sprintf("Record %s/%s/%s at run %s step %d", identity.Target, identity.Definition, identity.Name, r.id, position)); err != nil {
+					return Step{}, nil, err
+				}
 			}
 		}
 	}
@@ -241,6 +258,7 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	r.acted[stepKey{authored.Namespace, authored.ID}] = records
 	file.Disposition = reached.Disposition
 	file.Identities = store.Concluded(names, previous)
+	file.Pattern = acted.written()
 	// The Step's file goes down whether or not the Expansion drained: a
 	// Step that reached a Disposition wrote its file, and a halted Run
 	// leaves what it did (§6, ADR-0011). The fault travels beside it and is
@@ -346,7 +364,27 @@ type conclusion struct {
 	fields store.Mapping
 }
 
-// call makes one member's call and projects the answer.
+// answer is what one member of an Expansion concluded: the Records its calls
+// projected, and `hyper`'s own account of what the Patterns around those calls
+// did to reach them (§7, pattern.go).
+//
+// The Records are a list because two facts about an Operation multiply into it
+// and neither is the member's: an Operation of `series` cardinality projects
+// many Records out of one response, and a pagination Pattern walks many
+// responses. Neither changes what the member **is** — one Record identity each
+// is the Expansion's rule and holds unchanged (ADR-0070) — and both change how
+// many Records one call reaches.
+//
+// The account travels beside them rather than being derived from them, because
+// it is a fact about `hyper`'s own conduct and not about what came back: three
+// attempts that reached one Record and one attempt that reached one Record
+// leave the same Record and are not the same fact on the page (§7, ADR-0018).
+type answer struct {
+	records []conclusion
+	account account
+}
+
+// call makes one member's calls and projects the answers.
 //
 // **A `read` never halts on what came back.** Whatever the status, whatever the
 // exit code, the response object §12 states is what the projection reads — so a
@@ -354,56 +392,129 @@ type conclusion struct {
 // and a command that exited `1` records the code, rather than either stopping
 // the Run (§6, ADR-0050). What halts it is the two things that are not an
 // answer: the Operation's **deadline**, and the projection — in this milestone
-// the identity path alone, the recorded fields being an absence a version
-// simply does not carry and the rest of what a projection that does not resolve
-// does being issue #144's.
+// the identity path and the collection path, the recorded fields being an
+// absence a version simply does not carry and the rest of what a projection
+// that does not resolve does being issue #144's.
+//
+// **The Operation's `deadline:` bounds the whole call**, its Patterns' pages and
+// polls included: it is taken once here and every call the Patterns make below
+// is made under it, so there is no second bound anywhere to disagree with the
+// first (§3, §6).
 //
 // It is one member's and never the Step's, and the error it answers halts
 // nothing on its own: what a fault here does to the members beside it is the
-// drain, one caller up (§6, drain.go).
+// drain, one caller up (§6, drain.go). The account is answered whether or not
+// it halted, a Step's file saying what `hyper` did to reach the outcome it
+// reached (§7).
 //
-// **The two Capabilities part on the next line and rejoin on the one after.**
+// **The two Capabilities part at requesting and rejoin at the projection.**
 // Which of them an Operation declares is the Manifest's one fact about its
-// request (§3), and it is read in exactly two places in this package: here, and
-// at the Expansion, where a `shell` Operation's `command:` resolves to an argv
-// rather than to an input (arguments.go). Everything past the call — the
+// request (§3), and it is read in exactly two places in this package: there,
+// and at the Expansion, where a `shell` Operation's `command:` resolves to an
+// argv rather than to an input (arguments.go). Everything past the call — the
 // identity, the projection, the version — reads a response object and never a
 // socket or a process.
-//
-// What each arm answers beside the object is the **halting** fault, worded for
-// a reader, and nil where nothing halted. Everything else stays narration's and
-// is dropped there: no member of the response object says what went wrong, that
-// being the catch-all bucket ADR-0017 closed, and a `read` records a call that
-// got no answer as the answer it is (§6, ADR-0050).
-func (r run) call(bound binding, authored sequenced, resolving member) (conclusion, error) {
+func (r run) call(bound binding, authored sequenced, resolving member) (answer, error) {
 	if bound.operation.Identity == "" {
-		return conclusion{}, fmt.Errorf("step %s binds %s %s, whose record: declares no identity, so hyper cannot say which Record a call would be holding — hyper check reports it",
+		return answer{}, fmt.Errorf("step %s binds %s %s, whose record: declares no identity, so hyper cannot say which Record a call would be holding — hyper check reports it",
 			named(authored), bound.manifest.Name, authored.Operation)
 	}
 
 	declaration := artefact.OperationNode(bound.manifest.Root, authored.Operation)
-	var response capability.Object
-	var halted error
-	if bound.operation.IsShell {
-		response, halted = r.ran(bound, authored, resolving)
-	} else {
-		response, halted = r.requested(bound, authored, resolving, declaration)
-	}
-	if halted != nil {
-		return conclusion{}, halted
+	reading := projection.Read(declaration)
+
+	ctx, cancel := capability.Deadline(context.Background(), bound.detail.DeadlineSeconds)
+	defer cancel()
+
+	send, err := r.requesting(bound, authored, resolving, declaration)
+	if err != nil {
+		return answer{}, err
 	}
 
-	name, resolvedName := identityOf(bound.operation, resolving.Inputs, response)
-	if !resolvedName {
-		return conclusion{}, fmt.Errorf("step %s: the identity path %s did not resolve against what came back, so hyper cannot say which Record it is holding",
-			named(authored), bound.operation.Identity)
-	}
-	return conclusion{name: name, fields: projected(bound.operation, projection.Read(declaration).Project(response))}, nil
+	// Each page's response is projected as it arrives, and what it
+	// projected is what pagination terminates on: **both forms terminate
+	// when the collection `record.over` names comes back empty** (§3), and
+	// the one reading of that collection is this one. A second reading for
+	// the Pattern's own sake would be a second chance for *the collection
+	// was empty* and *nothing was projected* to disagree.
+	var projected []conclusion
+	acted, halted := readPatterns(declaration).perform(ctx, r.started, send,
+		func(response capability.Object) (int, error) {
+			held, err := r.concluded(bound, authored, reading, resolving, response)
+			projected = append(projected, held...)
+			return len(held), err
+		})
+	return answer{records: projected, account: acted}, halted
 }
 
-// requested is the `http` half: the reach resolved, the holes filled, the call
-// made and bounded by the Operation's own `deadline:`.
-func (r run) requested(bound binding, authored sequenced, resolving member, declaration *yaml.Node) (capability.Object, error) {
+// concluded is what one response became: the Records it projected, and the halt
+// where `hyper` could not read the answer back.
+//
+// **An Operation of `series` cardinality reads from two roots.** `over:` reads
+// from the response, and `identity:` and every `fields:` path read from each
+// member of the collection it named — both written `$`, the position deciding
+// which root it means (§3, §12, internal/projection).
+//
+// The collection path failing to resolve halts the Run, and it is not the same
+// fact as a collection that came back empty: without it `hyper` cannot tell
+// *there was nothing there* from *the path was wrong*, which is the *I recorded
+// nothing* an absent wire would otherwise be needed to diagnose (§6, ADR-0017).
+// An empty collection is an ordinary answer and projects nothing.
+func (r run) concluded(bound binding, authored sequenced, reading projection.Projection, resolving member, response capability.Object) ([]conclusion, error) {
+	if reading.Over == "" {
+		name, resolved := identityOf(bound.operation, resolving.Inputs, response)
+		if !resolved {
+			return nil, fmt.Errorf("step %s: the identity path %s did not resolve against what came back, so hyper cannot say which Record it is holding",
+				named(authored), bound.operation.Identity)
+		}
+		return []conclusion{{name: name, fields: projected(bound.operation, reading.Project(response))}}, nil
+	}
+
+	members, resolved := projection.Collection(reading.Over, response)
+	if !resolved {
+		return nil, fmt.Errorf("step %s: the collection path %s did not resolve against what came back, so hyper cannot tell a collection that was empty from a path that was wrong",
+			named(authored), reading.Over)
+	}
+
+	held := make([]conclusion, 0, len(members))
+	for _, item := range members {
+		name, resolved := identityOf(bound.operation, resolving.Inputs, item)
+		if !resolved {
+			return held, fmt.Errorf("step %s: the identity path %s did not resolve against a member of %s, so hyper cannot say which Record it is holding",
+				named(authored), bound.operation.Identity, reading.Over)
+		}
+		held = append(held, conclusion{name: name, fields: projected(bound.operation, reading.Project(item))})
+	}
+	return held, nil
+}
+
+// requesting is the one request this member makes, ready to be made again: the
+// reach resolved and the holes filled once, and a closure that performs it
+// under whatever page position a pagination Pattern hands down.
+//
+// It is built **once per member** and called once per page, poll and attempt,
+// which is what keeps a Pattern from re-resolving a host or re-filling a hole
+// between two calls of one member: the reach is the artefact's and cannot move
+// during a call (§3, ADR-0029).
+//
+// What each arm answers beside the object is what a Pattern reads: whether the
+// failure provably preceded the request, which is the only thing a retry
+// follows (ADR-0018), and the **halting** fault, worded for a reader and nil
+// where nothing halted. Everything else stays narration's and is dropped there:
+// no member of the response object says what went wrong, that being the
+// catch-all bucket ADR-0017 closed, and a `read` records a call that got no
+// answer as the answer it is (§6, ADR-0050).
+func (r run) requesting(bound binding, authored sequenced, resolving member, declaration *yaml.Node) (request, error) {
+	if bound.operation.IsShell {
+		return r.running(bound, authored, resolving)
+	}
+	return r.requested(bound, authored, resolving, declaration)
+}
+
+// requested is the `http` half: the reach resolved, the holes filled, and the
+// call made — decorated, where a pagination Pattern is walking, with the token
+// or the number written into the `query:` or `header:` position `into:` names.
+func (r run) requested(bound binding, authored sequenced, resolving member, declaration *yaml.Node) (request, error) {
 	// The inputs are the Expansion's, resolved for this member before the
 	// first call of the Step went out: an `args:` value arriving from a
 	// reference is read there, where a value it cannot read is still a
@@ -425,37 +536,40 @@ func (r run) requested(bound binding, authored sequenced, resolving member, decl
 	if err != nil {
 		return nil, err
 	}
+	credential := r.credential(bound, authored.Target)
 
-	ctx, cancel := capability.Deadline(context.Background(), bound.detail.DeadlineSeconds)
-	defer cancel()
+	return func(ctx context.Context, at page) (capability.Object, bool, error) {
+		// The instant handed to the call is the **Run's** start and not
+		// a fresh read: it is what a certificate's remaining life is
+		// counted from, so two Steps of one Run that reach one host
+		// record one `days_left`, and nothing a later Step — or a poll
+		// of this one — does moves what an earlier one recorded
+		// (ADR-0034).
+		response, err := at.write(built).Perform(ctx, r.request.Dial, r.started, credential)
 
-	// The instant handed to the call is the **Run's** start and not a fresh
-	// read: it is what a certificate's remaining life is counted from, so
-	// two Steps of one Run that reach one host record one `days_left`, and
-	// nothing a later Step does moves what an earlier one recorded
-	// (ADR-0034).
-	response, err := built.Perform(ctx, r.request.Dial, r.started, r.credential(bound, authored.Target))
-
-	// **A deadline reached on a `read` fails the Step** (§6). It is the one
-	// error beside the response object this reads, and it is read because
-	// it is the one an artefact declared: a refused connection, a name that
-	// does not resolve and a handshake that failed are all *no response
-	// arrived*, which a `read` records as the answer it is, and a deadline
-	// is `hyper` stopping rather than the world answering nothing.
-	//
-	// The deadline is named as itself rather than as the transport's word
-	// for it, and beside the host it was reached on — the two facts a
-	// reader can act on, one an edit to the Manifest and one a look at the
-	// far end. Which **member** drained is `expanded_to`'s and nowhere else
-	// (§7, §8).
-	if errors.Is(err, context.DeadlineExceeded) {
-		return nil, fmt.Errorf("step %s: the Operation's deadline of %s was reached on %s and no response arrived",
-			named(authored), bound.detail.Deadline, reach.Host)
-	}
-	return response, nil
+		// **A deadline reached on a `read` fails the Step** (§6). It is
+		// the one error beside the response object this reads as a halt,
+		// and it is read because it is the one an artefact declared: a
+		// refused connection, a name that does not resolve and a
+		// handshake that failed are all *no response arrived*, which a
+		// `read` records as the answer it is — and which a retry Pattern
+		// follows, those three being exactly the class the request
+		// provably never left under (ADR-0018).
+		//
+		// The deadline is named as itself rather than as the transport's
+		// word for it, and beside the host it was reached on — the two
+		// facts a reader can act on, one an edit to the Manifest and one
+		// a look at the far end. Which **member** drained is
+		// `expanded_to`'s and nowhere else (§7, §8).
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, false, fmt.Errorf("step %s: the Operation's deadline of %s was reached on %s and no response arrived",
+				named(authored), bound.detail.Deadline, reach.Host)
+		}
+		return response, capability.NeverSent(err), nil
+	}, nil
 }
 
-// ran is the `shell` half: the argv exec'd, and the four-member object §12
+// running is the `shell` half: the argv exec'd, and the four-member object §12
 // closes over what the child did (issue #142).
 //
 // **No grant is consulted and there is no host to resolve.** `shell` is the one
@@ -468,7 +582,16 @@ func (r run) requested(bound binding, authored sequenced, resolving member, decl
 // the working directory is the repository root, so a laptop and a runner agree
 // without a line saying so; stdin is empty; and the environment is the one the
 // Run composed once before Step 1 (§3, §11, run.go).
-func (r run) ran(bound binding, authored sequenced, resolving member) (capability.Object, error) {
+//
+// **The page position reaches nothing here**, and it is unreachable rather than
+// ignored: a `shell:` block has no `query:` and no `header:` for an `into:` to
+// name, only `hyper` may write a Provider declaring this Capability (ADR-0039),
+// and the one it ships declares no Pattern at all — pagination and polling
+// having no meaning against a command, and retry following only a failure that
+// provably preceded a request (§12, ADR-0018). What does reach here is retry,
+// whose one member under this Capability is a child that could not be started
+// at all (ADR-0018, capability.NeverSent).
+func (r run) running(bound binding, authored sequenced, resolving member) (request, error) {
 	if len(resolving.Argv) == 0 {
 		// Unreachable from a Run: `command-malformed` refuses an empty
 		// `command:` at load and the Expansion refuses a shape it could
@@ -477,29 +600,30 @@ func (r run) ran(bound binding, authored sequenced, resolving member) (capabilit
 		return nil, fmt.Errorf("step %s resolved no argv, and there is no executable to name — hyper check reports it", named(authored))
 	}
 
-	ctx, cancel := capability.Deadline(context.Background(), bound.detail.DeadlineSeconds)
-	defer cancel()
-
 	command := capability.Command{Argv: resolving.Argv}
-	response, err := command.Perform(ctx, r.request.Exec, r.request.RepoRoot, r.environment)
+	return func(ctx context.Context, _ page) (capability.Object, bool, error) {
+		response, err := command.Perform(ctx, r.request.Exec, r.request.RepoRoot, r.environment)
 
-	// **A deadline reached on a `read` fails the Step** (§6), and it is the
-	// one error beside the object this reads. A command that could not be
-	// started at all is *no answer* rather than a fault — the object is
-	// `command` and nothing else, and a `read` records the attempt with its
-	// `exit_code` gone quiet (§12, ADR-0050).
-	//
-	// The child's whole process group has been killed with SIGKILL and no
-	// grace period by the time this line runs, so a command's own children
-	// do not outlive the deadline that bounded it (§6, cli.Child). The
-	// deadline is named as itself and beside the command it bounded — the
-	// two facts a reader can act on, one an edit to the Manifest and one a
-	// look at what the Procedure asked for.
-	if errors.Is(err, context.DeadlineExceeded) {
-		return nil, fmt.Errorf("step %s: the Operation's deadline of %s was reached and %s was killed",
-			named(authored), bound.detail.Deadline, command.Text())
-	}
-	return response, nil
+		// **A deadline reached on a `read` fails the Step** (§6), and it
+		// is the one error beside the object this reads as a halt. A
+		// command that could not be started at all is *no answer* rather
+		// than a fault — the object is `command` and nothing else, and a
+		// `read` records the attempt with its `exit_code` gone quiet
+		// (§12, ADR-0050).
+		//
+		// The child's whole process group has been killed with SIGKILL
+		// and no grace period by the time this line runs, so a command's
+		// own children do not outlive the deadline that bounded it (§6,
+		// cli.Child). The deadline is named as itself and beside the
+		// command it bounded — the two facts a reader can act on, one an
+		// edit to the Manifest and one a look at what the Procedure
+		// asked for.
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, false, fmt.Errorf("step %s: the Operation's deadline of %s was reached and %s was killed",
+				named(authored), bound.detail.Deadline, command.Text())
+		}
+		return response, capability.NeverSent(err), nil
+	}, nil
 }
 
 // credential is the header this Step's call carries: the Auth scheme the
@@ -534,10 +658,15 @@ func (r run) credential(bound binding, target string) capability.Credential {
 //
 // It reads from whichever of the two roots the Manifest wrote, which is decided
 // by the spelling and by nothing else (§3): a template fills from the resolved
-// inputs before the call, and a `$`-rooted path resolves against the response
+// inputs before the call, and a `$`-rooted path resolves against what came back
 // after it. Which of the two a Manifest declares is what decides whether an
 // identity collision Refuses at Expansion or halts the Run (§6, ADR-0072).
-func identityOf(operation artefact.OperationInfo, inputs map[string]schema.Scalar, response capability.Object) (string, bool) {
+//
+// root is the response object on an Operation of `one` cardinality and one
+// member of the collection `over:` named on an Operation of `series` — the two
+// roots §12 gives a path, told apart by the position and never by the path
+// (internal/projection).
+func identityOf(operation artefact.OperationInfo, inputs map[string]schema.Scalar, root any) (string, bool) {
 	declared := operation.Identity
 	if declared == "" {
 		return "", false
@@ -547,7 +676,7 @@ func identityOf(operation artefact.OperationInfo, inputs map[string]schema.Scala
 		return filled, err == nil && filled != ""
 	}
 
-	value, resolved := projection.Resolve(declared, response)
+	value, resolved := projection.Resolve(declared, root)
 	if !resolved {
 		return "", false
 	}

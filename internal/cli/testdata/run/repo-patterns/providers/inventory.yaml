@@ -1,0 +1,129 @@
+kind: provider
+provider: inventory
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  list_by_cursor:
+    kind: read
+    deadline: 10s
+    concurrency: 4
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /records
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    patterns:
+      pagination:
+        cursor: {from: $.body.next, into: {query: cursor}}
+    record:
+      identity: $.id
+      over: $.body.records
+      fields:
+        state: $.state
+        asked: $.asked
+  list_by_page:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /records
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    patterns:
+      pagination:
+        page: {from: 1, into: {header: x-page}}
+    record:
+      identity: $.id
+      over: $.body.records
+      fields:
+        state: $.state
+        asked: $.asked
+  await_ready:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /state
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    patterns:
+      polling:
+        interval: 1s
+        until:
+          - field: body.state
+            equals: ready
+    record:
+      identity: $.body.id
+      fields:
+        state: $.body.state
+  await_forever:
+    kind: read
+    deadline: 1s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /state
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    patterns:
+      polling:
+        interval: 1s
+        until:
+          - field: body.state
+            equals: ready
+    record:
+      identity: $.body.id
+      fields:
+        state: $.body.state
+  fetch_with_retry:
+    kind: read
+    deadline: 1s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    patterns:
+      retry: {attempts: 3}
+    record:
+      identity: $.host
+      fields:
+        host: $.host
+        status: $.status
+  fetch_plain:
+    kind: read
+    deadline: 1s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: $.host
+      fields:
+        host: $.host
+        status: $.status

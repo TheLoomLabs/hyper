@@ -370,9 +370,11 @@ func (c Call) request(ctx context.Context, credential Credential) (*http.Request
 // intersection resolved to and against no other (ADR-0029). On a read the
 // status is simply what the Observation records (§6, ADR-0050).
 //
-// DialTLSContext is the threaded dialer, which is what puts the whole
+// DialTLSContext is the threaded dialer, marked, which is what puts the whole
 // handshake in one read and leaves this package with no TLS configuration of
-// its own to get wrong. DisableKeepAlives is the third: one call is one
+// its own to get wrong — and what makes *the request provably never left* a
+// fact about where a failure happened rather than about what it said (sent.go,
+// ADR-0018). DisableKeepAlives is the third: one call is one
 // connection, so the certificate the response reports is the certificate that
 // call was answered over.
 //
@@ -382,7 +384,7 @@ func (c Call) request(ctx context.Context, credential Credential) (*http.Request
 func client(dial Dial) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
-			DialTLSContext:    dial,
+			DialTLSContext:    marking(dial),
 			DisableKeepAlives: true,
 		},
 		CheckRedirect: func(*http.Request, []*http.Request) error {

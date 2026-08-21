@@ -1,0 +1,10 @@
+kind: procedure
+procedure: await-forever
+targets: [local]
+steps:
+  - id: forever
+    definition: inventory-read
+    operation: await_forever
+    target: local
+    args:
+      host: slow.hyper.dev

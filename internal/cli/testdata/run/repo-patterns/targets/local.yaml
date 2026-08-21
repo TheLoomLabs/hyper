@@ -1,0 +1,17 @@
+kind: target-declaration
+target: local
+class: local
+kinds: [read]
+capabilities: [http]
+hosts:
+  - pages.hyper.dev
+  - numbered.hyper.dev
+  - slow.hyper.dev
+  - flaky.hyper.dev
+  - gone.hyper.dev
+  - busy.hyper.dev
+  - wedged.hyper.dev
+  - shard-1.hyper.dev
+  - shard-2.hyper.dev
+  - shard-3.hyper.dev
+  - shard-4.hyper.dev

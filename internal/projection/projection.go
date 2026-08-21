@@ -13,11 +13,18 @@
 // above reads the difference: a recorded field resolving to nothing is not
 // written on the version (§6, issue #144).
 //
-// What is here is `one` cardinality: one response object, one set of fields.
-// An Operation of `series` cardinality reads from two roots — `over:` from the
-// response and every other path from each member of the collection it named —
-// and that, with the identity path and what a projection that does not resolve
-// does to a Run, is issue #144's.
+// Both cardinalities are here. An Operation of `one` cardinality projects one
+// set of fields out of the response object; an Operation of `series`
+// cardinality projects many Records out of one response, reading from **two
+// roots** — `over:` from the response, and `identity:` and every `fields:` path
+// from each member of the collection it named. Both are written `$`, and the
+// position decides which root it means: the grammar gains no fourth production
+// for it (§3, §12).
+//
+// What a projection that does **not** resolve does to a Run is issue #144's,
+// and so is the `projection_failed_path` a halted Step's file carries. What is
+// here is the resolution itself and the two answers it has — *resolved to
+// nothing* and *resolved to null*.
 package projection
 
 import (
@@ -46,6 +53,16 @@ var segmentPattern = regexp.MustCompile(`^(?:\.([A-Za-z_][A-Za-z0-9_-]*)|\["([^"
 // keys by code point like every other mapping it writes (§7, ADR-0079).
 type Projection struct {
 	Fields []FieldPath
+	// Over is the `over:` path naming the collection an Operation of
+	// `series` cardinality projects its Records out of, and "" on an
+	// Operation of `one` cardinality — the two being told apart by that
+	// key's presence and by nothing else (§3, ADR-0037).
+	//
+	// It roots at the **response** where every path beside it roots at a
+	// member of what it named. That is the two roots in one value, and it
+	// is why it sits here rather than being read a second time by whoever
+	// walks the collection.
+	Over string
 }
 
 // FieldPath is one entry of a record:'s fields: mapping — the name the Record
@@ -99,12 +116,15 @@ func (f Fields) MarshalJSON() ([]byte, error) {
 // reader's to guess at (ADR-0064).
 func Read(operation *yaml.Node) Projection {
 	record := mappingValue(operation, "record")
-	fields := mappingValue(record, "fields")
-	if fields == nil || fields.Kind != yaml.MappingNode {
-		return Projection{}
-	}
 
 	var read Projection
+	read.Over = scalarValue(mappingValue(record, "over"))
+
+	fields := mappingValue(record, "fields")
+	if fields == nil || fields.Kind != yaml.MappingNode {
+		return read
+	}
+
 	for i := 0; i+1 < len(fields.Content); i += 2 {
 		key, value := fields.Content[i], fields.Content[i+1]
 		if key.Kind != yaml.ScalarNode || value.Kind != yaml.ScalarNode {
@@ -115,14 +135,20 @@ func Read(operation *yaml.Node) Projection {
 	return read
 }
 
-// Project resolves every recorded field against the response object and
+// Project resolves every recorded field against the root the position names and
 // answers the ones that resolved, in the Manifest's own order. A path that
 // resolved to nothing contributes no field, which is what makes a field going
 // quiet an absence a surface reads rather than an error it reports (§6, §12).
-func (p Projection) Project(response capability.Object) Fields {
+//
+// The root is the response object on an Operation of `one` cardinality and one
+// member of the collection `over:` named on an Operation of `series`. It is one
+// function for both because it is one walk over one grammar: what differs is
+// what `$` is, and that is decided by the position a path was written in and
+// never by the path (§3, §12).
+func (p Projection) Project(root any) Fields {
 	var projected Fields
 	for _, field := range p.Fields {
-		value, resolved := Resolve(field.Path, response)
+		value, resolved := Resolve(field.Path, root)
 		if !resolved {
 			continue
 		}
@@ -131,23 +157,29 @@ func (p Projection) Project(response capability.Object) Fields {
 	return projected
 }
 
-// Resolve evaluates one path against a response object and answers what it
-// resolved to. resolved is false where the path names something the object
-// does not carry — which is a different answer from a path that resolved to a
-// null the response did carry, that being a value with `resolved` true and
-// `value` nil.
+// Resolve evaluates one path against the root it was written to root at, and
+// answers what it resolved to. resolved is false where the path names something
+// the root does not carry — which is a different answer from a path that
+// resolved to a null the response did carry, that being a value with `resolved`
+// true and `value` nil.
+//
+// The root is the response object at every position a Manifest writes a path
+// except one: on an Operation of `series` cardinality the `identity:` and every
+// `fields:` entry root at a **member** of the collection `over:` named, which
+// is whatever that member parsed to. The distinction the answer draws is
+// unchanged and so is the grammar; only what `$` names moves (§3, §12).
 //
 // A path that is not in the grammar resolves to nothing rather than to an
 // error: check refuses a malformed path at load (§4), and a resolver that
 // answered a second way about the same fault would be a second opinion on an
 // artefact nobody reviewed (ADR-0064).
-func Resolve(path string, response capability.Object) (value any, resolved bool) {
+func Resolve(path string, root any) (value any, resolved bool) {
 	names, inGrammar := Segments(path)
 	if !inGrammar {
 		return nil, false
 	}
 
-	var current any = response
+	current := root
 	for _, name := range names {
 		current, resolved = member(current, name)
 		if !resolved {
@@ -227,6 +259,41 @@ func Text(value any) string {
 		return fmt.Sprintf("%v", value)
 	}
 	return string(encoded)
+}
+
+// Collection is the members an Operation of `series` cardinality projects its
+// Records out of: what the `over:` path resolved to, read as a sequence.
+//
+// resolved is false where the path names something the response does not carry,
+// which is the fault §6 halts a Run on — without it `hyper` cannot tell a
+// collection that was empty from a path that was wrong, which is the *I
+// recorded nothing* ADR-0017 declined to leave a reader diagnosing off an
+// absent wire.
+//
+// A path that resolved to something that is **not** a sequence answers the
+// empty collection and resolved, which is the ordinary reading of a value the
+// grammar reached and found nothing inside: a member is a member of a list, and
+// a scalar has none. It is not a second fault to report — §6's halt is *the
+// path did not resolve*, and this one did.
+func Collection(path string, response capability.Object) ([]any, bool) {
+	value, resolved := Resolve(path, response)
+	if !resolved {
+		return nil, false
+	}
+	members, isSequence := value.([]any)
+	if !isSequence {
+		return nil, true
+	}
+	return members, true
+}
+
+// scalarValue is a node's text, and "" where the node is absent or is not a
+// plain scalar — the same drop rule Read follows over the mapping around it.
+func scalarValue(node *yaml.Node) string {
+	if node == nil || node.Kind != yaml.ScalarNode {
+		return ""
+	}
+	return node.Value
 }
 
 // mappingValue is the value one key of a mapping holds, and nil where the node

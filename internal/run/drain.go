@@ -28,7 +28,7 @@ import "sync"
 // retry are serial by construction, so a member is one call at a time from the
 // moment it is dispatched until its last page, and *members in flight* and
 // *requests in flight* are one number rather than two that would have to agree
-// (issue #143 builds the Patterns onto that ground).
+// (pattern.go, issue #143).
 //
 // **Within a single `read` Step's Expansion, errors drain.** Every member is
 // attempted, every Observation that succeeded is recorded, and the Run then
@@ -48,6 +48,11 @@ import "sync"
 // the first ten of that order and not the first ten a scheduler happened to
 // reach.
 //
+// It is generic in what a member's call answers because what that is belongs to
+// the caller: this file decides how many members run at once and in what order
+// they are read back, and a Step's own answer — the Records it projected and
+// the account of the Patterns that reached them — is step.go's (issue #143).
+//
 // **Every member is attempted**, whatever any other member's call did. The
 // answers are two slices indexed by member rather than a first fault and a
 // short list: what a member concluded and what stopped it are facts about that
@@ -61,8 +66,8 @@ import "sync"
 // once it has been sent — and nothing here judges it: what governs is 1, the
 // way it does for the Manifest that declared nothing. Whether a Manifest may
 // write it at all is §4's, where the authoring rules are.
-func dispatch(limit int, members []member, call func(member) (conclusion, error)) ([]conclusion, []error) {
-	concluded := make([]conclusion, len(members))
+func dispatch[T any](limit int, members []member, call func(member) (T, error)) ([]T, []error) {
+	concluded := make([]T, len(members))
 	faults := make([]error, len(members))
 
 	inFlight := make(chan struct{}, max(limit, 1))

@@ -13,14 +13,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -49,6 +52,14 @@ import (
 // confused: a refused connection is *no response arrived*, which a `read`
 // records as the answer it is, and a deadline is `hyper` stopping — the one
 // thing that fails a `read` Step short of its projection (§6, ADR-0050).
+//
+// **A host may answer more than once, and may refuse a fixed number of times
+// first — as a refused connection, a name that did not resolve, or a handshake
+// that failed** (issue #143). Both are the world changing between calls, which is what
+// the Patterns exist to walk: a paginated read asks for the next page, a polled
+// Operation asks again until its `until:` holds, and a retry follows a
+// connection that was refused. Neither says anything about `hyper` — the case
+// still supplies only what a *server* would.
 
 // certificateLife is how long after a case's instant the fixture's certificate
 // expires: thirty-four days and a half, so `tls.days_left` is **34** — floored
@@ -81,6 +92,47 @@ type servedResponse struct {
 	// the members beside this one, and this host contributes no response for
 	// anything to read.
 	Hangs bool `json:"hangs"`
+	// Answers is what the host answers on **successive** requests, in
+	// order, where one answer is not enough: the pages a paginated read
+	// walks, and the states a polled Operation passes through before its
+	// `until:` holds (issue #143). The last answer repeats once the list is
+	// exhausted, so a case says what changes and stops there.
+	//
+	// It is deterministic because the thing it serves is: all three
+	// Patterns are serial by construction, so a member is one request at a
+	// time from the moment it is dispatched until its last page (§3, §6).
+	// A case driving several members through one host would be depending on
+	// something nothing fixes, and none does — a member that pages has a
+	// host of its own.
+	//
+	// An answer carries a status, headers and a body and no more: `hangs`
+	// and the echoes below are the host's and not one answer's.
+	Answers []servedAnswer `json:"answers"`
+	// RefuseFirstAs is **how** those connections fail, one entry per refusal
+	// and in order: `refused` for a connection nothing accepted, `name` for
+	// a host that did not resolve, and `handshake` for a TLS handshake that
+	// did not complete. It is what lets a case drive ADR-0018's class
+	// through a Run rather than only at the Capability — the three are one
+	// class because each provably precedes the request, and a case that
+	// could name only one of them would be asserting the class by its
+	// smallest member.
+	//
+	// Absent, every refusal is `refused`, which is what every case that
+	// names none means. A list shorter than RefuseFirst repeats its last
+	// entry, on the rule Answers follows.
+	RefuseFirstAs []string `json:"refuse_first_as"`
+	// RefuseFirst is how many connections to this host are refused before
+	// any is accepted — the refused connection above, arriving a fixed
+	// number of times rather than forever.
+	//
+	// It is what a retry Pattern is driven against: ADR-0018's class is
+	// *the request provably never left*, and a case that could only refuse
+	// for ever could show a retry exhausting and never a retry succeeding.
+	// It counts dials rather than requests, which is the same number here —
+	// one call is one connection, hyper's client disabling keep-alives so
+	// that the certificate a response reports is the one that call was
+	// answered over.
+	RefuseFirst int `json:"refuse_first"`
 	// EchoRequestHeaders names request headers the fixture writes back as
 	// the response body, a JSON object keyed by the lowered header name.
 	//
@@ -93,6 +145,46 @@ type servedResponse struct {
 	// end, which is here. A case using it serves a body of its own for
 	// nothing else.
 	EchoRequestHeaders []string `json:"echo_request_headers"`
+}
+
+// servedAnswer is one of a host's successive answers: a status, headers and a
+// body, and nothing that is a fact about the host rather than about the answer.
+type servedAnswer struct {
+	Status  int               `json:"status"`
+	Headers map[string]string `json:"headers"`
+	Body    string            `json:"body"`
+}
+
+// Two placeholders a body may carry, which the fixture fills from the request
+// it is answering: the raw query string, and one named request header.
+//
+// They are `echo_request_headers` written **inside** a body rather than instead
+// of one, and they exist for the claim a golden cannot otherwise assert: **what
+// hyper put on the wire**. A pagination Pattern writes its token or its number
+// into a `query:` or a `header:` position an artefact named (§3), and a Record
+// is projected out of a body — so a case that echoed the whole request would
+// have nothing left to project, and one that echoed nothing could show only
+// that the pages arrived in order.
+//
+// A body carrying neither is served exactly as the case wrote it, which is
+// every case that landed before them.
+const queryPlaceholder = "<<query>>"
+
+var headerPlaceholder = regexp.MustCompile(`<<header:([^<>]+)>>`)
+
+// fixtureServer is the world a case's serve/ directory stands: what each host
+// answers, how many of its connections are still to be refused, and how many
+// requests it has already answered.
+//
+// The two counters are the whole of what it holds beyond the case's own files,
+// and both are per host: `refuse_first` counts the dials refused, and the
+// answer index counts the requests answered, which is what walks a host through
+// its `answers` list.
+type fixtureServer struct {
+	served   map[string]servedResponse
+	mutex    sync.Mutex
+	refused  map[string]int
+	answered map[string]int
 }
 
 // servedHosts reads the case's serve/ directory: one entry per `<host>.json`,
@@ -152,9 +244,10 @@ func (c goldenCase) dialer(t *testing.T, instant time.Time) func(context.Context
 	}
 	slices.Sort(hosts)
 
+	world := &fixtureServer{served: served, refused: map[string]int{}, answered: map[string]int{}}
 	certificate, pool := mintFixtureCertificate(t, instant, hosts)
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		answer(w, r, served, instant, closing)
+		world.answer(w, r, instant, closing)
 	}))
 	server.TLS = &tls.Config{Certificates: []tls.Certificate{certificate}}
 	// The server's own log would otherwise write a handshake error to the
@@ -174,12 +267,14 @@ func (c goldenCase) dialer(t *testing.T, instant time.Time) func(context.Context
 			return nil, err
 		}
 		// A host with no serve/ entry gets its connection refused, which
-		// is the whole of how *no response arrived at all* is driven.
+		// is the whole of how *no response arrived at all* is driven —
+		// and so does one whose entry says its first few are, which is
+		// the same refusal arriving a fixed number of times.
 		if _, serves := served[name]; !serves {
-			return nil, &net.OpError{
-				Op: "dial", Net: network, Addr: fixtureAddress(name),
-				Err: fmt.Errorf("connection refused"),
-			}
+			return nil, refusal("refused", network, name)
+		}
+		if as, refuses := world.refusing(name); refuses {
+			return nil, refusal(as, network, name)
 		}
 		// Time is the case's clock and not the machine's: the certificate
 		// is minted against the instant the case is driven at, so the
@@ -201,12 +296,12 @@ func (c goldenCase) dialer(t *testing.T, instant time.Time) func(context.Context
 //
 // closing is the suite taking the server down, and it releases a host that
 // hangs where no caller ever gave up on it.
-func answer(w http.ResponseWriter, r *http.Request, served map[string]servedResponse, instant time.Time, closing <-chan struct{}) {
+func (f *fixtureServer) answer(w http.ResponseWriter, r *http.Request, instant time.Time, closing <-chan struct{}) {
 	name := r.Host
 	if host, _, err := net.SplitHostPort(name); err == nil {
 		name = host
 	}
-	response, serves := served[name]
+	response, serves := f.served[name]
 	if !serves {
 		// Unreachable: the dialer refuses a host with no entry before a
 		// request is ever written. It answers rather than panicking so
@@ -227,12 +322,94 @@ func answer(w http.ResponseWriter, r *http.Request, served map[string]servedResp
 		return
 	}
 
+	// Which of the host's successive answers this request gets. A host
+	// answering one thing serves it to every request, which is every case
+	// that landed before the list existed.
+	//
+	// An answer states its own status and body outright. Its headers are
+	// written **over** the host's rather than instead of them, so a case
+	// whose pages differ only in what they carry says the Content-Type once
+	// — which is the difference between a fact about the host and a fact
+	// about the answer, kept where the rest of this file keeps it.
+	headers := response.Headers
+	if next, walks := f.next(name, response); walks {
+		response.Status, response.Body = next.Status, next.Body
+		headers = merged(response.Headers, next.Headers)
+	}
+
 	w.Header().Set("Date", instant.UTC().Format(http.TimeFormat))
-	for header, value := range response.Headers {
+	for header, value := range headers {
 		w.Header().Set(header, value)
 	}
 	w.WriteHeader(response.Status)
 	io.WriteString(w, body(r, response))
+}
+
+// merged is the host's headers with one answer's written over them.
+func merged(host, answer map[string]string) map[string]string {
+	written := make(map[string]string, len(host)+len(answer))
+	maps.Copy(written, host)
+	maps.Copy(written, answer)
+	return written
+}
+
+// refusing answers whether this dial is one of the ones the host's entry says
+// are refused and how it fails, and counts it.
+func (f *fixtureServer) refusing(host string) (string, bool) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	entry := f.served[host]
+	if f.refused[host] >= entry.RefuseFirst {
+		return "", false
+	}
+	as := "refused"
+	if named := entry.RefuseFirstAs; len(named) > 0 {
+		as = named[min(f.refused[host], len(named)-1)]
+	}
+	f.refused[host]++
+	return as, true
+}
+
+// refusal is the error one dial answers with, in the shape the failure it names
+// really has: a refused connection is the transport's, a name that did not
+// resolve is the resolver's, and a handshake that failed is the TLS stack's.
+//
+// The shapes matter rather than the words. `hyper` establishes ADR-0018's class
+// by **where** a failure happened and not by reading it, so what a case is
+// really driving is that all three arrive through the dialler — but a fixture
+// answering one error type three times would be checking that with less than it
+// could.
+func refusal(as, network, host string) error {
+	switch as {
+	case "name":
+		return &net.DNSError{Err: "no such host", Name: host, IsNotFound: true}
+	case "handshake":
+		return &tls.CertificateVerificationError{
+			Err: fmt.Errorf("x509: certificate signed by unknown authority"),
+		}
+	default:
+		return &net.OpError{
+			Op: "dial", Net: network, Addr: fixtureAddress(host),
+			Err: fmt.Errorf("connection refused"),
+		}
+	}
+}
+
+// next is the answer this request gets off the host's answers list, and false
+// where the host answers one thing. The last answer repeats once the list is
+// exhausted, so a case writes what changes and stops there.
+func (f *fixtureServer) next(host string, response servedResponse) (servedAnswer, bool) {
+	if len(response.Answers) == 0 {
+		return servedAnswer{}, false
+	}
+
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	at := min(f.answered[host], len(response.Answers)-1)
+	f.answered[host]++
+	return response.Answers[at], true
 }
 
 // body is what the response carries: the bytes the case wrote down, or — where
@@ -247,7 +424,7 @@ func answer(w http.ResponseWriter, r *http.Request, served map[string]servedResp
 // projection with nothing to record and the golden with nothing to show.
 func body(r *http.Request, response servedResponse) string {
 	if len(response.EchoRequestHeaders) == 0 {
-		return response.Body
+		return filled(r, response.Body)
 	}
 	echoed := map[string]string{}
 	for _, name := range response.EchoRequestHeaders {
@@ -258,6 +435,21 @@ func body(r *http.Request, response servedResponse) string {
 		return response.Body
 	}
 	return string(encoded)
+}
+
+// filled writes back what the server saw, where the case's body asked for it:
+// the raw query string in place of `<<query>>`, and one named request header in
+// place of `<<header:name>>`. A body carrying neither is answered exactly as it
+// was written.
+//
+// A header the request did not carry fills as the empty string, which is what
+// `echo_request_headers` already does one position over and for the same
+// reason: *the header was not sent* is precisely what such a case asserts.
+func filled(r *http.Request, written string) string {
+	written = strings.ReplaceAll(written, queryPlaceholder, r.URL.RawQuery)
+	return headerPlaceholder.ReplaceAllStringFunc(written, func(placeholder string) string {
+		return r.Header.Get(headerPlaceholder.FindStringSubmatch(placeholder)[1])
+	})
 }
 
 // mintFixtureCertificate mints one self-signed certificate covering every host

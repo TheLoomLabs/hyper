@@ -1,0 +1,10 @@
+kind: procedure
+procedure: walk-pages
+targets: [local]
+steps:
+  - id: pages
+    definition: inventory-read
+    operation: list_by_page
+    target: local
+    args:
+      host: numbered.hyper.dev

@@ -1,0 +1,12 @@
+kind: procedure
+procedure: walk-shards
+targets: [local]
+steps:
+  - id: shards
+    definition: inventory-read
+    operation: list_by_cursor
+    target: local
+    over:
+      values: [shard-1.hyper.dev, shard-2.hyper.dev, shard-3.hyper.dev, shard-4.hyper.dev]
+    args:
+      host: {item: $}

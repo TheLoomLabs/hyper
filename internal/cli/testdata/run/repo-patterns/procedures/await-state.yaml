@@ -1,0 +1,10 @@
+kind: procedure
+procedure: await-state
+targets: [local]
+steps:
+  - id: state
+    definition: inventory-read
+    operation: await_ready
+    target: local
+    args:
+      host: slow.hyper.dev

@@ -1,0 +1,10 @@
+kind: procedure
+procedure: fetch-gone
+targets: [local]
+steps:
+  - id: gone
+    definition: inventory-read
+    operation: fetch_with_retry
+    target: local
+    args:
+      host: gone.hyper.dev

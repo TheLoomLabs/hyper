@@ -180,7 +180,14 @@ func (c Command) Perform(ctx context.Context, start Exec, root string, environme
 		// The child never ran, so there is no exit code, no stdout and
 		// no stderr — three members absent together, which is the one
 		// shape §12 reserves for an argv that never became a process.
-		return object, err
+		//
+		// It is marked, which is ADR-0018's class arriving one
+		// Capability over: a child that could not be started at all
+		// touched nothing, exactly as a request that never left did, so
+		// it is the one failure under this Capability a retry Pattern
+		// may follow — and the only one, a non-zero exit being an answer
+		// (sent.go, ADR-0050).
+		return object, neverSent{err}
 	}
 
 	waited := child.Wait()

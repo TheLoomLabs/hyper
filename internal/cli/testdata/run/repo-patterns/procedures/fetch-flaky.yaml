@@ -1,0 +1,10 @@
+kind: procedure
+procedure: fetch-flaky
+targets: [local]
+steps:
+  - id: flaky
+    definition: inventory-read
+    operation: fetch_with_retry
+    target: local
+    args:
+      host: flaky.hyper.dev

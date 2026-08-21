@@ -1,0 +1,23 @@
+{
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "answers": [
+    {
+      "status": 200,
+      "body": "{\"records\":[{\"id\":\"item-1\",\"state\":\"ready\",\"asked\":\"<<header:x-page>>\"},{\"id\":\"item-2\",\"state\":\"ready\",\"asked\":\"<<header:x-page>>\"}]}"
+    },
+    {
+      "status": 200,
+      "body": "{\"records\":[{\"id\":\"item-3\",\"state\":\"ready\",\"asked\":\"<<header:x-page>>\"},{\"id\":\"item-4\",\"state\":\"ready\",\"asked\":\"<<header:x-page>>\"}]}"
+    },
+    {
+      "status": 200,
+      "body": "{\"records\":[{\"id\":\"item-5\",\"state\":\"ready\",\"asked\":\"<<header:x-page>>\"},{\"id\":\"item-6\",\"state\":\"ready\",\"asked\":\"<<header:x-page>>\"}]}"
+    },
+    {
+      "status": 200,
+      "body": "{\"records\":[]}"
+    }
+  ]
+}

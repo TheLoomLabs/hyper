@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "answers": [
+    {
+      "status": 200,
+      "body": "{\"id\":\"migration-7\",\"state\":\"pending\"}"
+    },
+    {
+      "status": 200,
+      "body": "{\"id\":\"migration-7\",\"state\":\"ready\"}"
+    }
+  ]
+}

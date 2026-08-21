@@ -1,0 +1,10 @@
+kind: procedure
+procedure: walk-cursor
+targets: [local]
+steps:
+  - id: cursor
+    definition: inventory-read
+    operation: list_by_cursor
+    target: local
+    args:
+      host: pages.hyper.dev

@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "answers": [
+    {
+      "status": 503,
+      "body": "{\"ok\":false}"
+    },
+    {
+      "status": 200,
+      "body": "{\"ok\":true}"
+    }
+  ]
+}

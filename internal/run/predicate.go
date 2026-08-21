@@ -9,12 +9,15 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/TheLoomLabs/hyper/internal/capability"
+	"github.com/TheLoomLabs/hyper/internal/projection"
 	"github.com/TheLoomLabs/hyper/internal/schema"
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
-// §12's eleven operators, evaluated against a value the Store holds (§5, §6,
-// §12, issue #139).
+// §12's eleven operators, evaluated against a value the Store holds — and, at
+// the third root, against a value a response carried (§5, §6, §12, issues #139,
+// #143).
 //
 // This is the run-time half of a check milestone 1 landed the authored half of.
 // `check` reads a predicate's **operand** — the characters an author wrote, and
@@ -123,6 +126,61 @@ func readPredicate(entry *yaml.Node, index int) predicate {
 // be compared is a value of the wrong type and never a value that is not there.
 func (p predicate) holds(fields store.Mapping, instant time.Time) (bool, string) {
 	value, carried := fields[p.Field]
+	return p.decides(value, carried, instant)
+}
+
+// holdsOfResponse is the same predicate at §12's **third** root: the response
+// object in hand, which is where a polling Pattern's `until:` roots and which
+// is the same root a projection reads from (§3, §12, pattern.go).
+//
+// Two things differ from the two Record roots, and both follow from the root
+// rather than from the operator. A `field:` here **is a path** in §12's
+// grammar, written without the root marker — a response has paths and no
+// declared names — so it is put back on before it is resolved; and what a path
+// resolves to is a Capability's value rather than a Store's, so it crosses the
+// one crossing between them (value.go) before any operator reads it.
+//
+// A path resolving to nothing, and a path resolving to a value no Record could
+// hold — a JSON null, which §12's scalar vocabulary has no member for — are
+// both **not carried**, which is the same absence a Record's missing field is:
+// `exists` and `absent` state it and every other operator decides on it (§7,
+// §12).
+//
+// The mismatch it answers is not a Refusal here. It is read after the call went
+// out, so there is none available: the Run halts, carries no `error_code`, and
+// names the field and what was found in it (§6, ADR-0035, ADR-0072).
+func (p predicate) holdsOfResponse(response capability.Object, instant time.Time) (bool, string) {
+	resolved, carries := projection.Resolve(rootedAtTheResponse(p.Field), response)
+	if !carries {
+		return p.decides(nil, false, instant)
+	}
+	value, holdable := stored(resolved)
+	return p.decides(value, holdable, instant)
+}
+
+// rootedAtTheResponse is a polling `until:`'s `field:` with §12's root marker
+// put back on. The grammar's two segment productions are `.member` and
+// `["member"]`, and a path written without its root opens with the member
+// itself under the first and with the bracket under the second — so the marker
+// is written the way the first segment is spelled.
+func rootedAtTheResponse(field string) string {
+	if strings.HasPrefix(field, "[") {
+		return "$" + field
+	}
+	return "$." + field
+}
+
+// decides is one operator against one value, and it is where all three roots
+// meet: a selector's, a condition's and a polling Pattern's `until:` differ in
+// what they root at and in nothing else, which is the whole reason §12 states
+// one operator set and three scopes rather than three matchers.
+//
+// carried is whether the root holds the value at all. **A value the root does
+// not hold is not a mismatch**: a field's presence is a fact `exists` and
+// `absent` state rather than a nullable type, so absence decides every other
+// operator rather than refusing one — what cannot be compared is a value of the
+// wrong type and never a value that is not there (§7, §12).
+func (p predicate) decides(value store.Value, carried bool, instant time.Time) (bool, string) {
 	switch p.Operator {
 	case "exists":
 		return carried, ""

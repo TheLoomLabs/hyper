@@ -1,0 +1,85 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991ea7-0007-7c93-8d41-6b2f7ae05c19/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991ea7-0007-7c93-8d41-6b2f7ae05c19/run.json (470 bytes)
+{
+  "dry_run": false,
+  "procedure": "fetch-gone",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "8f2b70e7695cc18bb4c13bd4b68dd21c30e5421a",
+    "repo_revision": "615ddf912c5d29e4421d9fb8e14c4ae19511323d"
+  },
+  "run_id": "01991ea7-0007-7c93-8d41-6b2f7ae05c19",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991ea7-0007-7c93-8d41-6b2f7ae05c19/steps/0001.json (687 bytes)
+{
+  "definition": "inventory-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "gone",
+  "identities": {
+    "digest": "sha256:a1bd727ecab8a7f09890d31a2555b76d53b7a66ea29da150d6e08f7bbaf4209d",
+    "members": [
+      "gone.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "fetch_with_retry",
+  "pattern": {
+    "attempts": 3
+  },
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "manifest_digest": "sha256:db7309d5f4eb65c2f776ed5f8933c3448e0cbf3badb604c9e3ffb32a9001b592"
+  },
+  "provider": "inventory",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/inventory-read/gone.hyper.dev/01991ea7-0007-7c93-8d41-6b2f7ae05c19-0001.json (689 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "host": "gone.hyper.dev"
+  },
+  "name": "gone.hyper.dev",
+  "operation": "fetch_with_retry",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:db7309d5f4eb65c2f776ed5f8933c3448e0cbf3badb604c9e3ffb32a9001b592",
+    "procedure_revision": "8f2b70e7695cc18bb4c13bd4b68dd21c30e5421a",
+    "repo_revision": "615ddf912c5d29e4421d9fb8e14c4ae19511323d"
+  },
+  "record_type": "observation",
+  "run_id": "01991ea7-0007-7c93-8d41-6b2f7ae05c19",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

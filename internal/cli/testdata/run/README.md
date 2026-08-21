@@ -102,6 +102,16 @@ names one in a **`repo-from`** file instead, and the ones here are:
   the binary is the **case's**: each case holds a `bin/` directory its argv head
   resolves against, so what a command printed, what it exited with and whether
   it could be started at all are the fixture's facts rather than the machine's.
+- [`repo-patterns/`](repo-patterns) — the three Patterns (issue #143): an
+  `inventory` Manifest whose Operations differ only in the `patterns:` block
+  they carry — two paginated, one of them writing its cursor into a `query:`
+  and the other its page number into a `header:`; one polled; and two `read`
+  Operations identical but for a `retry:`, which is what makes *a Pattern does
+  not change the number of Records a Step affects* a comparison rather than a
+  claim. Eleven Procedures, one host per Procedure, and each case's own `serve/`
+  says what the world answers on the second call and the third — the Patterns
+  being the one thing in the tool whose subject is a world that changes between
+  calls.
 - [`repo-shell-unresolvable/`](repo-shell-unresolvable) — `repo-shell` cut down
   to the one artefact that does not load: a Step whose argv word references a
   field the Record it names does not carry. It is a repository of its own
@@ -188,6 +198,18 @@ drives.
 | `an-expansion-of-shell-steps-is-serial` | an Expansion of three over an Operation declaring no `concurrency:`: each member appends to a file the next one reads, so the three stdouts accumulate in Expansion order — which is serial dispatch shown rather than described |
 | `a-shell-mutate-step-declines` | the other half of the Capability is not built: a `mutate` shell Step declines at `2` with no entry written |
 | `usage-no-concurrency-flag` | there is no `--concurrency`: `2`, an unknown flag, and stdout silent. How much of an Expansion runs at once is a Manifest's and nobody else's |
+| `a-cursor-walks-three-pages` | pagination's `cursor:` form (issue #143): three pages, six Records, and each Record carrying the query the server saw — nothing on page one, `cursor=c2` on page two, `cursor=c3` on page three. The walk ends where the third page hands no token back, and the Step file's `pattern` block reads `pages: 3` |
+| `a-page-number-walks-until-the-collection-is-empty` | the other form and the other position: an integer `hyper` increments from `1`, written into a `header:`, and a **fourth** page whose collection comes back empty — which is the terminator both forms share. Six Records and `pages: 4`, the empty page having been fetched and being part of what `hyper` did |
+| `a-poll-stops-when-its-until-holds` | a `polling:` Pattern over a host that answers `pending` and then `ready`: two calls an `interval:` apart, one Observation, and `polls: 2` |
+| `a-poll-is-bounded-by-the-deadline` | a host that answers `pending` for ever under an Operation declaring `deadline: 1s` beside its `interval: 1s`: the poll is bounded by the deadline and by nothing else, and the Run halts at `1`. Its Step file carries **no** `pattern` block — one poll answered is the trivial single call, and the call the deadline cut off produced no observation of state to count |
+| `an-until-that-cannot-compare` | the same Procedure with `state` served as a number: the Run **halts** rather than Refusing, exit `1`, no `error_code` anywhere, and stderr naming the field and what was found in it (ADR-0035, ADR-0072) |
+| `a-retry-follows-a-refused-connection` | the host refuses its first two connections and answers the third: the Observation carries a `status`, and the Step file reads `attempts: 3` |
+| `a-retry-follows-a-name-and-a-handshake` | the class's other two members, driven through a Run rather than only at the Capability: the host's first connection fails to resolve, its second fails its handshake, and its third answers. All three are one class because each provably precedes the request (ADR-0018), and `attempts: 3` says the Pattern followed both |
+| `the-same-host-with-no-retry-declared` | the same host under the Operation that differs in one key: no retry, so the first refusal is the answer and the Observation records the silence. Its identity set is **byte-identical** to the case above's, which is what [`../../run_pattern_test.go`](../../run_pattern_test.go) holds |
+| `an-exhausted-retry-records-the-silence` | three attempts against a host that is never there: the object is `host` alone, the Observation records it, the Step is *ran* and the Run completes at `0` — an exhausted retry leaves the response object for the projection to read |
+| `no-status-is-ever-retried` | a host that answers `503` and then `200`, under an Operation declaring `retry: {attempts: 3}`: the `503` is recorded and the second answer is never asked for. The Step file carries **no** `pattern` block, one attempt and no retry declared being the same silence (§7) |
+| `a-deadline-is-not-retried` | the other exclusion: a host that hangs, under the same Operation. The deadline halts the Step at `1` and no second attempt is made — a connect timeout is outside ADR-0018's class, and the Operation's own deadline is `hyper` stopping |
+| `four-paginated-members-under-a-limit-of-four` | an Expansion of four under `concurrency: 4`, each member walking three pages: twelve Observations and `pages: 12`. What the limit reached and what it did not is [`../../run_pattern_test.go`](../../run_pattern_test.go)'s |
 
 ## How a case reaches a binary, and what it costs
 
@@ -296,6 +318,40 @@ smallest a duration can be written as short of the `0s` that would reach every
 member at once — and the case costs that second, which is what the one fact
 nothing else can drive is worth.
 
+## How a case reaches a world that changed between two calls
+
+The Patterns are the one thing in the tool whose subject is a world that answers
+differently the second time, so `serve/` grew two keys for it (issue #143) —
+both of them still what a *server* does, which is the only thing a fixture has
+any business supplying.
+
+**`answers`** is a list of what the host answers on successive requests, the
+last one repeating once the list is exhausted. It is what a paginated read walks
+and what a polled Operation waits on. It is deterministic because the thing it
+serves is: all three Patterns are serial by construction, so a member is one
+request at a time — and no case here drives two members through one host, which
+would be depending on something nothing fixes.
+
+**`refuse_first`** is how many connections to the host are refused before any is
+accepted, and **`refuse_first_as`** is how each of them fails — `refused`,
+`name` or `handshake`. Without the first, a case could show a retry exhausting
+and never a retry succeeding: the refused connection a case already had refuses
+for ever. Without the second, ADR-0018's three-member class would be asserted at
+Run level by its smallest member alone, the other two reaching only
+[`../../../capability/sent_test.go`](../../../capability/sent_test.go). Each is
+answered in the shape that failure really has — the resolver's error, the TLS
+stack's — because `hyper` establishes the class by **where** a failure happened
+and never by reading it, and a fixture answering one error type three times
+would check that with less than it could.
+
+**What `hyper` put on the wire** is read back the way the credential cases read
+theirs — by having the server say what it saw. A body may carry `<<query>>` or
+`<<header:name>>`, which the fixture fills from the request it is answering, so
+a pagination Pattern's token lands in a **projected field** and therefore in
+`store.golden`. That is what makes *the cursor was written into the declared
+`query:` position* a checked-in constant rather than an inference from the pages
+arriving in order.
+
 ## What no golden here proves
 
 **That a `shell` Step's own dispatch is the `http` one.** There is one call site
@@ -320,12 +376,33 @@ holds the page and the branch byte-identical against the forward Run: **nothing
 derives from the order a concurrent Expansion's calls complete in** (§6).
 
 **That a concurrency limit does not bound a Pattern's own calls.** All three
-Patterns are serial by construction and none of them exists yet — pagination,
-polling and retry are issue #143's — so what stands here is the ground they land
-on: a member is one call at a time from the moment it is dispatched until its
-last page, and *members in flight* and *requests in flight* are one number
-(ADR-0045). The case that shows a paginated member staying one request wide
-belongs to the milestone that builds pagination.
+Patterns are serial by construction, so a member is one call at a time from the
+moment it is dispatched until its last page, and *members in flight* and
+*requests in flight* are one number (ADR-0045). Twelve pages fetched four at a
+time and twelve fetched one member at a time leave the same twelve Observations,
+the same identity set and the same `pattern` block, so the dials are counted
+instead: [`../../run_pattern_test.go`](../../run_pattern_test.go) drives
+[`four-paginated-members-under-a-limit-of-four`](four-paginated-members-under-a-limit-of-four)
+with each dial held long enough for one standing beside it to be seen, and holds
+two numbers — four members together, and never two requests to one host.
+
+**That the interval was waited between calls rather than before the first, and
+that a fourth attempt was never made.** Both are facts about *when*, and both
+are [`../../../run/pattern_test.go`](../../../run/pattern_test.go)'s for the
+reason above. What the cases here hold is everything downstream: the Records
+every page projected, the account the Step file carries, and the halt.
+
+**That a retry under the `shell` Capability covers a child that could not be
+started and nothing else.** No repository can write it: the Capability is
+reserved to Providers `hyper` ships (ADR-0039), and the one it ships declares an
+empty `patterns:` — pagination and polling having no meaning against a command,
+and retry following only a failure that provably preceded a request (§13). So
+the claim is structural instead. One function decides the class for both
+Capabilities (`capability.NeverSent`), marking only the failures each performer
+knows came before any byte left — the dialler answering nothing, and
+`child.Start` failing — and
+[`../../../capability/sent_test.go`](../../../capability/sent_test.go) holds
+both sides of it, a non-zero exit and a `503` included.
 
 **That a read-only Run's pushes batch to its end.** One push at the end and a
 push per Step leave the remote holding the same commits, so no branch golden can
@@ -376,6 +453,21 @@ renders `0 of 1` — expanded to one and accounted for none. What it does **not*
 yet carry is `projection_failed_path`, the member §7 puts the failed path on;
 that is issue #144's, and it is a key added to a file that now exists rather
 than a Step file that does not.
+
+Two neighbours of that halt landed with the Patterns and one did not, and the
+split is worth naming so that issue #144 does not have to rediscover it.
+
+- **The collection path** an Operation of `series` cardinality reads its Records
+  from halts the same way, and it had to: both pagination forms terminate when
+  that collection comes back empty, so conflating *there was nothing there* with
+  *the path was wrong* would have made the Pattern's own terminator a lie (§6).
+- **The `series` projection itself** landed for the same reason — a paginated
+  `read` has nothing to project without it.
+- **A half-projected response is still discarded whole.** §6 says *what
+  projected is written*, and a member whose call faulted is skipped by the drain
+  as it was before (`internal/run/step.go`), so nine members that projected are
+  dropped with the tenth that did not. That is issue #144's to flip, and it is
+  the one place these two tickets touch and disagree.
 
 ## Why `a-procedure-matching-nothing` has no repository
 

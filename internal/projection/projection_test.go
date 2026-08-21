@@ -194,3 +194,103 @@ func operation(t *testing.T, source string) *yaml.Node {
 	}
 	return root.Content[0]
 }
+
+// seriesResponse is one response of an Operation of `series` cardinality: a
+// collection under a path, whose members are what identity: and every fields:
+// entry root at.
+func seriesResponse(t *testing.T, encoded string) capability.Object {
+	t.Helper()
+
+	var body any
+	if err := json.Unmarshal([]byte(encoded), &body); err != nil {
+		t.Fatal(err)
+	}
+	return capability.Object{
+		{Name: capability.MemberHost, Value: "api.hyper.dev"},
+		{Name: capability.MemberStatus, Value: 200},
+		{Name: capability.MemberBody, Value: body},
+	}
+}
+
+// TestRead_TheTwoRootsAreOneBlock is §3's `series` cardinality read: `over:`
+// names the collection and sits beside the fields: paths that root inside it,
+// so one reading of one block answers both roots.
+func TestRead_TheTwoRootsAreOneBlock(t *testing.T) {
+	read := projection.Read(operation(t, "kind: read\nrecord:\n  identity: $.id\n  over: $.body.records\n  fields:\n    state: $.state\n"))
+	if read.Over != "$.body.records" {
+		t.Errorf("Over = %q, want $.body.records", read.Over)
+	}
+	if len(read.Fields) != 1 || read.Fields[0].Path != "$.state" {
+		t.Errorf("Fields = %#v, want one entry rooted at a member", read.Fields)
+	}
+	if one := projection.Read(operation(t, "kind: read\nrecord:\n  identity: $.host\n")); one.Over != "" {
+		t.Errorf("Over = %q on an Operation of one cardinality, want the empty string", one.Over)
+	}
+}
+
+// TestCollection_ACollectionThatWasEmptyIsNotAPathThatWasWrong is the
+// distinction §6 halts a Run over: both answer no members, and only one of them
+// resolved.
+func TestCollection_ACollectionThatWasEmptyIsNotAPathThatWasWrong(t *testing.T) {
+	empty := seriesResponse(t, `{"records":[]}`)
+	if members, resolved := projection.Collection("$.body.records", empty); !resolved || len(members) != 0 {
+		t.Errorf("an empty collection = %#v, resolved %v; want no members and resolved", members, resolved)
+	}
+	if _, resolved := projection.Collection("$.body.items", empty); resolved {
+		t.Error("a path the response does not carry answers resolved")
+	}
+	// A path that reached a value with nothing inside it is not a second
+	// fault: it resolved, and a scalar has no members.
+	if members, resolved := projection.Collection("$.status", empty); !resolved || len(members) != 0 {
+		t.Errorf("a path reaching a scalar = %#v, resolved %v; want no members and resolved", members, resolved)
+	}
+}
+
+// TestProject_EveryPathBesideOverRootsAtAMember is the other root: the same
+// grammar, the same walk, and `$` naming whatever the collection held.
+func TestProject_EveryPathBesideOverRootsAtAMember(t *testing.T) {
+	response := seriesResponse(t, `{"records":[{"id":"r1","state":"ready"},{"id":"r2"}]}`)
+	members, resolved := projection.Collection("$.body.records", response)
+	if !resolved || len(members) != 2 {
+		t.Fatalf("Collection = %#v, resolved %v; want two members", members, resolved)
+	}
+
+	read := projection.Read(operation(t, "kind: read\nrecord:\n  identity: $.id\n  over: $.body.records\n  fields:\n    state: $.state\n"))
+	if got := encoded(t, read.Project(members[0])); got != `{"state":"ready"}` {
+		t.Errorf("the first member projected %s, want {\"state\":\"ready\"}", got)
+	}
+	// The second member carries no `state`, which is the ordinary absence:
+	// the field is not written, and nothing about it is an error (§6).
+	if got := encoded(t, read.Project(members[1])); got != `{}` {
+		t.Errorf("the second member projected %s, want {}", got)
+	}
+	if name, resolved := projection.Resolve("$.id", members[1]); !resolved || name != "r2" {
+		t.Errorf("the second member's identity = %v, resolved %v; want r2", name, resolved)
+	}
+}
+
+// TestResolve_AShellScalarHasNothingInsideIt is the grammar reaching no
+// further inside a scalar than §12 says it does: `$.stdout` answers the text a
+// command printed, and no path reaches inside it (ADR-0052).
+func TestResolve_AShellScalarHasNothingInsideIt(t *testing.T) {
+	shell := capability.Object{
+		{Name: capability.MemberCommand, Value: `["status","--json"]`},
+		{Name: capability.MemberStdout, Value: `{"result":{"id":"abc"}}`},
+	}
+	if text, resolved := projection.Resolve("$.stdout", shell); !resolved || text != `{"result":{"id":"abc"}}` {
+		t.Errorf("$.stdout = %v, resolved %v; want the string the command printed", text, resolved)
+	}
+	if _, resolved := projection.Resolve("$.stdout.result", shell); resolved {
+		t.Error("$.stdout.result resolved; a path reaches no further inside a scalar than inside any string")
+	}
+}
+
+// encoded is a projection's fields as the one mapping they render to.
+func encoded(t *testing.T, fields projection.Fields) string {
+	t.Helper()
+	written, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(written)
+}

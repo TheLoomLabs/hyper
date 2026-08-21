@@ -1,0 +1,10 @@
+kind: procedure
+procedure: fetch-unresolvable
+targets: [local]
+steps:
+  - id: unresolvable
+    definition: inventory-read
+    operation: fetch_with_retry
+    target: local
+    args:
+      host: flaky.hyper.dev

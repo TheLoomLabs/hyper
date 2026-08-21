@@ -1,0 +1,10 @@
+kind: procedure
+procedure: fetch-plain
+targets: [local]
+steps:
+  - id: plain
+    definition: inventory-read
+    operation: fetch_plain
+    target: local
+    args:
+      host: flaky.hyper.dev

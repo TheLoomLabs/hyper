@@ -1,0 +1,19 @@
+{
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "answers": [
+    {
+      "status": 200,
+      "body": "{\"records\":[{\"id\":\"shard-3-a\",\"state\":\"ready\",\"asked\":\"<<query>>\"}],\"next\":\"c2\"}"
+    },
+    {
+      "status": 200,
+      "body": "{\"records\":[{\"id\":\"shard-3-b\",\"state\":\"ready\",\"asked\":\"<<query>>\"}],\"next\":\"c3\"}"
+    },
+    {
+      "status": 200,
+      "body": "{\"records\":[{\"id\":\"shard-3-c\",\"state\":\"ready\",\"asked\":\"<<query>>\"}]}"
+    }
+  ]
+}
