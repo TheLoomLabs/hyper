@@ -1,0 +1,2 @@
+FILE                LINE  FIELD  ERROR_CODE        MESSAGE
+targets/local.yaml  6     hosts  host-not-granted  local grants no elsewhere.example.com

@@ -1,0 +1,18 @@
+kind: provider
+provider: ambiguous
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  check:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    record:
+      identity: $.host
+      fields:
+        host: $.host
+        status: $.status

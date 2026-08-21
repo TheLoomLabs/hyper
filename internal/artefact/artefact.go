@@ -109,13 +109,19 @@ func topLevelFields(root *yaml.Node, names ...string) map[string]*yaml.Node {
 	return found
 }
 
-// topLevelKeyLine is the line root's own top-level key of that name is
+// TopLevelKeyLine is the line root's own top-level key of that name is
 // written on, and 0 where it writes none. It is topLevelFields' other half:
 // that walk answers with a key's value and this one with the key itself,
 // which is what a surface annotating a *line* needs — §8 marks the
 // targets: line, and a block sequence's first member is a line below the
 // key that names it.
-func topLevelKeyLine(root *yaml.Node, name string) int {
+//
+// It is exported for the one surface that reports a fault against an
+// artefact it did not check: a Probe's host is refused against the hosts:
+// the Target named local declares, and a Refusal names the line to edit
+// (§9, ADR-0042). Every other caller of it here is a mark or a check that
+// already holds the node.
+func TopLevelKeyLine(root *yaml.Node, name string) int {
 	if root == nil || root.Kind != yaml.MappingNode {
 		return 0
 	}

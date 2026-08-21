@@ -1,0 +1,1 @@
+hyper probe metrics window --input host=metrics.hyper.dev --input minutes=0015 --json

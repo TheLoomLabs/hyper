@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"math/big"
 	"slices"
 	"strconv"
@@ -245,18 +246,39 @@ func (n Number) text() string {
 	if n.literal == "" {
 		return "0"
 	}
-	if exact, ok := new(big.Int).SetString(n.literal, 10); ok {
-		return exact.String()
-	}
-	value, err := strconv.ParseFloat(n.literal, 64)
-	if err != nil {
+	text, ok := NumberText(n.literal)
+	if !ok {
 		// Unreachable: ParseNumber and Int are the only two doors, and
 		// both check. It panics rather than writing a nought, this being
 		// the one path where a quiet wrong answer goes into a git blob
 		// and is hashed as though somebody meant it.
-		panic(fmt.Sprintf("store: %q reached the encoder as a Number: %s", n.literal, err))
+		panic(fmt.Sprintf("store: %q reached the encoder as a Number", n.literal))
 	}
-	return ecmaScriptString(value)
+	return text
+}
+
+// NumberText is the text a decimal renders as, and it is the rule above read
+// from outside: an integer exactly and at whatever width it takes, every other
+// number as ECMAScript's Number::toString would write it. ok is false where
+// literal is neither.
+//
+// It is exported because §12 states the text form of the `number` scalar type
+// as §7's canonical-JSON rule *read out there rather than a second rule
+// minted beside it* — so the reading a value gets at a declared position
+// (internal/schema, ADR-0081) is this function rather than a second
+// implementation that agrees until it does not. It admits a leading zero, which
+// JSON does not and an authored scalar may carry: `0755` reads as the integer
+// 755 at a declared `integer` position (§3, ADR-0078), and what a leading
+// zero must never do is survive into the text form.
+func NumberText(literal string) (string, bool) {
+	if exact, ok := new(big.Int).SetString(literal, 10); ok {
+		return exact.String(), true
+	}
+	value, err := strconv.ParseFloat(literal, 64)
+	if err != nil || math.IsInf(value, 0) || math.IsNaN(value) {
+		return "", false
+	}
+	return ecmaScriptString(value), true
 }
 
 // ecmaScriptString writes a finite float64 the way ECMAScript's Number::toString

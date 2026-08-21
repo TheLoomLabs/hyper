@@ -1,0 +1,7 @@
+FIELD      VALUE
+host       status.hyper.dev
+status     200
+days_left  34
+
+RESPONSE
+{"host":"status.hyper.dev","status":200,"headers":{"content-length":"11","content-type":"application/json","date":"Thu, 02 Apr 2026 09:41:14 GMT"},"body":{"ok":true},"tls":{"not_after":"2026-05-06T21:41:14Z","days_left":34,"subject":"CN=status.hyper.dev,O=hyper golden fixture","issuer":"CN=status.hyper.dev,O=hyper golden fixture"}}

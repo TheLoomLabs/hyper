@@ -17,8 +17,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
-	"net"
 	"os"
 	"os/exec"
 	"syscall"
@@ -54,7 +54,14 @@ func process() cli.Process {
 		// belongs to the Manifest that declared one and arrives on the
 		// context, and a second one here would be a bound no artefact
 		// agreed to (§3, ADR-0014).
-		Dial: new(net.Dialer).DialContext,
+		//
+		// It is a TLS dialer because the scheme is https and there is no
+		// second one (ADR-0082), so every connection hyper makes is a TLS
+		// connection and there is no plaintext path to configure. The
+		// configuration is the standard library's: the system roots, and
+		// the server name taken from the address, which is the host the
+		// grant was checked against (ADR-0029).
+		Dial: new(tls.Dialer).DialContext,
 		Exec: child,
 	}
 }

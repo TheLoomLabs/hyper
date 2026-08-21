@@ -59,9 +59,9 @@ type DefinitionMarks struct {
 func ReadDefinitionMarks(root *yaml.Node) DefinitionMarks {
 	facts := ReadDefinitionFacts(root)
 	return DefinitionMarks{
-		Kinds:   KeyMark{topLevelKeyLine(root, "kinds"), facts.Kinds},
-		Destroy: KeyMark{topLevelKeyLine(root, "destroy"), facts.Destroy},
-		Targets: KeyMark{topLevelKeyLine(root, "targets"), facts.Targets},
+		Kinds:   KeyMark{TopLevelKeyLine(root, "kinds"), facts.Kinds},
+		Destroy: KeyMark{TopLevelKeyLine(root, "destroy"), facts.Destroy},
+		Targets: KeyMark{TopLevelKeyLine(root, "targets"), facts.Targets},
 	}
 }
 
@@ -96,13 +96,13 @@ type TargetDeclarationMarks struct {
 func ReadTargetDeclarationMarks(root *yaml.Node) TargetDeclarationMarks {
 	facts := ReadTargetFacts(root)
 	marks := TargetDeclarationMarks{
-		Kinds:        KeyMark{topLevelKeyLine(root, "kinds"), facts.Kinds},
-		Capabilities: KeyMark{topLevelKeyLine(root, "capabilities"), facts.Capabilities},
-		Hosts:        KeyMark{topLevelKeyLine(root, "hosts"), facts.Hosts},
+		Kinds:        KeyMark{TopLevelKeyLine(root, "kinds"), facts.Kinds},
+		Capabilities: KeyMark{TopLevelKeyLine(root, "capabilities"), facts.Capabilities},
+		Hosts:        KeyMark{TopLevelKeyLine(root, "hosts"), facts.Hosts},
 		Credentials:  credentialMarks(topLevelFields(root, "auth")["auth"]),
 	}
 	if grantsOpaqueDestroy(root) {
-		marks.OpaqueDestroy = topLevelKeyLine(root, "opaque-destroy")
+		marks.OpaqueDestroy = TopLevelKeyLine(root, "opaque-destroy")
 	}
 	return marks
 }
@@ -178,8 +178,8 @@ type OperationMark struct {
 func ReadManifestMarks(root *yaml.Node) ManifestMarks {
 	fields := topLevelFields(root, "capabilities", "operations")
 	return ManifestMarks{
-		Auth:         KeyMark{topLevelKeyLine(root, "auth"), values(authSchemeNamed(root))},
-		Capabilities: KeyMark{topLevelKeyLine(root, "capabilities"), scalarSequence(fields["capabilities"])},
+		Auth:         KeyMark{TopLevelKeyLine(root, "auth"), values(authSchemeNamed(root))},
+		Capabilities: KeyMark{TopLevelKeyLine(root, "capabilities"), scalarSequence(fields["capabilities"])},
 		Operations:   operationMarks(fields["operations"]),
 	}
 }
@@ -257,8 +257,8 @@ type RepositoryDeclarationMarks struct {
 func ReadRepositoryDeclarationMarks(root *yaml.Node) RepositoryDeclarationMarks {
 	fields := topLevelFields(root, "version", "retention")
 	return RepositoryDeclarationMarks{
-		Version:   KeyMark{topLevelKeyLine(root, "version"), scalarValues(fields["version"])},
-		Retention: KeyMark{topLevelKeyLine(root, "retention"), scalarValues(fields["retention"])},
+		Version:   KeyMark{TopLevelKeyLine(root, "version"), scalarValues(fields["version"])},
+		Retention: KeyMark{TopLevelKeyLine(root, "retention"), scalarValues(fields["retention"])},
 	}
 }
 

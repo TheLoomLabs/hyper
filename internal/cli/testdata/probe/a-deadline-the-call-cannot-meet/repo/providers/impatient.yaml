@@ -1,0 +1,23 @@
+kind: provider
+provider: impatient
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  check:
+    kind: read
+    deadline: 0s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: $.host
+      fields:
+        host: $.host
+        status: $.status

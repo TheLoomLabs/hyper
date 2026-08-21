@@ -1,0 +1,27 @@
+kind: provider
+provider: metrics
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  window:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /metrics
+      query:
+        minutes: "{minutes}"
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+        minutes: {type: integer}
+    record:
+      identity: $.host
+      fields:
+        host: $.host
+        status: $.status
+        window: $.body.window

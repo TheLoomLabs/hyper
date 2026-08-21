@@ -1,0 +1,1 @@
+hyper probe uptime check_http --input host=cert.hyper.dev --repo-dir ../../five-artefact-demo/repo

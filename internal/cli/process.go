@@ -2,10 +2,10 @@ package cli
 
 import (
 	"context"
-	"net"
 	"os/exec"
 	"time"
 
+	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
@@ -84,7 +84,18 @@ type Process struct {
 	// against a server standing in the test process, with the name
 	// resolution the only thing a fixture supplies — the response object is
 	// never written down by a test (§5, issue #133).
-	Dial func(ctx context.Context, network, address string) (net.Conn, error)
+	//
+	// It answers a connection that is already past its TLS handshake, and
+	// that is a fact about hyper rather than about this signature: the
+	// scheme is `https` and there is no second one (ADR-0082), so every
+	// connection hyper makes is a TLS connection, there is no plaintext
+	// dialer to supply, and the certificate the peer presented is a real one
+	// off a real handshake — which is what tls.days_left is read from (§12).
+	// internal/capability wires it as http.Transport's DialTLSContext and
+	// holds no TLS configuration of its own, and names the type: one
+	// signature, spelled where the Capability that dials through it is
+	// stated rather than twice.
+	Dial capability.Dial
 
 	// Exec is how a child process is started: it answers the child that argv
 	// names, ready to run, carrying the two launch decisions that belong to

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/TheLoomLabs/hyper/internal/pin"
+	"github.com/TheLoomLabs/hyper/internal/problem"
+	"github.com/TheLoomLabs/hyper/internal/render"
 )
 
 // gateOnVersionPin is the version pin gate, and it is one function because
@@ -60,5 +62,32 @@ func gateOnVersionPin(command, repoRoot, binaryVersion string, stderr io.Writer)
 // (§12, issue #131).
 func refuse(stderr io.Writer, code, message string) int {
 	fmt.Fprintf(stderr, "refused: %s\n  %s\n", code, message)
+	return ExitRefused
+}
+
+// refuseProblems renders a Refusal that has a position, and answers the exit
+// code its caller returns. It is the milestone-5 Refusal rendering: the problem
+// table `check` already renders, on stderr, with stdout silent in both modes.
+//
+// It stands beside refuse rather than replacing it because the two are one
+// rendering split by what the fault has to point at. Every Refusal reached
+// before this milestone — the pin gate's two codes, `store init`'s absent
+// Store — is a fact about the invocation with no artefact coordinate in it, and
+// the two-line form is the whole of what there is to say. A Refusal a Run or a
+// Probe makes cites a file, a line and a field, and the remedy is an edit
+// there: the columns are what carry it, and they are `check`'s own columns
+// because a reader has already learnt to read them (§8, §9).
+//
+// §8's caret excerpt, its `=` notes and its `EDIT ONE OF` table are milestone
+// 8's, which reads §8 whole. What is deferred is the shape; every fact §8
+// requires — file, line, field, code, message — is on the page already, and
+// milestone 8 replaces the table with the excerpt without changing what is
+// reported.
+func refuseProblems(stderr io.Writer, problems []problem.Problem) int {
+	problem.Sort(problems)
+	rows := checkRows(problems)
+	if err := render.WriteTable(stderr, checkColumns, rows); err != nil {
+		fmt.Fprintf(stderr, "hyper: %s\n", err)
+	}
 	return ExitRefused
 }

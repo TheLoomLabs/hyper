@@ -684,6 +684,10 @@ func checkValuesHostGrant(file, field string, fields map[string]*yaml.Node, op O
 // does not depend on map iteration. ok is false where a hole names
 // neither from-target nor a declared enumeration — a Manifest fault
 // checkCapabilityHoles has already named, leaving nothing here to expand.
+//
+// A Probe's own reach is resolved off this same expansion rather than off
+// a second reading of one (probe.go, §9, ADR-0042): the reach comes from
+// an artefact even where no artefact named the Operation.
 func expandHostTemplate(template string, enumerations map[string][]string, grant map[string]bool) ([]string, bool) {
 	sets := []string{""}
 	prev := 0

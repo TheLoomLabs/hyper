@@ -1,0 +1,2 @@
+refused: host-not-granted
+  local writes no hosts:, so it grants no host — add "status.hyper.dev" to a hosts: list in targets/local.yaml

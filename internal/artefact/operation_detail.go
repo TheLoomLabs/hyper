@@ -115,7 +115,7 @@ type OperationDetail struct {
 // and this read one mapping for one key, so neither can find what the other did
 // not (§9, ADR-0060).
 func ReadOperationDetail(root *yaml.Node, name string) OperationDetail {
-	op := operationNode(root, name)
+	op := OperationNode(root, name)
 	capability, _ := operationCapability(op)
 
 	var detail OperationDetail
@@ -153,11 +153,18 @@ func boundRule(info OperationInfo) string {
 	}
 }
 
-// operationNode is the node one Operation of a Manifest is declared by, and nil
+// OperationNode is the node one Operation of a Manifest is declared by, and nil
 // where the name is not a key of a legible operations: block — the same lookup
 // OperationSource performs over the same mapping, matching byte-exact as every
 // name in the tool does (§9, ADR-0060).
-func operationNode(root *yaml.Node, name string) *yaml.Node {
+//
+// It is exported because where an Operation is declared is this package's fact
+// and what its declaration *means* is not: internal/capability reads the http:
+// block out of one and internal/projection reads the record: block, and neither
+// has any business knowing that an Operation lives under a Manifest's
+// operations: key. One lookup, three readers, and a Manifest's own shape spelled
+// in one place (issue #135).
+func OperationNode(root *yaml.Node, name string) *yaml.Node {
 	operations := operationsMapping(root)
 	if operations == nil {
 		return nil

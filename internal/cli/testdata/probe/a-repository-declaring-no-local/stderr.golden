@@ -1,0 +1,2 @@
+refused: host-not-granted
+  the repository declares no Target named local, so it grants no host — author targets/local.yaml granting "status.hyper.dev"

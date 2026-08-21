@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "headers": {"Content-Type": "application/json"},
+  "body": "{\"window\":15,\"samples\":[1,2,3]}"
+}

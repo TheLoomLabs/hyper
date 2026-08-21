@@ -591,3 +591,34 @@ func TestNumber_WritesOneIntegersTwoSpellingsAsEachIsSpelled(t *testing.T) {
 		})
 	}
 }
+
+// TestNumberText is the rule §12 borrows rather than restates: an integer
+// exactly and at whatever width it takes, every other number as ECMAScript's
+// Number::toString writes it, and a leading zero admitted at the door and gone
+// from the answer — which is the one thing this admits that ParseNumber does
+// not, an authored `0755` being the integer 755 (§3, §12, ADR-0078).
+func TestNumberText(t *testing.T) {
+	for _, c := range []struct {
+		literal string
+		want    string
+		ok      bool
+	}{
+		{"0", "0", true},
+		{"0755", "755", true},
+		{"-0012", "-12", true},
+		{"123456789012345678901234567890", "123456789012345678901234567890", true},
+		{"1.0", "1", true},
+		{"1e3", "1000", true},
+		{"1e-7", "1e-7", true},
+		{"0.50", "0.5", true},
+		{"", "", false},
+		{"thirty", "", false},
+		{"Inf", "", false},
+		{"NaN", "", false},
+	} {
+		got, ok := store.NumberText(c.literal)
+		if ok != c.ok || got != c.want {
+			t.Errorf("NumberText(%q) = %q, %v; want %q, %v", c.literal, got, ok, c.want, c.ok)
+		}
+	}
+}

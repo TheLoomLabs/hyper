@@ -89,7 +89,7 @@ func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// exactly this path (§12, ADR-0039).
 	source, declared := artefact.OperationSource(manifest.Bytes, manifest.Root, operationName)
 	if !declared {
-		fmt.Fprint(stderr, unresolvedOperationName(providerName, operationName))
+		fmt.Fprint(stderr, unresolvedOperationName("operation", providerName, operationName))
 		return ExitUsage
 	}
 
@@ -118,9 +118,14 @@ func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string
 // suggests no near miss, on ADR-0047's rule — enumerating the namespace is
 // `hyper provider <name>`'s job, which is why the remedy names that command
 // rather than doing its work here.
-func unresolvedOperationName(provider, operation string) string {
-	return fmt.Sprintf("hyper operation: no Operation named %q in Provider %q's own Operation namespace\n"+
-		"  hyper provider %s lists every Operation in it\n", operation, provider, provider)
+//
+// command is a parameter for the reason unresolvedProviderName's already is:
+// `probe` resolves its two positionals against the Provider set exactly as this
+// command does (§9), so the two share the lookup and the message and differ
+// only in the word a caller typed.
+func unresolvedOperationName(command, provider, operation string) string {
+	return fmt.Sprintf("hyper %s: no Operation named %q in Provider %q's own Operation namespace\n"+
+		"  hyper provider %s lists every Operation in it\n", command, operation, provider, provider)
 }
 
 // operationDetailRow is the Operation's declaring lines and the facts derived

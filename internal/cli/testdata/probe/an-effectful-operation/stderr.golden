@@ -1,0 +1,2 @@
+hyper probe: cloudflare-dns delete_dns_record declares kind: destroy, and a Probe invokes a read Operation and nothing else
+  an effectful Operation is reached through a Step of a reviewed Procedure — hyper run

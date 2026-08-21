@@ -158,7 +158,7 @@ const (
 func ReadProcedureMarks(root *yaml.Node, providers ProviderIndex, definitions DefinitionIndex, targets TargetIndex, graph ProcedureGraph) ProcedureMarks {
 	declaredTargets, declaredKinds := procedureEnvelope(root, targets)
 	marks := ProcedureMarks{
-		EnvelopeLine:    topLevelKeyLine(root, "targets"),
+		EnvelopeLine:    TopLevelKeyLine(root, "targets"),
 		EnvelopeTargets: scalarSequence(topLevelFields(root, "targets")["targets"]),
 		EnvelopeHolds:   true,
 	}

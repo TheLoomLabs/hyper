@@ -1,0 +1,5 @@
+FIELD  VALUE
+host   cert.hyper.dev
+
+RESPONSE
+{"host":"cert.hyper.dev"}

@@ -146,4 +146,8 @@ var repositoryCommands = map[string]repositoryCommand{
 	// reason and for one of its own: every commit hyper writes takes both
 	// its dates from the clock, and retention is an age (§7, issue #131).
 	"compact": RunCompact,
+	// The first command that touches the world. It reads no record at all
+	// and still takes the whole value: it dials, and it reads the clock its
+	// tls.days_left counts from (§9, §12, issue #135).
+	"probe": RunProbe,
 }

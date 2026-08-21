@@ -1,0 +1,2 @@
+hyper probe: no Operation named "check_https" in Provider "uptime"'s own Operation namespace
+  hyper provider uptime lists every Operation in it

@@ -5,11 +5,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -131,6 +129,12 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //     the git fixture, which golden_fixture_test.go states in full. A case
 //     supplying none of them is driven exactly as it was before issue #125 —
 //     same directory, same argv — which is every case that landed before it.
+//   - serve/, optional: what the world answers, one `<host>.json` per host —
+//     a status, headers and a body. The harness stands one in-process TLS
+//     server, mints its certificate against the case's `now`, and hands the
+//     entry point a dialer that maps every served hostname to it; a host with
+//     no entry has its connection refused. golden_serve_test.go states it in
+//     full.
 //
 // Its stdout.golden, stderr.golden and exit.golden are compared byte for byte,
 // and regenerated in place behind -update; so are store.golden and
@@ -151,18 +155,20 @@ func TestGolden(t *testing.T) {
 
 // process is what the harness hands the entry point in the process's place: the
 // case's own environment, the working directory its invocation was resolved
-// against, and the instant its clock answers with. The three are the case's
-// `env`, `wd` and `now` inputs and nothing else, which is what makes a golden a
-// statement about the command rather than about the machine the suite ran on
-// (issue #134).
+// against, the instant its clock answers with, and the dialer its serve/
+// directory stands. The four are the case's `env`, `wd`, `now` and `serve/`
+// inputs and nothing else, which is what makes a golden a statement about the
+// command rather than about the machine the suite ran on (issues #134, #135).
 //
-// The other three fail the case rather than answering it. Nothing behind the
-// dispatch mints a Run id, dials a host or starts a child in this milestone,
-// and that is deliberate — the reads were threaded one ticket ahead of the
-// first command to make them — so the corpus is where the claim is checked: a
-// case that reaches one of them is a case whose golden could not have been
-// asserted, and the ticket that first calls one is the ticket that says what a
-// fixture supplies in its place.
+// The other two fail the case rather than answering it. Nothing behind the
+// dispatch mints a Run id or starts a child in this milestone, and that is
+// deliberate — the reads were threaded ahead of the first command to make
+// them — so the corpus is where the claim is checked: a case that reaches one
+// of them is a case whose golden could not have been asserted, and the ticket
+// that first calls one is the ticket that says what a fixture supplies in its
+// place. The dialer is the one that has now been claimed, and golden_serve_test.go
+// is where what a fixture supplies for it is stated; a case that dials without
+// a serve/ directory still fails on the same footing as the other two.
 func (c goldenCase) process(t *testing.T, run goldenRun) cli.Process {
 	t.Helper()
 
@@ -175,10 +181,7 @@ func (c goldenCase) process(t *testing.T, run goldenRun) cli.Process {
 			t.Errorf("case %s minted a Run id, and no case in this corpus renders one yet", c.name)
 			return store.RunID{}
 		},
-		Dial: func(context.Context, string, string) (net.Conn, error) {
-			t.Errorf("case %s dialled a host, and this harness stands no server", c.name)
-			return nil, errors.New("the golden harness dials nothing")
-		},
+		Dial: c.dialer(t, instant),
 		Exec: func(context.Context, []string) *exec.Cmd {
 			t.Errorf("case %s started a child process, and this harness launches none", c.name)
 			return nil
