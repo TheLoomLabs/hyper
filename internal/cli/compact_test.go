@@ -52,7 +52,7 @@ func (c *storeCase) seed(versions ...store.RecordVersion) {
 		path := store.RecordPath(version.Identity, version.Run, version.Step)
 		writeFile(c.t, filepath.Join(dir, filepath.FromSlash(path)), string(version.Encode()))
 	}
-	c.git("update-ref", store.Ref, c.fx.orphan(c.t, dir))
+	c.git("update-ref", store.Ref, c.fx.commitAbove(c.t, dir, ""))
 }
 
 // compact drives `hyper compact` against the repository, through the one entry

@@ -31,6 +31,13 @@ import "time"
 // It answers ErrAbsent where neither side holds the branch, ErrNoRepository
 // where repoRoot holds no git repository, and an ordinary error where the world
 // resisted.
+//
+// **What a failure costs is entirely the caller's**, and the two Runs spend it
+// differently: an effectful Run is `failed` at 75, its sync being the push of
+// its own open entry, and a read-only Run tolerates the failure outright and
+// proceeds against whatever branch the clone holds. §7 leaves the second
+// under-determined and internal/cli's locateStore is where it is resolved and
+// written down (issue #138).
 func Sync(repoRoot string, now time.Time) error {
 	repo, err := open(repoRoot, now)
 	if err != nil {

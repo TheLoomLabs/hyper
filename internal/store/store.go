@@ -22,6 +22,12 @@
 // partitions. The git layer they all go through is here already, unexported,
 // and stays that way until a caller outside this package earns it.
 //
+// Milestone 5 added the one piece of this package that is not the branch: the
+// lock a Run holds on the Store for its duration, shared or exclusive, under
+// `.git/hyper/` and never on the branch at all (issue #138, lock.go). It sits
+// here because it is a lock on this, and because §7 puts hyper's own local
+// state where git ignores it by construction (ADR-0075).
+//
 // The Journal reader had no CLI consumer in milestone 4 by construction. It is
 // what milestone 5's Run and milestone 8's renderings both stand on, and it is
 // here because the Journal is milestone 4's; `hyper run` is now the first

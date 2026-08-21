@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -114,6 +115,31 @@ type fixtureInputs struct {
 	// every runner's clone is in, and the one `store init` must not mint a
 	// second root against (§7, ADR-0074).
 	remoteStore bool
+	// remoteAhead is a directory whose files are committed **above the
+	// store/ commit** and pushed to origin alone: a second environment's
+	// Run, already published, that this clone has never seen. It is what
+	// makes a push non-fast-forward, which is the one condition the
+	// re-application exists for (§7, issue #138).
+	remoteAhead bool
+	// storeUnpushed is a directory whose files are committed above the
+	// store/ commit on the **local** branch alone: an earlier Run on this
+	// machine that wrote and stopped before it could push. §7 says what it
+	// wrote stands locally and goes out with the next Run that syncs, and a
+	// case seeding one is how that sentence is asserted rather than stated.
+	storeUnpushed bool
+	// rejectPushes installs a pre-receive hook on origin that advances the
+	// Store branch and then refuses the push — one second writer getting in
+	// first, every time, deterministically. It is what makes *rejected three
+	// times* a case rather than a story: the condition is the remote moving
+	// under each attempt, and a hook that only refused would be a push
+	// failing for its own reason, which exits through a different door (§7,
+	// issue #138).
+	rejectPushes bool
+	// unfetchableRemote leaves origin's push URL working and points its
+	// fetch URL at nothing. It is the one shape that separates a sync a Run
+	// could not complete from a push it could not complete, which is
+	// otherwise one network outage wearing two hats (§7, issue #138).
+	unfetchableRemote bool
 	// findRoot drives the case with no --repo-dir, so the root is the one
 	// resolveRepoRoot finds by walking up from the working directory (§9).
 	findRoot bool
@@ -149,6 +175,22 @@ func (in fixtureInputs) fault() string {
 		return "carries an uncommitted/ and materialises no repository; there is no commit for its files to differ from"
 	case in.remoteStore && !in.remote:
 		return "seeds hyper-store on origin and wires no origin; remote-store/ needs a remote marker beside it"
+	case in.remoteAhead && !in.remote:
+		return "seeds a commit above the Store on origin and wires no origin; remote-ahead/ needs a remote marker beside it"
+	case in.remoteAhead && !in.store:
+		return "seeds a commit above the Store on origin and materialises no store/ for it to sit above"
+	case in.remoteAhead && in.remoteStore:
+		return "seeds hyper-store on origin twice, once as a root of its own and once above store/; those are two different remotes"
+	case in.storeUnpushed && !in.store:
+		return "seeds an unpushed commit and materialises no store/ for it to sit above"
+	case in.unfetchableRemote && !in.remote:
+		return "breaks origin's fetch URL and wires no origin; unfetchable-remote needs a remote marker beside it"
+	case in.rejectPushes && !in.remote:
+		return "rejects every push to origin and wires no origin; reject-pushes needs a remote marker beside it"
+	case in.rejectPushes && !in.remoteAhead:
+		return "rejects every push to origin and seeds no remote-ahead/; the hook advances a branch origin has to hold"
+	case in.rejectPushes && in.unfetchableRemote:
+		return "breaks origin's fetch URL and rejects every push to it; a push that could not be sent and one that was refused are two cases"
 	case in.noGitRoot && in.repo:
 		return "asks to be driven from under no git root and carries a repository to stand in; those are two different cases"
 	case in.findRoot && !in.materialised():
@@ -168,17 +210,22 @@ func (in fixtureInputs) fault() string {
 func (c goldenCase) fixtureInputs() fixtureInputs {
 	from := strings.TrimSpace(readFileAt(filepath.Join(c.dir, "repo-from")))
 	return fixtureInputs{
-		repo:         isDir(filepath.Join(c.dir, "repo")) || from != "",
-		from:         from,
-		uncommitted:  isDir(filepath.Join(c.dir, "uncommitted")),
-		git:          isFile(filepath.Join(c.dir, "git")),
-		store:        isDir(filepath.Join(c.dir, "store")),
-		remote:       isFile(filepath.Join(c.dir, "remote")),
-		remoteStore:  isDir(filepath.Join(c.dir, "remote-store")),
-		findRoot:     isFile(filepath.Join(c.dir, "find-root")),
-		noGitRoot:    isFile(filepath.Join(c.dir, "no-git-root")),
-		storeGolden:  isFile(filepath.Join(c.dir, "store.golden")),
-		remoteGolden: isFile(filepath.Join(c.dir, "remote.golden")),
+		repo:        isDir(filepath.Join(c.dir, "repo")) || from != "",
+		from:        from,
+		uncommitted: isDir(filepath.Join(c.dir, "uncommitted")),
+		git:         isFile(filepath.Join(c.dir, "git")),
+		store:       isDir(filepath.Join(c.dir, "store")),
+		remote:      isFile(filepath.Join(c.dir, "remote")),
+		remoteStore: isDir(filepath.Join(c.dir, "remote-store")),
+
+		remoteAhead:       isDir(filepath.Join(c.dir, "remote-ahead")),
+		storeUnpushed:     isDir(filepath.Join(c.dir, "store-unpushed")),
+		rejectPushes:      isFile(filepath.Join(c.dir, "reject-pushes")),
+		unfetchableRemote: isFile(filepath.Join(c.dir, "unfetchable-remote")),
+		findRoot:          isFile(filepath.Join(c.dir, "find-root")),
+		noGitRoot:         isFile(filepath.Join(c.dir, "no-git-root")),
+		storeGolden:       isFile(filepath.Join(c.dir, "store.golden")),
+		remoteGolden:      isFile(filepath.Join(c.dir, "remote.golden")),
 	}
 }
 
@@ -253,9 +300,17 @@ func (c goldenCase) materialise(t *testing.T, in fixtureInputs) gitFixture {
 		overwrite(t, filepath.Join(c.dir, "uncommitted"), fx.root)
 	}
 
+	// The Store's root, where the case seeds one, and the id of it — which
+	// the two seeds below both sit above. They share a root deliberately:
+	// two Runs writing one Store is what a re-application is *for*, and two
+	// unrelated orphans would be a fixture asserting the retry against a
+	// shape no repository is ever in (§7, ADR-0074).
+	root := ""
 	if in.store {
-		fx.run(t, fx.root, "update-ref", store.Ref, fx.orphan(t, filepath.Join(c.dir, "store")))
+		root = fx.commitAbove(t, filepath.Join(c.dir, "store"), "")
+		fx.run(t, fx.root, "update-ref", store.Ref, root)
 	}
+
 	if in.remote {
 		fx.origin = filepath.Join(base, "origin.git")
 		fx.run(t, base, "init", "--quiet", "--bare", fx.origin)
@@ -266,8 +321,37 @@ func (c goldenCase) materialise(t *testing.T, in fixtureInputs) gitFixture {
 			// its id, so origin gains the branch and the clone gains no
 			// ref to it: hyper-store on the remote only, which is the
 			// state a runner's fresh clone is always in (§7).
-			fx.run(t, fx.root, "push", "--quiet", "origin", fx.orphan(t, filepath.Join(c.dir, "remote-store"))+":"+store.Ref)
+			fx.run(t, fx.root, "push", "--quiet", "origin", fx.commitAbove(t, filepath.Join(c.dir, "remote-store"), "")+":"+store.Ref)
 		}
+		if in.remoteAhead {
+			// A second environment's Run, already on origin and never
+			// seen here. It is pushed by id for remote-store/'s reason:
+			// the clone gains no ref to it, so what this repository
+			// knows about the remote is exactly what a sync brings.
+			fx.run(t, fx.root, "push", "--quiet", "origin", fx.commitAbove(t, filepath.Join(c.dir, "remote-ahead"), root)+":"+store.Ref)
+		}
+	}
+
+	// The unpushed commit is last on the local branch, so the ref moves from
+	// the root the two seeds above were built against rather than from
+	// whatever the remote gained.
+	if in.storeUnpushed {
+		fx.run(t, fx.root, "update-ref", store.Ref, fx.commitAbove(t, filepath.Join(c.dir, "store-unpushed"), root), root)
+	}
+
+	// The hook goes on last of everything that reaches origin, so every seed
+	// above it was pushed through a remote that accepted pushes.
+	if in.rejectPushes {
+		fx.rejectAndAdvance(t)
+	}
+
+	// Breaking the fetch URL is the last thing done to the remote, so
+	// everything above it was seeded through a remote that worked. The push
+	// URL is set first and from the origin that is really there, which is
+	// what leaves a Run able to publish across a remote it cannot read.
+	if in.unfetchableRemote {
+		fx.run(t, fx.root, "remote", "set-url", "--push", "origin", fx.origin)
+		fx.run(t, fx.root, "remote", "set-url", "origin", filepath.Join(base, "no-such-remote.git"))
 	}
 	return fx
 }
@@ -326,16 +410,49 @@ func readFileAt(path string) string {
 	return string(data)
 }
 
-// orphan builds a parentless commit whose tree is dir's files, and returns its
-// id. Nothing is checked out and no working tree is touched: the blobs are
-// hashed straight into the object database and the tree is assembled through an
-// index file of the commit's own, which is how §7 says every byte the Store
-// ever holds is written (ADR-0075).
+// rejectAndAdvance installs a pre-receive hook on the bare origin that moves the
+// Store branch on and then refuses the push — one second writer getting in
+// first, every time.
+//
+// It is internal/store's own fixture, brought here so that *rejected three
+// times* can be driven through the command rather than through the package: the
+// condition is the remote moving under each attempt, and what this corpus adds
+// is the outcome and the exit code that condition earns (§7, §12, issue #138).
+func (fx gitFixture) rejectAndAdvance(t *testing.T) {
+	t.Helper()
+
+	script := "#!/bin/sh\n" +
+		// git runs a receive hook with the incoming objects quarantined
+		// and ref updates forbidden inside it, so the variables that
+		// impose the quarantine are dropped first: the commit this hook
+		// builds is made of objects the repository already holds.
+		"unset GIT_QUARANTINE_PATH GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES\n" +
+		"tree=$(git rev-parse " + store.Ref + "^{tree})\n" +
+		"advanced=$(git -c user.name=other -c user.email=other@elsewhere.invalid commit-tree \"$tree\" -p " + store.Ref + " -m 'another environment got there first')\n" +
+		"git update-ref " + store.Ref + " \"$advanced\"\n" +
+		"exit 1\n"
+	if err := os.WriteFile(filepath.Join(fx.origin, "hooks", "pre-receive"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// commitAbove builds a commit whose tree is dir's files and returns its id:
+// parentless where parent is "", and otherwise a commit above that one, whose
+// tree is the parent's with dir's files written over it. Nothing is checked out
+// and no working tree is touched — the blobs are hashed straight into the
+// object database and the tree is assembled through an index file of the
+// commit's own, which is how §7 says every byte the Store ever holds is written
+// (ADR-0075).
+//
+// The second form is what lets one fixture hold two writers of one Store: an
+// earlier Run's unpushed commit and a second environment's published one both
+// sit above the same root, which is the shape a non-fast-forward push is
+// actually met in (§7, issue #138).
 //
 // Every entry is a regular file at 100644. The Store holds files and no
 // directories of its own making, no symlinks and nothing executable, so a mode
 // a fixture could vary is a fact no case has to state.
-func (fx gitFixture) orphan(t *testing.T, dir string) string {
+func (fx gitFixture) commitAbove(t *testing.T, dir, parent string) string {
 	t.Helper()
 
 	// The paths are absolute because every git subprocess runs inside the
@@ -348,13 +465,22 @@ func (fx gitFixture) orphan(t *testing.T, dir string) string {
 
 	indexed := fx
 	indexed.env = append(slices.Clone(fx.env), "GIT_INDEX_FILE="+filepath.Join(t.TempDir(), "index"))
-	indexed.run(t, fx.root, "read-tree", "--empty")
+	if parent == "" {
+		indexed.run(t, fx.root, "read-tree", "--empty")
+	} else {
+		indexed.run(t, fx.root, "read-tree", parent)
+	}
 
 	for _, rel := range filesUnder(t, seed) {
 		blob := indexed.text(t, fx.root, "hash-object", "-w", "--no-filters", "--", filepath.Join(seed, filepath.FromSlash(rel)))
 		indexed.run(t, fx.root, "update-index", "--add", "--cacheinfo", "100644,"+blob+","+rel)
 	}
-	return indexed.text(t, fx.root, "commit-tree", indexed.text(t, fx.root, "write-tree"), "-m", "the fixture's "+store.BranchName)
+
+	commit := []string{"commit-tree", indexed.text(t, fx.root, "write-tree"), "-m", "the fixture's " + store.BranchName}
+	if parent != "" {
+		commit = append(commit, "-p", parent)
+	}
+	return indexed.text(t, fx.root, commit...)
 }
 
 // render is the Store branch of the repository at gitdir, as a branch golden
@@ -852,11 +978,16 @@ func (fx gitFixture) assertCommitsAt(t *testing.T, instant time.Time) {
 // be seeding a shape the tool will never meet (§7, ADR-0075).
 func TestGoldenFixture_TheStoreBranchIsAParentlessCommit(t *testing.T) {
 	judged := eachMaterialisedCase(t, func(in fixtureInputs) bool { return in.store }, func(t *testing.T, c goldenCase, fx gitFixture) {
-		if parents := fx.text(t, fx.root, "rev-list", "--parents", "-1", store.Ref); len(strings.Fields(parents)) != 1 {
-			t.Errorf("%s is %q; want a commit id alone, a parentless root carrying no history", store.Ref, parents)
+		// The **root** rather than the tip, because a case seeding an
+		// unpushed commit has a branch two commits long and the claim is
+		// about where its history begins: one parentless root, and not
+		// the code branch's commit.
+		roots := strings.Fields(fx.text(t, fx.root, "rev-list", "--max-parents=0", store.Ref))
+		if len(roots) != 1 {
+			t.Fatalf("%s has roots %q; want the one parentless root an orphan branch has", store.Ref, roots)
 		}
-		if code, record := fx.text(t, fx.root, "rev-parse", codeBranch), fx.text(t, fx.root, "rev-parse", store.Ref); code == record {
-			t.Errorf("%s and %s are one commit; the Store is a branch of its own", codeBranch, store.Ref)
+		if code := fx.text(t, fx.root, "rev-parse", codeBranch); code == roots[0] {
+			t.Errorf("%s roots at %s's commit; the Store is a branch of its own", store.Ref, codeBranch)
 		}
 	})
 
@@ -873,25 +1004,25 @@ func TestGoldenFixture_TheStoreBranchIsAParentlessCommit(t *testing.T) {
 // rendering a reader cannot walk is one they cannot check.
 func TestGoldenFixture_TheRenderingIsSortedPathsAndTheirBytes(t *testing.T) {
 	judged := eachMaterialisedCase(t, func(in fixtureInputs) bool { return in.store }, func(t *testing.T, c goldenCase, fx gitFixture) {
-		seed := c.abs(t, "store")
+		seeded := c.seededStore(t)
 		rendered := parseRendering(t, fx.render(t, fx.root))
 
 		var paths []string
 		for _, file := range rendered {
 			paths = append(paths, file.path)
-			want, err := os.ReadFile(filepath.Join(seed, filepath.FromSlash(file.path)))
-			if err != nil {
-				t.Errorf("the rendering carries %s, which the case does not seed: %v", file.path, err)
+			want, seeded := seeded[file.path]
+			if !seeded {
+				t.Errorf("the rendering carries %s, which the case does not seed", file.path)
 				continue
 			}
-			if file.bytes != string(want) {
+			if file.bytes != want {
 				t.Errorf("%s renders %q, want the seeded %q", file.path, file.bytes, want)
 			}
 		}
 		if !slices.IsSorted(paths) {
 			t.Errorf("the rendering is %q; want the branch's paths in sorted order", paths)
 		}
-		if want := filesUnder(t, seed); !slices.Equal(paths, want) {
+		if want := slices.Sorted(maps.Keys(seeded)); !slices.Equal(paths, want) {
 			t.Errorf("the rendering carries %q, want every path the case seeds: %q", paths, want)
 		}
 	})
@@ -899,6 +1030,32 @@ func TestGoldenFixture_TheRenderingIsSortedPathsAndTheirBytes(t *testing.T) {
 	if judged == 0 {
 		t.Fatal("no case seeds a store/; the rendering is driven by nothing")
 	}
+}
+
+// seededStore is every path the case put on the local Store branch and the
+// bytes it put there: its store/ seed, with its store-unpushed/ seed written
+// over the top. The two are one answer because the branch is one branch — the
+// unpushed commit sits above the root and the tip's tree is what a rendering
+// walks — and a reader holding the golden to store/ alone would have to be told
+// about the second directory every time one lands.
+func (c goldenCase) seededStore(t *testing.T) map[string]string {
+	t.Helper()
+
+	seeded := map[string]string{}
+	for _, dir := range []string{"store", "store-unpushed"} {
+		seed := c.abs(t, dir)
+		if !isDir(seed) {
+			continue
+		}
+		for _, rel := range filesUnder(t, seed) {
+			content, err := os.ReadFile(filepath.Join(seed, filepath.FromSlash(rel)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			seeded[rel] = string(content)
+		}
+	}
+	return seeded
 }
 
 // renderedFile is one entry read back out of a branch golden.
@@ -954,7 +1111,7 @@ func TestGoldenFixture_AnAbsentBranchAndAnEmptyOneAreDifferentAnswers(t *testing
 			t.Errorf("a repository with no Store renders %q, want the marker %q", got, absentBranch)
 		}
 
-		fx.run(t, fx.root, "update-ref", store.Ref, fx.orphan(t, t.TempDir()))
+		fx.run(t, fx.root, "update-ref", store.Ref, fx.commitAbove(t, t.TempDir(), ""))
 		if got := fx.render(t, fx.root); got != "" {
 			t.Errorf("a Store branch holding nothing renders %q, want it empty and so distinguishable from an absent one", got)
 		}
@@ -1011,8 +1168,8 @@ func TestGoldenFixture_TheCodeBranchReachesTheRemote(t *testing.T) {
 		// which is the state a runner's fresh clone is always in and the
 		// one this fixture exists to reach (§7).
 		in := c.fixtureInputs()
-		if held, want := fx.hasStoreBranch(t, fx.origin), in.remoteStore; held != want {
-			t.Errorf("origin holds %s: %v, want %v — the case %s a remote-store/", store.Ref, held, want, seedsOrNot(want))
+		if held, want := fx.hasStoreBranch(t, fx.origin), in.remoteStore || in.remoteAhead; held != want {
+			t.Errorf("origin holds %s: %v, want %v — the case %s a branch on origin", store.Ref, held, want, seedsOrNot(want))
 		}
 		if held, want := fx.hasStoreBranch(t, fx.root), in.store; held != want {
 			t.Errorf("the clone holds %s: %v, want %v — the case %s a store/", store.Ref, held, want, seedsOrNot(want))
@@ -1051,6 +1208,14 @@ func TestGoldenFixture_AnInputWithNothingToActOnIsNamed(t *testing.T) {
 		"a remote golden over no remote":           {"repo/", "git", "remote.golden"},
 		"a repository and nowhere to stand beside": {"repo/", "git", "no-git-root"},
 		"an uncommitted tree over no repository":   {"repo/", "uncommitted/"},
+		"a commit above a Store on no origin":      {"repo/", "git", "store/", "remote-ahead/"},
+		"a commit above a Store that is not there": {"repo/", "remote", "remote-ahead/"},
+		"two roots on one origin":                  {"repo/", "remote", "store/", "remote-store/", "remote-ahead/"},
+		"an unpushed commit above nothing":         {"repo/", "git", "store-unpushed/"},
+		"a broken fetch URL and no remote":         {"repo/", "git", "unfetchable-remote"},
+		"a rejecting hook and no remote":           {"repo/", "git", "reject-pushes"},
+		"a rejecting hook with nothing to advance": {"repo/", "remote", "reject-pushes"},
+		"a remote both unreadable and rejecting":   {"repo/", "remote", "store/", "remote-ahead/", "reject-pushes", "unfetchable-remote"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if fault := fabricate(t, name, inputs).fixtureInputs().fault(); fault == "" {
@@ -1062,13 +1227,16 @@ func TestGoldenFixture_AnInputWithNothingToActOnIsNamed(t *testing.T) {
 	// The whole of what a landed case supplies, which must not be a fault:
 	// the fence is only worth having if it lets the corpora through.
 	for name, inputs := range map[string][]string{
-		"a case supplying nothing at all": nil,
-		"a case supplying a repository":   {"repo/"},
-		"a seeded store":                  {"repo/", "store/", "store.golden"},
-		"a store on origin alone":         {"repo/", "remote", "remote-store/", "store.golden", "remote.golden"},
-		"a walk up to the git root":       {"repo/", "git", "find-root"},
-		"a directory under no git root":   {"no-git-root"},
-		"a working tree that moved":       {"repo/", "git", "uncommitted/"},
+		"a case supplying nothing at all":  nil,
+		"a case supplying a repository":    {"repo/"},
+		"a seeded store":                   {"repo/", "store/", "store.golden"},
+		"a store on origin alone":          {"repo/", "remote", "remote-store/", "store.golden", "remote.golden"},
+		"a walk up to the git root":        {"repo/", "git", "find-root"},
+		"a directory under no git root":    {"no-git-root"},
+		"a working tree that moved":        {"repo/", "git", "uncommitted/"},
+		"a Store two Runs wrote":           {"repo/", "remote", "store/", "store-unpushed/", "remote-ahead/", "store.golden", "remote.golden"},
+		"a remote that cannot be read":     {"repo/", "remote", "store/", "unfetchable-remote", "store.golden", "remote.golden"},
+		"a remote that rejects every push": {"repo/", "remote", "store/", "remote-ahead/", "reject-pushes", "store.golden", "remote.golden"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if fault := fabricate(t, name, inputs).fixtureInputs().fault(); fault != "" {

@@ -129,8 +129,23 @@ func TestPush_ReAppliesARemovalOntoTheFetchedTipAndRetries(t *testing.T) {
 	elsewhere := aVersion(t, theSecondSeries, theFourthRunID, 1, ageing(5))
 	r.seedVersions(bare, elsewhere)
 
+	tree := r.workingTree()
+
 	if _, err := held.Compact(thePolicy); err != nil {
 		t.Fatalf("Compact: %v", err)
+	}
+
+	// **The re-application uses no worktree, no checkout and no `git
+	// rebase`.** It rebuilds a known path set onto a fetched tree with
+	// plumbing, which is what lets it happen at all: `git rebase` needs a
+	// worktree, and `git worktree add` would take the human's `git checkout
+	// hyper-store` away (§7, ADR-0075). Nothing on disk moves, which is the
+	// observable half of that sentence.
+	if after := r.workingTree(); !slices.Equal(tree, after) {
+		t.Errorf("the repository root holds %v, want it left as %v", after, tree)
+	}
+	if worktrees := r.text("worktree", "list"); strings.Count(worktrees, "\n") != 0 {
+		t.Errorf("the repository has more than one worktree:\n%s", worktrees)
 	}
 
 	want := []string{store.IntroductionPath, pathOf(first), pathOf(head), pathOf(elsewhere)}

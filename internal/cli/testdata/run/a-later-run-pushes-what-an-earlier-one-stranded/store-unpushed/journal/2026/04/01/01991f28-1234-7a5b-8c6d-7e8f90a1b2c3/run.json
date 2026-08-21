@@ -1,0 +1,18 @@
+{
+  "dry_run": false,
+  "procedure": "watch-status",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329",
+    "repo_revision": "1111111111111111111111111111111111111111"
+  },
+  "run_id": "01991f28-1234-7a5b-8c6d-7e8f90a1b2c3",
+  "schema_version": 1,
+  "started_at": "2026-04-01T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

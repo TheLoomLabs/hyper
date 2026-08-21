@@ -132,8 +132,9 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //   - actor and hostname, optional: who is running hyper and on which machine,
 //     which a Journal entry's Trigger carries — `actor` on both executors and
 //     `host` on `local`. Absent, the harness's stated constants.
-//   - git, store/, remote, remote-store/, find-root, no-git-root, optional:
-//     the git fixture, which golden_fixture_test.go states in full. A case
+//   - git, store/, store-unpushed/, remote, remote-store/, remote-ahead/,
+//     reject-pushes, unfetchable-remote, find-root, no-git-root, optional: the
+//     git fixture, which golden_fixture_test.go states in full. A case
 //     supplying none of them is driven exactly as it was before issue #125 —
 //     same directory, same argv — which is every case that landed before it.
 //   - serve/, optional: what the world answers, one `<host>.json` per host —

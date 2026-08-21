@@ -28,7 +28,8 @@ const (
 
 	// ExitStoreLost — a Run that lost the Store: to the lock, to the sync at
 	// Run start, or to a push it could not rebase through in three attempts.
-	// Unreachable until the Store and the Run exist (milestones 4 and 5).
+	// All three are reachable (issue #138); none of them is a Refusal, and
+	// none is the world resisting the work.
 	ExitStoreLost = 75
 
 	// ExitRefused — a guardrail declined before any effect reached the

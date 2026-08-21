@@ -73,8 +73,8 @@ var ErrNoRepository = errors.New("the repository root holds no git repository; t
 // file rather than a directory, so the entry is stat-ed for existence and not
 // for its kind.
 func open(repoRoot string, now time.Time) (repository, error) {
-	if _, err := os.Stat(filepath.Join(repoRoot, ".git")); err != nil {
-		return repository{}, ErrNoRepository
+	if _, err := gitDir(repoRoot); err != nil {
+		return repository{}, err
 	}
 	return repository{root: repoRoot, env: environment(now)}, nil
 }
@@ -653,4 +653,19 @@ func (g repository) createRef(ref, commit string) error {
 func (g repository) moveRef(ref, commit, from string) error {
 	_, err := g.run(nil, "update-ref", ref, commit, from)
 	return err
+}
+
+// gitDir is the repository's own git directory, and ErrNoRepository where
+// repoRoot holds none.
+//
+// It is `.git` at the root itself and never a walk upwards, for open's reason
+// one call up: the repository root is what --repo-dir named or what the walk
+// already found, and resolving a toplevel from it would climb out of the
+// directory the caller pointed at.
+func gitDir(repoRoot string) (string, error) {
+	dir := filepath.Join(repoRoot, ".git")
+	if _, err := os.Stat(dir); err != nil {
+		return "", ErrNoRepository
+	}
+	return dir, nil
 }

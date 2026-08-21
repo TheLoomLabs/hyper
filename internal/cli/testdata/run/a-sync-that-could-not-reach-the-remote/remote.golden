@@ -1,0 +1,84 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f2f-4ba1-7c2d-9e3f-506172839405/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f2f-4ba1-7c2d-9e3f-506172839405/run.json (472 bytes)
+{
+  "dry_run": false,
+  "procedure": "watch-status",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329",
+    "repo_revision": "bcce2c10592d43450874312bb51af5ee2188ccc3"
+  },
+  "run_id": "01991f2f-4ba1-7c2d-9e3f-506172839405",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f2f-4ba1-7c2d-9e3f-506172839405/steps/0001.json (642 bytes)
+{
+  "definition": "uptime-check",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "status",
+  "identities": {
+    "digest": "sha256:71b6b20b46299db0f8ce502940468780b5795732c59cbf3d62f410d1117137e3",
+    "members": [
+      "status.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "077c633cf1996368e8d16880b0bf2d37b6ffe360",
+    "manifest_digest": "sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/uptime-check/status.hyper.dev/01991f2f-4ba1-7c2d-9e3f-506172839405-0001.json (725 bytes)
+{
+  "definition": "uptime-check",
+  "fields": {
+    "days_left": 34,
+    "host": "status.hyper.dev",
+    "status": 200
+  },
+  "name": "status.hyper.dev",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "077c633cf1996368e8d16880b0bf2d37b6ffe360",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7",
+    "procedure_revision": "54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329",
+    "repo_revision": "bcce2c10592d43450874312bb51af5ee2188ccc3"
+  },
+  "record_type": "observation",
+  "run_id": "01991f2f-4ba1-7c2d-9e3f-506172839405",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

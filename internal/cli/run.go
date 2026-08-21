@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
@@ -115,18 +116,34 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		return declineNotBuilt(stderr, declined)
 	}
 
+	// The lock, taken before the Store is reached at all and held for the
+	// Run's duration. Which of the two it is was decided from the Kinds
+	// `check` already computed, and it is taken here — before the sync,
+	// before `run.json`, before Step 1 — because it is a lock on the Store
+	// and everything past this line writes to one (§6, §7, issue #138).
+	//
+	// A Run that cannot take it is `failed` at 75 and is **not** a Refusal:
+	// nothing declined, the other Run ends, and this invocation succeeds
+	// verbatim five minutes later (§12, ADR-0061). It is also a Run with no
+	// id: the entry a Refusal would decline into is a file on the branch
+	// this Run may not write, so there is nothing to look up and the
+	// terminal line names nothing.
+	mode := run.LockMode(loaded, name)
+	lock, err := store.Acquire(repoRoot, mode)
+	if err != nil {
+		return reportLockFault(stderr, err)
+	}
+	defer lock.Release()
+
 	// The Store, located: the second thing §6's order does, and the one that
 	// declines before the Run has an id to decline under. A Run never
 	// creates the branch, read-only Runs included, because a fetch that
 	// failed mid-flight and a branch that never existed look identical from
 	// the inside (§6, §7).
 	instant := process.Now()
-	if err := store.Sync(repoRoot, instant); err != nil {
-		return reportRunStoreFault(stderr, err)
-	}
-	held, err := store.Open(repoRoot, instant)
-	if err != nil {
-		return reportRunStoreFault(stderr, err)
+	held, code := locateStore(repoRoot, instant, mode, stderr)
+	if code != 0 {
+		return code
 	}
 
 	// The rehearsal marker, and it is `false` until issue #145 lands
@@ -174,7 +191,7 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	terminal := outcomeRow{
 		Type:    "outcome",
 		Outcome: string(answer.Outcome),
-		Code:    exitFor(answer.Outcome),
+		Code:    exitFor(answer),
 		DryRun:  dryRun,
 	}
 	if answer.Identified {
@@ -206,17 +223,31 @@ func declineNotBuilt(stderr io.Writer, declined []string) int {
 	return ExitUsage
 }
 
-// exitFor maps an outcome onto the exit code §12 fixes for it. The code space
-// is finer than the triple and never coarser, so this is the one direction that
-// is a function: `failed` takes four codes and the three this milestone cannot
-// reach — 75 for a Store lost past Run start, 130 and 143 for the two signals —
-// are decided where they happen rather than derived from the outcome (§9, §12).
-func exitFor(outcome store.Outcome) int {
-	switch outcome {
+// exitFor maps a Run's answer onto the exit code §12 fixes for it. The code
+// space is finer than the triple and never coarser, so `failed` is the one
+// member that has to read more than the outcome: it takes four codes, and which
+// one this Run earned is a fact about what stopped it (§9, §12).
+//
+// **A push that could not land is 75 and not 1.** Three rejections running is a
+// Run that lost the Store, which is where the lock and the sync at Run start
+// already are, and none of the three is the world resisting the *work*: what
+// the Run did happened, its commits stand on the local branch, and the next Run
+// that syncs sends them (§7, ADR-0061, ADR-0076). Everything else a Run failed
+// on is 1.
+//
+// The two signals' codes, 130 and 143, are decided where the signal is caught
+// rather than derived from an outcome, and are not this milestone's.
+func exitFor(answer run.Answer) int {
+	switch answer.Outcome {
 	case store.OutcomeCompleted:
 		return ExitClean
 	case store.OutcomeRefused:
 		return ExitRefused
+	case store.OutcomeFailed:
+		if errors.Is(answer.Fault, store.ErrPushExhausted) {
+			return ExitStoreLost
+		}
+		return ExitProblems
 	default:
 		return ExitProblems
 	}
@@ -377,6 +408,87 @@ func unresolvedProcedure(loaded repository.Loaded, name string) string {
 		"  procedures/ is that namespace, and no command in the tree enumerates it\n", runCommand, name)
 }
 
+// locateStore puts the Store in hand, at the rhythm the Run's own Kinds already
+// decided, and answers the exit code where it could not.
+//
+// **This is where §7's read-only sync is resolved, and the resolution is
+// written here because this is where it is implemented.** §7 says an effectful
+// Run syncs at Run start and that *a read-only Run proceeds offline and pushes
+// when it can*. Read literally, a read-only Run on a runner — where
+// `actions/checkout` takes one ref and the Store branch is absent from the
+// clone — finds no branch, cannot bring one without reaching the remote, and
+// Refuses `store-absent` on every scheduled monitoring Run. That cannot be the
+// intent: the runner shape is the shape §7 spends a paragraph on, and a rule
+// that refuses it refuses the tool's own deployment.
+//
+// So a read-only Run **attempts** the sync and **tolerates its failure**. It
+// proceeds against whatever branch the clone holds; it Refuses `store-absent`
+// only where no branch is in hand *after* the attempt — which is Open's answer
+// and not the sync's; and **it is never 75 for a sync it could not complete**,
+// that code being the effectful Run's. The two readings differ only where the
+// network is down and the clone already holds the Store: literally, that Run
+// stops; here, it records what it read and pushes when it can, which is the
+// half of §7's sentence the literal reading throws away.
+//
+// A read-only Run that tolerated a failure **says so**, on stderr, before its
+// first Step. What it says is the condition and what it did about it and never
+// git's own words: the failure is tolerated, so what an operator needs from the
+// line is *this Run may be reading a stale Store* rather than a diagnosis of
+// the network, and a fetch's error names a remote by URL — which is a fact
+// about the machine and not about the Run. It is narration and not a Refusal:
+// no `error_code`, no row, and stdout carries none of it (§9, §12).
+//
+// ErrAbsent is the one answer it says nothing about, because it is not a
+// failure: the sync ran, reached whatever there was to reach, and found no
+// branch on either side. Open answers the same thing a line later and Refuses
+// `store-absent` in the words that name the remedy, and a *could not be synced*
+// ahead of it would be a Run reporting a fault where there was a fact.
+//
+// An effectful Run keeps §7's rule exactly. Its sync **is** the push of its own
+// open Journal entry — the earliest moment it can know it will be able to
+// record what it does — so a sync it could not complete is a Run that lost the
+// Store before it touched the world, and it is `failed` at 75 (§7, ADR-0061).
+// Nothing in this milestone reaches that arm: an effectful Step declines before
+// the Store is located at all. It lands beside the shared arm rather than after
+// it, for the reason both lock modes land together — which sync a Run performs
+// is read off the one value that already decided which lock it took.
+//
+// ErrAbsent is the one answer here that is a Refusal, and it is 77 from either
+// call: a branch neither side holds is cleared by an act of somebody's, `hyper
+// store init`, and never by waiting (§12, ADR-0061).
+func locateStore(repoRoot string, instant time.Time, mode store.LockMode, stderr io.Writer) (*store.Store, int) {
+	if err := store.Sync(repoRoot, instant); err != nil {
+		if mode == store.Exclusive {
+			return nil, reportRunStoreFault(stderr, err)
+		}
+		if !errors.Is(err, store.ErrAbsent) {
+			fmt.Fprintf(stderr, "hyper %s: the Store could not be synced; this Run reads the branch this clone holds\n", runCommand)
+		}
+	}
+	held, err := store.Open(repoRoot, instant)
+	if err != nil {
+		return nil, reportRunStoreFault(stderr, err)
+	}
+	return held, 0
+}
+
+// reportLockFault renders a lock the Run could not take, and answers the exit
+// code.
+//
+// Both arms are 75 and neither is a Refusal. Contention is another Run being
+// alive, which nobody has to act on and time alone clears; a repository root
+// holding no git repository is the invocation being wrong, and it reaches here
+// only because the lock is taken before anything else touches git — it carried
+// the same code from the sync before this ticket moved the order, and moving
+// the order is not a licence to change what it means.
+//
+// stdout is silent, which is the deferral reportRunStoreFault states below: 75
+// is not a Refusal at all, has no `error_code` and has no Step table to write.
+func reportLockFault(stderr io.Writer, err error) int {
+	fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, err)
+	return ExitStoreLost
+}
+
 // reportRunStoreFault renders whichever way the record stopped a Run before it
 // began, and answers the exit code.
 //
@@ -384,8 +496,13 @@ func unresolvedProcedure(loaded repository.Loaded, name string) string {
 // sorts 77 from 75 (§12, ADR-0061). A branch neither side holds Refuses
 // `store-absent` naming `hyper store init` — the remedy is an act of
 // somebody's. Everything else is a Run that **lost** the Store: a remote it
-// could not reach, a fetch that would not land, and past those lies time rather
-// than an act, so each is `failed` at 75 and never a Refusal.
+// could not reach, a fetch that would not land, a git that would not answer,
+// and past those lies time rather than an act, so each is `failed` at 75 and
+// never a Refusal.
+//
+// It renders both of locateStore's calls, which is why it says the Store could
+// not be *reached* rather than that a sync failed: a read-only Run tolerates
+// its sync outright and only ever arrives here off Open.
 //
 // `store-schema-unsupported` is not answered here and could not be: locating
 // the Store opens no file, and the test over the files a Run will read is a
@@ -405,7 +522,7 @@ func reportRunStoreFault(stderr io.Writer, err error) int {
 	if errors.Is(err, store.ErrAbsent) {
 		return refuse(stderr, storeAbsentCode, "no "+store.BranchName+" branch in this repository — hyper store init")
 	}
-	fmt.Fprintf(stderr, "hyper %s: the Store could not be synced: %s\n", runCommand, err)
+	fmt.Fprintf(stderr, "hyper %s: the Store could not be reached: %s\n", runCommand, err)
 	return ExitStoreLost
 }
 

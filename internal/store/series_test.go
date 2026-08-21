@@ -485,7 +485,12 @@ func TestRead_SurfacesTheSchemaCeilingRatherThanGuessing(t *testing.T) {
 // TestReading_WritesNothingToDisk is ADR-0075 as the observable fact it is. No
 // worktree, no temporary directory, no hidden checkout, and no byte of Store
 // content as an ordinary file anywhere — including under `.git/hyper/`, which
-// §7 permits derived state in and this milestone builds none of.
+// §7 permits derived state in and this package builds none of.
+//
+// The lock is the one thing that puts `.git/hyper/` there, and it is not
+// reached from here: reading the Store takes no lock, a Run does (§6,
+// lock.go). So the assertion below is about what a read leaves behind and
+// stays exactly as strict as it was.
 func TestReading_WritesNothingToDisk(t *testing.T) {
 	r, held := seededStore(t, aVersion(t, theSeries, theEntryRunID, 1, theInstant))
 	before := r.workingTree()

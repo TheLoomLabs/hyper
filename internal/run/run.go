@@ -24,12 +24,18 @@
 // happened; what is said about it is one package up (ADR-0026).
 //
 // **The order is §6's fixed order**, and no Step starts until all of it has
-// happened: the pin gate and the Store's location, both the CLI's and both
-// declining before a Run is identified at all; then `run.json`; then the Store
-// schema test, `check` re-run in full, the credential pass and the Secret sink,
-// each of which declines into the entry that already exists; then Step 1.
-// Perform states the order and gates.go states the four in the middle (issue
-// #137).
+// happened: the pin gate, the lock and the Store's location, all three the
+// CLI's and all three declining before a Run is identified at all; then
+// `run.json`; then the Store schema test, `check` re-run in full, the
+// credential pass and the Secret sink, each of which declines into the entry
+// that already exists; then Step 1. Perform states the order and gates.go
+// states the four in the middle (issues #137, #138).
+//
+// The lock is the CLI's for the reason the Store's location is: it is a lock on
+// the Store, a Run that cannot take it never opens one, and a Run with no Store
+// has no entry to decline into. Which of the two locks it takes is this
+// package's, though — it is read off the Kinds and nothing else, which is
+// lock.go.
 package run
 
 import (
@@ -357,7 +363,13 @@ type run struct {
 // The Store carries no uncommitted local state at any moment either way — every
 // write is already a commit — so what batching decides is when the commits
 // leave and never whether they exist. Pushing after every effectful Step is
-// milestone 6's, and what a push that could not land means is issue #138's.
+// milestone 6's.
+//
+// A push the remote moved under three times running is ErrPushExhausted, and it
+// arrives here as any other fault does: the Run is `failed`, and what it wrote
+// stands on the local branch and goes out with the next Run that syncs (§7,
+// ADR-0076). That it exits 75 rather than 1 is the surface's, one package up —
+// this one holds no exit code and maps none (§12, ADR-0026, issue #138).
 func (r run) closed(reached Answer) Answer {
 	ended := r.request.Now()
 	if err := r.request.Store.Append([]store.Write{{

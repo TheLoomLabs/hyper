@@ -57,6 +57,12 @@ names one in a **`repo-from`** file instead, and the ones here are:
 - [`repo-two-secrets/`](repo-two-secrets) — `repo-secret` with a second Step
   whose Operation also declares `secret:` output, for the gate that names
   **every** such Step rather than the first.
+- [`repo-two-reads/`](repo-two-reads) — `repo-watch-status` with its one-Step
+  Procedure replaced by a two-Step one, both `read`, one host each. Two is the
+  smallest number of Steps that can tell one push at the end from a push per
+  Step (issue #138), and it is a repository of its own because adding a
+  Procedure to `repo-watch-status` would move the `repo_revision` in every
+  golden that names it.
 
 The rest carry a repository of their own, each written for the one edge it
 drives.
@@ -76,6 +82,11 @@ drives.
 | `a-run-halted-by-its-step` | a Run the world resisted: `failed`, exit `1`, leaving `run.json` and its own `outcome.json` |
 | `what-the-run-wrote-reaches-the-remote` | the Run's own commits go out and `remote.golden` shows what arrived |
 | `a-repository-with-no-store` | `store-absent`, `77`, naming `hyper store init` — a Run never creates the branch |
+| `the-runner-clone-fetches-the-store` | the runner shape: `hyper-store` on `origin` alone, brought down by the Run's own sync, and the Run proceeds normally |
+| `a-sync-that-could-not-reach-the-remote` | the sync fails and the Run **tolerates it**, saying so on stderr, reading the branch the clone holds and completing at `0` — never `75` for a sync it could not complete |
+| `a-sync-that-could-not-bring-a-branch` | the same failure with no branch in hand: the same stderr line, then `store-absent` at `77`, because what is missing is an act and not a network |
+| `a-later-run-pushes-what-an-earlier-one-stranded` | an earlier Run's unpushed commit and a second environment's published one, over one root: the push is rejected, the **whole** unpushed set is re-applied, and `remote.golden` holds all three Runs |
+| `two-read-steps-push-once` | the corpus's only two-Step Run, and what `run_push_test.go` counts the reaches of |
 | `an-effectful-step-declines`, `a-selector-declines`, `a-nested-invocation-declines` | the three things this binary does not implement, each declining before Step 1 with no entry written |
 | `an-effectful-step-declines-before-the-store` | the same decline in a repository with no Store: `2` and not `77`, because a working-tree name is judged before the Store is located |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
@@ -128,14 +139,35 @@ each case's own `env` file and are spelled to be unmistakable in both
 directions: nothing under `repo-credentialled/` is a credential and neither is
 anything in a golden beside it.
 
+## The three ways a Run loses the Store, and where each one is driven
+
+`75` is a Run that lost the Store — to the lock, to the sync at Run start, or to
+a push it could not land — and none of the three is a Refusal or a failure of
+the work (§12, ADR-0061, issue #138). Two of the three sit above as ordinary
+cases. The rest are in [`../../run_store_lost_test.go`](../../run_store_lost_test.go),
+each for a reason a golden cannot get past:
+
+- **The lock** is not a directory of files. It is held by a *live* process —
+  which is exactly why a crash cannot leave one behind — so the two cases that
+  drive it take it in the test process and run the command against the same
+  repository.
+- **The exhausted push** renders git's own account of the rejection, and that
+  account names the bare repository by path: a temp directory, different on
+  every run of the suite. Its streams are asserted by what they say; its two
+  branch goldens, which name no path and no commit, are checked in beside
+  [`a-push-rejected-three-times/`](a-push-rejected-three-times) and compared
+  like any other case's.
+
 ## What no golden here proves
 
-**That a read-only Run's pushes batch to its end.** They do — `internal/run`'s
-`closed` is the only place `Publish` is called — but one push at the end and a
-push per write leave the remote holding the same commits, so
-`what-the-run-wrote-reaches-the-remote` asserts what arrived and not how many
-reaches it took. The claim is stated where it is made and is not goldenable
-here.
+**That a read-only Run's pushes batch to its end.** One push at the end and a
+push per Step leave the remote holding the same commits, so no branch golden can
+tell them apart. What tells them apart is how many times the remote was reached,
+so that is counted instead:
+[`../../run_push_test.go`](../../run_push_test.go) installs a receive hook on
+the bare origin that accepts a push and tallies it, drives
+[`two-read-steps-push-once`](two-read-steps-push-once), and holds the tally at
+one.
 
 ## Why the halted Run halts on an identity path
 
