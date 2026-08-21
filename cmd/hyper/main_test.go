@@ -7,26 +7,25 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
 
 // dispatch is the one line of main(), with the two streams redirected and
-// nothing else changed: the same entry point, handed the same five reads of
-// the same process. The cases below are about what the binary does when it is
-// standing somewhere in particular, so they drive the real os.LookupEnv,
-// os.Getwd and build facts rather than stand-ins — cli.Main's own behaviour
-// against a fabricated process is internal/cli/main_test.go's (issue #107) —
-// including the clock, which nothing behind the dispatch calls yet and which
-// this file therefore drives as the real time.Now, exactly as main() does.
+// nothing else changed: the same entry point, handed the same process value and
+// the same build facts. The cases below are about what the binary does when it
+// is standing somewhere in particular, so they drive the real value process()
+// assembles rather than stand-ins — cli.Main's own behaviour against a
+// fabricated process is internal/cli/main_test.go's (issue #107) — including
+// the three members nothing behind the dispatch calls yet, which are the real
+// mint, dialer and launcher here exactly as they are in main() (issue #134).
 //
 // Keeping this a single call is the point: anything it did that main() does
 // not would be a second entry point, and these cases would stop testing the
-// binary.
+// binary. process() is called rather than copied for the same reason.
 func dispatch(args []string, stdout, stderr io.Writer) int {
-	return cli.Main(args, stdout, stderr, os.LookupEnv, os.Getwd, time.Now, version.Current())
+	return cli.Main(args, stdout, stderr, process(), version.Current())
 }
 
 func TestDispatch_NoArgsIsUsageError(t *testing.T) {

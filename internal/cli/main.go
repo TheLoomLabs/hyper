@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
@@ -22,46 +21,45 @@ import (
 // easy.
 //
 // Everything a command reads from the process is a parameter, which is the
-// property #100 established and this must not lose: the arguments, the
-// environment, the working directory, the clock, and the facts the build
-// stamped. Nothing in the body below reaches the process for itself, which is
-// what makes the whole dispatch exercisable without a subprocess.
+// property #100 established and this must not lose: the arguments, the six
+// reads process.go states, and the facts the build stamped. Nothing in the body
+// below reaches the process for itself, which is what makes the whole dispatch
+// exercisable without a subprocess.
 //
-// now is the fourth of those reads, and `store` is the first command behind
-// this dispatch to call it: every commit the Store writes takes both its dates
-// from a clock, so a branch a fixture builds is reproducible and `git log` on
-// the Store is honest (§7, issue #125, issue #126). It reaches one command
-// rather than all of them — clockless below is that distinction — because a
-// clock read from the process by whichever function happened to want one is the
-// property this parameter exists to prevent.
+// process is those six as one value rather than as one parameter each, which is
+// the only thing issue #134 changes: the clock reached this signature loose one
+// milestone earlier, three more reads land in this one, and six of them threaded
+// singly is a parameter list a reader counts instead of a type they open. What
+// each member is and why it is threaded is process.go's to say; that a command
+// reaches for none of them itself is this dispatch's.
 //
-// getwd is a function rather than a resolved path because the exemption is a
-// property of this dispatch and not of the commands behind it. `version` and
-// `completions` are the two cases that resolve no working directory and call no
-// gate — an exemption expressed as a path not taken (§9, ADR-0020) — so the
-// working directory is resolved on the repository commands' arm alone, and a
-// working directory that cannot be read does not stop `hyper version`.
+// Getwd is called on the repository commands' arm and nowhere else, because the
+// exemption is a property of this dispatch and not of the commands behind it.
+// `version` and `completions` are the two cases that resolve no working
+// directory and call no gate — an exemption expressed as a path not taken (§9,
+// ADR-0020) — so a working directory that cannot be read does not stop `hyper
+// version`.
 //
 // facts is threaded whole rather than the bare version string it carries:
 // RunVersion needs all of it, the gate needs the version out of it, and passing
 // the value keeps Main deterministic under test.
-func Main(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), getwd func() (string, error), now func() time.Time, facts version.Facts) int {
+func Main(args []string, stdout, stderr io.Writer, process Process, facts version.Facts) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: hyper <command> [args...]")
 		return ExitUsage
 	}
 
 	// The commands inside §9's tree that read a repository, and the whole of
-	// what they share: the complete argv past the command name, the three
-	// reads of the process, and the version the gate compares. They are dispatched
-	// off one table rather than a branch each, so the working directory —
-	// resolved for them and for nobody else — is read in one place however
-	// many of the sixteen land (issue #103, issue #111).
+	// what they share: the complete argv past the command name, the process,
+	// and the version the gate compares. They are dispatched off one table
+	// rather than a branch each, so the working directory — resolved for them
+	// and for nobody else — is read in one place however many of the sixteen
+	// land (issue #103, issue #111).
 	if run, gated := repositoryCommands[args[0]]; gated {
 		// The working directory is read here rather than above, so a
 		// command that reads no repository never depends on there being one
 		// to read (issue #103).
-		wd, err := getwd()
+		wd, err := process.Getwd()
 		if err != nil {
 			// The code cmd/hyper returned before the dispatch moved,
 			// unchanged: #107 moves the decision about which command runs
@@ -73,7 +71,7 @@ func Main(args []string, stdout, stderr io.Writer, lookupenv func(string) (strin
 			fmt.Fprintf(stderr, "hyper: %s\n", err)
 			return ExitProblems
 		}
-		return run(args[1:], stdout, stderr, lookupenv, wd, facts.Version, now)
+		return run(args[1:], stdout, stderr, process, wd, facts.Version)
 	}
 
 	switch args[0] {
@@ -95,24 +93,35 @@ func Main(args []string, stdout, stderr io.Writer, lookupenv func(string) (strin
 }
 
 // repositoryCommand is the shape of a command that reads a repository: the
-// arguments past its own name, the two streams, the three reads of the process
-// it is handed rather than makes, and the version the pin gate compares. Every
-// one of §9's sixteen takes it — the gate is stated once for all of them, and
-// nothing else about a command is Main's business.
-type repositoryCommand func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string, now func() time.Time) int
-
-// clockless adapts a command that reads no clock to the dispatch's one shape.
+// arguments past its own name, the two streams, the process it is handed rather
+// than reaches for, the working directory already resolved out of it, and the
+// version the pin gate compares. Every one of §9's sixteen takes it — the gate
+// is stated once for all of them, and nothing else about a command is Main's
+// business.
 //
-// It exists so that the six commands that landed before the Store keep
-// signatures that say what they read: a clock a command never calls is a
-// parameter its reader has to check the body to discharge, and #100's property
-// is that what a command reads from the process is visible in what it takes.
-// `store` is the first of the sixteen to write anything at all, and every commit
-// `hyper` writes takes both its dates from the threaded clock (§7, issue #125) —
-// so it takes one, and the others say by their shape that they do not.
-func clockless(run func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int) repositoryCommand {
-	return func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string, _ func() time.Time) int {
-		return run(args, stdout, stderr, lookupenv, wd, binaryVersion)
+// The working directory rides beside the process rather than being left to
+// Getwd because resolving it is the dispatch's act and not a command's: it is
+// resolved once, on this arm, so that the two commands on the other arm never
+// resolve one at all (§9, ADR-0020). A command behind the dispatch holds a
+// Getwd it could call and has no reason to — the answer is already in its
+// hand — which is a rule this signature states rather than a shape it enforces,
+// the enforcement being that the exempt arm never gets here.
+type repositoryCommand func(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int
+
+// environmentOnly adapts a command that reads nothing of the process but the
+// environment to the dispatch's one shape.
+//
+// It is what is left of clockless once the reads became one value, and it
+// exists for the reason clockless did: a command's signature says what it
+// reads, and #100's property is that what a command reads from the process is
+// visible in what it takes rather than discharged by reading its body. Six of
+// §9's sixteen landed before the Store, and the environment is the whole of
+// what they read — HYPER_REPO_DIR and NO_COLOR — so they take a lookup and say
+// by their shape that they read no clock, mint no id, dial nothing and start no
+// child. `store` and `compact` write, and take the whole value.
+func environmentOnly(run func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int) repositoryCommand {
+	return func(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
+		return run(args, stdout, stderr, process.LookupEnv, wd, binaryVersion)
 	}
 }
 
@@ -122,19 +131,19 @@ func clockless(run func(args []string, stdout, stderr io.Writer, lookupenv func(
 // this is the subset the binary implements, and a name absent from it is the
 // `unknown command` below.
 var repositoryCommands = map[string]repositoryCommand{
-	"check":     clockless(RunCheck),
-	"review":    clockless(RunReview),
-	"providers": clockless(RunProviders),
-	"provider":  clockless(RunProvider),
-	"operation": clockless(RunOperation),
-	"targets":   clockless(RunTargets),
+	"check":     environmentOnly(RunCheck),
+	"review":    environmentOnly(RunReview),
+	"providers": environmentOnly(RunProviders),
+	"provider":  environmentOnly(RunProvider),
+	"operation": environmentOnly(RunOperation),
+	"targets":   environmentOnly(RunTargets),
 	// The one noun group, dispatched on its noun: `init` is the verb and
 	// RunStore reads it, so the group's grammar is stated in one place
 	// rather than split between the table and the command (§9, issue #126).
 	"store": RunStore,
 	// The second command that reads the record, and the first thing in the
-	// tool that removes anything. It takes the clock for `store`'s reason
-	// and for one of its own: every commit hyper writes takes both its dates
-	// from it, and retention is an age (§7, issue #131).
+	// tool that removes anything. It takes the whole value for `store`'s
+	// reason and for one of its own: every commit hyper writes takes both
+	// its dates from the clock, and retention is an age (§7, issue #131).
 	"compact": RunCompact,
 }

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/store"
@@ -64,9 +63,7 @@ func (c *storeCase) compact(args ...string) (exit int, stdout, stderr string) {
 
 	var out, errs bytes.Buffer
 	argv := append([]string{"compact", "--repo-dir", c.fx.root}, args...)
-	getwd := func() (string, error) { return c.fx.root, nil }
-	now := func() time.Time { return fixedInstant }
-	code := cli.Main(argv, &out, &errs, (&process{}).LookupEnv, getwd, now, testFacts)
+	code := cli.Main(argv, &out, &errs, (&process{wd: c.fx.root}).value(), testFacts)
 	return code, out.String(), errs.String()
 }
 

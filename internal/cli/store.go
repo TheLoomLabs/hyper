@@ -6,7 +6,6 @@ import (
 	"io"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/store"
@@ -22,18 +21,19 @@ import (
 // tree.go's list, so the surface the completion scripts describe and the
 // surface the dispatch accepts are one statement.
 //
-// It is the first command handed the clock, which is why its signature carries
-// one where its six neighbours do not: every commit `hyper` writes takes both
-// its dates from it, so a fixture's branch is reproducible and `git log` on the
-// Store is honest (§7, issue #125).
-func RunStore(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string, now func() time.Time) int {
+// It is the first command handed the process whole, which is why its signature
+// carries the value where its six neighbours carry a lookup: every commit
+// `hyper` writes takes both its dates from the clock, so a fixture's branch is
+// reproducible and `git log` on the Store is honest (§7, issue #125, issue
+// #134).
+func RunStore(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
 	// No --limit: `store` names no namespace and ranges over nothing, so
 	// there is no result set for a cap to cut (§9). The name here is the
 	// noun alone and not the two words a caller typed, because at this point
 	// there is no verb yet: `hyper store init --force` answers `hyper store:
 	// unknown flag --force`, the flags being read before the argument that
 	// would say which verb the fault belongs to.
-	parsed, code := parseArgs("store", args, takesNoLimit, lookupenv, stderr)
+	parsed, code := parseArgs("store", args, takesNoLimit, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
 	}
@@ -54,15 +54,16 @@ func RunStore(args []string, stdout, stderr io.Writer, lookupenv func(string) (s
 		fmt.Fprintf(stderr, "hyper store: unknown verb %q\n  known verbs: %s\n", verb, strings.Join(storeSubVerbs, ", "))
 		return ExitUsage
 	}
-	return run(parsed, stdout, stderr, lookupenv, wd, binaryVersion, now)
+	return run(parsed, stdout, stderr, process, wd, binaryVersion)
 }
 
 // storeVerb is the shape of one of the group's verbs: the arguments already
-// read, the streams, the three reads of the process, and the version the gate
-// compares. Its own positionals are its business rather than the group's —
-// `init` takes none, and a verb that took one would be judging it against
-// something only it knows.
-type storeVerb func(parsed commandArgs, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string, now func() time.Time) int
+// read, the streams, the process, the working directory and the version the
+// gate compares — the dispatch's own shape past the argv it already consumed.
+// Its own positionals are its business rather than the group's — `init` takes
+// none, and a verb that took one would be judging it against something only it
+// knows.
+type storeVerb func(parsed commandArgs, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int
 
 // storeVerbs is the group's dispatch: which verb runs. It stands to
 // storeSubVerbs exactly as repositoryCommands stands to tree.go's tree — the
@@ -96,7 +97,7 @@ const storeInit = "store init"
 // git subprocess runs, and a repository with no pin at all Refuses naming
 // `hyper project`. That makes the bootstrap sequence for a new repository
 // `hyper project`, then `hyper store init`, then anything else (§11, ADR-0020).
-func runStoreInit(parsed commandArgs, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string, now func() time.Time) int {
+func runStoreInit(parsed commandArgs, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
 	// `init` takes its verb and nothing else. The arity is judged here rather
 	// than by the group, a verb being the only thing that knows what it takes.
 	if rest := parsed.positional[1:]; len(rest) > 0 {
@@ -104,7 +105,7 @@ func runStoreInit(parsed commandArgs, stdout, stderr io.Writer, lookupenv func(s
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot(storeInit, parsed.repoDir, lookupenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot(storeInit, parsed.repoDir, process.LookupEnv, wd, stderr)
 	if code != 0 {
 		return code
 	}
@@ -113,7 +114,7 @@ func runStoreInit(parsed commandArgs, stdout, stderr io.Writer, lookupenv func(s
 		return code
 	}
 
-	done, err := store.Init(repoRoot, now())
+	done, err := store.Init(repoRoot, process.Now())
 	if err != nil {
 		fmt.Fprintf(stderr, "hyper %s: %s\n", storeInit, err)
 		// The two ways this command can stop, and the whole of what

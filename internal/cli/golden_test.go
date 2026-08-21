@@ -2,12 +2,16 @@ package cli_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -16,6 +20,7 @@ import (
 	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
+	"github.com/TheLoomLabs/hyper/internal/store"
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
 
@@ -136,14 +141,48 @@ func TestGolden(t *testing.T) {
 			run := c.invocation(t)
 
 			var stdout, stderr bytes.Buffer
-			getwd := func() (string, error) { return run.wd, nil }
-			instant := c.instant(t)
-			now := func() time.Time { return instant }
-			exit := cli.Main(run.args, &stdout, &stderr, c.environment(t), getwd, now, c.facts(t))
+			exit := cli.Main(run.args, &stdout, &stderr, c.process(t, run), c.facts(t))
 
 			compareGolden(t, c.dir, stdout.Bytes(), stderr.Bytes(), exit)
 			run.compareBranches(t, c.dir)
 		})
+	}
+}
+
+// process is what the harness hands the entry point in the process's place: the
+// case's own environment, the working directory its invocation was resolved
+// against, and the instant its clock answers with. The three are the case's
+// `env`, `wd` and `now` inputs and nothing else, which is what makes a golden a
+// statement about the command rather than about the machine the suite ran on
+// (issue #134).
+//
+// The other three fail the case rather than answering it. Nothing behind the
+// dispatch mints a Run id, dials a host or starts a child in this milestone,
+// and that is deliberate — the reads were threaded one ticket ahead of the
+// first command to make them — so the corpus is where the claim is checked: a
+// case that reaches one of them is a case whose golden could not have been
+// asserted, and the ticket that first calls one is the ticket that says what a
+// fixture supplies in its place.
+func (c goldenCase) process(t *testing.T, run goldenRun) cli.Process {
+	t.Helper()
+
+	instant := c.instant(t)
+	return cli.Process{
+		LookupEnv: c.environment(t),
+		Getwd:     func() (string, error) { return run.wd, nil },
+		Now:       func() time.Time { return instant },
+		Mint: func(time.Time) store.RunID {
+			t.Errorf("case %s minted a Run id, and no case in this corpus renders one yet", c.name)
+			return store.RunID{}
+		},
+		Dial: func(context.Context, string, string) (net.Conn, error) {
+			t.Errorf("case %s dialled a host, and this harness stands no server", c.name)
+			return nil, errors.New("the golden harness dials nothing")
+		},
+		Exec: func(context.Context, []string) *exec.Cmd {
+			t.Errorf("case %s started a child process, and this harness launches none", c.name)
+			return nil
+		},
 	}
 }
 

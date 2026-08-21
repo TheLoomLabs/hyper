@@ -2,13 +2,17 @@ package cli_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"net"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
+	"github.com/TheLoomLabs/hyper/internal/store"
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
 
@@ -25,18 +29,42 @@ var testFacts = version.Facts{
 	Arch:      "amd64",
 }
 
-// process stands in for the three reads cli.Main is handed rather than makes —
-// the environment, the working directory and the clock — and records whether
-// any of them was touched. Counting the calls is the only way the exemption can
-// be asserted rather than assumed: `version` and `completions` are exempt from
-// the pin gate because they resolve no repository, and a branch that never asks
-// where it is standing cannot have reached one (§9, ADR-0020).
+// process stands in for the six reads cli.Main is handed rather than makes, and
+// records whether any of them was touched. Counting the calls is the only way
+// the exemption can be asserted rather than assumed: `version` and
+// `completions` are exempt from the pin gate because they resolve no
+// repository, and a branch that never asks where it is standing cannot have
+// reached one (§9, ADR-0020).
+//
+// It counts all six and not only the three a command reaches today, which is
+// the point of the value being one type: the members the milestone threaded
+// ahead of their callers are asserted untouched by exactly the cases that
+// assert it of the older three, and the day one is called is the day these
+// cases say which command called it (issue #134).
 type process struct {
 	wd        string
 	wdErr     error
 	getwd     int
 	lookupenv int
 	now       int
+	mint      int
+	dial      int
+	exec      int
+}
+
+// value is the six as cli.Main takes them: one value, wired to the counting
+// methods beneath it. It is what every case here hands the entry point, so that
+// a case reads as the invocation it is about rather than as an assembly of
+// stand-ins.
+func (p *process) value() cli.Process {
+	return cli.Process{
+		LookupEnv: p.LookupEnv,
+		Getwd:     p.Getwd,
+		Now:       p.Now,
+		Mint:      p.Mint,
+		Dial:      p.Dial,
+		Exec:      p.Exec,
+	}
 }
 
 func (p *process) Getwd() (string, error) {
@@ -53,15 +81,36 @@ func (p *process) LookupEnv(string) (string, bool) {
 	return "", false
 }
 
-// Now answers one fixed instant, and counts the reads of it beside the other
-// two. Nothing behind the dispatch calls it in this milestone — the clock is
-// threaded ahead of the Store that needs it (§7, issue #125) — so every count
-// it takes is zero today; it is here rather than passed as a bare time.Now
-// because the day a command reads a clock is the day these cases must be able
-// to say which ones did.
+// Now answers one fixed instant, and counts the reads of it beside the others.
+// It is here rather than passed as a bare time.Now because the day a command
+// reads a clock is the day these cases must be able to say which ones did.
 func (p *process) Now() time.Time {
 	p.now++
 	return fixedInstant
+}
+
+// Mint answers a real id at whatever instant it is handed, and counts the mint.
+// Nothing behind the dispatch mints one in this milestone — the read is
+// threaded ahead of the Run that makes it (issue #134) — and where an id is
+// never rendered here, a real one costs nothing and lies about nothing.
+func (p *process) Mint(now time.Time) store.RunID {
+	p.mint++
+	return store.MintRunID(now)
+}
+
+// Dial reaches nothing: this stand-in is a process with no network under it, so
+// every connection is refused and the count beside it is what a case asserts.
+func (p *process) Dial(context.Context, string, string) (net.Conn, error) {
+	p.dial++
+	return nil, errors.New("this process dials nothing")
+}
+
+// Exec starts nothing, and answers nothing to wait on: a case that reached this
+// has already failed its count, and there is no child here for it to go on to
+// run.
+func (p *process) Exec(context.Context, []string) *exec.Cmd {
+	p.exec++
+	return nil
 }
 
 // fixedInstant is the clock the stand-in answers with: one instant, so a case
@@ -70,18 +119,23 @@ func (p *process) Now() time.Time {
 var fixedInstant = time.Date(2026, time.April, 2, 9, 41, 14, 221_000_000, time.UTC)
 
 // untouched says the process was never read, which is the shape of the
-// exemption: no working directory, no environment, no clock, and therefore no
-// repository root and no gate.
+// exemption: nothing of the six, and therefore no repository root and no gate.
 func (p *process) untouched(t *testing.T) {
 	t.Helper()
-	if p.getwd != 0 {
-		t.Errorf("the working directory was resolved %d times, want it left alone", p.getwd)
-	}
-	if p.lookupenv != 0 {
-		t.Errorf("the environment was read %d times, want it left alone", p.lookupenv)
-	}
-	if p.now != 0 {
-		t.Errorf("the clock was read %d times, want it left alone", p.now)
+	for _, read := range []struct {
+		what  string
+		count int
+	}{
+		{"the working directory was resolved", p.getwd},
+		{"the environment was read", p.lookupenv},
+		{"the clock was read", p.now},
+		{"a Run id was minted", p.mint},
+		{"a host was dialled", p.dial},
+		{"a child process was started", p.exec},
+	} {
+		if read.count != 0 {
+			t.Errorf("%s %d times, want it left alone", read.what, read.count)
+		}
 	}
 }
 
@@ -91,7 +145,7 @@ func TestMain_NoArgumentsIsUsageError(t *testing.T) {
 	p := &process{wd: t.TempDir()}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main(nil, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitUsage {
+	if exit := cli.Main(nil, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitUsage {
 		t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
 	}
 	if !strings.HasPrefix(stderr.String(), "usage: hyper ") {
@@ -111,7 +165,7 @@ func TestMain_UnknownCommandNamesWhatWasTyped(t *testing.T) {
 	p := &process{wd: t.TempDir()}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"bogus"}, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitUsage {
+	if exit := cli.Main([]string{"bogus"}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitUsage {
 		t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
 	}
 	if got := stderr.String(); !strings.Contains(got, `"bogus"`) {
@@ -138,7 +192,7 @@ func TestMain_ExemptCommandsReadNothingOfTheProcess(t *testing.T) {
 			p := &process{wdErr: errors.New("getwd: no such file or directory")}
 			var stdout, stderr bytes.Buffer
 
-			exit := cli.Main(argv, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts)
+			exit := cli.Main(argv, &stdout, &stderr, p.value(), testFacts)
 
 			if exit != cli.ExitClean {
 				t.Errorf("exit = %d, want 0; stderr=%q", exit, stderr.String())
@@ -162,7 +216,7 @@ func TestMain_VersionStatesTheFactsItWasHanded(t *testing.T) {
 	p := &process{wd: t.TempDir()}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"version"}, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitClean {
+	if exit := cli.Main([]string{"version"}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want 0; stderr=%q", exit, stderr.String())
 	}
 	if got, want := stdout.String(), testFacts.Page(); got != want {
@@ -186,7 +240,7 @@ func TestMain_CheckIsGatedOnTheVersionInThoseFacts(t *testing.T) {
 	p := &process{wd: repo}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitRefused {
+	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitRefused {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitRefused, stderr.String())
 	}
 	if stdout.Len() != 0 {
@@ -209,7 +263,7 @@ func TestMain_CheckReportsAWorkingDirectoryItCannotRead(t *testing.T) {
 	p := &process{wdErr: errors.New("getwd: no such file or directory")}
 	var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.LookupEnv, p.Getwd, p.Now, testFacts); exit != cli.ExitProblems {
+	if exit := cli.Main([]string{"check"}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitProblems {
 		t.Errorf("exit = %d, want %d; stderr=%q", exit, cli.ExitProblems, stderr.String())
 	}
 	if got := stderr.String(); !strings.Contains(got, "getwd: no such file or directory") {

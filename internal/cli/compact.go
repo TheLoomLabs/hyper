@@ -34,7 +34,7 @@ import (
 // `result` rather than `outcome`, and can never exit 75: that code is a Run
 // that lost the Store, and this command has no outcome triple to map onto (§9,
 // §12).
-func RunCompact(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string, now func() time.Time) int {
+func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
 	// No --limit: `compact` reports what it just did rather than ranging
 	// over a namespace, so there is no result set for a cap to cut (§9).
 	// Every other flag a caller might reach for here — --dry-run,
@@ -42,7 +42,7 @@ func RunCompact(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 	// omission: retention is read-time and lives in one reviewed artefact,
 	// and a flag behind it would let one invocation remove more than the
 	// repository ever agreed to (§7, ADR-0001, ADR-0014).
-	parsed, code := parseArgs("compact", args, takesNoLimit, lookupenv, stderr)
+	parsed, code := parseArgs("compact", args, takesNoLimit, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
 	}
@@ -54,7 +54,7 @@ func RunCompact(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot("compact", parsed.repoDir, lookupenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("compact", parsed.repoDir, process.LookupEnv, wd, stderr)
 	if code != 0 {
 		return code
 	}
@@ -79,7 +79,7 @@ func RunCompact(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 	// folding them together would tell a caller that a verbatim retry
 	// Refuses identically, which is false the moment the network returns
 	// (§7, §12, ADR-0061).
-	instant := now()
+	instant := process.Now()
 	if err := store.Sync(repoRoot, instant); err != nil {
 		return reportStoreFault(stderr, err)
 	}
