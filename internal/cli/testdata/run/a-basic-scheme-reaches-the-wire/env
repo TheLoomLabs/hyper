@@ -1,0 +1,2 @@
+VAULT_USER=not-a-secret
+VAULT_PASSWORD=the-case-supplies-this

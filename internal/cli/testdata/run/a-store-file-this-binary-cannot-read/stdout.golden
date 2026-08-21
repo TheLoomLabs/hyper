@@ -1,0 +1,6 @@
+nothing ran. no step was reached.
+
+FILE                                                                                        LINE  FIELD  ERROR_CODE                MESSAGE
+records/local/uptime-check/status.hyper.dev/01991ea6-b118-7c93-8d41-6b2f7ae05c19-0001.json               store-schema-unsupported  the file was written at schema version 2 and this hyper reads 1 — install a hyper that reads it
+
+refused · exit 77 · run 01991f6a-a4bb-76ea-8bc6-d4f51b6a77be

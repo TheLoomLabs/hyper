@@ -27,12 +27,12 @@ reproducible because `golden_fixture_test.go` states both identities and both
 dates outright. `procedure_revision`, `definition_revision` and
 `manifest_digest` are content-addressed over bytes the case checks in.
 
-## Two repositories, shared
+## The shared repositories
 
 A materialised case cannot reach a repository through a `--repo-dir` in its
 argv — it is driven against a copy in a temp directory, and a checked-in path
 would stand it in a directory that is inside no git repository at all. So a case
-names one in a **`repo-from`** file instead, and the two here are:
+names one in a **`repo-from`** file instead, and the ones here are:
 
 - [`repo-watch-status/`](repo-watch-status) — §3's own `uptime` Manifest, one
   `read` Operation, no credential, `class: local`, bound by a Definition and a
@@ -43,6 +43,20 @@ names one in a **`repo-from`** file instead, and the two here are:
 - [`repo-untracked/`](repo-untracked) — `repo-watch-status` with no
   `definitions/` in it, so the case that adds one through `uncommitted/` is
   running against an artefact git has never seen.
+- [`repo-credentialled/`](repo-credentialled) — the credential half (issue
+  #137): a `header:` Provider and a `basic:` one, a Target declaration for
+  each naming the variable every slot resolves from, and three Procedures —
+  one per Provider, one binding both, and one binding two Definitions to the
+  same Target. `paid` carries two slots beyond the one its Provider's scheme
+  needs, which is what makes *a slot no Step of this Run could send is not
+  required* a case rather than a sentence.
+- [`repo-check-refuses/`](repo-check-refuses) — a repository carrying one
+  static fault in each of §3's five artefacts, plus a clean one-Step Procedure
+  to run. `check` re-runs in full at Run start, so a Run of the clean
+  Procedure Refuses with all five.
+- [`repo-two-secrets/`](repo-two-secrets) — `repo-secret` with a second Step
+  whose Operation also declares `secret:` output, for the gate that names
+  **every** such Step rather than the first.
 
 The rest carry a repository of their own, each written for the one edge it
 drives.
@@ -57,7 +71,7 @@ drives.
 | `a-working-tree-that-moved` | an artefact the Run read differs from `HEAD`, so the entry carries `repo_dirty: true` and the Provenance names the working tree's blob |
 | `an-untracked-artefact-is-dirty` | the other half of the same sentence: the Definition the Step binds is not committed at all, and the entry says so |
 | `a-run-on-a-runner` | the Trigger's other executor: `cause: cron`, the occasion, and no `host` |
-| `a-secret-field-is-the-marker` | a Manifest declaring `secret:` — the version carries the constant marker and the value reaches no file |
+| `a-secret-field-is-the-marker` | a Manifest declaring `secret:` — the version carries the constant marker and the value reaches no file. It supplies `--secret-out`, without which the sink gate below would decline it before Step 1 |
 | `a-host-that-answered-nothing` | the `read` that never halts on what came back: the host is granted and the case serves it nothing, so the Observation records the silence and the Run completes at `0` |
 | `a-run-halted-by-its-step` | a Run the world resisted: `failed`, exit `1`, leaving `run.json` and its own `outcome.json` |
 | `what-the-run-wrote-reaches-the-remote` | the Run's own commits go out and `remote.golden` shows what arrived |
@@ -65,6 +79,54 @@ drives.
 | `an-effectful-step-declines`, `a-selector-declines`, `a-nested-invocation-declines` | the three things this binary does not implement, each declining before Step 1 with no entry written |
 | `an-effectful-step-declines-before-the-store` | the same decline in a repository with no Store: `2` and not `77`, because a working-tree name is judged before the Store is located |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
+| `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
+| `check-refuses-the-run`, `-json` | `check` re-run in full: five codes across the five artefact kinds, one `refusal` row each, in `check`'s own order |
+| `a-working-tree-edited-since-check-passed` | the same gate driven the way an operator meets it — one `uncommitted/` line narrows `local`'s `kinds:`, and the Run refuses with the codes the edit earns |
+| `a-credential-the-environment-does-not-hold` | one absent slot, `credential-absent`, citing the `env:` line of the declaration whose slot the environment did not fill |
+| `every-absent-credential-at-once`, `-json` | three absent slots across two Targets in **one** Refusal, and the two slots `paid` carries that no Step of this Run could send are not among them |
+| `one-slot-two-definitions` | two Definitions binding one Target under one scheme require **one** slot between them, so an absent variable earns one member of the array and not one per binding |
+| `a-header-scheme-reaches-the-wire` | the `header:` scheme end to end: the Manifest's `name:` and `prefix:`, the variable the Target declaration names, and what arrived at the far end |
+| `a-basic-scheme-reaches-the-wire` | the same for `basic:`, whose position and base64 composition are the scheme's and never a Manifest's |
+| `a-secret-sink-names-every-step`, `-json` | the sink gate: two Steps declaring secret output, both named at once, neither of them run |
+| `usage-secret-out-to-stdout`, `-inside-the-repository`, `-with-no-path` | the three things `--secret-out` will not take, all `2` and all carrying no `error_code` |
+
+## What a Refusal's page looks like, and what stands in for §8's
+
+Every Refusal here renders the same three blocks: `nothing ran. no step was
+reached.` where the Step table would be, the problem table `check` already
+renders, and §8's terminal line. §8 puts a caret excerpt and an `EDIT ONE OF`
+table where the middle block is, and that is milestone 8's — every fact §8
+requires is on the page already, and what is deferred is the shape
+(`internal/cli/gate.go` states the same deferral for the pin gate).
+
+The Step table is omitted rather than rendered empty, on §8's own reading: an
+empty table asserts *we looked at the Steps*, which is false. `stderr.golden`
+is where that shows twice over — a refusing case narrates `run <id>` and no
+`step` line at all, because no Step was reached.
+
+## How the two credential cases see the wire
+
+A credential is composed from a Manifest's scheme parameters and a Target
+declaration's environment variable and then **leaves**. It reaches no file, no
+row and no rendering (§7, ADR-0007), so the only place a corpus can observe it
+is at the far end — which is why `serve/` grew one key that is not what a server
+would supply, `echo_request_headers`, and why the two cases that use it serve no
+body of their own.
+
+What lands in each case's `store.golden` is therefore the **server's** account
+of what arrived, projected by a Manifest that asked for it — which is `hyper`
+recording a response like any other. `hyper` writes no credential anywhere on
+its own account: `capability.Credential` has no exported member, no accessor,
+no `String` and no `MarshalJSON`, and its only path is the environment, through
+the composed header, onto the wire.
+
+A real Manifest would name that projected field in `secret:` and the Store
+would hold the constant marker — [`a-secret-field-is-the-marker`](a-secret-field-is-the-marker)
+is that case. These two deliberately do not, because a marker proves nothing
+about what left, and what left is the only thing they are for. Their values are
+each case's own `env` file and are spelled to be unmistakable in both
+directions: nothing under `repo-credentialled/` is a credential and neither is
+anything in a golden beside it.
 
 ## What no golden here proves
 

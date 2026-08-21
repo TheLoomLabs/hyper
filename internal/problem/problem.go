@@ -4,7 +4,11 @@
 // sorting and formatting one slice of this type.
 package problem
 
-import "sort"
+import (
+	"cmp"
+	"sort"
+	"strings"
+)
 
 // Problem is one row of hyper check's output: a single fault at a single
 // position. It carries no message-only shape — file, line and field are what
@@ -31,16 +35,23 @@ type Problem struct {
 // error_code — the order §9's "check [path...]" states.
 func Sort(problems []Problem) {
 	sort.SliceStable(problems, func(i, j int) bool {
-		a, b := problems[i], problems[j]
-		if a.File != b.File {
-			return a.File < b.File
-		}
-		if a.Line != b.Line {
-			return a.Line < b.Line
-		}
-		if a.Column != b.Column {
-			return a.Column < b.Column
-		}
-		return a.ErrorCode < b.ErrorCode
+		return Compare(problems[i], problems[j]) < 0
 	})
+}
+
+// Compare is that same order as a comparison, for the one caller that orders
+// something which is not a Problem: a Run's Refusal is an ordered array whose
+// order §7 fixes as "the order check prints in", and a second spelling of this
+// comparison is where the day comes that a Refusal and a `check` over the same
+// repository list the same faults differently (§7, §9).
+func Compare(a, b Problem) int {
+	switch {
+	case a.File != b.File:
+		return strings.Compare(a.File, b.File)
+	case a.Line != b.Line:
+		return cmp.Compare(a.Line, b.Line)
+	case a.Column != b.Column:
+		return cmp.Compare(a.Column, b.Column)
+	}
+	return strings.Compare(a.ErrorCode, b.ErrorCode)
 }

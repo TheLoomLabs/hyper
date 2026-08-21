@@ -1,0 +1,4 @@
+{"type":"refusal","error_code":"secret-sink-absent","step":1,"step_id":"status","operation":"read_session","target":"local","file":"procedures/read-sessions.yaml","line":5,"field":"steps[0]","message":"session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>"}
+{"type":"refusal","error_code":"secret-sink-absent","step":2,"step_id":"cert","operation":"read_session","target":"local","file":"procedures/read-sessions.yaml","line":11,"field":"steps[1]","message":"session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>"}
+{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"46ba56c83841c3a5088c20824bec9d8c6e79d2c1","repo_revision":"6862766265e2d2c50dbaeb28ee077b996c947d0e"}
+{"type":"outcome","outcome":"refused","code":77,"error_code":"secret-sink-absent","dry_run":false,"run_id":"01991f69-93aa-75d9-8ab5-c3e40a5966ad"}

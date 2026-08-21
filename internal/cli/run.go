@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/TheLoomLabs/hyper/internal/render"
@@ -49,12 +50,23 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		return ExitUsage
 	}
 
+	// `--secret-out` is read off the argument list before the globals, for
+	// splitInputs' own reason: the three globals are every command's and this
+	// is one command's, and a parser that knew about both is one every other
+	// command's signature would have to admit. `--` ends the flags, so a
+	// positional spelled like a flag is still reachable (§9).
+	sink, rest, fault := splitSecretOut(args)
+	if fault != "" {
+		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, fault)
+		return ExitUsage
+	}
+
 	// No --limit: a Run reports what it just did rather than ranging over a
 	// namespace, so there is no result set for a cap to cut (§9). `--dry-run`
-	// and `--secret-out` are the two flags §9 gives this command and no
-	// other, and both are later milestones' — until then each is an unknown
-	// flag, which is the honest answer for a marker nothing reads.
-	parsed, code := parseArgs(runCommand, args, takesNoLimit, process.LookupEnv, stderr)
+	// is the other flag §9 gives this command and no other, and it is issue
+	// #145's — until then it is an unknown flag, which is the honest answer
+	// for a marker nothing reads.
+	parsed, code := parseArgs(runCommand, rest, takesNoLimit, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
 	}
@@ -70,6 +82,15 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	}
 	if code := gateOnVersionPin(runCommand, repoRoot, binaryVersion, stderr); code != 0 {
 		return code
+	}
+
+	// The sink's path against the working tree, which needs the root and so
+	// is judged here rather than where the flag was taken off the argument
+	// list. It is after the gate for the reason every command's own work is:
+	// the pin gate fires first everywhere (§9, ADR-0020).
+	if fault := sinkInsideTheWorkingTree(sink, repoRoot, wd); fault != "" {
+		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, fault)
+		return ExitUsage
 	}
 
 	loaded, err := repository.Load(repoRoot)
@@ -122,10 +143,12 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		Store:      held,
 		Procedure:  name,
 		DryRun:     dryRun,
+		SecretSink: sink,
 		Trigger:    readTrigger(process.LookupEnv, process.User, process.Hostname),
 		Version:    binaryVersion,
 		Now:        process.Now,
 		Mint:       process.Mint,
+		LookupEnv:  process.LookupEnv,
 		Dial:       process.Dial,
 		Exec:       process.Exec,
 		Narrator:   narration{stderr: stderr},
@@ -156,6 +179,13 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	}
 	if answer.Identified {
 		terminal.RunID = answer.Run.String()
+	}
+	// The head of the Refusal's array, derived here and stored nowhere: a
+	// stored head is a second representation of the array's first member and
+	// the two can disagree (§7, §8). Where five checks declined, five rows go
+	// out and this names the first.
+	if len(answer.Refusal) > 0 {
+		terminal.ErrorCode = answer.Refusal[0].ErrorCode
 	}
 
 	rows := runRows(answer)
@@ -211,6 +241,119 @@ func refusedFlags(args []string) string {
 	return ""
 }
 
+// splitSecretOut takes `--secret-out <path>` off the argument list and answers
+// the path, what is left for parseArgs, and the one fault decidable from the
+// argument list alone.
+//
+// **`-` is not accepted.** stdout is exclusively the answer, and a secret
+// written there lands in the same pipe a CI job logs (§9). It is refused by
+// name rather than treated as a filename, because a caller who typed it meant
+// the stream and would otherwise get a file called `-` in the working
+// directory.
+//
+// A path named twice is the second one, which is the shell's own rule for a
+// value flag and the one every command in the tree already follows for
+// `--repo-dir`.
+//
+// The flag is `run`'s and no other command's: §9 gives it to `run` alone, and
+// it is spelled here rather than in parseArgs so that `hyper check
+// --secret-out x` stays the unknown flag it is.
+//
+// **What the path is accepted for is not yet written to.** §9 says the sink
+// "is written `0600`", and nothing here or in the engine creates it: what a
+// Run puts in a Secret sink has no stated format, and #133 flags an ADR as the
+// prerequisite for one. Issue #137 carries that deferral in as many words —
+// *the file's contents are out of scope* — so what this milestone owes the
+// flag is that it is accepted, that its two faults are refused, and that its
+// presence is what the sink gate reads (internal/run/gates.go). The `0600`
+// creation lands with the format, and neither before the other: a file created
+// empty at Run start would be a sink an operator could read as filled.
+func splitSecretOut(args []string) (path string, rest []string, fault string) {
+	take := func(value string) string {
+		if value == "-" {
+			return "--secret-out -: stdout is exclusively the answer, and a secret written there\n" +
+				"  lands in the same pipe a CI job logs — name a path outside the repository"
+		}
+		// A value spelled like a flag is the next flag with the path left
+		// out, and taking it would write a secret to a file called
+		// `--json`. `--secret-out=--odd` still reaches a path beginning
+		// with two hyphens, and so does one past a `--`.
+		if value == "" || strings.HasPrefix(value, "--") {
+			return "--secret-out requires a path"
+		}
+		path = value
+		return ""
+	}
+
+	for i := 0; i < len(args); i++ {
+		argument := args[i]
+		switch {
+		case argument == "--":
+			return path, append(rest, args[i:]...), ""
+		case argument == "--secret-out":
+			i++
+			if i >= len(args) {
+				return "", nil, "--secret-out requires a path"
+			}
+			if fault := take(args[i]); fault != "" {
+				return "", nil, fault
+			}
+		case strings.HasPrefix(argument, "--secret-out="):
+			if fault := take(strings.TrimPrefix(argument, "--secret-out=")); fault != "" {
+				return "", nil, fault
+			}
+		default:
+			rest = append(rest, argument)
+		}
+	}
+	return path, rest, ""
+}
+
+// sinkInsideTheWorkingTree is the second half of what `--secret-out` accepts:
+// the path is refused where it resolves **inside the repository working tree**
+// (§9). It answers the fault where it does, and "" where the invocation named
+// no sink or named one outside.
+//
+// It is named for the state it detects rather than for the state it permits,
+// so that its one call site — `if fault := sinkInsideTheWorkingTree(...)` —
+// reads as the thing being refused.
+//
+// The reason is the whole reason the sink exists. A secret written into the
+// tree is a secret one `git add .` away from a reviewed artefact and from the
+// remote the Store pushes to — and `hyper` is a tool whose entire claim is that
+// no artefact ever holds one (§7, ADR-0007). Nothing about the file's mode
+// would help: it is where it sits that is the fault.
+//
+// Both faults `--secret-out` can have are **usage errors carrying no
+// error_code**, and deliberately so: an `error_code` names a check that
+// declined an artefact, and a path typed at a command line is not one (§9,
+// §12, ADR-0060). Withholding the flag Refuses; misspelling it does not.
+//
+// The comparison is lexical over cleaned absolute paths. It does not resolve
+// symlinks, and that is stated rather than hidden: a path that reaches the tree
+// through one is not caught here, and what stands against it is the same thing
+// that stands against a `--secret-out /dev/stdout` — the operator's own reading
+// of where they are writing a secret.
+func sinkInsideTheWorkingTree(sink, repoRoot, wd string) string {
+	if sink == "" {
+		return ""
+	}
+	resolved, err := filepath.Abs(absPath(wd, sink))
+	if err != nil {
+		return fmt.Sprintf("--secret-out %s: %s", sink, err)
+	}
+	root, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return fmt.Sprintf("--secret-out %s: %s", sink, err)
+	}
+	inside, err := filepath.Rel(root, resolved)
+	if err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) {
+		return ""
+	}
+	return fmt.Sprintf("--secret-out %s: the path resolves inside the repository working tree\n"+
+		"  a secret written there is one `git add` away from the record — name a path outside the repository", sink)
+}
+
 // unresolvedProcedure is the message a positional that is not a Procedure
 // earns, and "" where the name resolves.
 //
@@ -246,16 +389,18 @@ func unresolvedProcedure(loaded repository.Loaded, name string) string {
 //
 // `store-schema-unsupported` is not answered here and could not be: locating
 // the Store opens no file, and the test over the files a Run will read is a
-// gate of its own, one place further down §6's order (issue #137). It arrives
-// with that gate.
+// gate of its own, one place further down §6's order. It arrives with that gate
+// — inside the engine, into an entry that exists, rendered like every other
+// Refusal a Run makes (internal/run/gates.go).
 //
-// stdout is silent on all three, which is the milestone-5 Refusal rendering
-// this package already has: §8's caret excerpt, its `=` notes and its
-// `EDIT ONE OF` table are milestone 8's, and so is the `outcome` row §8 says a
-// Refusal's stream carries. What is deferred is the shape; what is on the page
-// already is the code and the remedy, which is the whole of the path back from
-// this one (gate.go states the same deferral for the pin gate). 75 is not a
-// Refusal at all and has no Step table to write either.
+// stdout is silent on both, and that is the one shape this milestone leaves
+// deferred. §8 says `run` is on the `outcome` side "on every path on which a
+// Run was attempted, the two that decline before a Run is identified
+// included" — what is missing there is the row's `run_id` and never the row.
+// These two are those two, and until that lands what is on the page is the code
+// and the remedy, which is the whole of the path back from either
+// (gate.go states the same deferral for the pin gate). 75 is not a Refusal at
+// all and has no Step table to write.
 func reportRunStoreFault(stderr io.Writer, err error) int {
 	if errors.Is(err, store.ErrAbsent) {
 		return refuse(stderr, storeAbsentCode, "no "+store.BranchName+" branch in this repository — hyper store init")
@@ -307,9 +452,16 @@ const noRecords = "–"
 // a row goes out on its own line, there is no cursor behind the stream, and a
 // consumer cannot re-sort what it has already printed (§8).
 func runRows(answer run.Answer) []render.Row {
-	rows := make([]render.Row, 0, 2*len(answer.Steps)+1)
+	rows := make([]render.Row, 0, 2*len(answer.Steps)+len(answer.Refusal)+1)
 	for _, step := range answer.Steps {
 		rows = append(rows, stepRowOf(step))
+	}
+	// One `refusal` row per problem, in the array's order, and never one row
+	// carrying an array: a consumer's `select(.type=="refusal")` returns one
+	// problem per line, which it would stop doing the day this became the one
+	// stream in the tool that nests (§8).
+	for _, refusal := range answer.Refusal {
+		rows = append(rows, refusalRowOf(refusal))
 	}
 	if answer.Identified {
 		rows = append(rows, runProvenanceRow(answer.Provenance))
@@ -318,6 +470,81 @@ func runRows(answer run.Answer) []render.Row {
 		rows = append(rows, stepProvenanceRow(step))
 	}
 	return rows
+}
+
+// refusalRow is one check that declined the Run, on §8's wire: what a `check`
+// problem row carries — minus the `column`, which rides on `check`'s stream
+// alone and is read back out of no file — plus what a Run adds.
+//
+// `step` and `step_id` are written where the check cites a Step, and `step` is
+// an **artefact coordinate and never an execution fact**: the Step it names may
+// have no file in the entry at all, every Refusal in this milestone declining
+// before Step 1 (§7, ADR-0061). `operation` and `target` are what that Step was
+// bound to, and they are the two members a row carries that its Store
+// counterpart does not — the entry holds them on the Step's own file wherever
+// one exists, and a Refusal before Step 1 writes none.
+//
+// `declared` and `observed` are not here. §7 states them for a check that
+// compared two values, and no check that reaches a Run in this milestone does:
+// §4's thirty-one report a fault at a position, and the three Run-start gates
+// report an absence. They arrive with `bound-exceeded`, which is the Expansion's
+// (issue #139) — the same deferral stepRow's `expanded` already states.
+//
+// `resolved` is not here either, and for the same shape of reason: it carries a
+// relative predicate's operand mapped to the instant it resolved to, and
+// nothing this milestone runs evaluates one.
+type refusalRow struct {
+	Type      string `json:"type"`
+	ErrorCode string `json:"error_code"`
+	Step      *int   `json:"step,omitempty"`
+	StepID    string `json:"step_id,omitempty"`
+	Operation string `json:"operation,omitempty"`
+	Target    string `json:"target,omitempty"`
+	File      string `json:"file,omitempty"`
+	Line      int    `json:"line,omitempty"`
+	Field     string `json:"field,omitempty"`
+	Message   string `json:"message,omitempty"`
+}
+
+// refusalRowOf is one member of the Refusal's array as a row. Every member the
+// check did not have is absent rather than written empty, which is §7's absence
+// rule holding on the wire: `store-schema-unsupported` cites a Store file and
+// no line, and a Refusal that reached no Step carries neither `step` nor the
+// binding beside it.
+func refusalRowOf(refusal run.Refusal) refusalRow {
+	row := refusalRow{
+		Type:      "refusal",
+		ErrorCode: refusal.ErrorCode,
+		StepID:    refusal.StepID,
+		Operation: refusal.Operation,
+		Target:    refusal.Target,
+		File:      refusal.File,
+		Line:      refusal.Line,
+		Field:     refusal.Field,
+		Message:   refusal.Message,
+	}
+	if refusal.Step != 0 {
+		step := refusal.Step
+		row.Step = &step
+	}
+	return row
+}
+
+// Cells is the row's line in the problem table `check` already renders, which
+// is what stands on this milestone's page where §8 puts a caret excerpt and an
+// `EDIT ONE OF` table (gate.go states the same deferral).
+//
+// A member the check does not have renders as an empty cell rather than as a
+// dash. The dash is §8's *no set exists*, which is a fact about a Step's
+// identity set; a Refusal citing a Store file simply has no line to give, and
+// §8 says as much by putting that code's file and field in the `=` notes
+// instead of under a caret.
+func (r refusalRow) Cells() []string {
+	line := ""
+	if r.Line != 0 {
+		line = strconv.Itoa(r.Line)
+	}
+	return []string{r.File, line, r.Field, r.ErrorCode, r.Message}
 }
 
 // runPage is the Run's page: §8's Step table, and beneath it §8's terminal
@@ -330,17 +557,65 @@ func runRows(answer run.Answer) []render.Row {
 // disagreeing about what happened rather than differing in shape (ADR-0026).
 func runPage(terminal outcomeRow) func(io.Writer, []render.Row) error {
 	return func(w io.Writer, rows []render.Row) error {
-		if err := render.WriteTable(w, runColumns, rows); err != nil {
-			return err
+		steps := rowsOf[stepRow](rows)
+		refusals := rowsOf[refusalRow](rows)
+
+		blocks := []func(io.Writer) error{}
+		switch {
+		case len(steps) > 0:
+			blocks = append(blocks, func(w io.Writer) error { return render.WriteTable(w, runColumns, steps) })
+		case len(refusals) > 0:
+			// **The Step table is omitted entirely** where no Step was
+			// reached, and this stands in its place. An empty table
+			// asserts *we looked at the Steps*, which is false, and
+			// the fact that no Step was reached is the most important
+			// thing on the page — an absence cannot carry it (§8).
+			//
+			// It is written on the refused path and on no other. A Run
+			// the world resisted before its first Step reached one and
+			// was stopped inside it, so *no step was reached* would be
+			// a sentence that is not true there.
+			blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, nothingRan); return err })
 		}
-		if slices.ContainsFunc(rows, func(row render.Row) bool { return len(row.Cells()) > 0 }) {
-			if _, err := fmt.Fprintln(w); err != nil {
+		if len(refusals) > 0 {
+			blocks = append(blocks, func(w io.Writer) error { return render.WriteTable(w, checkColumns, refusals) })
+		}
+		blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, terminal.line()); return err })
+
+		for i, block := range blocks {
+			if i > 0 {
+				if _, err := fmt.Fprintln(w); err != nil {
+					return err
+				}
+			}
+			if err := block(w); err != nil {
 				return err
 			}
 		}
-		_, err := fmt.Fprintln(w, terminal.line())
-		return err
+		return nil
 	}
+}
+
+// nothingRan is what stands where the Step table would be on a Run that
+// Refused before Step 1 (§8).
+const nothingRan = "nothing ran. no step was reached."
+
+// rowsOf narrows a Run's rows to one of the four types on its stream, in the
+// order they were built.
+//
+// The page reads its blocks off the rows rather than off the Answer, which is
+// ADR-0026's own rule taken one step further than writeAnswer takes it: the two
+// renderings are one list of rows written twice, so a block the page draws and
+// a row the stream emits cannot come from two different readings of what
+// happened.
+func rowsOf[T render.Row](rows []render.Row) []render.Row {
+	kept := make([]render.Row, 0, len(rows))
+	for _, row := range rows {
+		if _, is := row.(T); is {
+			kept = append(kept, row)
+		}
+	}
+	return kept
 }
 
 // stepRow is one Step of the Run: its position, its authored id, its Kind, its
@@ -462,9 +737,9 @@ type outcomeRow struct {
 	Type      string `json:"type"`
 	Outcome   string `json:"outcome"`
 	Code      int    `json:"code"`
+	ErrorCode string `json:"error_code,omitempty"`
 	DryRun    bool   `json:"dry_run"`
 	RunID     string `json:"run_id,omitempty"`
-	ErrorCode string `json:"error_code,omitempty"`
 }
 
 // Cells is empty: the terminal row's line on the page is §8's terminal line,

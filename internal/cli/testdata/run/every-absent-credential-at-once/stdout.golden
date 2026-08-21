@@ -1,0 +1,8 @@
+nothing ran. no step was reached.
+
+FILE                LINE  FIELD          ERROR_CODE         MESSAGE
+targets/paid.yaml   8     auth.token     credential-absent  the environment does not hold PAID_TOKEN
+targets/vault.yaml  8     auth.username  credential-absent  the environment does not hold VAULT_USER
+targets/vault.yaml  9     auth.password  credential-absent  the environment does not hold VAULT_PASSWORD
+
+refused · exit 77 · run 01991f63-3d44-7f73-8a5f-6d8ea4f30c47

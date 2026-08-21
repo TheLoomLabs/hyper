@@ -1,0 +1,10 @@
+kind: procedure
+procedure: watch-paid
+targets: [paid]
+steps:
+  - id: status
+    definition: paid-status
+    operation: check_status
+    target: paid
+    args:
+      host: status.hyper.dev

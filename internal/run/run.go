@@ -24,12 +24,12 @@
 // happened; what is said about it is one package up (ADR-0026).
 //
 // **The order is §6's fixed order**, and no Step starts until all of it has
-// happened. What this milestone lands is the shape of that order and its two
-// ends: the pin gate (the CLI's, before this is reached), the Store located,
-// `run.json` written, and then Step 1. The gates in between — the Store schema
-// test, `check` re-run in full, the credential pass, the Secret sink — slot
-// into the list Perform states, and the milestone that builds one adds it there
-// rather than growing a shape around it.
+// happened: the pin gate and the Store's location, both the CLI's and both
+// declining before a Run is identified at all; then `run.json`; then the Store
+// schema test, `check` re-run in full, the credential pass and the Secret sink,
+// each of which declines into the entry that already exists; then Step 1.
+// Perform states the order and gates.go states the four in the middle (issue
+// #137).
 package run
 
 import (
@@ -89,6 +89,25 @@ type Request struct {
 	// every Store path a Run writes, so an id minted here would make every
 	// golden of a Run unassertable (§8, ADR-0047).
 	Mint func(now time.Time) store.RunID
+	// LookupEnv is the environment, read. It is threaded for the reason the
+	// clock is — the engine reaches no process fact of its own — and it is
+	// reached exactly once per credential slot the Run's bindings require,
+	// at the credential pass §6 puts before Step 1 (§6, ADR-0007).
+	//
+	// It answers a value **and whether the variable is set at all**, which
+	// is os.LookupEnv's shape rather than os.Getenv's: presence is the whole
+	// of what the gate asks, and a variable set to the empty string is
+	// present (§9).
+	LookupEnv func(string) (string, bool)
+	// SecretSink is the path `--secret-out` named, and "" where the
+	// invocation supplied none. It is the **occasion's** supply rather than
+	// the environment's or the artefacts', which is why it arrives here
+	// beside DryRun rather than being read off anything (§6, §9, ADR-0008).
+	//
+	// The engine reads its presence and never its value: what a Run does
+	// with a sink is the milestone that writes one's, and #133 flags the ADR
+	// that has to state the file's format first.
+	SecretSink string
 	// Dial and Exec are the two Capabilities' performers. Neither is reached
 	// for: internal/capability is handed one, so a case exercises a real
 	// handshake against a server standing in the test process (§5).
@@ -142,6 +161,16 @@ type Answer struct {
 	// Provenance is the Run-wide half: what `run.json` carries, and what the
 	// Run-wide `provenance` row renders (§7, §8, ADR-0043).
 	Provenance store.RunProvenance
+	// Refusal is the checks that declined, in the order `check` prints them,
+	// and is non-empty exactly where Outcome is OutcomeRefused. It is one
+	// array and never several Refusals: a Run has at most one Refusal ever,
+	// the outcome being terminal, and the members are the checks one phase
+	// evaluated together (§7, §8, ADR-0061).
+	//
+	// What the terminal line and the `outcome` row name is the **first**
+	// member's `error_code`, derived where it is rendered and stored nowhere
+	// (§7, §8).
+	Refusal []Refusal
 	// Fault is what stopped the Run, and nil where nothing did. It is
 	// narration's — a failure carries no `error_code` (§9, §12) — and it is
 	// the whole of what the surface has to say about a `failed` Run beyond
@@ -262,10 +291,19 @@ func Perform(request Request) Answer {
 		return failed(answer, err)
 	}
 
-	// The gates §6 states between `run.json` and Step 1 slot in here, in
-	// its order: the Store schema test over the files the Run will read,
-	// `check` re-run in full, the credential pass, and the Secret sink
-	// (issue #137). Each declines into the entry that now exists.
+	// The gates §6 states between `run.json` and Step 1, in its order: the
+	// Store schema test over the files the Run will read, `check` re-run in
+	// full, the credential pass, and the Secret sink. Each declines into the
+	// entry that now exists, which is why they are here and not beside the
+	// two the CLI runs before a Run is identified at all (issue #137).
+	held, declined, err := inFlight.gates(steps)
+	if err != nil {
+		return inFlight.closed(failed(answer, err))
+	}
+	if len(declined) > 0 {
+		return inFlight.closed(refused(answer, declined))
+	}
+	inFlight.credentials = held
 
 	for position, step := range steps {
 		narrator.Reached(position+1, len(steps), step.ID)
@@ -297,6 +335,12 @@ type run struct {
 	entry      store.JournalEntry
 	provenance store.RunProvenance
 	started    time.Time
+	// credentials is what the credential pass resolved, by Target and then
+	// by the scheme's slot. It is a member because §6 says the credentials
+	// of every Target the Run may bind are resolved **once**: a Step reading
+	// the environment again would be a Run whose second call could send a
+	// credential its own gate never saw (§6, ADR-0007).
+	credentials credentials
 }
 
 // closed writes `outcome.json` and publishes, and answers whatever the Run had
@@ -317,8 +361,12 @@ type run struct {
 func (r run) closed(reached Answer) Answer {
 	ended := r.request.Now()
 	if err := r.request.Store.Append([]store.Write{{
-		Path:    r.entry.OutcomePath(),
-		Content: store.OutcomeFile{Outcome: reached.Outcome, EndedAt: ended}.Encode(),
+		Path: r.entry.OutcomePath(),
+		Content: store.OutcomeFile{
+			Outcome: reached.Outcome,
+			EndedAt: ended,
+			Refusal: storedRefusal(reached.Refusal),
+		}.Encode(),
 	}}, "End run "+r.id.String()); err != nil {
 		return failed(reached, err)
 	}
@@ -338,6 +386,20 @@ func failed(answer Answer, err error) Answer {
 	if answer.Fault == nil {
 		answer.Fault = err
 	}
+	return answer
+}
+
+// refused is the Answer a Run a guardrail declined carries: the triple's
+// member, and the array of checks that declined it.
+//
+// It is the counterpart of failed one line up and the two are deliberately not
+// one function. A failure is the world resisting and carries a fault a reader
+// acts on; a Refusal is `hyper` declining and carries a check it can name, and
+// a value that could hold both would be a Run claiming an `error_code` for
+// something nothing checked (§9, §12).
+func refused(answer Answer, declined []Refusal) Answer {
+	answer.Outcome = store.OutcomeRefused
+	answer.Refusal = declined
 	return answer
 }
 

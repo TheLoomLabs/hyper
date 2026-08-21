@@ -1,0 +1,16 @@
+kind: procedure
+procedure: watch-both
+targets: [paid, vault]
+steps:
+  - id: status
+    definition: paid-status
+    operation: check_status
+    target: paid
+    args:
+      host: status.hyper.dev
+  - id: leaf
+    definition: vault-leaf
+    operation: read_leaf
+    target: vault
+    args:
+      host: cert.hyper.dev

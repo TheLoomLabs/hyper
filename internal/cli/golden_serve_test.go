@@ -64,6 +64,18 @@ type servedResponse struct {
 	// that is not JSON at all: a body that is absent, or HTML, is what makes
 	// `body` an absence a projection reads rather than an error (§12).
 	Body string `json:"body"`
+	// EchoRequestHeaders names request headers the fixture writes back as
+	// the response body, a JSON object keyed by the lowered header name.
+	//
+	// It is the one thing here that is not what a server would supply, and
+	// it exists for the one claim a golden cannot otherwise assert: **what
+	// hyper put on the wire**. A credential is composed from a Manifest's
+	// scheme parameters and a Target declaration's environment variable and
+	// then leaves — it reaches no file, no row and no rendering (§7,
+	// ADR-0007) — so the only place a corpus can observe it is at the far
+	// end, which is here. A case using it serves a body of its own for
+	// nothing else.
+	EchoRequestHeaders []string `json:"echo_request_headers"`
 }
 
 // servedHosts reads the case's serve/ directory: one entry per `<host>.json`,
@@ -184,7 +196,32 @@ func answer(w http.ResponseWriter, r *http.Request, served map[string]servedResp
 		w.Header().Set(header, value)
 	}
 	w.WriteHeader(response.Status)
-	io.WriteString(w, response.Body)
+	io.WriteString(w, body(r, response))
+}
+
+// body is what the response carries: the bytes the case wrote down, or — where
+// the case asked for it — what arrived on the request, as a JSON object keyed
+// by the lowered header name.
+//
+// The names are lowered and sorted so that the body is one byte sequence
+// whatever order Go's header map iterates in, which is what makes the Record a
+// case asserts a checked-in constant. A header the request did not carry is
+// written as the empty string rather than left out: *the header was not sent*
+// is precisely what such a case is asserting, and an absent key would leave the
+// projection with nothing to record and the golden with nothing to show.
+func body(r *http.Request, response servedResponse) string {
+	if len(response.EchoRequestHeaders) == 0 {
+		return response.Body
+	}
+	echoed := map[string]string{}
+	for _, name := range response.EchoRequestHeaders {
+		echoed[strings.ToLower(name)] = r.Header.Get(name)
+	}
+	encoded, err := json.Marshal(echoed)
+	if err != nil {
+		return response.Body
+	}
+	return string(encoded)
 }
 
 // mintFixtureCertificate mints one self-signed certificate covering every host

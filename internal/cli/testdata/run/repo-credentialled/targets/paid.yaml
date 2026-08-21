@@ -1,0 +1,10 @@
+kind: target-declaration
+target: paid
+class: paid
+kinds: [read]
+capabilities: [http]
+hosts: [status.hyper.dev]
+auth:
+  token: {env: PAID_TOKEN}
+  username: {env: NEVER_NEEDED_USER}
+  password: {env: NEVER_NEEDED_PASSWORD}

@@ -1,0 +1,10 @@
+nothing ran. no step was reached.
+
+FILE                             LINE  FIELD               ERROR_CODE                 MESSAGE
+definitions/paid-status.yaml     3     provider            artefact-absent            provider: paidd resolves to nothing — no built-in Provider and no providers/paidd.yaml
+hyper.yaml                       5     retain-forever      unknown-key                "retain-forever" is not a key the schema at this position admits
+procedures/reaches-nothing.yaml  7     steps[0].operation  reference-unresolvable     operation: no_such_operation names no Operation the Definition's Provider declares
+providers/paid.yaml              7     auth.header.name    header-reserved            Content-Type: is one of the five headers hyper computes for itself
+targets/paid.yaml                8     auth.token          credential-slot-malformed  auth.token: a credential slot's value must be a mapping whose sole key is env:
+
+refused · exit 77 · run 01991f65-5f66-7195-8c71-8fa0c6152e69

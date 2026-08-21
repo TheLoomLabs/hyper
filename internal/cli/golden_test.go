@@ -682,11 +682,27 @@ func corpusNames(command string) []string {
 }
 
 // TestGoldenCorpora_StdoutCarriesNothingButTheAnswer is §9's stream discipline
-// asserted over every corpus at once: stdout is the answer and nothing else
-// ever goes there, so an invocation that ended badly wrote nothing to it. Exit
-// 1 is the sole exception, being a command that is not a Run reporting problems
-// it found — which *is* the answer. A usage error opens no row stream at all,
-// and a Refusal renders on stderr (§9, ADR-0060, issue #105).
+// asserted over every corpus at once: **stdout is the answer, and nothing else
+// ever goes there.**
+//
+// What counts as the answer is the exit code's own question, and §9 gives it two
+// arms. A command that is **not a Run** answers on stdout where it did what it
+// was asked (`0`) or reported problems it found (`1`), and is silent otherwise:
+// a usage error opens no row stream at all, and the Refusals such a command
+// makes — the pin gate's, `store init`'s absent Store — render on stderr
+// (ADR-0060, issue #105).
+//
+// A **Run answers on stdout at every exit on which a Run was attempted**,
+// because a Run's answer *is* its outcome: §8's Step table, its Refusal
+// rendering and its terminal line, terminated on the wire by the `outcome` row,
+// which §9 says `run` is on "on every path on which a Run was attempted". That
+// is what puts a refused Run's id on a job summary exactly as a completed one's
+// (§8, §9, issue #137). The one path where a Run is silent is the one every
+// other command is silent on: a usage error, where no Run was attempted at all.
+//
+// So the invariant is stated as *what may stand there* rather than as *which
+// codes may write*: a non-clean exit writes nothing, or writes an answer that
+// ends in §8's terminal line.
 //
 // This is the one property that spans every command the tool will ever have, so
 // it is asserted from the checked-in golden files rather than by driving
@@ -705,10 +721,12 @@ func TestGoldenCorpora_StdoutCarriesNothingButTheAnswer(t *testing.T) {
 		}
 
 		judged++
-		if stdout := readFile(t, filepath.Join(dir, "stdout.golden")); stdout != "" {
-			t.Errorf("%s exits %d and wrote %q to stdout; only exit %d has an answer to write there",
-				dir, exit, stdout, cli.ExitProblems)
+		stdout := readFile(t, filepath.Join(dir, "stdout.golden"))
+		if stdout == "" || endsInAnOutcome(stdout) {
+			return
 		}
+		t.Errorf("%s exits %d and wrote %q to stdout; past exit %d the only answer stdout carries is a Run's outcome",
+			dir, exit, stdout, cli.ExitProblems)
 	})
 
 	// A corpus of nothing but clean runs and problem reports would hold this
@@ -718,6 +736,35 @@ func TestGoldenCorpora_StdoutCarriesNothingButTheAnswer(t *testing.T) {
 	if judged == 0 {
 		t.Fatal("no case in any corpus exits non-zero and not 1; the invariant held vacuously")
 	}
+}
+
+// endsInAnOutcome says whether an answer ends the way a Run's does, in either
+// mode: §8's terminal line, or the `outcome` row that terminates its stream.
+//
+// **The last row is always the terminal row, and its absence means the stream
+// was cut off** (§9) — so the two forms are one question asked of two
+// renderings, and asking it is how this file tells a Run's answer from a
+// diagnostic that leaked onto stdout.
+//
+// The line is read by the outcome it opens with rather than matched whole,
+// because what follows differs by path: the rehearsal marker, and the
+// remediation pointer a Refusal may carry in place of the bare Run id.
+func endsInAnOutcome(answer string) bool {
+	lines := strings.Split(strings.TrimSuffix(answer, "\n"), "\n")
+	last := lines[len(lines)-1]
+
+	var row struct {
+		Type string `json:"type"`
+	}
+	if json.Unmarshal([]byte(last), &row) == nil {
+		return row.Type == "outcome"
+	}
+	for _, outcome := range []store.Outcome{store.OutcomeCompleted, store.OutcomeRefused, store.OutcomeFailed} {
+		if strings.HasPrefix(last, string(outcome)+" · ") {
+			return true
+		}
+	}
+	return false
 }
 
 // forEachGoldenTriple walks testdata/ for checked-in golden files and hands

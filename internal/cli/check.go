@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
+	"github.com/TheLoomLabs/hyper/internal/verify"
 )
 
 // RunCheck implements `hyper check [path...]`. wd is the working directory
@@ -65,27 +65,18 @@ func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (s
 		return ExitUsage
 	}
 
-	// The second pass, which is check's own and not the load's. It runs
-	// over an already-parsed repository, which is what lets a Definition's
+	// The second pass, which is §4's and not the load's. It runs over an
+	// already-parsed repository, which is what lets a Definition's
 	// provider: and targets: resolve against the whole repository's names
-	// rather than only the files walked before it (issue #93). A failed
-	// load does not stop it: reading or parsing one file stops every check
-	// after it for that file — never for the repository (issue #88).
-	var problems []problem.Problem
-	for _, a := range loaded.Artefacts {
-		problems = append(problems, a.Problems...)
-		if !a.OK {
-			continue
-		}
-		problems = append(problems, checkArtefact(a, loaded)...)
-	}
-
-	// The transitive walk — an invoked Procedure's own envelope against its
-	// caller's, and the two Cadence rules that ride the same walk — needs
-	// every procedures/ file at once, so it runs once here rather than per
-	// file inside checkArtefact (issue #96).
-	graph := artefact.BuildProcedureGraph(procedureRoots(loaded.Artefacts), loaded.Providers, loaded.Definitions)
-	problems = append(problems, artefact.CheckProcedureGraph(graph)...)
+	// rather than only the files walked before it (issue #93).
+	//
+	// It lives in internal/verify rather than here because this command is
+	// not its only caller: a Run re-runs it in full at Run start, which is
+	// how all thirty-one of §4's static codes reach a Run (§6, ADR-0061,
+	// issue #137). What is left here is what is this command's — which
+	// problems it reports, in what order, and what it says where there are
+	// none.
+	problems := verify.Repository(loaded)
 
 	if len(paths) > 0 {
 		problems = filterByPaths(problems, paths, repoRoot, wd)
@@ -114,53 +105,6 @@ func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (s
 		return ExitProblems
 	}
 	return ExitClean
-}
-
-// procedureRoots is every loaded Procedure's root paired with its own file —
-// what BuildProcedureGraph needs to cite a fault against the file that carries
-// it (issue #96). A file that failed to parse contributes no root, on
-// ADR-0064's own rule. The graph is check's and not the load's, so the shaping
-// its input needs is here.
-func procedureRoots(artefacts []repository.LoadedArtefact) []artefact.ProcedureRoot {
-	var roots []artefact.ProcedureRoot
-	for _, a := range artefacts {
-		if a.OK && strings.HasPrefix(a.Path, "procedures/") {
-			roots = append(roots, artefact.ProcedureRoot{File: a.Path, Root: a.Root})
-		}
-	}
-	return roots
-}
-
-// checkArtefact runs one already-parsed artefact's own schema and the checks
-// that read it against itself or against the repository: hyper.yaml, a file in
-// targets/, a file in providers/, a file in definitions/ and, since issue #94,
-// a file in procedures/ — the five artefacts this milestone's schema reaches —
-// plus the built-in shell Provider, which the load carries like any other
-// artefact and which is checked here with no exemption (§3, ADR-0081, issues
-// #99, #109): a Provider is data, and data check may not read is an advisory
-// analyzer wearing the tool's own badge.
-//
-// loaded is passed whole rather than as its four namespaces, which travel
-// together everywhere and are what an artefact's authored names resolve
-// against: providers and targets are the namespaces a Definition's provider:
-// and targets: resolve against, definitions and procedures the namespaces a
-// Step's definition: and a nested invocation's procedure: resolve against.
-func checkArtefact(a repository.LoadedArtefact, loaded repository.Loaded) []problem.Problem {
-	switch {
-	case a.Path == artefact.BuiltinShellProviderPath:
-		return artefact.CheckBuiltinShellProvider()
-	case a.Path == repository.DeclarationPath:
-		return artefact.CheckRepositoryDeclaration(a.Path, a.Root)
-	case strings.HasPrefix(a.Path, "targets/"):
-		return artefact.CheckTargetDeclaration(a.Path, a.Root)
-	case strings.HasPrefix(a.Path, "providers/"):
-		return artefact.CheckManifest(a.Path, a.Root)
-	case strings.HasPrefix(a.Path, "definitions/"):
-		return artefact.CheckDefinition(a.Path, a.Root, loaded.Providers, loaded.Targets)
-	case strings.HasPrefix(a.Path, "procedures/"):
-		return artefact.CheckProcedure(a.Path, a.Root, loaded.Providers, loaded.Definitions, loaded.Targets, loaded.Procedures)
-	}
-	return nil
 }
 
 // absPath resolves p against wd if p is not already absolute — the one rule

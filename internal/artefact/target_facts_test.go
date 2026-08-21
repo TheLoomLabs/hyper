@@ -21,7 +21,7 @@ func TestReadTargetFacts_ReadsTheDeclarationsOwnLists(t *testing.T) {
 	if got, want := facts.Capabilities, []string{"http"}; !slices.Equal(got, want) {
 		t.Errorf("capabilities = %v, want %v", got, want)
 	}
-	if got, want := facts.Credentials, []CredentialSlot{{Slot: "token", Env: "CLOUDFLARE_API_TOKEN"}}; !slices.Equal(got, want) {
+	if got, want := facts.Credentials, []CredentialSlot{{Slot: "token", Env: "CLOUDFLARE_API_TOKEN", Line: 8}}; !slices.Equal(got, want) {
 		t.Errorf("credentials = %v, want %v", got, want)
 	}
 }
@@ -52,8 +52,8 @@ auth:
 		t.Errorf("capabilities = %v, want %v — the declaration's own order", got, want)
 	}
 	if got, want := facts.Credentials, []CredentialSlot{
-		{Slot: "password", Env: "HOSTCO_PASSWORD"},
-		{Slot: "username", Env: "HOSTCO_USERNAME"},
+		{Slot: "password", Env: "HOSTCO_PASSWORD", Line: 8},
+		{Slot: "username", Env: "HOSTCO_USERNAME", Line: 9},
 	}; !slices.Equal(got, want) {
 		t.Errorf("credentials = %v, want %v — the auth: mapping's own order", got, want)
 	}
@@ -109,7 +109,7 @@ auth:
   other: {name: NOT_ENV}
 `))
 
-	want := []CredentialSlot{{Slot: "token"}, {Slot: "other"}}
+	want := []CredentialSlot{{Slot: "token", Line: 8}, {Slot: "other", Line: 9}}
 	if !slices.Equal(facts.Credentials, want) {
 		t.Errorf("credentials = %v, want %v", facts.Credentials, want)
 	}

@@ -1,0 +1,83 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f61-1b22-7d51-8e3d-4b6c82d1ea25/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f61-1b22-7d51-8e3d-4b6c82d1ea25/run.json (470 bytes)
+{
+  "dry_run": false,
+  "procedure": "read-vault",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "073c936eac88f436192b168dd5dcb608b59491c6",
+    "repo_revision": "3d469b07acfe1f2f9242519a7ac674ca06f2879b"
+  },
+  "run_id": "01991f61-1b22-7d51-8e3d-4b6c82d1ea25",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f61-1b22-7d51-8e3d-4b6c82d1ea25/steps/0001.json (634 bytes)
+{
+  "definition": "vault-leaf",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "leaf",
+  "identities": {
+    "digest": "sha256:c7311e8ee18ae766a743b80075a07ddda3b1e5a09b30e885a1782f629ea12403",
+    "members": [
+      "cert.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "read_leaf",
+  "provenance": {
+    "definition_revision": "35354362c6937cfcf8b6fcca5c807fa31c5c8c94",
+    "manifest_digest": "sha256:6e0bdb458d36da7b833f08c2226a1eb820facd81747da00fc3e87c3a95d2f061"
+  },
+  "provider": "vault",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "vault"
+}
+=== records/vault/vault-leaf/cert.hyper.dev/01991f61-1b22-7d51-8e3d-4b6c82d1ea25-0001.json (748 bytes)
+{
+  "definition": "vault-leaf",
+  "fields": {
+    "host": "cert.hyper.dev",
+    "sent": "Basic bm90LWEtc2VjcmV0OnRoZS1jYXNlLXN1cHBsaWVzLXRoaXM="
+  },
+  "name": "cert.hyper.dev",
+  "operation": "read_leaf",
+  "provenance": {
+    "definition_revision": "35354362c6937cfcf8b6fcca5c807fa31c5c8c94",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:6e0bdb458d36da7b833f08c2226a1eb820facd81747da00fc3e87c3a95d2f061",
+    "procedure_revision": "073c936eac88f436192b168dd5dcb608b59491c6",
+    "repo_revision": "3d469b07acfe1f2f9242519a7ac674ca06f2879b"
+  },
+  "record_type": "observation",
+  "run_id": "01991f61-1b22-7d51-8e3d-4b6c82d1ea25",
+  "schema_version": 1,
+  "step": 1,
+  "target": "vault",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

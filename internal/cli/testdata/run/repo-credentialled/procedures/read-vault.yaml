@@ -1,0 +1,10 @@
+kind: procedure
+procedure: read-vault
+targets: [vault]
+steps:
+  - id: leaf
+    definition: vault-leaf
+    operation: read_leaf
+    target: vault
+    args:
+      host: cert.hyper.dev

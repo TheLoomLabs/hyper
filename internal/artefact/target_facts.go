@@ -16,6 +16,13 @@ import "gopkg.in/yaml.v3"
 type CredentialSlot struct {
 	Slot string
 	Env  string
+	// Line is the 1-indexed line the slot's own key is written on, which is
+	// what §8 says `credential-absent` cites: the `env:` line of the Target
+	// declaration whose slot the environment did not fill. A row reporting a
+	// Target's credentials has never asked for it and does not read it; a
+	// Refusal has to, an absence with no coordinate being a search rather
+	// than an edit (§8).
+	Line int
 }
 
 // TargetFacts is what a Target declaration grants, in the shape a surface
@@ -82,7 +89,7 @@ func credentialSlots(authVal *yaml.Node) []CredentialSlot {
 		if key.Kind != yaml.ScalarNode {
 			continue
 		}
-		slots = append(slots, CredentialSlot{Slot: key.Value, Env: envVariable(val)})
+		slots = append(slots, CredentialSlot{Slot: key.Value, Env: envVariable(val), Line: key.Line})
 	}
 	return slots
 }

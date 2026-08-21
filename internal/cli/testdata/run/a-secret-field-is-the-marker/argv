@@ -1,1 +1,1 @@
-hyper run read-session
+hyper run read-session --secret-out ../session-token

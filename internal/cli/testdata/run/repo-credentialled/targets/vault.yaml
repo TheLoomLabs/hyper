@@ -1,0 +1,9 @@
+kind: target-declaration
+target: vault
+class: vault
+kinds: [read]
+capabilities: [http]
+hosts: [cert.hyper.dev]
+auth:
+  username: {env: VAULT_USER}
+  password: {env: VAULT_PASSWORD}

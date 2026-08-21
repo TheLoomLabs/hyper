@@ -145,7 +145,11 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 	ctx, cancel := capability.Deadline(context.Background(), detail.DeadlineSeconds)
 	defer cancel()
 
-	response, err := call.Perform(ctx, process.Dial, instant)
+	// A Probe binds `local`, which carries no `auth:` block and no
+	// credential slot, so the credential it sends is the empty one and the
+	// wire is visible by construction rather than by a flag (§3, §4,
+	// ADR-0017, ADR-0024).
+	response, err := call.Perform(ctx, process.Dial, instant, capability.Credential{})
 	if err != nil {
 		// A call that got no answer renders on stderr and nowhere else.
 		// No member of the response object says what went wrong — that is

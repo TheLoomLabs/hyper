@@ -1,0 +1,8 @@
+kind: target-declaration
+target: paid
+class: paid
+kinds: [read]
+capabilities: [http]
+hosts: [status.hyper.dev]
+auth:
+  token: PAID_TOKEN

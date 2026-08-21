@@ -1,0 +1,5 @@
+kind: definition
+definition: cert-read
+provider: session
+kinds: [read]
+targets: [local]

@@ -1,0 +1,2 @@
+hyper run: --secret-out -: stdout is exclusively the answer, and a secret written there
+  lands in the same pipe a CI job logs — name a path outside the repository

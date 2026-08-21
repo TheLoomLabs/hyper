@@ -1,0 +1,5 @@
+kind: definition
+definition: paid-uptime
+provider: paid
+kinds: [read]
+targets: [paid]

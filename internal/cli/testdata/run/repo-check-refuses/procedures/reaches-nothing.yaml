@@ -1,0 +1,10 @@
+kind: procedure
+procedure: reaches-nothing
+targets: [local]
+steps:
+  - id: nope
+    definition: uptime-check
+    operation: no_such_operation
+    target: local
+    args:
+      host: status.hyper.dev

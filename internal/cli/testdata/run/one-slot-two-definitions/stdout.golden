@@ -1,0 +1,6 @@
+nothing ran. no step was reached.
+
+FILE               LINE  FIELD       ERROR_CODE         MESSAGE
+targets/paid.yaml  8     auth.token  credential-absent  the environment does not hold PAID_TOKEN
+
+refused · exit 77 · run 01991f6b-b5cc-77fb-9ad7-e5061c7b88cf

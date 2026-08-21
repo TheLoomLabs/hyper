@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "headers": {"Content-Type": "application/json"},
+  "echo_request_headers": ["Authorization"]
+}

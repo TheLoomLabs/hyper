@@ -1,0 +1,5 @@
+{"type":"refusal","error_code":"credential-absent","file":"targets/paid.yaml","line":8,"field":"auth.token","message":"the environment does not hold PAID_TOKEN"}
+{"type":"refusal","error_code":"credential-absent","file":"targets/vault.yaml","line":8,"field":"auth.username","message":"the environment does not hold VAULT_USER"}
+{"type":"refusal","error_code":"credential-absent","file":"targets/vault.yaml","line":9,"field":"auth.password","message":"the environment does not hold VAULT_PASSWORD"}
+{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"52c2f08289aee2b81b49907d7001909a0bae8b83","repo_revision":"3d469b07acfe1f2f9242519a7ac674ca06f2879b"}
+{"type":"outcome","outcome":"refused","code":77,"error_code":"credential-absent","dry_run":false,"run_id":"01991f64-4e55-7084-9b60-7e9fb5041d58"}

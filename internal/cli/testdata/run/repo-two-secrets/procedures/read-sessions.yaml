@@ -1,0 +1,16 @@
+kind: procedure
+procedure: read-sessions
+targets: [local]
+steps:
+  - id: status
+    definition: session-read
+    operation: read_session
+    target: local
+    args:
+      host: status.hyper.dev
+  - id: cert
+    definition: cert-read
+    operation: read_session
+    target: local
+    args:
+      host: cert.hyper.dev

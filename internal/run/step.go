@@ -49,9 +49,7 @@ type binding struct {
 // The error it answers is what halted the Run, and the Step it answers beside
 // it stands whether or not there is one: a Step that reached a Disposition
 // wrote its file, and a halted Run leaves what it did (§6, ADR-0011). A zero
-// Step is a Step that reached none — which in this milestone is only a Step
-// whose own binding would not resolve, `check` having not yet re-run at Run
-// start to have refused it (issue #137).
+// Step is a Step that reached none.
 func (r run) perform(position int, authored artefact.Step) (Step, error) {
 	bound, err := resolve(r.request.Repository, authored)
 	if err != nil {
@@ -151,11 +149,13 @@ func (r run) perform(position int, authored artefact.Step) (Step, error) {
 // resolve reads every artefact the Step names, and answers the one fault a Step
 // can have that this milestone reaches: a name that resolves to nothing.
 //
-// It is a fault of the artefacts rather than of the world, and `check` re-run
-// at Run start is what turns it into the Refusal §6 states — which is issue
-// #137's. Until then it halts the Run, which is the honest answer: the Step
-// cannot be performed, and reporting it as anything other than a stop would be
-// this milestone claiming a Refusal it does not render.
+// **It is unreachable from a Run**, and it is written anyway. `check` re-runs in
+// full at Run start (§6, gates.go), and every name a Step writes that resolves
+// to nothing is `artefact-absent` or `reference-unresolvable` there — so a Run
+// that reaches Step 1 is a Run whose every binding resolved. What stands here
+// is the honest answer for a caller that reached the engine another way: the
+// Step cannot be performed, and a halt says so without claiming an `error_code`
+// no check produced (§12, ADR-0060).
 func resolve(loaded repository.Loaded, authored artefact.Step) (binding, error) {
 	// The two halves of the Definition namespace: what the name resolves to,
 	// and the file it was read from. They are folded from one walk, so one
@@ -238,7 +238,7 @@ func (r run) call(bound binding, authored artefact.Step) (conclusion, error) {
 	// two Steps of one Run that reach one host record one `days_left`, and
 	// nothing a later Step does moves what an earlier one recorded
 	// (ADR-0034).
-	response, _ := built.Perform(ctx, r.request.Dial, r.started)
+	response, _ := built.Perform(ctx, r.request.Dial, r.started, r.credential(bound, authored.Target))
 
 	name, resolved := identityOf(bound.operation, inputs, response)
 	if !resolved {
@@ -246,6 +246,33 @@ func (r run) call(bound binding, authored artefact.Step) (conclusion, error) {
 			authored.ID, bound.operation.Identity)
 	}
 	return conclusion{name: name, fields: projected(bound.operation, projection.Read(declaration).Project(response))}, nil
+}
+
+// credential is the header this Step's call carries: the Auth scheme the
+// Provider's Manifest names, composed out of the slots the credential pass
+// already resolved for this Target.
+//
+// **Nothing is read here.** §6 resolves the credentials of every Target the Run
+// may bind once, before Step 1, so what this does is compose — and the
+// environment is not reachable from this package at all, every process read
+// being threaded through Request. A Provider naming no `auth:` composes the
+// empty Credential, which is what an uptime check against a public host is (§3,
+// §6, §12, ADR-0007).
+//
+// The scheme is read a second time here, and it is the same reading: gates.go's
+// credential pass asked `capability.ReadAuth` which slots to resolve, and this
+// asks it which header to write them into. Both go through that one function
+// over that one Manifest root — the gate reaches it through the Definition's
+// name because no Step has resolved yet, and this reaches it through the
+// binding that just did — so the slots a Run holds and the scheme it sends them
+// under cannot come apart.
+//
+// The value goes from here onto the wire and reaches nothing else. It is not
+// held on the binding, not written into the Call, and has no accessor: a
+// credential is suppressed by the position it occupies rather than by every
+// surface remembering to (ADR-0007, ADR-0031).
+func (r run) credential(bound binding, target string) capability.Credential {
+	return capability.ReadAuth(bound.manifest.Root).Credential(r.credentials[target])
 }
 
 // arguments reads the Step's `args:` against the Operation's declared input

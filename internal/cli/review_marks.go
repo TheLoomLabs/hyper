@@ -7,6 +7,7 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
+	"github.com/TheLoomLabs/hyper/internal/verify"
 )
 
 // The gutter's own vocabulary: the words and sigils the marker column is
@@ -167,7 +168,7 @@ func readMarks(found resolvedArtefact, loaded repository.Loaded) reviewMarks {
 		// The transitive walk needs every procedures/ file at once, which
 		// is the same graph `check` builds once per run and for the same
 		// reason: a nested invocation's own file, to any depth (issue #96).
-		graph := artefact.BuildProcedureGraph(procedureRoots(loaded.Artefacts), loaded.Providers, loaded.Definitions)
+		graph := verify.ProcedureGraph(loaded)
 		read := artefact.ReadProcedureMarks(root, loaded.Providers, loaded.Definitions, loaded.Targets, graph)
 		marks = reviewMarks{markers: procedureMarkers(read), flags: procedureFlags(read, manifestPathIn(loaded))}
 	case artefact.KindDefinition:

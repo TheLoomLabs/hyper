@@ -1,0 +1,2 @@
+hyper run: --secret-out ../repo-watch-status/session-token: the path resolves inside the repository working tree
+  a secret written there is one `git add` away from the record — name a path outside the repository

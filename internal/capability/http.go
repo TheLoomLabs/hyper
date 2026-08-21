@@ -273,16 +273,22 @@ func Deadline(ctx context.Context, seconds *int) (context.Context, context.Cance
 // members. now is the instant the invocation fixed, and it is what
 // tls.days_left counts from (ADR-0034).
 //
+// credential is the Auth scheme's header, already composed, and the zero value
+// where the Provider names no scheme. It is a parameter rather than a member of
+// Call because a Call is a value a caller may hold, compare and describe, and a
+// credential is none of those: it arrives at the one call that puts bytes on
+// the wire and reaches nothing else (§7, ADR-0007).
+//
 // The object is always usable: where no response arrived at all it is host and
 // nothing else, which is the answer a read records rather than a failure it
 // halts on (§6, §12, ADR-0050). The error beside it says what went wrong and
 // is narration's alone — no member of the object says it, that being the
 // catch-all bucket ADR-0017 closed, and a surface that wrote it into one would
 // be minting a sixth member.
-func (c Call) Perform(ctx context.Context, dial Dial, now time.Time) (Object, error) {
+func (c Call) Perform(ctx context.Context, dial Dial, now time.Time, credential Credential) (Object, error) {
 	object := Object{{Name: MemberHost, Value: c.Host}}
 
-	request, err := c.request(ctx)
+	request, err := c.request(ctx, credential)
 	if err != nil {
 		return object, err
 	}
@@ -315,7 +321,13 @@ func (c Call) Perform(ctx context.Context, dial Dial, now time.Time) (Object, er
 // ADR-0029). Content-Type and Content-Length are written because hyper
 // serialised the body, and are absent where it serialised none — a GET with no
 // body carries neither.
-func (c Call) request(ctx context.Context) (*http.Request, error) {
+//
+// The Auth scheme's header is written here too, and it is the one header on
+// this request whose value never came off an artefact: a Manifest supplies the
+// position and a Target declaration names the variable, and the value goes from
+// the environment onto the wire without passing through anything that renders
+// (§3, §12, ADR-0007).
+func (c Call) request(ctx context.Context, credential Credential) (*http.Request, error) {
 	var body io.Reader
 	if c.Body != nil {
 		body = bytes.NewReader(c.Body)
@@ -330,6 +342,16 @@ func (c Call) request(ctx context.Context) (*http.Request, error) {
 			continue
 		}
 		request.Header.Set(header.Name, header.Value)
+	}
+
+	// The scheme's own header, written last and by nobody else. A Manifest
+	// naming a position its scheme owns is `manifest-inconsistent` and a
+	// scheme naming a header hyper computes is `header-reserved`, both of
+	// them check's (§4) — so this cannot collide with an authored header on
+	// a path that has been reviewed, and where it could it wins, which is
+	// the same rule the five reserved names are dropped under above.
+	if credential.declared() {
+		request.Header.Set(credential.name, credential.value)
 	}
 
 	request.Host = c.Host

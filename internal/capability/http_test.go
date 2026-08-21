@@ -94,7 +94,7 @@ func TestPerform_TheResponseObject(t *testing.T) {
 			})
 
 			object, err := (capability.Call{Host: servedHost, Method: http.MethodGet, Path: "/"}).
-				Perform(t.Context(), dial, instant)
+				Perform(t.Context(), dial, instant, capability.Credential{})
 			if err != nil {
 				t.Fatalf("Perform: %v", err)
 			}
@@ -115,7 +115,7 @@ func TestPerform_NoResponseArrivedAtAll(t *testing.T) {
 	})
 
 	object, err := (capability.Call{Host: servedHost, Method: http.MethodGet, Path: "/"}).
-		Perform(t.Context(), refused, instant)
+		Perform(t.Context(), refused, instant, capability.Credential{})
 	if err == nil {
 		t.Fatal("Perform answered no error against a host that refused the connection")
 	}
@@ -142,7 +142,7 @@ func TestPerform_TheDeadlineBoundsTheCall(t *testing.T) {
 	defer cancel()
 
 	object, err := (capability.Call{Host: servedHost, Method: http.MethodGet, Path: "/"}).
-		Perform(ctx, dial, instant)
+		Perform(ctx, dial, instant, capability.Credential{})
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("Perform err = %v, want a deadline", err)
 	}
@@ -177,7 +177,7 @@ func TestPerform_TheFiveReservedHeadersAreHypersOwn(t *testing.T) {
 		},
 		Body: []byte(`{"a":1}`),
 	}
-	if _, err := call.Perform(t.Context(), dial, instant); err != nil {
+	if _, err := call.Perform(t.Context(), dial, instant, capability.Credential{}); err != nil {
 		t.Fatalf("Perform: %v", err)
 	}
 

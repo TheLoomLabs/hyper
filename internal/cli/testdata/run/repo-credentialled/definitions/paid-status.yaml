@@ -1,0 +1,5 @@
+kind: definition
+definition: paid-status
+provider: paid
+kinds: [read]
+targets: [paid]

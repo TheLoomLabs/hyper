@@ -1,0 +1,24 @@
+kind: provider
+provider: paid
+schema-version: 1
+class: paid
+capabilities: [http]
+auth:
+  header: {name: Content-Type, prefix: "Bearer "}
+operations:
+  check_status:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /status
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: $.host
+      fields:
+        host: $.host

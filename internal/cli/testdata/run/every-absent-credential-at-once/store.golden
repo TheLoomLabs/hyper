@@ -1,0 +1,59 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f63-3d44-7f73-8a5f-6d8ea4f30c47/outcome.json (708 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "error_code": "credential-absent",
+      "field": "auth.token",
+      "file": "targets/paid.yaml",
+      "line": 8,
+      "message": "the environment does not hold PAID_TOKEN"
+    },
+    {
+      "error_code": "credential-absent",
+      "field": "auth.username",
+      "file": "targets/vault.yaml",
+      "line": 8,
+      "message": "the environment does not hold VAULT_USER"
+    },
+    {
+      "error_code": "credential-absent",
+      "field": "auth.password",
+      "file": "targets/vault.yaml",
+      "line": 9,
+      "message": "the environment does not hold VAULT_PASSWORD"
+    }
+  ],
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f63-3d44-7f73-8a5f-6d8ea4f30c47/run.json (470 bytes)
+{
+  "dry_run": false,
+  "procedure": "watch-both",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "52c2f08289aee2b81b49907d7001909a0bae8b83",
+    "repo_revision": "3d469b07acfe1f2f9242519a7ac674ca06f2879b"
+  },
+  "run_id": "01991f63-3d44-7f73-8a5f-6d8ea4f30c47",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

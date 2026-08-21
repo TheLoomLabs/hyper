@@ -1,0 +1,5 @@
+kind: definition
+definition: vault-leaf
+provider: vault
+kinds: [read]
+targets: [vault]
