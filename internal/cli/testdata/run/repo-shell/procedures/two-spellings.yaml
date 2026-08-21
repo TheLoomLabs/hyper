@@ -1,0 +1,16 @@
+kind: procedure
+procedure: two-spellings
+targets: [local]
+steps:
+  - id: spaced
+    definition: host-checks
+    operation: read
+    target: local
+    args:
+      command: [words, "a b"]
+  - id: split
+    definition: host-checks
+    operation: read
+    target: local
+    args:
+      command: [words, a, b]

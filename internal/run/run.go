@@ -39,9 +39,7 @@
 package run
 
 import (
-	"context"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/capability"
@@ -105,6 +103,16 @@ type Request struct {
 	// of what the gate asks, and a variable set to the empty string is
 	// present (§9).
 	LookupEnv func(string) (string, bool)
+	// Environ is the environment read whole, and it is reached for exactly
+	// one thing: a `shell` Operation's child inherits it, less every
+	// credential-slot variable in the repository (§3, §11, issue #142).
+	//
+	// It is a second read of one subject rather than a widening of the
+	// first. LookupEnv answers *what does this name hold*, which is the
+	// whole of what the credential pass asks; composing a child's
+	// environment is a subtraction, and a set of names nothing enumerates is
+	// not a set anything can subtract from.
+	Environ func() []string
 	// SecretSink is the path `--secret-out` named, and "" where the
 	// invocation supplied none. It is the **occasion's** supply rather than
 	// the environment's or the artefacts', which is why it arrives here
@@ -116,9 +124,10 @@ type Request struct {
 	SecretSink string
 	// Dial and Exec are the two Capabilities' performers. Neither is reached
 	// for: internal/capability is handed one, so a case exercises a real
-	// handshake against a server standing in the test process (§5).
+	// handshake against a server standing in the test process and a real
+	// child against a script a fixture checked in (§5, issues #133, #142).
 	Dial capability.Dial
-	Exec func(ctx context.Context, argv []string) *exec.Cmd
+	Exec capability.Exec
 	// Narrator is where progress goes as it happens. It may be nil, which is
 	// a Run nobody is watching.
 	Narrator Narrator
@@ -313,6 +322,12 @@ func Perform(request Request) Answer {
 		acted:      acted{},
 	}
 	inFlight.entry = store.JournalEntry{Run: inFlight.id, Started: started}
+	// What a `shell` Step's child inherits, composed once and before the
+	// first of them runs. The withheld set is the **repository's** and not
+	// this Run's — every credential-slot variable any Target declaration
+	// names, whether or not a Step reached it — so it is decided offline and
+	// does not turn on which Steps a Run walked (§3, §11, gates.go).
+	inFlight.environment = capability.Inherited(request.Environ(), credentialVariables(loaded))
 	answer := Answer{Run: inFlight.id, Identified: true, Outcome: store.OutcomeCompleted, Provenance: provenance}
 
 	narrator := watching(request.Narrator)
@@ -435,6 +450,13 @@ type run struct {
 	// the environment again would be a Run whose second call could send a
 	// credential its own gate never saw (§6, ADR-0007).
 	credentials credentials
+	// environment is what a `shell` Step's child inherits, composed once
+	// before Step 1 for the reason the credentials above are resolved once:
+	// what a child may read is decided by the repository and the invocation
+	// rather than by which Step happens to be running, and a second
+	// composition is where the day comes that two children of one Run
+	// disagree about what was withheld (§3, §11).
+	environment capability.Environment
 	// acted is what each Step of this Run acted on, filled at that Step's
 	// turn and read by the `when:` conditions and the `{step:, path:}`
 	// references of the Steps after it. It is a mapping rather than a value

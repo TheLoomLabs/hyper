@@ -1,0 +1,4 @@
+#!/bin/sh
+# json answers in JSON, which hyper records as the string it printed: stdout is
+# text and is never parsed.
+printf '{"result":{"id":"abc","count":3}}'

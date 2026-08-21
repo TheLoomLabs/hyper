@@ -1,0 +1,12 @@
+kind: procedure
+procedure: expand-over-hosts
+targets: [local]
+steps:
+  - id: hosts
+    definition: host-checks
+    operation: read
+    target: local
+    over:
+      values: [web-01, web-02, db-01]
+    args:
+      command: [tally, {item: $}]

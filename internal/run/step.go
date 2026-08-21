@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/projection"
@@ -346,14 +348,15 @@ type conclusion struct {
 
 // call makes one member's call and projects the answer.
 //
-// **A `read` never halts on what came back.** Whatever the status, the response
-// object §12 states is what the projection reads, so a host that answered
-// nothing records an Observation whose status has gone quiet rather than
-// stopping the Run (§6, ADR-0050). What halts it is the two things that are
-// not an answer: the Operation's **deadline**, reached with no response at all,
-// and the projection — in this milestone the identity path alone, the recorded
-// fields being an absence a version simply does not carry and the rest of what
-// a projection that does not resolve does being issue #144's.
+// **A `read` never halts on what came back.** Whatever the status, whatever the
+// exit code, the response object §12 states is what the projection reads — so a
+// host that answered nothing records an Observation whose status has gone quiet
+// and a command that exited `1` records the code, rather than either stopping
+// the Run (§6, ADR-0050). What halts it is the two things that are not an
+// answer: the Operation's **deadline**, and the projection — in this milestone
+// the identity path alone, the recorded fields being an absence a version
+// simply does not carry and the rest of what a projection that does not resolve
+// does being issue #144's.
 //
 // It is one member's and never the Step's, and the error it answers halts
 // nothing on its own: what a fault here does to the members beside it is the
@@ -363,6 +366,48 @@ func (r run) call(bound binding, authored sequenced, resolving member) (conclusi
 		return conclusion{}, fmt.Errorf("step %s binds %s %s, whose record: declares no identity, so hyper cannot say which Record a call would be holding — hyper check reports it",
 			named(authored), bound.manifest.Name, authored.Operation)
 	}
+
+	declaration := artefact.OperationNode(bound.manifest.Root, authored.Operation)
+	response, halted := r.answer(bound, authored, resolving, declaration)
+	if halted != nil {
+		return conclusion{}, halted
+	}
+
+	name, resolvedName := identityOf(bound.operation, resolving.Inputs, response)
+	if !resolvedName {
+		return conclusion{}, fmt.Errorf("step %s: the identity path %s did not resolve against what came back, so hyper cannot say which Record it is holding",
+			named(authored), bound.operation.Identity)
+	}
+	return conclusion{name: name, fields: projected(bound.operation, projection.Read(declaration).Project(response))}, nil
+}
+
+// answer is what the member's Capability came back with, and the fault that
+// halts the Run where one came back with nothing it could use.
+//
+// **The two Capabilities meet here and nowhere else above this line.** Which of
+// them an Operation declares is the Manifest's one fact about its request (§3),
+// and everything past this function — the identity, the projection, the version
+// — reads a response object and never a socket or a process. What differs
+// between the two arms is the reach rule and the wording of the deadline, and
+// both differences are real: an `http` call is bounded by a grant this checks
+// against, and a `shell` command is the one Capability whose reach no grant
+// bounds (§13), its words being the ones a reviewer read in the Procedure.
+//
+// The error it answers is the **halting** one, worded for a reader, and nil
+// where nothing halted. Everything else beside the object stays narration's and
+// is dropped here: no member of the response object says what went wrong, that
+// being the catch-all bucket ADR-0017 closed, and a `read` records a call that
+// got no answer as the answer it is (§6, ADR-0050).
+func (r run) answer(bound binding, authored sequenced, resolving member, declaration *yaml.Node) (capability.Object, error) {
+	if bound.operation.IsShell {
+		return r.ran(bound, authored, resolving)
+	}
+	return r.requested(bound, authored, resolving, declaration)
+}
+
+// requested is the `http` half: the reach resolved, the holes filled, the call
+// made and bounded by the Operation's own `deadline:`.
+func (r run) requested(bound binding, authored sequenced, resolving member, declaration *yaml.Node) (capability.Object, error) {
 	// The inputs are the Expansion's, resolved for this member before the
 	// first call of the Step went out: an `args:` value arriving from a
 	// reference is read there, where a value it cannot read is still a
@@ -372,18 +417,17 @@ func (r run) call(bound binding, authored sequenced, resolving member) (conclusi
 	reach := artefact.ResolveHost(bound.provider, bound.operation, bound.target,
 		bound.operation.SuppliedHost(inputs))
 	if reach.Reach != artefact.ReachGranted {
-		return conclusion{}, fmt.Errorf("step %s reaches no host %s grants — hyper check reports it", named(authored), authored.Target)
+		return nil, fmt.Errorf("step %s reaches no host %s grants — hyper check reports it", named(authored), authored.Target)
 	}
 
-	declaration := artefact.OperationNode(bound.manifest.Root, authored.Operation)
 	declared, legible := capability.ReadRequest(declaration)
 	if !legible {
-		return conclusion{}, fmt.Errorf("step %s binds %s %s, which declares no legible http: block — hyper check reports what is wrong with it",
+		return nil, fmt.Errorf("step %s binds %s %s, which declares no legible http: block — hyper check reports what is wrong with it",
 			named(authored), bound.manifest.Name, authored.Operation)
 	}
 	built, err := declared.Build(reach.Host, inputs)
 	if err != nil {
-		return conclusion{}, err
+		return nil, err
 	}
 
 	ctx, cancel := capability.Deadline(context.Background(), bound.detail.DeadlineSeconds)
@@ -403,26 +447,63 @@ func (r run) call(bound binding, authored sequenced, resolving member) (conclusi
 	// arrived*, which a `read` records as the answer it is, and a deadline
 	// is `hyper` stopping rather than the world answering nothing.
 	//
-	// Everything else beside the object stays narration's and is dropped:
-	// no member of the response object says what went wrong, that being the
-	// catch-all bucket ADR-0017 closed.
-	//
 	// The deadline is named as itself rather than as the transport's word
 	// for it, and beside the host it was reached on — the two facts a
 	// reader can act on, one an edit to the Manifest and one a look at the
 	// far end. Which **member** drained is `expanded_to`'s and nowhere else
 	// (§7, §8).
 	if errors.Is(err, context.DeadlineExceeded) {
-		return conclusion{}, fmt.Errorf("step %s: the Operation's deadline of %s was reached on %s and no response arrived",
+		return nil, fmt.Errorf("step %s: the Operation's deadline of %s was reached on %s and no response arrived",
 			named(authored), bound.detail.Deadline, reach.Host)
 	}
+	return response, nil
+}
 
-	name, resolved := identityOf(bound.operation, inputs, response)
-	if !resolved {
-		return conclusion{}, fmt.Errorf("step %s: the identity path %s did not resolve against what came back, so hyper cannot say which Record it is holding",
-			named(authored), bound.operation.Identity)
+// ran is the `shell` half: the argv exec'd, and the four-member object §12
+// closes over what the child did (issue #142).
+//
+// **No grant is consulted and there is no host to resolve.** `shell` is the one
+// Capability whose reach no grant bounds (§13): what bounds a shell Step is the
+// words a reviewer read in the Procedure, and its first word — the reach axis —
+// is a literal `command-malformed` already refused anything else at, offline and
+// with no Store in hand (§3, ADR-0051).
+//
+// The three things no artefact decides arrive here rather than off the Manifest:
+// the working directory is the repository root, so a laptop and a runner agree
+// without a line saying so; stdin is empty; and the environment is the one the
+// Run composed once before Step 1 (§3, §11, run.go).
+func (r run) ran(bound binding, authored sequenced, resolving member) (capability.Object, error) {
+	if len(resolving.Argv) == 0 {
+		// Unreachable from a Run: `command-malformed` refuses an empty
+		// `command:` at load and the Expansion refuses a shape it could
+		// not read. It says so rather than exec'ing nothing, an argv
+		// with no head being a call `hyper` cannot describe (ADR-0064).
+		return nil, fmt.Errorf("step %s resolved no argv, and there is no executable to name — hyper check reports it", named(authored))
 	}
-	return conclusion{name: name, fields: projected(bound.operation, projection.Read(declaration).Project(response))}, nil
+
+	ctx, cancel := capability.Deadline(context.Background(), bound.detail.DeadlineSeconds)
+	defer cancel()
+
+	command := capability.Command{Argv: resolving.Argv}
+	response, err := command.Perform(ctx, r.request.Exec, r.request.RepoRoot, r.environment)
+
+	// **A deadline reached on a `read` fails the Step** (§6), and it is the
+	// one error beside the object this reads. A command that could not be
+	// started at all is *no answer* rather than a fault — the object is
+	// `command` and nothing else, and a `read` records the attempt with its
+	// `exit_code` gone quiet (§12, ADR-0050).
+	//
+	// The child's whole process group has been killed with SIGKILL and no
+	// grace period by the time this line runs, so a command's own children
+	// do not outlive the deadline that bounded it (§6, cli.Child). The
+	// deadline is named as itself and beside the command it bounded — the
+	// two facts a reader can act on, one an edit to the Manifest and one a
+	// look at what the Procedure asked for.
+	if errors.Is(err, context.DeadlineExceeded) {
+		return nil, fmt.Errorf("step %s: the Operation's deadline of %s was reached and %s was killed",
+			named(authored), bound.detail.Deadline, command.Text())
+	}
+	return response, nil
 }
 
 // credential is the header this Step's call carries: the Auth scheme the

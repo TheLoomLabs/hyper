@@ -317,8 +317,17 @@ There is no branch on whether a series was already there: where the literal matc
 is an ordinary further version of it, and the Store cannot afterwards tell a resource `hyper` built from
 one it only ever ended, which is correct because nothing distinguishes them. Such a Tombstone is the
 series' first version and it carries **no `fields`** — there is no previous Head to copy forward, and
-the key's absence there means `hyper` destroyed this and never observed what it was. A Tombstone is the
-one version whose `fields` can be missing for no other reason, so the absence needs no marker beside it.
+the key's absence there means `hyper` destroyed this and never observed what it was. It needs no second
+marker saying so: `tombstone: true` is on the version already, and a reader asks that key rather than
+this one.
+
+An **ordinary** version can carry no `fields` too, and it means something else: every path its Manifest
+projected resolved to nothing, which is §6's ordinary field absence applied to all of a projection at
+once ([ADR-0084](../adr/0084-a-version-carrying-no-fields-is-not-a-tombstones-alone.md)). A `shell`
+`read` whose command could not be started at all is where it arrives — the response object is `command`
+and nothing else (§3), and the built-in Provider projects `exit_code`, `stdout` and `stderr` (§12) — and
+the version is minted, compared and rendered like any other. The two absences are never read as one,
+the marker and not the key being what identifies a Tombstone.
 
 ```json
 {

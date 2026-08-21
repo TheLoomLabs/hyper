@@ -1,0 +1,10 @@
+kind: procedure
+procedure: argv-words
+targets: [local]
+steps:
+  - id: words
+    definition: host-checks
+    operation: read
+    target: local
+    args:
+      command: [words, "a|b", "*.yaml", "&&", "$HOME", ">out"]

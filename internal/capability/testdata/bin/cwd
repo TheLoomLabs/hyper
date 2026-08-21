@@ -1,0 +1,4 @@
+#!/bin/sh
+# cwd writes the directory the child was started in, which no artefact chooses:
+# it is the repository root, fixed rather than authored.
+pwd

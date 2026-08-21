@@ -1,0 +1,7 @@
+#!/bin/sh
+# stdin writes back whatever it was handed on standard input, which is nothing:
+# stdin is empty and is not authorable anywhere.
+while read -r line; do
+	printf 'read %s\n' "$line"
+done
+printf 'end\n'

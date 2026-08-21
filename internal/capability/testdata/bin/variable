@@ -1,0 +1,6 @@
+#!/bin/sh
+# variable writes what one named variable holds, and <unset> where the child's
+# environment does not carry it at all — the difference a withheld credential
+# slot has to be readable as.
+eval "held=\${$1-<unset>}"
+printf '%s\n' "$held"

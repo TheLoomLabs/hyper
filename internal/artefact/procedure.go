@@ -842,7 +842,7 @@ func checkStepArgs(file, field string, entry, argsVal *yaml.Node, op OperationIn
 			})
 			continue
 		}
-		if op.IsShell && name == "command" {
+		if op.IsShell && name == ShellCommandInput {
 			problems = append(problems, checkShellCommand(file, field+".command", val, stepIndex)...)
 			continue
 		}

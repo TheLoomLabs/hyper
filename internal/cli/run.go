@@ -166,6 +166,7 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		Now:        process.Now,
 		Mint:       process.Mint,
 		LookupEnv:  process.LookupEnv,
+		Environ:    process.Environ,
 		Dial:       process.Dial,
 		Exec:       process.Exec,
 		Narrator:   narration{stderr: stderr},

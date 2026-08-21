@@ -46,19 +46,21 @@ type process struct {
 	wdErr     error
 	getwd     int
 	lookupenv int
+	environ   int
 	now       int
 	mint      int
 	dial      int
 	exec      int
 }
 
-// value is the six as cli.Main takes them: one value, wired to the counting
+// value is the nine as cli.Main takes them: one value, wired to the counting
 // methods beneath it. It is what every case here hands the entry point, so that
 // a case reads as the invocation it is about rather than as an assembly of
 // stand-ins.
 func (p *process) value() cli.Process {
 	return cli.Process{
 		LookupEnv: p.LookupEnv,
+		Environ:   p.Environ,
 		Getwd:     p.Getwd,
 		Now:       p.Now,
 		Mint:      p.Mint,
@@ -105,6 +107,14 @@ func (p *process) Dial(context.Context, string, string) (net.Conn, error) {
 	return nil, errors.New("this process dials nothing")
 }
 
+// Environ answers an environment with nothing in it, which is the same
+// environment LookupEnv above stands for read the other way round. No case here
+// starts a child, so the whole of what this stands for is the count beside it.
+func (p *process) Environ() []string {
+	p.environ++
+	return nil
+}
+
 // Exec starts nothing, and answers nothing to wait on: a case that reached this
 // has already failed its count, and there is no child here for it to go on to
 // run.
@@ -131,6 +141,7 @@ func (p *process) untouched(t *testing.T) {
 		{"the clock was read", p.now},
 		{"a Run id was minted", p.mint},
 		{"a host was dialled", p.dial},
+		{"the environment was read whole", p.environ},
 		{"a child process was started", p.exec},
 	} {
 		if read.count != 0 {

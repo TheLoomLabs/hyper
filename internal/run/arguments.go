@@ -27,7 +27,100 @@ import (
 
 // arguments reads the Step's `args:` for one member: every declared input
 // filled, literals read against the type declared at that position and
-// references resolved against what this Expansion is ranging over.
+// references resolved against what this Expansion is ranging over — and, on a
+// `shell` Operation, the argv beside them.
+//
+// What one position reads to is argument's below, and this is the walk over the
+// positions an Operation declares. The one fault it answers itself is an input
+// nothing supplies, which is `schema-mismatch` at load and a Run that reached
+// Step 1 could not have (§6, ADR-0064).
+func (r run) arguments(operation artefact.OperationInfo, authored sequenced, resolving member, cited citation) (resolvedArgs, *Refusal, error) {
+	read := resolvedArgs{Inputs: make(map[string]schema.Scalar, len(authored.Args))}
+	for _, name := range slices.Sorted(keys(operation.Inputs)) {
+		node := authored.Args[name]
+		if node == nil {
+			return resolvedArgs{}, nil, fmt.Errorf("step %s supplies no %s, which %s declares — hyper check reports it", named(authored), name, authored.Operation)
+		}
+
+		// The `shell` Capability's one input is the argv, and it is a
+		// list rather than a value: read as a scalar it would be a
+		// declared input nothing could supply. It fills no position on
+		// §12's two-column table — `hyper` execs the list rather than
+		// serialising it — so it is resolved here and held beside the
+		// inputs rather than among them (§3, §12, ADR-0051, ADR-0081).
+		if operation.IsShell && name == artefact.ShellCommandInput {
+			argv, declined, err := r.argv(authored, resolving, node, cited)
+			if err != nil || declined != nil {
+				return resolvedArgs{}, declined, err
+			}
+			read.Argv = argv
+			continue
+		}
+
+		value, declined, err := r.argument(schema.Type(operation.Inputs[name].Type), name, node, authored, resolving, cited)
+		if err != nil || declined != nil {
+			return resolvedArgs{}, declined, err
+		}
+		read.Inputs[name] = value
+	}
+	return read, nil, nil
+}
+
+// resolvedArgs is one member's `args:` at its turn: the inputs read against the
+// types their positions declare, and — on a `shell` Operation — the argv its
+// `command:` resolved to.
+//
+// The argv is a member of its own rather than an input among the others
+// because it is not one: every other input is a scalar meeting §12's two-column
+// table, and this is a list `hyper` hands to a process. A map of scalars with a
+// list wedged into it would be a shape every reader of the inputs would have to
+// know about, and none of them does.
+type resolvedArgs struct {
+	Inputs map[string]schema.Scalar
+	// Argv is nil on every Operation but a `shell` one, which is the only
+	// place a list reaches anything (§12, schema.ReadScalar).
+	Argv []string
+}
+
+// argv is a `shell` Step's `command:` resolved for one member: the argv words
+// in the order they were authored, first word first (§3, ADR-0051).
+//
+// **The first member is the reach axis and is a literal.** A reference there
+// would put the choice of binary in a value the world supplied, which is the
+// arrival ADR-0029 closed for a host reappearing on the one Capability no grant
+// bounds — so `command-malformed` refuses it at load, offline, and nothing here
+// re-decides it. What stands here for the shape `check` already refused is a
+// halt saying so rather than an argv `hyper` assembled from a reference anyway
+// (ADR-0064).
+//
+// Every member after the first is referenceable, which is what makes an
+// Expansion writable at all, and each is read exactly as a `string` input is
+// read: characters against the declared type, one function over both (ADR-0081).
+func (r run) argv(authored sequenced, resolving member, node *yaml.Node, cited citation) ([]string, *Refusal, error) {
+	if node.Kind != yaml.SequenceNode {
+		return nil, nil, fmt.Errorf("step %s writes a command: that is not a list of argv words — hyper check reports it", named(authored))
+	}
+	if len(node.Content) == 0 {
+		return nil, nil, fmt.Errorf("step %s writes an empty command:, and there is no executable to name — hyper check reports it", named(authored))
+	}
+	if head := node.Content[0]; head.Kind != yaml.ScalarNode {
+		return nil, nil, fmt.Errorf("step %s writes a command: whose first member is not a literal, and the first member is the reach axis — hyper check reports it", named(authored))
+	}
+
+	words := make([]string, 0, len(node.Content))
+	for at, item := range node.Content {
+		word, declined, err := r.argument(schema.String, fmt.Sprintf("%s[%d]", artefact.ShellCommandInput, at), item, authored, resolving, cited)
+		if err != nil || declined != nil {
+			return nil, declined, err
+		}
+		words = append(words, word.Text())
+	}
+	return words, nil, nil
+}
+
+// argument reads one authored `args:` position for one member: a literal
+// against the type declared there, and a reference resolved against what the
+// Expansion is ranging over.
 //
 // **This is where a stored value meets the type an input declares.** It is read
 // exactly as an authored scalar is read at load — characters against the
@@ -39,51 +132,45 @@ import (
 // same code again.
 //
 // The error beside the Refusal is a fault `check` has already reported and this
-// milestone cannot reach: an input nothing supplies, and an authored literal
-// whose characters do not read. Both are `schema-mismatch` at load, and a Run
-// that reached Step 1 is a Run whose artefacts passed (§6, ADR-0064).
-func (r run) arguments(operation artefact.OperationInfo, authored sequenced, resolving member, cited citation) (map[string]schema.Scalar, *Refusal, error) {
-	read := make(map[string]schema.Scalar, len(authored.Args))
-	for _, name := range slices.Sorted(keys(operation.Inputs)) {
-		node := authored.Args[name]
-		if node == nil {
-			return nil, nil, fmt.Errorf("step %s supplies no %s, which %s declares — hyper check reports it", named(authored), name, authored.Operation)
-		}
-		declared := schema.Type(operation.Inputs[name].Type)
-
-		text := node.Value
-		if node.Kind == yaml.MappingNode {
-			referenced, resolved := r.reference(authored, resolving, node)
-			if !resolved {
-				declined := r.refusal(schema.CodeMismatch,
-					fmt.Sprintf("%s resolves to nothing on %s, and every input %s declares is supplied", referenceText(node), expansionMember(resolving.Name, cited), authored.Operation),
-					cited.at(node.Line, "args."+name))
-				return nil, &declined, nil
-			}
-			held, isScalar := scalarText(referenced)
-			if !isScalar {
-				declined := r.refusal(schema.CodeMismatch,
-					fmt.Sprintf("%s resolves to %s on %s, and %s declares %s a %s", referenceText(node), describe(referenced), expansionMember(resolving.Name, cited), authored.Operation, name, declared),
-					cited.at(node.Line, "args."+name))
-				return nil, &declined, nil
-			}
-			text = held
-		}
-
-		value, reads := schema.ReadScalar(declared, text)
-		if !reads {
-			if node.Kind != yaml.MappingNode {
-				return nil, nil, fmt.Errorf("step %s writes %s: %s, which does not read as the %s %s declares it",
-					named(authored), name, node.Value, declared, authored.Operation)
-			}
+// milestone cannot reach: an authored literal whose characters do not read.
+// That is `schema-mismatch` at load, and a Run that reached Step 1 is a Run
+// whose artefacts passed (§6, ADR-0064).
+//
+// name is the position as a message and a citation name it — an input's own
+// name, or `command[2]` for one argv word — so that a Refusal says which of a
+// Step's lines it was.
+func (r run) argument(declared schema.Type, name string, node *yaml.Node, authored sequenced, resolving member, cited citation) (schema.Scalar, *Refusal, error) {
+	text := node.Value
+	if node.Kind == yaml.MappingNode {
+		referenced, isResolved := r.reference(authored, resolving, node)
+		if !isResolved {
 			declined := r.refusal(schema.CodeMismatch,
-				fmt.Sprintf("%s resolves to %q on %s, which does not read as the %s %s declares %s", referenceText(node), text, expansionMember(resolving.Name, cited), declared, authored.Operation, name),
+				fmt.Sprintf("%s resolves to nothing on %s, and every input %s declares is supplied", referenceText(node), expansionMember(resolving.Name, cited), authored.Operation),
 				cited.at(node.Line, "args."+name))
-			return nil, &declined, nil
+			return schema.Scalar{}, &declined, nil
 		}
-		read[name] = value
+		held, isScalar := scalarText(referenced)
+		if !isScalar {
+			declined := r.refusal(schema.CodeMismatch,
+				fmt.Sprintf("%s resolves to %s on %s, and %s declares %s a %s", referenceText(node), describe(referenced), expansionMember(resolving.Name, cited), authored.Operation, name, declared),
+				cited.at(node.Line, "args."+name))
+			return schema.Scalar{}, &declined, nil
+		}
+		text = held
 	}
-	return read, nil, nil
+
+	value, reads := schema.ReadScalar(declared, text)
+	if !reads {
+		if node.Kind != yaml.MappingNode {
+			return schema.Scalar{}, nil, fmt.Errorf("step %s writes %s: %s, which does not read as the %s %s declares it",
+				named(authored), name, node.Value, declared, authored.Operation)
+		}
+		declined := r.refusal(schema.CodeMismatch,
+			fmt.Sprintf("%s resolves to %q on %s, which does not read as the %s %s declares %s", referenceText(node), text, expansionMember(resolving.Name, cited), declared, authored.Operation, name),
+			cited.at(node.Line, "args."+name))
+		return schema.Scalar{}, &declined, nil
+	}
+	return value, nil, nil
 }
 
 // reference resolves one of the format's two reference forms, which are the

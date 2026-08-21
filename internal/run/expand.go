@@ -162,7 +162,11 @@ type member struct {
 	// `identity:` resolves before the call — "" where it reads from the
 	// response and there is nowhere earlier than the answer to decide it
 	// (§3, ADR-0072).
-	Inputs   map[string]schema.Scalar
+	Inputs map[string]schema.Scalar
+	// Argv is the argv this member's call execs, and nil on every
+	// Capability but `shell` — the one place a list-typed input reaches
+	// anything at all (§3, §12, ADR-0051).
+	Argv     []string
 	Identity string
 }
 
@@ -284,7 +288,7 @@ func (r run) expand(bound binding, authored sequenced, position int) (expansion,
 	// template hole is filled from the inputs the Expansion just resolved
 	// (§3, §12).
 	for index, resolving := range held.Members {
-		inputs, declined, err := r.arguments(bound.operation, authored, resolving, cited)
+		read, declined, err := r.arguments(bound.operation, authored, resolving, cited)
 		if err != nil {
 			return expansion{}, nil, err
 		}
@@ -292,11 +296,12 @@ func (r run) expand(bound binding, authored sequenced, position int) (expansion,
 			found.Arguments = append(found.Arguments, *declined)
 			continue
 		}
-		identity, err := identityBeforeTheCall(bound.operation, inputs, authored)
+		identity, err := identityBeforeTheCall(bound.operation, read.Inputs, authored)
 		if err != nil {
 			return expansion{}, nil, err
 		}
-		held.Members[index].Inputs, held.Members[index].Identity = inputs, identity
+		held.Members[index].Inputs, held.Members[index].Argv = read.Inputs, read.Argv
+		held.Members[index].Identity = identity
 	}
 	if declined := found.declined(); len(declined) > 0 {
 		return held, declined, nil

@@ -1,0 +1,10 @@
+kind: procedure
+procedure: where-am-i
+targets: [local]
+steps:
+  - id: where
+    definition: host-checks
+    operation: read
+    target: local
+    args:
+      command: [where]

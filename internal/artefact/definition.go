@@ -177,6 +177,15 @@ type OperationInfo struct {
 	Identity string
 }
 
+// ShellCommandInput is the one input a `shell` Operation's request is: the
+// argv, arriving in a Step's `args:` under this name (§3, §12, ADR-0051).
+//
+// The words are the Step's rather than the Manifest's — a `shell:` block
+// carries no keys at all — so this name is the whole of the coupling between
+// the Capability and the Procedure that supplies it, and the two readings of
+// it, `check`'s and a Run's, spell it once.
+const ShellCommandInput = "command"
+
 // IsOpaqueDestroy reports whether this Operation is the one Step §5's Bound
 // rule and its over: requirement both turn on — a destroy Operation whose
 // request is opaque, the shell Capability (§4, §5, §13, issue #95).

@@ -363,7 +363,9 @@ an API returns (§4) — so it is decided where it can be, against the response 
 Which path failed is what decides. A path a recorded field is read from resolving to nothing is
 absence: the field is not written on that version, which is the fact the `exists` and `absent`
 operators read (§12), and it is not silent — the bytes moved, so a version is minted and the field
-going quiet renders as a change like any other (§8). A path a Record's identity is read from is an
+going quiet renders as a change like any other (§8). Where **every** projected path resolves to nothing
+the version carries no `fields` at all, which is that same absence and not a shape of its own (§7,
+[ADR-0084](../adr/0084-a-version-carrying-no-fields-is-not-a-tombstones-alone.md)). A path a Record's identity is read from is an
 error in the sense above, and so is the path an Operation of `series` cardinality reads its Records
 from: without the first `hyper` cannot say which Record it is holding, and without the second it
 cannot tell a collection that was empty from a path that was wrong — the *I recorded nothing* the

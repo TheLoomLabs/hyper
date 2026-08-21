@@ -1,0 +1,8 @@
+kind: target-declaration
+target: paid-api
+class: paid
+kinds: [read]
+capabilities: [http]
+hosts: [api.paid.example]
+auth:
+  token: {env: PAID_API_TOKEN}

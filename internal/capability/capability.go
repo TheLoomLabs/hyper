@@ -4,22 +4,28 @@
 // and a Target declaration grants them; what an Operation's request block says
 // and what performing it does are one subject, and this is where both live.
 //
-// What lands with this ticket is the `http` half: a Manifest's http: block
-// read, its template holes filled from an Operation's resolved inputs, the
-// request performed, and the response object §12 closes at five members
-// assembled back. `shell` is the other half and is issue #142's.
+// Both halves are here. The `http` one is a Manifest's http: block read, its
+// template holes filled from an Operation's resolved inputs, the request
+// performed, and the response object §12 closes at five members assembled back
+// (issue #133). The `shell` one is an argv exec'd directly and the object §12
+// closes at four assembled out of what the child did (issue #142) — shallower
+// by a long way, and deliberately so: `hyper`'s own shell Provider is the only
+// one that may declare that Capability (ADR-0039) and it knows nothing whatever
+// about the command, so there is no request block to read and the words are the
+// Step's.
 //
 // It is the milestone's deep module in the one sense that matters: everything
-// above it is handed an object with five members and never a socket. Nothing
-// outside this package opens a connection, reads a status line, parses a body
-// or looks at a certificate — and the projection above it (internal/projection)
-// reads paths against the object rather than against the bytes that came back
-// (§3, ADR-0040).
+// above it is handed an object with named members and never a socket or a
+// process. Nothing outside this package opens a connection, reads a status
+// line, parses a body, looks at a certificate or waits on a child — and the
+// projection above it (internal/projection) reads paths against the object
+// rather than against the bytes that came back (§3, ADR-0040).
 //
-// The connection itself arrives as a parameter and is never reached for: Dial
-// is threaded from cli.Process, which is what lets a case exercise a real
-// handshake against a server standing in the test process with the name
-// resolution the only thing a fixture supplies (issue #134).
+// Neither performer is reached for. Dial and Exec are threaded from
+// cli.Process, which is what lets a case exercise a real handshake against a
+// server standing in the test process and a real child against a script a
+// fixture checked in, with the name resolution the only thing a fixture
+// supplies (issues #134, #142).
 package capability
 
 import (
@@ -28,7 +34,7 @@ import (
 	"fmt"
 )
 
-// The five members of the http response object, in §12's own order, which is
+// The five members of the `http` response object, in §12's own order, which is
 // the order they are assembled and rendered in. They are named here rather
 // than spelled at each site because a projection path names them too — a
 // Manifest writes $.tls.days_left — so a second spelling of one of them is a

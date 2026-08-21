@@ -50,7 +50,20 @@ type RecordVersion struct {
 	// is not a case hyper disambiguates.
 	//
 	// Nil and empty are one value: a version carrying no projected content
-	// at all, which only a Tombstone may be. A decode answers nil.
+	// at all, and the key is not written. A decode answers nil.
+	//
+	// Two versions reach that state and neither is a defect. A Tombstone
+	// opening the series it ends has no previous Head to copy forward, and
+	// the absence means *hyper destroyed this and never observed what it
+	// was* (§7, ADR-0033). An ordinary version reaches it where **every**
+	// path its Manifest projected resolved to nothing, which is the
+	// ordinary field absence §6 states applied to all of them at once: a
+	// `shell` command that could not be started at all answers `command`
+	// and nothing else, and the built-in Provider projects `exit_code`,
+	// `stdout` and `stderr` (§12, issue #142). The two are never confused
+	// for each other — `tombstone` is a written marker and not the
+	// absence — and what the second says is exactly what it looks like:
+	// hyper made the call and read nothing back off it.
 	Fields Mapping
 }
 
@@ -110,16 +123,7 @@ type Metadata struct {
 }
 
 // Encode writes a Record version in §7's canonical encoding.
-//
-// It declines to write an ordinary version carrying no Fields. A Tombstone is
-// the one version whose fields can be missing, and it can be missing them for
-// no reason other than opening the series it ends — so the absence needs no
-// marker beside it, and an ordinary version arriving without them would be that
-// distinction quietly lost (§7, ADR-0033).
 func (v RecordVersion) Encode() []byte {
-	if !v.Tombstone && len(v.Fields) == 0 {
-		impossible("a version of %s/%s/%s carries no fields: only a Tombstone may, and only where it opens the series (§7)", v.Identity.Target, v.Identity.Definition, v.Identity.Name)
-	}
 	return file(RecordSchemaVersion, "a Record version", recordVersionMembers, func(m members) {
 		m.text("target", v.Identity.Target)
 		m.text("definition", v.Identity.Definition)
@@ -159,10 +163,12 @@ func DecodeRecordVersion(data []byte) (RecordVersion, error) {
 		v.WrittenAt = r.at("written_at")
 		v.Step = r.position("step")
 		v.Tombstone = r.mark("tombstone")
+		// `fields` is not required on any version. It is absent on a
+		// Tombstone opening the series it ends, and absent on an
+		// ordinary version whose every projected path resolved to
+		// nothing — a `shell` command that could not be started at all
+		// being where the second arrives (§6, §7, issue #142).
 		v.Fields = r.nested("fields")
-		if !v.Tombstone {
-			r.require("fields")
-		}
 
 		if provenance := r.block("provenance"); provenance != nil {
 			provenance.require(runProvenanceMembers...)

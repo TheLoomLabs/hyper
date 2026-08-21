@@ -1,0 +1,7 @@
+#!/bin/sh
+# argv writes each word it was handed on a line of its own, which is how a case
+# reads back what reached the process: no shell stood between the artefact and
+# this one, so a pipe, a glob and an && arrive as words like any other.
+for word in "$@"; do
+	printf '%s\n' "$word"
+done

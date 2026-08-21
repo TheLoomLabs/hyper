@@ -94,6 +94,14 @@ names one in a **`repo-from`** file instead, and the ones here are:
   has. Each case seeds its own branch under `store/` and names the Procedure it
   runs, so the population a selector reaches is the case's and the artefacts are
   shared.
+- [`repo-shell/`](repo-shell) — the `shell` Capability's `read` half (issue
+  #142): the built-in Provider bound by a `read` Definition and a `mutate` one,
+  a `local` granting `shell`, a second Target declaration nothing binds whose
+  `auth:` names the variable the child must not inherit, and nine Procedures —
+  one per shape a command has. The argv is the **Procedure's** and
+  the binary is the **case's**: each case holds a `bin/` directory its argv head
+  resolves against, so what a command printed, what it exited with and whether
+  it could be started at all are the fixture's facts rather than the machine's.
 
 The rest carry a repository of their own, each written for the one edge it
 drives.
@@ -160,7 +168,49 @@ drives.
 | `an-expansion-with-no-declared-limit` | the same over an Operation declaring no `concurrency:`, which is the serial half of ADR-0045 |
 | `two-read-steps-do-not-overlap` | two `read` Steps of two members each, both under `concurrency: 2` — all concurrency lives inside one Step's Expansion (ADR-0002) |
 | `a-step-with-no-selector-under-a-limit` | a Step carrying no `over:` bound to an Operation declaring `concurrency: 4`: one call, which is a set of one and inside any limit ever written |
+| `a-shell-step-records-what-a-command-printed` | the `shell` tracer bullet: the argv exec'd, the four-member object projected, and one Observation named by the command it ran |
+| `a-command-that-exited-non-zero` | a `read` never halts on an exit code: `3` is recorded, the Step is *ran*, and the Run completes at `0` |
+| `a-command-that-could-not-be-started` | the binary the Procedure names is not in the case's `bin/`: the object is `command` alone, the Observation carries **no fields at all**, and the Step is still *ran* — the attempt is the answer (ADR-0084) |
+| `a-command-answering-in-json-is-recorded-as-text` | stdout is never parsed: what lands in the version is the string the command printed, braces and all |
+| `an-argv-words-reference-is-checked-offline` | every argv word after the first is referenceable, and one naming a field the Record does not carry is `reference-unresolvable` at `77` — decided by `check` with no Store and no process, and cited down to `steps[1].args.command[1].path` |
+| `an-argv-is-not-a-shell` | a pipe, a glob, an `&&`, a `$HOME` and a `>` reach the process as literal argv words, there being no shell between the artefact and it (ADR-0051) |
+| `two-argv-spellings-are-two-series` | `[words, "a b"]` and `[words, a, b]` write two Record series, which is what the JSON encoding of `command` is injective for |
+| `two-steps-running-one-argv-write-two-versions` | one argv, two Steps, one Definition and Target: two versions of one series, the command answering differently the second time |
+| `the-child-stands-in-the-repository-root` | `cwd` is fixed and unauthorable: the command finds `hyper.yaml` and `procedures/` beside it |
+| `the-child-inherits-no-credential-slot` | the environment less every credential-slot variable **in the repository**: the case sets both, the command prints both, and the one a Target declaration names — a declaration no Step of this Run binds — reads `<unset>` |
+| `an-expansion-of-shell-steps-is-serial` | an Expansion of three over an Operation declaring no `concurrency:`: each member appends to a file the next one reads, so the three stdouts accumulate in Expansion order — which is serial dispatch shown rather than described |
+| `a-shell-mutate-step-declines` | the other half of the Capability is not built: a `mutate` shell Step declines at `2` with no entry written |
 | `usage-no-concurrency-flag` | there is no `--concurrency`: `2`, an unknown flag, and stdout silent. How much of an Expansion runs at once is a Manifest's and nobody else's |
+
+## How a case reaches a binary, and what it costs
+
+A `shell` Step's argv head is a name, and what a name resolves to is the
+machine's `PATH` — which is the one thing a golden may not depend on. So the
+harness supplies **name resolution** and nothing else, which is the arrangement
+the dialer already has one Capability over: a case's argv head resolves against
+that case's own `bin/` directory, and a case that holds none, or whose argv
+names a binary its `bin/` does not hold, reaches nothing at all. That is what
+[`a-command-that-could-not-be-started`](a-command-that-could-not-be-started)
+drives, and its `bin/` deliberately holds a script under a *different* name, so
+the case is a directory that exists and a binary that is not in it.
+
+The argv itself is untouched. A `shell` Record is named by the argv as run
+(§12), so a harness that rewrote the head into an absolute path under a temp
+directory would put a value nobody can check in into every `store.golden`.
+
+The **launcher is the real one** — `cli.Child`, the value the binary wires — so
+the process group and the SIGKILL a deadline sends it are exercised by the same
+code path a Run takes. What a golden cannot drive is the deadline: the built-in
+`shell` Provider declares **one hour** on every Operation and no repository may
+edit it, so the case that costs a second is not writable here. The group kill,
+the grandchild that does not outlive it, and the response object under a
+deadline are [`../../child_test.go`](../../child_test.go)'s and
+[`../../../capability/shell_test.go`](../../../capability/shell_test.go)'s.
+
+A case's `env` file is the child's whole environment, less the credential slots.
+It carries no `PATH`, which is why every fixture script under a `bin/` uses
+shell builtins alone: a script reaching for `cat` would be reaching for the
+machine.
 
 ## What a Refusal's page looks like, and what stands in for §8's
 
@@ -240,6 +290,15 @@ member at once — and the case costs that second, which is what the one fact
 nothing else can drive is worth.
 
 ## What no golden here proves
+
+**That a `shell` Step's own dispatch is the `http` one.** There is one call site
+and one limit — `dispatch(bound.detail.ConcurrencyLimit, …)` — reached by both
+Capabilities, so *a shell Step honours `concurrency:` exactly as an http one
+does* is true by construction rather than by a case.
+[`an-expansion-of-shell-steps-is-serial`](an-expansion-of-shell-steps-is-serial)
+shows the built-in's own end of it: it declares no `concurrency:`, so its
+Expansion is serial, and the accumulating stdout is what serial looks like from
+the branch.
 
 **How much of an Expansion ran at once.** A limit, a dispatch order and *two
 Steps never overlap* are all facts about **when** calls happened, and a branch

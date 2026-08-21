@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"context"
-	"os/exec"
 	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/capability"
@@ -26,7 +24,8 @@ import (
 // they count, and the milestone that adds a seventh read changes no signature
 // at all (issue #134). The seventh and the eighth landed with `run`, which is
 // the claim made good: User and Hostname were added below and no signature in
-// the tree moved.
+// the tree moved. The ninth landed with the `shell` Capability and moved none
+// either (issue #142).
 //
 // It is one trade and worth naming. A command handed the whole value says *I
 // may read the process* where its signature used to say *I read the clock and
@@ -49,6 +48,22 @@ type Process struct {
 	// set — a variable set to the empty string is present and says so (§9,
 	// §5, issue #112).
 	LookupEnv func(name string) (string, bool)
+
+	// Environ is the whole environment, and it is read for exactly one
+	// thing: a `shell` Operation's child inherits the invoking environment
+	// with every credential-slot variable in the repository removed (§3,
+	// §11, issue #142).
+	//
+	// It is a second read of one subject rather than a widening of the
+	// first, and the two cannot be folded. LookupEnv answers *what does this
+	// name hold*, which is the whole of what a credential slot and
+	// HYPER_REPO_DIR ask; composing a child's environment is a subtraction,
+	// and a set of names nothing enumerates is not a set anything can
+	// subtract from. Nothing else in the tree reads it: the git subprocesses
+	// internal/store runs compose their own deliberate inheritance, which is
+	// the record's transport rather than anything an artefact named (§7,
+	// ADR-0006).
+	Environ func() []string
 
 	// Getwd is where the invocation is standing. The dispatch calls it on the
 	// repository commands' arm and hands the answer down, so no command
@@ -139,5 +154,9 @@ type Process struct {
 	// package's own deliberate inheritance, and a deadline that SIGKILLed a
 	// push mid-write would be a bound nothing declared. They do not come
 	// through here, and a Manifest cannot reach them (§7, ADR-0006).
-	Exec func(ctx context.Context, argv []string) *exec.Cmd
+	//
+	// It names the type for Dial's own reason: one signature, spelled where
+	// the Capability that starts a child through it is stated rather than
+	// twice. Child below is the value the binary wires into it (issue #142).
+	Exec capability.Exec
 }

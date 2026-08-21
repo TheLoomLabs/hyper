@@ -280,18 +280,13 @@ func TestDecodeClosedBy_RefusesAStartedAtItCouldNotKnow(t *testing.T) {
 }
 
 // What the shapes will not write. Each of these is a rule §7 states absolutely,
-// and none of the three can arrive from the world — the Fields are hyper's own
-// projection, the answer is hyper's own account of a call it made, and the
-// position is hyper's own counter — so a violation is hyper's arithmetic being
-// wrong, which paths.go answers the same way.
+// and none of them can arrive from the world — the answer is hyper's own
+// account of a call it made, and the position is hyper's own counter — so a
+// violation is hyper's arithmetic being wrong, which paths.go answers the same
+// way.
 
 func TestEveryShape_RefusesToWriteWhatSectionSevenSaysCannotExist(t *testing.T) {
 	for name, encode := range map[string]func(){
-		"an ordinary version carrying no fields": func() {
-			version := recordVersion(t)
-			version.Fields = nil
-			version.Encode()
-		},
 		"an answer naming neither a host nor a command": func() {
 			file := stepFile()
 			file.Answered = store.ShellAnswer{}
@@ -331,6 +326,37 @@ func TestEveryShape_RefusesToWriteWhatSectionSevenSaysCannotExist(t *testing.T) 
 			}()
 			encode()
 		})
+	}
+}
+
+// TestEncode_AVersionCarryingNoFieldsIsWritten is the state a projection that
+// resolved to nothing at every path leaves: the key is absent and the version
+// is a version like any other (§6, §7, issue #142).
+//
+// A `shell` command that could not be started at all is where it arrives — the
+// response object is `command` and nothing else, and the built-in Provider
+// projects `exit_code`, `stdout` and `stderr` — and it is the ordinary field
+// absence §6 states applied to all of a projection at once rather than a shape
+// of its own. What keeps it apart from a Tombstone opening the series it ends
+// is the marker beside it and never the absence.
+func TestEncode_AVersionCarryingNoFieldsIsWritten(t *testing.T) {
+	version := recordVersion(t)
+	version.Fields = nil
+
+	written := string(version.Encode())
+	if strings.Contains(written, `"fields"`) {
+		t.Errorf("a version carrying no projected content writes a fields key:\n%s", written)
+	}
+
+	read, err := store.DecodeRecordVersion([]byte(written))
+	if err != nil {
+		t.Fatalf("the version would not read back: %v", err)
+	}
+	if read.Fields != nil {
+		t.Errorf("the version read back with fields %v, want none at all", read.Fields)
+	}
+	if read.Tombstone {
+		t.Error("the version read back as a Tombstone, and what tells the two apart is the marker rather than the absence")
 	}
 }
 

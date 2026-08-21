@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/store"
 	"github.com/TheLoomLabs/hyper/internal/version"
@@ -137,6 +139,11 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //     git fixture, which golden_fixture_test.go states in full. A case
 //     supplying none of them is driven exactly as it was before issue #125 —
 //     same directory, same argv — which is every case that landed before it.
+//   - bin/, optional: the executables a `shell` Step's argv may reach. A case's
+//     argv head resolves against it and against nothing else, so an exit code,
+//     a stdout and a stderr are the fixture's rather than the machine's; a case
+//     with no bin/, or one naming a binary its bin/ does not hold, reaches no
+//     binary at all.
 //   - serve/, optional: what the world answers, one `<host>.json` per host —
 //     a status, headers and a body, or the host that accepts the connection and
 //     answers nothing at all. The harness stands one in-process TLS
@@ -169,31 +176,34 @@ func TestGolden(t *testing.T) {
 // inputs and nothing else, which is what makes a golden a statement about the
 // command rather than about the machine the suite ran on (issues #134, #135).
 //
-// Exec fails the case rather than answering it. Nothing behind the dispatch
-// starts a child in this milestone, and that is deliberate — the reads were
-// threaded ahead of the first command to make them — so the corpus is where the
-// claim is checked: a case that reaches it is a case whose golden could not have
-// been asserted, and the ticket that first calls it is the ticket that says what
-// a fixture supplies in its place. The other two have been claimed: the dialer
-// by `probe` and the mint by `run`, and each is opted into by the file a case
-// writes — a serve/ entry, and a mint line — with a case that reaches one and
-// wrote none failing on the footing Exec still stands on.
+// All three of the threaded reads have now been claimed, each opted into by a
+// file a case writes: the dialer by `probe` and `run` through a serve/ entry,
+// the mint by `run` through a mint line, and the launcher by a `shell` Step
+// through a bin/ directory (issue #142). The launcher is the real one and the
+// opt-in is that directory rather than a stand-in — what a case may exec is
+// what its bin/ holds, so a case that names a binary it does not hold drives
+// *the command could not be started at all* and a case that names nothing execs
+// nothing.
 func (c goldenCase) process(t *testing.T, run goldenRun) cli.Process {
 	t.Helper()
 
 	instant := c.instant(t)
+	env := c.variables(t)
 	return cli.Process{
-		LookupEnv: c.environment(t),
+		LookupEnv: c.environment(env),
+		Environ:   c.environ(env),
 		Getwd:     func() (string, error) { return run.wd, nil },
 		User:      func() (string, error) { return c.actor(t), nil },
 		Hostname:  func() (string, error) { return c.hostname(t), nil },
 		Now:       func() time.Time { return instant },
 		Mint:      c.mint(t),
 		Dial:      c.dialer(t, instant),
-		Exec: func(context.Context, []string) *exec.Cmd {
-			t.Errorf("case %s started a child process, and this harness launches none", c.name)
-			return nil
-		},
+		// The real launcher, with the fixture supplying name
+		// resolution: a case that started its child through a stand-in
+		// would leave the process group and the SIGKILL unchecked, and
+		// what a golden asserted would be the harness's account of a
+		// command rather than a command's (issue #142).
+		Exec: c.launcher(t),
 	}
 }
 
@@ -397,18 +407,19 @@ func (c goldenCase) abs(t *testing.T, path string) string {
 	return resolved
 }
 
-// environment is the environment the case is driven against, read from its own
+// variables is the environment the case is driven against, read from its own
 // env file: one NAME=value line per variable, and everything past the first "="
 // is the value, empty included. A case that supplies no env file is driven
 // against an environment with nothing in it, which is what every case that
 // names no variable means.
 //
-// It answers presence as well as value, os.LookupEnv's shape rather than
-// os.Getenv's, because a variable set to the empty string and one that was
-// never set are two different answers on `targets`'s presence column and a
-// corpus that could not state the difference could not hold the rule (§9,
-// issue #112).
-func (c goldenCase) environment(t *testing.T) func(string) (string, bool) {
+// It is the whole environment and not a starting point the harness adds to. A
+// `shell` Operation's child inherits it less the repository's credential slots
+// (§3, §11), so a case that prints a variable prints exactly what it wrote —
+// which is what lets a golden hold *this one was withheld and that one was not*
+// (issue #142). Nothing about where a binary is found comes through here: that
+// is name resolution, and the harness supplies it beside the launcher below.
+func (c goldenCase) variables(t *testing.T) map[string]string {
 	t.Helper()
 
 	env := map[string]string{}
@@ -422,10 +433,63 @@ func (c goldenCase) environment(t *testing.T) func(string) (string, bool) {
 		}
 		env[name] = value
 	}
+	return env
+}
 
+// environment is that map read one name at a time, which is os.LookupEnv's
+// shape rather than os.Getenv's: a variable set to the empty string and one
+// that was never set are two different answers on `targets`'s presence column,
+// and a corpus that could not state the difference could not hold the rule (§9,
+// issue #112).
+func (c goldenCase) environment(env map[string]string) func(string) (string, bool) {
 	return func(name string) (string, bool) {
 		value, present := env[name]
 		return value, present
+	}
+}
+
+// environ is the same map read whole, which is what a `shell` Operation's child
+// inherits less the repository's credential slots (§3, §11). It is sorted so
+// that a child's environment is one value however the map iterated.
+func (c goldenCase) environ(env map[string]string) func() []string {
+	return func() []string {
+		whole := make([]string, 0, len(env))
+		for _, name := range slices.Sorted(maps.Keys(env)) {
+			whole = append(whole, name+"="+env[name])
+		}
+		return whole
+	}
+}
+
+// launcher is the real one with the fixture supplying name resolution, which is
+// the arrangement the dialer already has one Capability over: a case's argv head
+// resolves against the case's own bin/ directory and never against the machine's
+// PATH, so what a command printed, what it exited with and whether it could be
+// started at all are the fixture's facts (issue #142).
+//
+// **The argv itself is untouched**, which is what makes a golden readable: the
+// Record a `shell` Step writes is named by the argv as run (§12), and a harness
+// that rewrote the head into an absolute path under a temp directory would put
+// a value nobody can check in into every store.golden. os/exec keeps the two
+// apart already — Path is the file that is executed and Args[0] is the word the
+// child is told it was invoked as — so this sets the first and leaves the
+// second.
+//
+// A case with no bin/, or whose argv names a binary its bin/ does not hold,
+// resolves to a path that is not there and the child cannot be started at all,
+// which is §12's one-member response object driven rather than described.
+func (c goldenCase) launcher(t *testing.T) capability.Exec {
+	t.Helper()
+
+	bin := c.abs(t, "bin")
+	return func(ctx context.Context, argv []string) *exec.Cmd {
+		child := cli.Child(ctx, argv)
+		child.Path = filepath.Join(bin, argv[0])
+		// LookPath's answer, discarded: what this case may exec is its
+		// bin/ and the machine's PATH has no say in it, including when
+		// it happens to hold a binary of the same name.
+		child.Err = nil
+		return child
 	}
 }
 

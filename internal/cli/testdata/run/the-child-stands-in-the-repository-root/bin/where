@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ -f hyper.yaml ] && [ -d procedures ]; then
+	printf 'the repository root\n'
+else
+	printf 'somewhere else\n'
+fi

@@ -1,0 +1,2 @@
+#!/bin/sh
+printf 'Filesystem  Use%%  Mounted on\n/dev/sda1   41%%  %s\n' "$1"

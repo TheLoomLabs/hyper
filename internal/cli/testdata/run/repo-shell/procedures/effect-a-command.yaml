@@ -1,0 +1,10 @@
+kind: procedure
+procedure: effect-a-command
+targets: [local]
+steps:
+  - id: effect
+    definition: host-effects
+    operation: mutate
+    target: local
+    args:
+      command: [touch, marker]

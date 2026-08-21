@@ -1,0 +1,6 @@
+#!/bin/sh
+# say <stdout> <stderr> <exit code> — the three things a command answers with,
+# each supplied by the case rather than decided here.
+printf '%s' "$1"
+printf '%s' "$2" >&2
+exit "$3"

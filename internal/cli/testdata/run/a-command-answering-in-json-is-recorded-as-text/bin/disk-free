@@ -1,0 +1,2 @@
+#!/bin/sh
+printf '{"result":{"mount":"%s","used_percent":41}}' "$1"
