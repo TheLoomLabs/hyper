@@ -405,24 +405,37 @@ func TestParsePath_RoundTripsEveryFormItWasBuiltFrom(t *testing.T) {
 		Name:       strings.Repeat("ü", 300),
 	}, run, 12)
 
+	// The two axes every Journal form answers, and neither of which the two
+	// forms that are not Journal entries carry.
+	const (
+		partition = "journal/2026/04/02"
+		dir       = partition + "/" + theRunID
+	)
+
 	for name, tc := range map[string]struct {
 		path string
 		want store.Path
 	}{
 		"the introduction": {store.IntroductionPath, store.Path{Form: store.FormIntroduction}},
 		"a Record version": {record, store.Path{Form: store.FormRecord, Run: run, Step: 12}},
-		"run.json":         {entry.RunPath(), store.Path{Form: store.FormRun, Run: run, Entry: run}},
+		"run.json": {
+			entry.RunPath(),
+			store.Path{Form: store.FormRun, Run: run, Entry: run, Partition: partition, Dir: dir},
+		},
 		"a Step file": {
 			entry.StepPath(9999),
-			store.Path{Form: store.FormStep, Run: run, Entry: run, Step: 9999},
+			store.Path{Form: store.FormStep, Run: run, Entry: run, Step: 9999, Partition: partition, Dir: dir},
 		},
-		"outcome.json": {entry.OutcomePath(), store.Path{Form: store.FormOutcome, Run: run, Entry: run}},
+		"outcome.json": {
+			entry.OutcomePath(),
+			store.Path{Form: store.FormOutcome, Run: run, Entry: run, Partition: partition, Dir: dir},
+		},
 		"a closing write": {
 			// The Run speaking wrote it and the Run spoken about
 			// owns the entry it sits in, which is the one form
 			// where the two are not one Run (ADR-0076).
 			entry.ClosedByPath(closer),
-			store.Path{Form: store.FormClosedBy, Run: closer, Entry: run},
+			store.Path{Form: store.FormClosedBy, Run: closer, Entry: run, Partition: partition, Dir: dir},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

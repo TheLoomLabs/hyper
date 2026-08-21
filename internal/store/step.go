@@ -370,6 +370,27 @@ func (f ClosedBy) Encode() []byte {
 	})
 }
 
+// Reading is what this closing write records about the Step the dead Run went
+// quiet on, in the shape a Step file records one — which is what lets §8 read
+// Dispositions generically across all seven values, and what makes *attempted,
+// outcome unknown* evidence for run-once whichever of the two files carries it
+// (§6, §7).
+//
+// It is a reading and not a file, and the difference is in the value rather
+// than in a comment: StartedAt is zero because the reaper does not know when
+// the Step began, and the Provenance, the identity set and the rest are absent
+// because it could not establish them. What that leaves would panic if it were
+// encoded, a Step file carrying members this one has none of — so a reading
+// cannot quietly become a file nobody wrote.
+func (f ClosedBy) Reading() StepFile {
+	return StepFile{
+		Step:        f.Step,
+		StepCode:    f.StepCode,
+		Disposition: DispositionAttemptedOutcomeUnknown,
+		EndedAt:     f.EndedAt,
+	}
+}
+
 // DecodeStepFile reads a Step file back to the value it was written from.
 func DecodeStepFile(data []byte) (StepFile, error) {
 	return decodeFile(data, StepSchemaVersion, func(r *fields, f *StepFile) {

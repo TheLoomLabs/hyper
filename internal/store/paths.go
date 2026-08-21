@@ -40,9 +40,19 @@ import (
 // together (§12).
 const recordsPrefix = "records/"
 
+// journalPrefix is what every Journal path begins with, and the whole of what a
+// listing of the branch's entries is read over. It is spelled here with the
+// others for recordsPrefix's own reason (§12).
+const journalPrefix = "journal/"
+
 // seriesPrefix is the listing one series' versions are read from: the series'
 // own directory, and the separator that keeps the listing inside it.
 func seriesPrefix(id Identity) string { return seriesDir(id) + "/" }
+
+// entryPrefix is the listing one Journal entry's files are read from: the
+// entry's own directory, and the separator that keeps the listing inside it —
+// which is what *is this entry closed* and *what did its Steps do* both list.
+func entryPrefix(e JournalEntry) string { return e.dir() + "/" }
 
 // IntroductionPath is where the branch introduces itself, and it is the one
 // path in the whole Store that carries no Run id: every other path names the
@@ -354,7 +364,7 @@ func (e JournalEntry) ClosedByPath(closer RunID) string {
 // Step's previous Run a backward walk over directories rather than a scan of
 // everything (§12).
 func (e JournalEntry) dir() string {
-	return "journal/" + e.Started.UTC().Format("2006/01/02") + "/" + e.Run.text
+	return journalPrefix + e.Started.UTC().Format("2006/01/02") + "/" + e.Run.text
 }
 
 // Form is which of §12's six path forms a path is. The zero value is no form:
@@ -408,6 +418,17 @@ type Path struct {
 	// version and a Step file — and zero on the rest, a Step's positions
 	// beginning at one.
 	Step int
+	// Partition and Dir are where a Journal path sits: the date partition,
+	// `journal/<yyyy>/<mm>/<dd>`, and the entry's own directory under it,
+	// with the Run id on the end. Both are empty on the two forms that are
+	// not Journal entries.
+	//
+	// They are the two axes the Journal is read along — a backward scan
+	// walks partitions and a read of one entry lists a directory — and they
+	// are answered here rather than cut out of the path by a caller: nothing
+	// outside this file takes a Store path apart, for the reason nothing
+	// outside it puts one together (§12).
+	Partition, Dir string
 }
 
 // ParsePath reads a Store path back to its shape, and refuses everything outside
@@ -487,13 +508,18 @@ func parseJournalPath(segments []string) (Path, error) {
 	if err != nil {
 		return Path{}, err
 	}
+	// The two axes the Journal is read along, built once for every form
+	// below rather than by each of them.
+	where := Path{Partition: journalPrefix + partition, Dir: strings.Join(segments[:5], "/")}
 
 	switch tail := segments[5:]; {
 	case len(tail) == 1 && tail[0] == "run.json":
-		return Path{Form: FormRun, Run: run, Entry: run}, nil
+		where.Form, where.Run, where.Entry = FormRun, run, run
+		return where, nil
 
 	case len(tail) == 1 && tail[0] == "outcome.json":
-		return Path{Form: FormOutcome, Run: run, Entry: run}, nil
+		where.Form, where.Run, where.Entry = FormOutcome, run, run
+		return where, nil
 
 	case len(tail) == 2:
 		// The two directories under an entry hold files and nothing
@@ -509,7 +535,8 @@ func parseJournalPath(segments []string) (Path, error) {
 			if err != nil {
 				return Path{}, err
 			}
-			return Path{Form: FormStep, Run: run, Entry: run, Step: step}, nil
+			where.Form, where.Run, where.Entry, where.Step = FormStep, run, run, step
+			return where, nil
 
 		case "closed-by":
 			closer, err := ParseRunID(name)
@@ -519,7 +546,8 @@ func parseJournalPath(segments []string) (Path, error) {
 			if closer == run {
 				return Path{}, fmt.Errorf("run %s closes its own entry: a closing write is a Run closing an entry it does not own (ADR-0076)", run)
 			}
-			return Path{Form: FormClosedBy, Run: closer, Entry: run}, nil
+			where.Form, where.Run, where.Entry = FormClosedBy, closer, run
+			return where, nil
 		}
 	}
 	return Path{}, fmt.Errorf("an entry holds run.json, steps/, outcome.json and closed-by/, and nothing else")

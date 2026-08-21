@@ -14,11 +14,17 @@
 // closing write, each with a schema version of its own — the read half (issue
 // #130): the sync that puts the branch in hand, the series the branch holds,
 // the Head derived from a listing and the case fold a collision is decided
-// under — and the removal (issue #131): Compaction's predicate, the one commit
-// it writes, and the push that re-applies an unpushed set of path operations
-// onto a fetched tip. The Journal reader is the milestone's remaining ticket;
-// the git layer they all go through is here already, unexported, and stays that
-// way until a caller outside this package earns it.
+// under — the removal (issue #131): Compaction's predicate, the one commit it
+// writes, and the push that re-applies an unpushed set of path operations onto
+// a fetched tip — and the Journal reader (issue #132): the entries the branch
+// holds, the classification that says how each one ended, the Disposition read
+// from a file or from a silence, and the backward scan through the date
+// partitions. The git layer they all go through is here already, unexported,
+// and stays that way until a caller outside this package earns it.
+//
+// The Journal reader has no CLI consumer in this milestone by construction. It
+// is what milestone 5's Run and milestone 8's renderings both stand on, and it
+// is here because the Journal is milestone 4's.
 //
 // The shapes are the encoder's own case: §7 states rules no command in this
 // milestone can reach, so they are verified at this package's own seam rather
