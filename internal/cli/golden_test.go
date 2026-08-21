@@ -138,7 +138,8 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //     supplying none of them is driven exactly as it was before issue #125 —
 //     same directory, same argv — which is every case that landed before it.
 //   - serve/, optional: what the world answers, one `<host>.json` per host —
-//     a status, headers and a body. The harness stands one in-process TLS
+//     a status, headers and a body, or the host that accepts the connection and
+//     answers nothing at all. The harness stands one in-process TLS
 //     server, mints its certificate against the case's `now`, and hands the
 //     entry point a dialer that maps every served hostname to it; a host with
 //     no entry has its connection refused. golden_serve_test.go states it in

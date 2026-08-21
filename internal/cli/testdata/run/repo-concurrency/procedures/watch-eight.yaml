@@ -1,0 +1,12 @@
+kind: procedure
+procedure: watch-eight
+targets: [local]
+steps:
+  - id: sites
+    definition: uptime-check
+    operation: check_four
+    target: local
+    over:
+      values: [site-1.hyper.dev, site-2.hyper.dev, site-3.hyper.dev, site-4.hyper.dev, site-5.hyper.dev, site-6.hyper.dev, site-7.hyper.dev, site-8.hyper.dev]
+    args:
+      host: {item: $}

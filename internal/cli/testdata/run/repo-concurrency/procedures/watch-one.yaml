@@ -1,0 +1,10 @@
+kind: procedure
+procedure: watch-one
+targets: [local]
+steps:
+  - id: site
+    definition: uptime-check
+    operation: check_four
+    target: local
+    args:
+      host: site-1.hyper.dev

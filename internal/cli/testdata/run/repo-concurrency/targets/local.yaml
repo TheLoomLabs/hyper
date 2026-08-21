@@ -1,0 +1,6 @@
+kind: target-declaration
+target: local
+class: local
+kinds: [read]
+capabilities: [http]
+hosts: [site-1.hyper.dev, site-2.hyper.dev, site-3.hyper.dev, site-4.hyper.dev, site-5.hyper.dev, site-6.hyper.dev, site-7.hyper.dev, site-8.hyper.dev]

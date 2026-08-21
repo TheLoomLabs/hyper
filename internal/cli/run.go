@@ -744,12 +744,12 @@ func rowsOf[T render.Row](rows []render.Row) []render.Row {
 // whose Expansion resolved to nothing concluded about nothing and writes `0`,
 // and a *refused* Step has no set at all and writes no key.
 //
-// §8's third form of the cell — `n of m`, where the Expansion reached `m` and
-// the rest are unaccounted for — is not here, and neither is the `expanded`
-// member beside it. A Step now expands (issue #139) and nothing that runs can
-// yet stop short of one: a member whose call halts the Run halts it there, so
-// there is no Step that reached `m` and concluded about fewer. It arrives with
-// the drain that makes it reachable (issue #140, issue #144).
+// expanded is a pointer for a reason of its own, and it is not the one above.
+// §8 puts it on the row **where the column renders `n of m`** — a Step that
+// stopped short of its Expansion — and there only where it differs from
+// `records`, which on such a Step it always does. Where the Step accounted for
+// its whole Expansion there is nothing for a second number to say (§8, issue
+// #140).
 type stepRow struct {
 	Type        string `json:"type"`
 	Step        int    `json:"step"`
@@ -757,11 +757,26 @@ type stepRow struct {
 	Kind        string `json:"kind"`
 	Disposition string `json:"disposition"`
 	Records     *int   `json:"records,omitempty"`
+	Expanded    *int   `json:"expanded,omitempty"`
 }
 
 // stepRowOf is one Step of the answer as a row. Records is written where the
 // Step concluded about anything at all and absent where it concluded about
 // nothing, which is the distinction §8's dash renders (ADR-0030).
+//
+// Expanded rides beside it where the Step **stopped short of its Expansion** —
+// a `read` Expansion that drained and then halted (§6) — and nowhere else. The
+// engine says which Steps those are by writing the count on them and on no
+// other, so what this reads is *did anything stand unaccounted for* rather than
+// *do two counts differ*, which is a question the arithmetic alone cannot
+// answer (run.Step).
+//
+// A Disposition carrying no set never carries it either, whatever its Expansion
+// resolved to. *attempted, world untouched* is the case §8 names: a `destroy`
+// whose Expansion resolved to five and whose first request never left did name
+// five Assets and touch none of them, and it renders the dash all the same —
+// rendering the safest state in the tool through the column form reserved for
+// doubt would invert it (ADR-0062).
 func stepRowOf(step run.Step) stepRow {
 	row := stepRow{
 		Type:        "step",
@@ -773,15 +788,28 @@ func stepRowOf(step run.Step) stepRow {
 	if step.Concluded {
 		records := step.Records
 		row.Records = &records
+		if step.Expanded != 0 {
+			expanded := step.Expanded
+			row.Expanded = &expanded
+		}
 	}
 	return row
 }
 
 // Cells is the Step's line in §8's table: `n` where the set is all the Step
-// reached, and the dash where no set exists at all.
+// reached, `n of m` where the Expansion reached `m` and the rest are
+// unaccounted for, and the dash where no set exists at all.
+//
+// The `n of m` cell **names no member**. Which Records those are is
+// `expanded_to`'s and nowhere else, and a column that named one would be the
+// second place a reader could read it from — and the shorter one, on a Step
+// that expanded to five hundred (§8).
 func (r stepRow) Cells() []string {
 	records := noRecords
-	if r.Records != nil {
+	switch {
+	case r.Records != nil && r.Expanded != nil:
+		records = fmt.Sprintf("%d of %d", *r.Records, *r.Expanded)
+	case r.Records != nil:
 		records = fmt.Sprintf("%d", *r.Records)
 	}
 	return []string{fmt.Sprintf("%d", r.Step), r.ID, r.Kind, r.Disposition, records}

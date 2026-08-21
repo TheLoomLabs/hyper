@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -15,9 +16,9 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
-// One Step: the binding resolved, the call made, the response projected, the
-// versions the projection moved, and the file that says what became of it (§6,
-// §7, issue #136).
+// One Step: the binding resolved, the calls made, the responses projected, the
+// versions the projections moved, and the file that says what became of it (§6,
+// §7, issues #136, #140).
 //
 // What is here is the `read` path and no other Kind's. An effectful Step
 // declines before Step 1 — run.go states that and why — so nothing below has to
@@ -42,24 +43,30 @@ type binding struct {
 	provider   artefact.ProviderInfo
 	target     artefact.TargetInfo
 	operation  artefact.OperationInfo
+	// detail is what internal/artefact derived about the Operation, read
+	// once here rather than once per member: the deadline that bounds each
+	// call and the `concurrency:` limit that dispatched it are two facts
+	// about one Operation, and two readings of one Manifest is where the
+	// day comes that they disagree (§3, ADR-0045).
+	detail artefact.OperationDetail
 }
 
 // perform runs one Step and answers what became of it.
 //
 // **The Expansion resolves first**, before the Step's first call goes out, and
 // what it declines is a Refusal the Run ends on rather than a fault (§6,
-// expand.go). Past it the members are called in Expansion order, each response
-// projected and each version written only where the bytes moved.
+// expand.go). Past it the members are dispatched in Expansion order, each
+// response projected and each version written only where the bytes moved.
 //
 // The error it answers is what halted the Run, and the Step it answers beside
 // it stands whether or not there is one: a Step that reached a Disposition
 // wrote its file, and a halted Run leaves what it did (§6, ADR-0011). A zero
 // Step is a Step that reached none.
 //
-// **A member whose call halts the Run halts it there**, the members after it
-// unattempted. Draining the Expansion — attempting every member and recording
-// every Observation that succeeded — is issue #140's, and it lands on this loop
-// rather than beside it.
+// **A member whose call faulted drains rather than halting there.** Every
+// member is attempted, every Observation that succeeded is recorded, and the
+// Run then halts with the rest of the results already on disk. drain.go states
+// why that is not a preference (§6).
 func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, error) {
 	bound, err := resolve(r.request.Repository, authored)
 	if err != nil {
@@ -105,19 +112,41 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 		return step, declined, r.write(file)
 	}
 
-	// The calls, in Expansion order, and the versions they moved. A version
+	// The calls, dispatched in Expansion order and bounded by the
+	// Operation's declared `concurrency:` limit — which arrives effective,
+	// so a Manifest that declared nothing runs its Expansion one member at
+	// a time (§6, ADR-0045, drain.go).
+	//
+	// **Every member is attempted**, whatever any other member's call did,
+	// and what stopped one is read back below in Expansion order.
+	answers, faults := dispatch(bound.detail.ConcurrencyLimit, held.Members, func(resolving member) (conclusion, error) {
+		return r.call(bound, authored, resolving)
+	})
+
+	// The versions the calls moved, written in Expansion order. A version
 	// is written only where the bytes moved: an Operation returning what
 	// the head version already holds mints nothing, and the canonical
 	// encoding is what makes that an exact test (§7, ADR-0030).
+	//
+	// **A member that faulted is skipped and stops nothing.** What it wrote
+	// is nothing — there is no Observation to record — and the Run halts on
+	// it once the rest of the Expansion has been written down, which is the
+	// drain (§6, drain.go). The fault the Run carries is the **first in
+	// Expansion order** and not the first to arrive, which is what keeps
+	// *which fault* out of the completion order's reach as well.
 	names := make([]string, 0, len(held.Members))
-	for _, resolving := range held.Members {
-		concluded, err := r.call(bound, authored, resolving)
-		if err != nil {
-			return Step{}, nil, err
+	var halted error
+	for at, fault := range faults {
+		if fault != nil {
+			if halted == nil {
+				halted = fault
+			}
+			continue
 		}
-		names = append(names, concluded.name)
+		answer := answers[at]
+		names = append(names, answer.name)
 
-		identity := store.Identity{Target: authored.Target, Definition: authored.Definition, Name: concluded.name}
+		identity := store.Identity{Target: authored.Target, Definition: authored.Definition, Name: answer.name}
 		version := store.RecordVersion{
 			Metadata: store.Metadata{
 				Identity:   identity,
@@ -128,7 +157,7 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 				WrittenAt:  r.request.Now(),
 				Provenance: store.Provenance{Run: r.provenance, Step: provenance},
 			},
-			Fields: concluded.fields,
+			Fields: answer.fields,
 		}
 		moved, err := mints(r.request.Store, version)
 		if err != nil {
@@ -159,6 +188,16 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 	// ADR-0030).
 	concluded := store.Names(names)
 
+	// **A drained Step's Disposition is *ran*.** The calls went out and the
+	// answers that came back were recorded; what the set holds is the
+	// members it concluded about, and what it does not hold is the rest —
+	// which the entry says by the arithmetic between this set and
+	// `expanded_to` beside it, and §8 renders as `n of m` (§6, §7, §8).
+	//
+	// Expanded is written on the drained Step alone. A Step that reached
+	// the end of its Expansion accounted for all of it and has nothing for
+	// a second number to say, which is what keeps `n of m` meaning
+	// *unaccounted for* rather than *these two counts differ*.
 	step := Step{
 		Position:    position,
 		ID:          authored.ID,
@@ -168,9 +207,19 @@ func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, err
 		Concluded:   true,
 		Provenance:  provenance,
 	}
+	if halted != nil {
+		step.Expanded = len(held.Members)
+	}
 	file.Disposition = step.Disposition
 	file.Identities = store.Concluded(names, previous)
-	return step, nil, r.write(file)
+	// The Step's file goes down whether or not the Expansion drained: a
+	// Step that reached a Disposition wrote its file, and a halted Run
+	// leaves what it did (§6, ADR-0011). The fault travels beside it and is
+	// what makes the Run `failed`.
+	if err := r.write(file); err != nil {
+		return Step{}, nil, err
+	}
+	return step, nil, halted
 }
 
 // write puts one Step's file down, which is the last thing that happens at a
@@ -222,7 +271,10 @@ func resolve(loaded repository.Loaded, authored artefact.Step) (binding, error) 
 	if !declares {
 		return binding{}, fmt.Errorf("step %s names operation %s, which %s declares nothing of that name — hyper check reports it", authored.ID, authored.Operation, info.ProviderName)
 	}
-	return binding{definition: definition, manifest: manifest, provider: provider, target: target, operation: operation}, nil
+	return binding{
+		definition: definition, manifest: manifest, provider: provider, target: target, operation: operation,
+		detail: artefact.ReadOperationDetail(manifest.Root, authored.Operation),
+	}, nil
 }
 
 // conclusion is what one call concluded about one Record: the identity it
@@ -232,15 +284,20 @@ type conclusion struct {
 	fields store.Mapping
 }
 
-// call makes the Step's one call and projects the answer.
+// call makes one member's call and projects the answer.
 //
 // **A `read` never halts on what came back.** Whatever the status, the response
 // object §12 states is what the projection reads, so a host that answered
 // nothing records an Observation whose status has gone quiet rather than
-// stopping the Run (§6, ADR-0050). What still halts it is the projection, and
-// in this milestone that is the identity path alone — the recorded fields are
-// an absence a version simply does not carry, and the rest of what a projection
-// that does not resolve does is issue #144's.
+// stopping the Run (§6, ADR-0050). What halts it is the two things that are
+// not an answer: the Operation's **deadline**, reached with no response at all,
+// and the projection — in this milestone the identity path alone, the recorded
+// fields being an absence a version simply does not carry and the rest of what
+// a projection that does not resolve does being issue #144's.
+//
+// It is one member's and never the Step's, and the error it answers halts
+// nothing on its own: what a fault here does to the members beside it is the
+// drain, one caller up (§6, drain.go).
 func (r run) call(bound binding, authored artefact.Step, resolving member) (conclusion, error) {
 	if bound.operation.Identity == "" {
 		return conclusion{}, fmt.Errorf("step %s binds %s %s, whose record: declares no identity, so hyper cannot say which Record a call would be holding — hyper check reports it",
@@ -269,20 +326,36 @@ func (r run) call(bound binding, authored artefact.Step, resolving member) (conc
 		return conclusion{}, err
 	}
 
-	detail := artefact.ReadOperationDetail(bound.manifest.Root, authored.Operation)
-	ctx, cancel := capability.Deadline(context.Background(), detail.DeadlineSeconds)
+	ctx, cancel := capability.Deadline(context.Background(), bound.detail.DeadlineSeconds)
 	defer cancel()
 
-	// The error beside the object is narration's and is deliberately
-	// dropped here: no member of the response object says what went wrong,
-	// that being the catch-all bucket ADR-0017 closed, and a `read` records
-	// the absence as the answer it is (§6, §12, ADR-0050).
 	// The instant handed to the call is the **Run's** start and not a fresh
 	// read: it is what a certificate's remaining life is counted from, so
 	// two Steps of one Run that reach one host record one `days_left`, and
 	// nothing a later Step does moves what an earlier one recorded
 	// (ADR-0034).
-	response, _ := built.Perform(ctx, r.request.Dial, r.started, r.credential(bound, authored.Target))
+	response, err := built.Perform(ctx, r.request.Dial, r.started, r.credential(bound, authored.Target))
+
+	// **A deadline reached on a `read` fails the Step** (§6). It is the one
+	// error beside the response object this reads, and it is read because
+	// it is the one an artefact declared: a refused connection, a name that
+	// does not resolve and a handshake that failed are all *no response
+	// arrived*, which a `read` records as the answer it is, and a deadline
+	// is `hyper` stopping rather than the world answering nothing.
+	//
+	// Everything else beside the object stays narration's and is dropped:
+	// no member of the response object says what went wrong, that being the
+	// catch-all bucket ADR-0017 closed.
+	//
+	// The deadline is named as itself rather than as the transport's word
+	// for it, and beside the host it was reached on — the two facts a
+	// reader can act on, one an edit to the Manifest and one a look at the
+	// far end. Which **member** drained is `expanded_to`'s and nowhere else
+	// (§7, §8).
+	if errors.Is(err, context.DeadlineExceeded) {
+		return conclusion{}, fmt.Errorf("step %s: the Operation's deadline of %s was reached on %s and no response arrived",
+			authored.ID, bound.detail.Deadline, reach.Host)
+	}
 
 	name, resolved := identityOf(bound.operation, inputs, response)
 	if !resolved {

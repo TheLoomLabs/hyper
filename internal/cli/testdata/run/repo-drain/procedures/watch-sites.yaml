@@ -1,0 +1,12 @@
+kind: procedure
+procedure: watch-sites
+targets: [local]
+steps:
+  - id: sites
+    definition: uptime-check
+    operation: check_http
+    target: local
+    over:
+      values: [status.hyper.dev, wedged.hyper.dev, cert.hyper.dev]
+    args:
+      host: {item: $}

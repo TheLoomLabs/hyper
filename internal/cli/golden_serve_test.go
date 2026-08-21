@@ -42,6 +42,13 @@ import (
 // *no response arrived at all* is driven with no second mechanism: a case
 // naming a granted host it does not serve is a case about the silence, and it
 // says so by the file it did not write.
+//
+// **A host that `hangs` accepts the connection and never answers**, which is
+// the only way a case can reach the Operation's `deadline:` (issue #140). It is
+// a different fact from the refused connection above and the two must not be
+// confused: a refused connection is *no response arrived*, which a `read`
+// records as the answer it is, and a deadline is `hyper` stopping — the one
+// thing that fails a `read` Step short of its projection (§6, ADR-0050).
 
 // certificateLife is how long after a case's instant the fixture's certificate
 // expires: thirty-four days and a half, so `tls.days_left` is **34** — floored
@@ -64,6 +71,16 @@ type servedResponse struct {
 	// that is not JSON at all: a body that is absent, or HTML, is what makes
 	// `body` an absence a projection reads rather than an error (§12).
 	Body string `json:"body"`
+	// Hangs is the host that accepts the connection and answers nothing at
+	// all, until the caller gives up on it. It is what a server that has
+	// stopped answering does, and it is the whole of how a case reaches the
+	// Operation's own `deadline:` — a number an artefact declared, which is
+	// therefore a number a case can drive to (§3, §6, issue #140).
+	//
+	// It serves nothing else: a case using it asserts what `hyper` did with
+	// the members beside this one, and this host contributes no response for
+	// anything to read.
+	Hangs bool `json:"hangs"`
 	// EchoRequestHeaders names request headers the fixture writes back as
 	// the response body, a JSON object keyed by the lowered header name.
 	//
@@ -128,6 +145,7 @@ func (c goldenCase) dialer(t *testing.T, instant time.Time) func(context.Context
 		}
 	}
 
+	closing := make(chan struct{})
 	hosts := make([]string, 0, len(served))
 	for host := range served {
 		hosts = append(hosts, host)
@@ -136,7 +154,7 @@ func (c goldenCase) dialer(t *testing.T, instant time.Time) func(context.Context
 
 	certificate, pool := mintFixtureCertificate(t, instant, hosts)
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		answer(w, r, served, instant)
+		answer(w, r, served, instant, closing)
 	}))
 	server.TLS = &tls.Config{Certificates: []tls.Certificate{certificate}}
 	// The server's own log would otherwise write a handshake error to the
@@ -144,6 +162,10 @@ func (c goldenCase) dialer(t *testing.T, instant time.Time) func(context.Context
 	server.Config.ErrorLog = discardLog()
 	server.StartTLS()
 	t.Cleanup(server.Close)
+	// Registered after the close above and therefore run before it: a
+	// handler that hangs is released first, and httptest's own wait for its
+	// outstanding requests then has nothing to wait for.
+	t.Cleanup(func() { close(closing) })
 
 	listening := server.Listener.Addr().String()
 	return func(ctx context.Context, network, requested string) (net.Conn, error) {
@@ -176,7 +198,10 @@ func (c goldenCase) dialer(t *testing.T, instant time.Time) func(context.Context
 // would put the machine's wall clock into every asserted response object: a
 // server answers with a Date and this one does too, and what the fixture fixes
 // is which instant it names.
-func answer(w http.ResponseWriter, r *http.Request, served map[string]servedResponse, instant time.Time) {
+//
+// closing is the suite taking the server down, and it releases a host that
+// hangs where no caller ever gave up on it.
+func answer(w http.ResponseWriter, r *http.Request, served map[string]servedResponse, instant time.Time, closing <-chan struct{}) {
 	name := r.Host
 	if host, _, err := net.SplitHostPort(name); err == nil {
 		name = host
@@ -188,6 +213,17 @@ func answer(w http.ResponseWriter, r *http.Request, served map[string]servedResp
 		// that a harness fault reads as a case failing rather than as the
 		// suite dying inside a goroutine.
 		http.Error(w, "the golden harness serves no "+name, http.StatusInternalServerError)
+		return
+	}
+
+	// The host that answers nothing: it holds the request open until the
+	// caller gives up on it, which is the caller's own deadline arriving and
+	// nothing this fixture decides.
+	if response.Hangs {
+		select {
+		case <-r.Context().Done():
+		case <-closing:
+		}
 		return
 	}
 

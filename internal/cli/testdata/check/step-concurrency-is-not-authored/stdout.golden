@@ -1,0 +1,2 @@
+FILE                         LINE  FIELD                 ERROR_CODE   MESSAGE
+procedures/watch-eight.yaml  9     steps[0].concurrency  unknown-key  "concurrency" is not a key the schema at this position admits

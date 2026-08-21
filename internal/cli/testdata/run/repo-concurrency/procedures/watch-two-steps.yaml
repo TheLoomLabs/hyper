@@ -1,0 +1,20 @@
+kind: procedure
+procedure: watch-two-steps
+targets: [local]
+steps:
+  - id: first
+    definition: uptime-check
+    operation: check_two
+    target: local
+    over:
+      values: [site-1.hyper.dev, site-2.hyper.dev]
+    args:
+      host: {item: $}
+  - id: second
+    definition: uptime-check
+    operation: check_two
+    target: local
+    over:
+      values: [site-3.hyper.dev, site-4.hyper.dev]
+    args:
+      host: {item: $}

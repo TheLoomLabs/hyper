@@ -1,0 +1,24 @@
+kind: provider
+provider: uptime
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  check_four:
+    kind: read
+    deadline: 10s
+    concurrency: 4
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: $.host
+      fields:
+        host: $.host
+        status: $.status

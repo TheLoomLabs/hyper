@@ -34,3 +34,25 @@ Editing it by hand is editing evidence.
     "host": "thinkpad"
   }
 }
+=== journal/2026/04/02/01991eea-f55c-7085-b175-abcd6ed49a5d/steps/0001.json (614 bytes)
+{
+  "definition": "inventory-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "item",
+  "identities": {
+    "digest": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "members": []
+  },
+  "kind": "read",
+  "operation": "read_item",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "manifest_digest": "sha256:8fb414a6d30775ea9f5bcdaaa677c27d3ace7ef3e2ef78bfac69ba406698c8a1"
+  },
+  "provider": "inventory",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}

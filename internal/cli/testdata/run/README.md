@@ -65,6 +65,15 @@ names one in a **`repo-from`** file instead, and the ones here are:
   Step (issue #138), and it is a repository of its own because adding a
   Procedure to `repo-watch-status` would move the `repo_revision` in every
   golden that names it.
+- [`repo-drain/`](repo-drain) — the drain (issue #140): one `read` Operation
+  declaring `deadline: 1s`, over three granted hosts, and a Procedure expanding
+  over all three in an order whose sorted set is not it. The middle host is the
+  one the case does not answer for, which is what reaches the deadline.
+- [`repo-concurrency/`](repo-concurrency) — how much runs at once (issue #140):
+  three `read` Operations over eight granted hosts, identical but for one key —
+  one declaring `concurrency: 4`, one declaring `2`, and one declaring nothing
+  at all — and four Procedures. What differs between the cases that drive it is
+  a Manifest key and nothing else, which is ADR-0045's whole claim.
 - [`repo-expansion/`](repo-expansion) — the Expansion (issue #139): the same
   `uptime` Manifest with two Operations beside `check_http` — `check_named`,
   whose `identity:` is a template hole and therefore resolves **before** the
@@ -89,7 +98,7 @@ drives.
 | `a-run-on-a-runner` | the Trigger's other executor: `cause: cron`, the occasion, and no `host` |
 | `a-secret-field-is-the-marker` | a Manifest declaring `secret:` — the version carries the constant marker and the value reaches no file. It supplies `--secret-out`, without which the sink gate below would decline it before Step 1 |
 | `a-host-that-answered-nothing` | the `read` that never halts on what came back: the host is granted and the case serves it nothing, so the Observation records the silence and the Run completes at `0` |
-| `a-run-halted-by-its-step` | a Run the world resisted: `failed`, exit `1`, leaving `run.json` and its own `outcome.json` |
+| `a-run-halted-by-its-step` | a Run the world resisted: `failed`, exit `1`, the Step *ran* with the set it concluded about, and the entry left where it stopped |
 | `what-the-run-wrote-reaches-the-remote` | the Run's own commits go out and `remote.golden` shows what arrived |
 | `a-repository-with-no-store` | `store-absent`, `77`, naming `hyper store init` — a Run never creates the branch |
 | `the-runner-clone-fetches-the-store` | the runner shape: `hyper-store` on `origin` alone, brought down by the Run's own sync, and the Run proceeds normally |
@@ -124,6 +133,12 @@ drives.
 | `a-basic-scheme-reaches-the-wire` | the same for `basic:`, whose position and base64 composition are the scheme's and never a Manifest's |
 | `a-secret-sink-names-every-step`, `-json` | the sink gate: two Steps declaring secret output, both named at once, neither of them run |
 | `usage-secret-out-to-stdout`, `-inside-the-repository`, `-with-no-path` | the three things `--secret-out` will not take, all `2` and all carrying no `error_code` |
+| `a-member-that-reaches-the-deadline`, `-json` | the drain (issue #140): three members, the middle one reaching the Operation's `deadline:`, **every** member attempted, the two Observations that succeeded committed, the Step *ran* with the set it concluded about, `RECORDS` reading `2 of 3` and naming no member, and the `step` row carrying `expanded` beside `records` |
+| `eight-members-under-a-limit-of-four` | an Expansion of eight under `concurrency: 4`. Its page says only that eight Observations landed; what the limit did is [`../../run_concurrency_test.go`](../../run_concurrency_test.go)'s |
+| `an-expansion-with-no-declared-limit` | the same over an Operation declaring no `concurrency:`, which is the serial half of ADR-0045 |
+| `two-read-steps-do-not-overlap` | two `read` Steps of two members each, both under `concurrency: 2` — all concurrency lives inside one Step's Expansion (ADR-0002) |
+| `a-step-with-no-selector-under-a-limit` | a Step carrying no `over:` bound to an Operation declaring `concurrency: 4`: one call, which is a set of one and inside any limit ever written |
+| `usage-no-concurrency-flag` | there is no `--concurrency`: `2`, an unknown flag, and stdout silent. How much of an Expansion runs at once is a Manifest's and nobody else's |
 
 ## What a Refusal's page looks like, and what stands in for §8's
 
@@ -182,7 +197,47 @@ each for a reason a golden cannot get past:
   [`a-push-rejected-three-times/`](a-push-rejected-three-times) and compared
   like any other case's.
 
+## How a case reaches the Operation's deadline
+
+A `read` never halts on what came back, so the only thing that fails one short
+of its projection is `hyper` stopping: the Operation's own `deadline:` (§6,
+ADR-0050). Reaching it needs a host that accepts the connection and then answers
+nothing, which is what `serve/<host>.json`'s **`hangs`** key is — the handler
+holds the request open until the caller gives up on it, and the caller giving up
+is the deadline an artefact declared.
+
+It is a different fact from a host with no `serve/` entry at all, and the two
+must not be read as one. A refused connection is *no response arrived*, which a
+`read` records as the answer it is
+([`a-host-that-answered-nothing`](a-host-that-answered-nothing), exit `0`); a
+deadline fails the Step
+([`a-member-that-reaches-the-deadline`](a-member-that-reaches-the-deadline),
+exit `1`). `repo-drain`'s Operation declares `deadline: 1s`, which is the
+smallest a duration can be written as short of the `0s` that would reach every
+member at once — and the case costs that second, which is what the one fact
+nothing else can drive is worth.
+
 ## What no golden here proves
+
+**How much of an Expansion ran at once.** A limit, a dispatch order and *two
+Steps never overlap* are all facts about **when** calls happened, and a branch
+and a page record only that they did: four members in flight and four members
+one after another leave the same Observations, the same identity set and the
+same table. So the wire is watched instead —
+[`../../run_concurrency_test.go`](../../run_concurrency_test.go) drives the four
+`repo-concurrency` cases with the harness's dialer wrapped, holds each
+connection until as many as it expects are standing together, and reads the peak
+off. It also drives one case twice with its connections let go last-first, and
+holds the page and the branch byte-identical against the forward Run: **nothing
+derives from the order a concurrent Expansion's calls complete in** (§6).
+
+**That a concurrency limit does not bound a Pattern's own calls.** All three
+Patterns are serial by construction and none of them exists yet — pagination,
+polling and retry are issue #143's — so what stands here is the ground they land
+on: a member is one call at a time from the moment it is dispatched until its
+last page, and *members in flight* and *requests in flight* are one number
+(ADR-0045). The case that shows a paginated member staying one request wide
+belongs to the milestone that builds pagination.
 
 **That a read-only Run's pushes batch to its end.** One push at the end and a
 push per Step leave the remote holding the same commits, so no branch golden can
@@ -223,14 +278,16 @@ not look for a case that cannot exist.
 
 `a-run-halted-by-its-step` binds an Operation whose `record:` reads its
 `identity:` from `$.body.id`, and serves a body with no `id` in it. That is the
-one way a `read` Step fails at all: a `read` never halts on what came back, so
-what stops it is `hyper`'s reading of the answer rather than the answer (§6,
-ADR-0050).
+second way a `read` Step fails, beside the deadline above: a `read` never halts
+on what came back, so what stops it is `hyper`'s reading of the answer rather
+than the answer (§6, ADR-0050).
 
-What that case does **not** yet assert is the Disposition. §6 says the Step is
-*ran* and carries `projection_failed_path`, and issue #144 is where that lands;
-here the Run halts before the Step file is written, so the entry holds
-`run.json` and `outcome.json` and no Step file at all.
+It lands on the drain rather than beside it (issue #140). Its one member is its
+whole Expansion, so the Step concludes about nothing, is *ran* all the same, and
+renders `0 of 1` — expanded to one and accounted for none. What it does **not**
+yet carry is `projection_failed_path`, the member §7 puts the failed path on;
+that is issue #144's, and it is a key added to a file that now exists rather
+than a Step file that does not.
 
 ## Why `a-procedure-matching-nothing` has no repository
 

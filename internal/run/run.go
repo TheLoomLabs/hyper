@@ -209,6 +209,26 @@ type Step struct {
 	// the *ran* Step whose set is written empty (§8).
 	Records   int
 	Concluded bool
+	// Expanded is how many members the Step's Expansion resolved to, and it
+	// is written **only where the Step stopped short of it** — a `read`
+	// Expansion that drained and then halted (§6). It is what `n of m` is
+	// read against: `n` is Records and `m` is this, and the members between
+	// them are the ones unaccounted for (§7, §8, issue #140). A Step
+	// carrying no `over:` resolved no selector and expanded to the set of
+	// one it makes its call under, so a halted one is `0 of 1`.
+	//
+	// Zero is *nothing stood short*, which is every Step that accounted for
+	// its whole Expansion. It is written from the drain rather than derived
+	// from Records, because *unaccounted for* is a fact about members that
+	// were never concluded about and the two counts are equal for other
+	// reasons too — an identity two members resolve to is one member of the
+	// set and two of the Expansion, which is a collision §6 halts on rather
+	// than a Step that stopped short (ADR-0070, ADR-0072).
+	//
+	// It is a count and never the names. Which Records are unaccounted for
+	// is `expanded_to`'s and nowhere else, and a Step value carrying them
+	// would be the second place a surface could read them from (§7, §8).
+	Expanded int
 	// Provenance is the Step's half: what the Step file carries, and what
 	// that Step's `provenance` row renders (§7, ADR-0043).
 	Provenance store.StepProvenance

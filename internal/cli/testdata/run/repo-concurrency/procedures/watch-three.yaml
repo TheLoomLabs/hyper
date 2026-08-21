@@ -1,0 +1,12 @@
+kind: procedure
+procedure: watch-three
+targets: [local]
+steps:
+  - id: sites
+    definition: uptime-check
+    operation: check_undeclared
+    target: local
+    over:
+      values: [site-1.hyper.dev, site-2.hyper.dev, site-3.hyper.dev]
+    args:
+      host: {item: $}
