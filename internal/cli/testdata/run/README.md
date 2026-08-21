@@ -97,11 +97,18 @@ names one in a **`repo-from`** file instead, and the ones here are:
 - [`repo-shell/`](repo-shell) — the `shell` Capability's `read` half (issue
   #142): the built-in Provider bound by a `read` Definition and a `mutate` one,
   a `local` granting `shell`, a second Target declaration nothing binds whose
-  `auth:` names the variable the child must not inherit, and nine Procedures —
+  `auth:` names the variable the child must not inherit, and eight Procedures —
   one per shape a command has. The argv is the **Procedure's** and
   the binary is the **case's**: each case holds a `bin/` directory its argv head
   resolves against, so what a command printed, what it exited with and whether
   it could be started at all are the fixture's facts rather than the machine's.
+- [`repo-shell-unresolvable/`](repo-shell-unresolvable) — `repo-shell` cut down
+  to the one artefact that does not load: a Step whose argv word references a
+  field the Record it names does not carry. It is a repository of its own
+  because **`check` re-runs in full at Run start** (§6) — one artefact that
+  Refuses Refuses every Run of every Procedure beside it, so a broken Procedure
+  living in a shared repository would leave every case sharing it asserting one
+  Refusal under ten different names.
 
 The rest carry a repository of their own, each written for the one edge it
 drives.
@@ -172,7 +179,7 @@ drives.
 | `a-command-that-exited-non-zero` | a `read` never halts on an exit code: `3` is recorded, the Step is *ran*, and the Run completes at `0` |
 | `a-command-that-could-not-be-started` | the binary the Procedure names is not in the case's `bin/`: the object is `command` alone, the Observation carries **no fields at all**, and the Step is still *ran* — the attempt is the answer (ADR-0084) |
 | `a-command-answering-in-json-is-recorded-as-text` | stdout is never parsed: what lands in the version is the string the command printed, braces and all |
-| `an-argv-words-reference-is-checked-offline` | every argv word after the first is referenceable, and one naming a field the Record does not carry is `reference-unresolvable` at `77` — decided by `check` with no Store and no process, and cited down to `steps[1].args.command[1].path` |
+| `an-argv-words-reference-is-checked-offline` | every argv word after the first is referenceable, and one naming a field the Record does not carry is `reference-unresolvable` at `77` — decided by `check` with no Store and no process, and cited down to `steps[1].args.command[1].path`. It carries no `bin/`: nothing is exec'd, the Run ending before its first Step |
 | `an-argv-is-not-a-shell` | a pipe, a glob, an `&&`, a `$HOME` and a `>` reach the process as literal argv words, there being no shell between the artefact and it (ADR-0051) |
 | `two-argv-spellings-are-two-series` | `[words, "a b"]` and `[words, a, b]` write two Record series, which is what the JSON encoding of `command` is injective for |
 | `two-steps-running-one-argv-write-two-versions` | one argv, two Steps, one Definition and Target: two versions of one series, the command answering differently the second time |

@@ -29,7 +29,7 @@ var testFacts = version.Facts{
 	Arch:      "amd64",
 }
 
-// process stands in for the six reads cli.Main is handed rather than makes, and
+// process stands in for the reads cli.Main is handed rather than makes, and
 // records whether any of them was touched. Counting the calls is the only way
 // the exemption can be asserted rather than assumed: `version` and
 // `completions` are exempt from the pin gate because they resolve no
@@ -53,10 +53,15 @@ type process struct {
 	exec      int
 }
 
-// value is the nine as cli.Main takes them: one value, wired to the counting
+// value is those reads as cli.Main takes them: one value, wired to the counting
 // methods beneath it. It is what every case here hands the entry point, so that
 // a case reads as the invocation it is about rather than as an assembly of
 // stand-ins.
+//
+// It wires the reads a case here can be about and leaves User and Hostname nil.
+// Those two are a Journal entry's and are reached only from inside a Run, which
+// no case in this file performs — and a nil member is what says so, where a
+// stand-in nobody counts would not.
 func (p *process) value() cli.Process {
 	return cli.Process{
 		LookupEnv: p.LookupEnv,
@@ -129,7 +134,8 @@ func (p *process) Exec(context.Context, []string) *exec.Cmd {
 var fixedInstant = time.Date(2026, time.April, 2, 9, 41, 14, 221_000_000, time.UTC)
 
 // untouched says the process was never read, which is the shape of the
-// exemption: nothing of the six, and therefore no repository root and no gate.
+// exemption: none of the counted reads, and therefore no repository root and no
+// gate.
 func (p *process) untouched(t *testing.T) {
 	t.Helper()
 	for _, read := range []struct {

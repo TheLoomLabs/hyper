@@ -280,10 +280,10 @@ func TestDecodeClosedBy_RefusesAStartedAtItCouldNotKnow(t *testing.T) {
 }
 
 // What the shapes will not write. Each of these is a rule §7 states absolutely,
-// and none of them can arrive from the world — the answer is hyper's own
-// account of a call it made, and the position is hyper's own counter — so a
-// violation is hyper's arithmetic being wrong, which paths.go answers the same
-// way.
+// and none of them can arrive from the world — each is hyper's own account of a
+// call it made, its own counter, or its own reading of what a Step became — so
+// a violation is hyper's arithmetic being wrong, which paths.go answers the
+// same way.
 
 func TestEveryShape_RefusesToWriteWhatSectionSevenSaysCannotExist(t *testing.T) {
 	for name, encode := range map[string]func(){

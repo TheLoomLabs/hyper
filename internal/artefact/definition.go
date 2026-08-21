@@ -182,8 +182,10 @@ type OperationInfo struct {
 //
 // The words are the Step's rather than the Manifest's — a `shell:` block
 // carries no keys at all — so this name is the whole of the coupling between
-// the Capability and the Procedure that supplies it, and the two readings of
-// it, `check`'s and a Run's, spell it once.
+// the Capability and the Procedure that supplies it, and every reading of it
+// spells it once: the reachability check over a Manifest's inputs, the `args:`
+// check over a Step's, the identity `$.command` fills before the call, and the
+// Run that resolves the argv.
 const ShellCommandInput = "command"
 
 // IsOpaqueDestroy reports whether this Operation is the one Step §5's Bound

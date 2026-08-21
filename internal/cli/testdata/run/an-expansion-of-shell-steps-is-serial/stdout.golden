@@ -1,6 +1,4 @@
-nothing ran. no step was reached.
+STEP  ID     KIND  DISPOSITION  RECORDS
+1     hosts  read  ran          3
 
-FILE                                       LINE  FIELD                          ERROR_CODE              MESSAGE
-procedures/reference-a-missing-field.yaml  16    steps[1].args.command[1].path  reference-unresolvable  path: $.nope names no field the Record first carries
-
-refused · exit 77 · run 01991ea6-b118-7c93-8d41-6b2f7ae05d0a
+completed · exit 0 · run 01991ea6-b118-7c93-8d41-6b2f7ae05d0a

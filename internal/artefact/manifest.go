@@ -627,7 +627,7 @@ func checkInputReachability(file, field string, fields map[string]*yaml.Node, is
 
 	reached := map[string]bool{}
 	if isShell {
-		reached["command"] = true
+		reached[ShellCommandInput] = true
 	} else {
 		collectReachedNames(fields["http"], reached)
 	}

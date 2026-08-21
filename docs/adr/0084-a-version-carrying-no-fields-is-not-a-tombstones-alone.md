@@ -98,6 +98,16 @@ in the corpus at the time it was written.
 - **The encoder no longer refuses the shape**, and the decoder no longer
   requires the key on a non-Tombstone. Both were reading the sentence above as a
   rule about which versions exist rather than about what an absence means.
+- **The Store's schema version does not move, and the pin is why.** A binary
+  built before this decision reads such a version and refuses it — its decoder
+  requires `fields` on anything that is not a Tombstone — which would be a
+  compatibility break on a branch nothing rewrites if two binaries could read
+  one repository. They cannot: the pin gate refuses any binary whose version
+  differs from the repository's in either direction (§11, ADR-0020), so the
+  binary that wrote the version is the binary that reads it, and the shape
+  arrives with the release that can read it. `store-schema-unsupported` is for
+  the axis this is not on — a Store written at a schema version this binary does
+  not know (§12).
 - **No closed set moves.** No `error_code`, no Disposition, no outcome, no
   operator. A version that projected nothing is a version, and every surface
   that renders one already renders a field that is not there.

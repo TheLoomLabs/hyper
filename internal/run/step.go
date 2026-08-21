@@ -361,6 +361,20 @@ type conclusion struct {
 // It is one member's and never the Step's, and the error it answers halts
 // nothing on its own: what a fault here does to the members beside it is the
 // drain, one caller up (§6, drain.go).
+//
+// **The two Capabilities part on the next line and rejoin on the one after.**
+// Which of them an Operation declares is the Manifest's one fact about its
+// request (§3), and it is read in exactly two places in this package: here, and
+// at the Expansion, where a `shell` Operation's `command:` resolves to an argv
+// rather than to an input (arguments.go). Everything past the call — the
+// identity, the projection, the version — reads a response object and never a
+// socket or a process.
+//
+// What each arm answers beside the object is the **halting** fault, worded for
+// a reader, and nil where nothing halted. Everything else stays narration's and
+// is dropped there: no member of the response object says what went wrong, that
+// being the catch-all bucket ADR-0017 closed, and a `read` records a call that
+// got no answer as the answer it is (§6, ADR-0050).
 func (r run) call(bound binding, authored sequenced, resolving member) (conclusion, error) {
 	if bound.operation.Identity == "" {
 		return conclusion{}, fmt.Errorf("step %s binds %s %s, whose record: declares no identity, so hyper cannot say which Record a call would be holding — hyper check reports it",
@@ -368,7 +382,13 @@ func (r run) call(bound binding, authored sequenced, resolving member) (conclusi
 	}
 
 	declaration := artefact.OperationNode(bound.manifest.Root, authored.Operation)
-	response, halted := r.answer(bound, authored, resolving, declaration)
+	var response capability.Object
+	var halted error
+	if bound.operation.IsShell {
+		response, halted = r.ran(bound, authored, resolving)
+	} else {
+		response, halted = r.requested(bound, authored, resolving, declaration)
+	}
 	if halted != nil {
 		return conclusion{}, halted
 	}
@@ -379,30 +399,6 @@ func (r run) call(bound binding, authored sequenced, resolving member) (conclusi
 			named(authored), bound.operation.Identity)
 	}
 	return conclusion{name: name, fields: projected(bound.operation, projection.Read(declaration).Project(response))}, nil
-}
-
-// answer is what the member's Capability came back with, and the fault that
-// halts the Run where one came back with nothing it could use.
-//
-// **The two Capabilities meet here and nowhere else above this line.** Which of
-// them an Operation declares is the Manifest's one fact about its request (§3),
-// and everything past this function — the identity, the projection, the version
-// — reads a response object and never a socket or a process. What differs
-// between the two arms is the reach rule and the wording of the deadline, and
-// both differences are real: an `http` call is bounded by a grant this checks
-// against, and a `shell` command is the one Capability whose reach no grant
-// bounds (§13), its words being the ones a reviewer read in the Procedure.
-//
-// The error it answers is the **halting** one, worded for a reader, and nil
-// where nothing halted. Everything else beside the object stays narration's and
-// is dropped here: no member of the response object says what went wrong, that
-// being the catch-all bucket ADR-0017 closed, and a `read` records a call that
-// got no answer as the answer it is (§6, ADR-0050).
-func (r run) answer(bound binding, authored sequenced, resolving member, declaration *yaml.Node) (capability.Object, error) {
-	if bound.operation.IsShell {
-		return r.ran(bound, authored, resolving)
-	}
-	return r.requested(bound, authored, resolving, declaration)
 }
 
 // requested is the `http` half: the reach resolved, the holes filled, the call

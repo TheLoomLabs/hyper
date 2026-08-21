@@ -16,10 +16,16 @@
 //
 // It is the milestone's deep module in the one sense that matters: everything
 // above it is handed an object with named members and never a socket or a
-// process. Nothing outside this package opens a connection, reads a status
-// line, parses a body, looks at a certificate or waits on a child — and the
-// projection above it (internal/projection) reads paths against the object
-// rather than against the bytes that came back (§3, ADR-0040).
+// process. Nothing outside this package performs a Capability — opens a
+// connection, reads a status line, parses a body, looks at a certificate, or
+// waits on a child an artefact named — and the projection above it
+// (internal/projection) reads paths against the object rather than against the
+// bytes that came back (§3, ADR-0040).
+//
+// The git subprocesses internal/store runs are the exception that states the
+// rule: their argv is compiled in and they are the record's transport rather
+// than anything an artefact asked for, so they are not a Capability and do not
+// come through here (§7, ADR-0006, cli.Process.Exec).
 //
 // Neither performer is reached for. Dial and Exec are threaded from
 // cli.Process, which is what lets a case exercise a real handshake against a
@@ -38,7 +44,8 @@ import (
 // the order they are assembled and rendered in. They are named here rather
 // than spelled at each site because a projection path names them too — a
 // Manifest writes $.tls.days_left — so a second spelling of one of them is a
-// path that silently resolves to nothing.
+// path that silently resolves to nothing. The `shell` object's four are named
+// beside it, on the same rule (shell.go).
 const (
 	MemberHost    = "host"
 	MemberStatus  = "status"
@@ -61,9 +68,9 @@ const (
 // response object exists at all: the object is the answer, and a surface
 // renders it — the raw response beside the projection a Probe writes (§9,
 // ADR-0017), and the `response` member of the probe_result row beside it. §12
-// states five members in an order, and a rendering that sorted them or emitted
-// them in whatever order a map iterated would be stating the tool's answer in
-// an order nothing fixed.
+// states each Capability's members in an order — five for `http` and four for
+// `shell` — and a rendering that sorted them or emitted them in whatever order
+// a map iterated would be stating the tool's answer in an order nothing fixed.
 //
 // A member the object does not carry is absent from it entirely rather than
 // held as null — the ordinary absence rule (§7) — which is what makes

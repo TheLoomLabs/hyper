@@ -1,4 +1,0 @@
-#!/bin/sh
-for word in "$@"; do
-	printf '%s\n' "$word"
-done

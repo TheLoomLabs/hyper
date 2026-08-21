@@ -843,7 +843,7 @@ func checkStepArgs(file, field string, entry, argsVal *yaml.Node, op OperationIn
 			continue
 		}
 		if op.IsShell && name == ShellCommandInput {
-			problems = append(problems, checkShellCommand(file, field+".command", val, stepIndex)...)
+			problems = append(problems, checkShellCommand(file, field+"."+ShellCommandInput, val, stepIndex)...)
 			continue
 		}
 		problems = append(problems, checkArgValue(file, field+"."+name, val, input, stepIndex)...)
@@ -1030,8 +1030,8 @@ func identityFillers(op OperationInfo) ([]string, bool) {
 			fillers = append(fillers, m[1])
 		}
 		return fillers, len(fillers) > 0
-	case op.IsShell && op.Identity == "$.command":
-		return []string{"command"}, true
+	case op.IsShell && op.Identity == "$."+ShellCommandInput:
+		return []string{ShellCommandInput}, true
 	default:
 		return nil, false
 	}

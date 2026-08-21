@@ -206,10 +206,19 @@ func (c Command) Perform(ctx context.Context, start Exec, root string, environme
 		return object, waited
 	}
 
-	// ExitCode answers -1 for a child a signal ended, which is a value no
-	// exit status can carry and so tells itself apart from every code a
-	// command chose. The one signal `hyper` sends is the deadline's, and
-	// that returned above.
+	// **A child a signal ended is recorded as -1**, which is os/exec's own
+	// answer and is a value no exit status can carry — an exit status is a
+	// byte, so a reader tells `-1` from every code a command could have
+	// chosen. §12 reserves the *absence* of this member for the child that
+	// never started, so a child that ran and was killed must write
+	// something, and a number outside the range is the honest thing to
+	// write: suppressing it would say *no such binary*, and inventing
+	// `128+n` would say the shell's word for a signal was the command's own
+	// exit code.
+	//
+	// The one signal `hyper` sends is the deadline's, and that returned
+	// above with nothing recorded — so every -1 that reaches a Record came
+	// from outside `hyper` (§6, §12).
 	object = append(object,
 		Member{Name: MemberExitCode, Value: child.ProcessState.ExitCode()},
 		// Text, and never parsed (ADR-0052). A command that answers in
