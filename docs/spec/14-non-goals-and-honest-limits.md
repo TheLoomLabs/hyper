@@ -56,10 +56,10 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Twenty victims stand at it, each a thing an author can want, describe precisely, and not write. The
-count read *seventeen* against nineteen entries until ADR-0081 counted them, ADR-0078 having added two
-without moving the word — which is the shape §12's opening rule refuses in a closed set, arriving in
-the prose that introduces one:
+Twenty-one victims stand at it, each a thing an author can want, describe precisely, and not write.
+The count read *seventeen* against nineteen entries until ADR-0081 counted them, ADR-0078 having added
+two without moving the word — which is the shape §12's opening rule refuses in a closed set, arriving
+in the prose that introduces one, and the reason the word moves with every entry now:
 
 - **OIDC federation.** `hyper` reads credentials and never acquires them (ADR-0007), so a federated
   cloud reached from CI needs a long-lived credential in the executor's secrets — worse than the
@@ -73,6 +73,12 @@ the prose that introduces one:
   performing a request of its own (ADR-0031): a call no Operation declared, no Bound counted, and no
   Disposition recorded, reaching a host named nowhere a reviewer reads. What is authored instead is a
   token obtained out of band into an environment variable, on ADR-0007's shape.
+- **A plain-HTTP endpoint.** `hyper` requests `https://` and there is no second scheme
+  ([ADR-0082](../adr/0082-the-scheme-is-https-and-there-is-no-second-one.md)): a `hosts:` grant
+  enumerates hosts and carries no scheme, so there is no position in any artefact where one could be
+  written. An internal service reachable only over plain HTTP is called through a `shell` Step or not
+  at all. What buys the limit is that `tls` is then present on every response that arrived (§12), so a
+  certificate going quiet means the host answered nothing rather than that the transport differed.
 - **A client certificate.** mTLS is a property of the connection rather than a position in the request,
   so it cannot join a set defined by request positions (ADR-0031) — and its private key has no home
   either, `hyper` having no filesystem Capability (§12).

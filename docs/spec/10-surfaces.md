@@ -575,9 +575,11 @@ would send an operator round the loop once per variable, each `export` earning a
 
 Commands that are not Runs carry no outcome. They use `0` for clean, `1` for problems found, and `2`
 for usage, plus `77` where a guardrail declines — the version pin gate above, and the absent Store
-`store init` answers, `compact` included. `probe` is the one command that can never exit `77` past the
-pin gate: it touches no Store, and against `local` the two-key check is vacuous, so there is no
-guardrail there to decline.
+`store init` answers, `compact` included. `probe` reaches `77` too, and by one route: it touches no
+Store and against `local` the two-key check is vacuous, but the **grant** is a guardrail all the same,
+so a host outside the `hosts:` the Target named `local` declares is `host-not-granted` and exits `77`
+(above, ADR-0042). A repository declaring no `local` grants no host and declines identically. What a
+Probe can never exit is `1`: it is not a Run, and a status is an answer rather than a problem found.
 
 A signal is handled as §6 states: the first interrupt drains, the Step in flight finishes, no further
 Step starts, and the Run closes its own Journal entry `failed`, exiting `130` or `143` according to the

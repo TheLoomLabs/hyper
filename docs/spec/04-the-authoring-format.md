@@ -328,7 +328,8 @@ operations:
 `repeatability:` is omitted because a `read` has one legal value (§12), `auth:` because a public host
 takes no credential, and `host-input:` is present because `{from-target}` expands to every host `local`
 grants and a Step names which of them this Run is checking. `days_left` is absent from a version written
-against a plain-HTTP host, a field's presence being a predicate fact rather than a type (§12).
+against a host that answered nothing at all, a field's presence being a predicate fact rather than a
+type (§12).
 
 Nothing here declares which statuses are acceptable, and that is not an omission: a `read` never halts
 on what came back (§6, ADR-0050), so `status: $.status` records a `503` as readily as a `200` and this
@@ -637,6 +638,13 @@ position resolves only to an enumeration or to `from-target` and never to an Ope
 input it names always carries a whole host: an enumeration hole is a compact way of writing a large
 candidate set, never a second thing filled at Run time. Naming an input the schema does not define is
 `manifest-inconsistent` (§4).
+
+**The scheme is `https` and there is no second one** ([ADR-0082](../adr/0082-the-scheme-is-https-and-there-is-no-second-one.md)).
+No artefact chooses it: a `hosts:` grant enumerates hosts and carries no scheme, `host:` is a template
+over those hosts, and there is no position in any of the five artefacts where `http://` could be
+written. So `tls` is present on every response that arrived and absent exactly where the object is
+`host` and nothing else (§12) — §12's *present where the scheme was HTTPS* is a condition with one
+branch. A plain-HTTP endpoint is not reachable and joins the limits §13 states.
 
 ### Which positions are Capability-relevant
 
