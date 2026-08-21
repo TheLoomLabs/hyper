@@ -21,39 +21,70 @@ import (
 // Where the check fires, and whether it Refuses or halts, is §6's: this is the
 // question, not the guardrail.
 
-// Collision answers the identity the Store already holds that is one with the
-// identity handed under the fold, and whether there is one.
+// Collisions answers, for each identity handed, the identity the Store already
+// holds that is one with it under the fold — and nothing at all for the members
+// that collide with none.
 //
 // An identity the Store holds *exactly* is not a collision: that is the series
-// itself, and a further version of it is an ordinary write. What this reports
-// is two identities that must be distinct being one under the fold, which is
+// itself, and a further version of it is an ordinary write. What this reports is
+// two identities that must be distinct being one under the fold, which is
 // `record-identity-collision` (§12).
 //
-// It reads every Record series on the branch, no index existing here or under
-// `.git/hyper/` (§7). Where more than one stored identity folds onto the one
-// handed — which takes a Store that already holds a collision — the first in
-// identity order is the answer, so two reads of one branch report one identity.
-func (s *Store) Collision(id Identity) (Identity, bool, error) {
+// It is a set rather than one identity because §6 runs the check **once** over
+// the identities an Expansion resolved rather than at each member's turn, and
+// asking per member would be one enumeration of the branch per member — no
+// index exists here or under `.git/hyper/` (§7), so the read is the cost.
+//
+// The answer is keyed by the identity handed rather than ordered, the order the
+// members are decided in being the caller's: an Expansion has one (§6,
+// ADR-0044) and this has none. Where more than one stored identity folds onto
+// one handed — which takes a Store that already holds a collision — the first
+// in identity order is the answer, so two reads of one branch report one
+// identity.
+func (s *Store) Collisions(ids []Identity) (map[Identity]Identity, error) {
 	records, err := s.Records()
 	if err != nil {
-		return Identity{}, false, err
+		return nil, err
 	}
 
-	wanted := folded(id)
+	// Every series that folds onto one key, in identity order — which is
+	// Records' own order, and which is what makes the answer below the
+	// first in identity order rather than the first the map happened to
+	// hold. A key holds more than one only where the Store already holds a
+	// collision, which is the state ADR-0075 says the write cannot prevent.
+	held := make(map[Identity][]Identity, len(records))
 	for _, series := range records {
-		if series.Identity != id && wanted == folded(series.Identity) {
-			return series.Identity, true, nil
+		key := Folded(series.Identity)
+		held[key] = append(held[key], series.Identity)
+	}
+
+	collided := map[Identity]Identity{}
+	for _, id := range ids {
+		for _, standing := range held[Folded(id)] {
+			// An identity the Store holds exactly is not a
+			// collision: that is the series itself, and a further
+			// version of it is an ordinary write. Where the branch
+			// holds both spellings the other one is still the
+			// answer, the two being one identity under the fold.
+			if standing != id {
+				collided[id] = standing
+				break
+			}
 		}
 	}
-	return Identity{}, false, nil
+	return collided, nil
 }
 
-// folded is an identity under the fold: the three components each folded, and
+// Folded is an identity under the fold: the three components each folded, and
 // still three, because joining them into one string would need a separator no
 // component is guaranteed to be free of — and a joining rule that is not
 // injective makes two identities one that nothing could ever tell apart (§7,
 // and the `shell` projection's own argument in §12).
-func folded(id Identity) Identity {
+//
+// It is exported because the Store is not the only comparand: two members of
+// one Expansion are compared against each other before either has ever been
+// written, and that comparison is this one (§6, issue #139).
+func Folded(id Identity) Identity {
 	return Identity{
 		Target:     fold(id.Target),
 		Definition: fold(id.Definition),

@@ -142,12 +142,38 @@ func (p Projection) Project(response capability.Object) Fields {
 // answered a second way about the same fault would be a second opinion on an
 // artefact nobody reviewed (ADR-0064).
 func Resolve(path string, response capability.Object) (value any, resolved bool) {
+	names, inGrammar := Segments(path)
+	if !inGrammar {
+		return nil, false
+	}
+
+	var current any = response
+	for _, name := range names {
+		current, resolved = member(current, name)
+		if !resolved {
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+// Segments is the members a path names, in order, and false where its
+// characters are not the grammar. `$` alone names none, which is the whole
+// response object and — where a path roots at a Record rather than at a
+// response — the member itself (§3, §12).
+//
+// It is exported because a second root reads the same grammar against something
+// that is not a response object at all: an `{item:}` reference resolves against
+// the Record its Step is ranging over, whose fields are the Store's own values
+// rather than a Capability's (§6, issue #139). The walk differs and the grammar
+// does not, so the grammar is read here and the hop is the caller's.
+func Segments(path string) ([]string, bool) {
 	rest, ok := strings.CutPrefix(path, "$")
 	if !ok {
 		return nil, false
 	}
 
-	var current any = response
+	var names []string
 	for rest != "" {
 		segment := segmentPattern.FindStringSubmatch(rest)
 		if segment == nil {
@@ -157,14 +183,10 @@ func Resolve(path string, response capability.Object) (value any, resolved bool)
 		// in what characters a member may be spelled with: `.member` is
 		// an identifier and `["member"]` is anything, which is how a
 		// header name carrying a hyphen or a dot is reachable at all.
-		name := segment[1] + segment[2]
-		current, resolved = member(current, name)
-		if !resolved {
-			return nil, false
-		}
+		names = append(names, segment[1]+segment[2])
 		rest = rest[len(segment[0]):]
 	}
-	return current, true
+	return names, true
 }
 
 // member is one hop: what a named member of the value in hand holds, and false

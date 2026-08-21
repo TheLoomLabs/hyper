@@ -1,0 +1,14 @@
+kind: procedure
+procedure: watch-assets
+targets: [local]
+steps:
+  - id: standing
+    definition: uptime-check
+    operation: check_http
+    target: local
+    over:
+      assets:
+        - field: host
+          exists: true
+    args:
+      host: {item: $.host}

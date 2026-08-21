@@ -599,12 +599,18 @@ func runRows(answer run.Answer) []render.Row {
 // `declared` and `observed` are not here. §7 states them for a check that
 // compared two values, and no check that reaches a Run in this milestone does:
 // §4's thirty-one report a fault at a position, and the three Run-start gates
-// report an absence. They arrive with `bound-exceeded`, which is the Expansion's
-// (issue #139) — the same deferral stepRow's `expanded` already states.
+// report an absence, and so do the Expansion's four checks (issue #139). They
+// arrive with `bound-exceeded`, the one member of the closed set that compares a
+// declared count against an observed one, and that is milestone 6's.
 //
-// `resolved` is not here either, and for the same shape of reason: it carries a
-// relative predicate's operand mapped to the instant it resolved to, and
-// nothing this milestone runs evaluates one.
+// `resolved` is not here either, and the reason has moved rather than gone. A
+// Run does now evaluate a relative predicate — `older_than: 14d` at an
+// Expansion, against the instant on `run.json` (ADR-0034) — and §8 puts the
+// gloss on the rows **that render the operand**: the `=` note beneath the caret
+// and the trailing cell of `EDIT ONE OF`. This milestone renders neither, its
+// Refusal being the problem table `check` already renders, so no text on this
+// page holds an operand for a gloss to map. It arrives with the excerpt that
+// renders one (milestone 8).
 type refusalRow struct {
 	Type      string `json:"type"`
 	ErrorCode string `json:"error_code"`
@@ -740,9 +746,10 @@ func rowsOf[T render.Row](rows []render.Row) []render.Row {
 //
 // §8's third form of the cell — `n of m`, where the Expansion reached `m` and
 // the rest are unaccounted for — is not here, and neither is the `expanded`
-// member beside it. Nothing this milestone runs can stop short of an Expansion:
-// a Step carrying an `over:` declines before Step 1 (internal/run). It arrives
-// with the Expansion that makes it reachable (issue #139, issue #144).
+// member beside it. A Step now expands (issue #139) and nothing that runs can
+// yet stop short of one: a member whose call halts the Run halts it there, so
+// there is no Step that reached `m` and concluded about fewer. It arrives with
+// the drain that makes it reachable (issue #140, issue #144).
 type stepRow struct {
 	Type        string `json:"type"`
 	Step        int    `json:"step"`

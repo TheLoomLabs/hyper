@@ -1,0 +1,14 @@
+kind: procedure
+procedure: watch-head
+targets: [local]
+steps:
+  - id: down
+    definition: uptime-check
+    operation: check_http
+    target: local
+    over:
+      observations:
+        - field: status
+          equals: 503
+    args:
+      host: {item: $.host}

@@ -1,0 +1,16 @@
+kind: procedure
+procedure: watch-and-reversed
+targets: [local]
+steps:
+  - id: both
+    definition: uptime-check
+    operation: check_http
+    target: local
+    over:
+      observations:
+        - field: host
+          older_than: 14d
+        - field: status
+          equals: 999
+    args:
+      host: {item: $.host}

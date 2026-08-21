@@ -1,0 +1,7 @@
+STEP  ID     KIND  DISPOSITION  RECORDS
+1     named  read  refused      –
+
+FILE                         LINE  FIELD          ERROR_CODE                 MESSAGE
+procedures/watch-named.yaml  10    steps[0].over  record-identity-collision  alpha resolves to status.hyper.dev and beta resolves to Status.hyper.dev, which are one Record identity — every member of an Expansion is one identity
+
+refused · exit 77 · run 01991ea6-b118-7c93-8d41-6b2f7ae05c11

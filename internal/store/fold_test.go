@@ -14,6 +14,21 @@ import (
 // onto it. Where the check fires and whether it Refuses or halts is §6's
 // (issue #130).
 
+// collision is the question these cases ask, over the one door the Store opens
+// for it: Collisions answers a set, because §6 asks it once over the identities
+// an Expansion resolved rather than once per member (issue #139), and every
+// case here asks about one identity.
+func collision(t *testing.T, held *store.Store, arriving store.Identity) (store.Identity, bool, error) {
+	t.Helper()
+
+	collided, err := held.Collisions([]store.Identity{arriving})
+	if err != nil {
+		return store.Identity{}, false, err
+	}
+	stored, found := collided[arriving]
+	return stored, found, nil
+}
+
 // TestCollision_AnswersTheIdentityTheStoreHoldsUnderTheFold. Two identities
 // that differ only in case are one under the fold, and what comes back is the
 // spelling the Store holds — which is what a Refusal has to render beside the
@@ -23,7 +38,7 @@ func TestCollision_AnswersTheIdentityTheStoreHoldsUnderTheFold(t *testing.T) {
 	_, held := seededStore(t, aVersion(t, stored, theEntryRunID, 1, theInstant))
 
 	arriving := store.Identity{Target: theSeries.Target, Definition: theSeries.Definition, Name: "preview-42.example.COM"}
-	collides, found, err := held.Collision(arriving)
+	collides, found, err := collision(t, held, arriving)
 	if err != nil {
 		t.Fatalf("Collision: %v", err)
 	}
@@ -46,7 +61,7 @@ func TestCollision_FoldsEveryComponentOfTheIdentity(t *testing.T) {
 		{Target: "cloudflare-prod", Definition: "Preview-DNS", Name: theSeries.Name},
 		{Target: "Cloudflare-Prod", Definition: "preview-dns", Name: theSeries.Name},
 	} {
-		collides, found, err := held.Collision(arriving)
+		collides, found, err := collision(t, held, arriving)
 		if err != nil {
 			t.Fatalf("Collision: %v", err)
 		}
@@ -63,7 +78,7 @@ func TestCollision_FoldsEveryComponentOfTheIdentity(t *testing.T) {
 func TestCollision_IsNotTheSeriesItself(t *testing.T) {
 	_, held := seededStore(t, aVersion(t, theSeries, theEntryRunID, 1, theInstant))
 
-	if collides, found, err := held.Collision(theSeries); err != nil || found {
+	if collides, found, err := collision(t, held, theSeries); err != nil || found {
 		t.Errorf("Collision(%+v) = %+v, %v, %v; a series colliding with itself is a further version of it", theSeries, collides, found, err)
 	}
 }
@@ -74,7 +89,7 @@ func TestCollision_AnswersNothingWhereTheStoreHoldsNoSuchIdentity(t *testing.T) 
 	_, held := seededStore(t, aVersion(t, theSeries, theEntryRunID, 1, theInstant))
 
 	arriving := store.Identity{Target: theSeries.Target, Definition: theSeries.Definition, Name: "preview-99.example.com"}
-	if collides, found, err := held.Collision(arriving); err != nil || found {
+	if collides, found, err := collision(t, held, arriving); err != nil || found {
 		t.Errorf("Collision(%+v) = %+v, %v, %v; want no collision", arriving, collides, found, err)
 	}
 }
@@ -99,7 +114,7 @@ func TestCollision_IsDecidedByReadingAndNeverByAttemptingTheWrite(t *testing.T) 
 		t.Fatalf("the branch does not hold the uppercase spelling; the write always succeeds (ADR-0075)")
 	}
 
-	collides, found, err := held.Collision(upper)
+	collides, found, err := collision(t, held, upper)
 	if err != nil || !found {
 		t.Fatalf("Collision = %+v, %v, %v; want the lowercase series", collides, found, err)
 	}
@@ -124,7 +139,7 @@ func TestCollision_FoldsBeyondASCIIAndReachesNoFilesystem(t *testing.T) {
 			_, held := seededStore(t, aVersion(t, stored, theEntryRunID, 1, theInstant))
 
 			arriving := store.Identity{Target: theSeries.Target, Definition: theSeries.Definition, Name: pair[1]}
-			collides, found, err := held.Collision(arriving)
+			collides, found, err := collision(t, held, arriving)
 			if err != nil {
 				t.Fatalf("Collision: %v", err)
 			}
@@ -141,7 +156,7 @@ func TestCollision_TellsApartTwoNamesThatAreNotOneUnderTheFold(t *testing.T) {
 	_, held := seededStore(t, aVersion(t, theSeries, theEntryRunID, 1, theInstant))
 
 	arriving := store.Identity{Target: theSeries.Target, Definition: theSeries.Definition, Name: "preview-42.example.co"}
-	if collides, found, err := held.Collision(arriving); err != nil || found {
+	if collides, found, err := collision(t, held, arriving); err != nil || found {
 		t.Errorf("Collision(%q) = %+v, %v, %v; two names that are not one under the fold are two identities", arriving.Name, collides, found, err)
 	}
 }
@@ -158,7 +173,7 @@ func TestCollision_DoesNotFoldBytesThatAreNotUTF8OntoOneCharacter(t *testing.T) 
 	_, held := seededStore(t, aVersion(t, stored, theEntryRunID, 1, theInstant))
 
 	arriving := store.Identity{Target: theSeries.Target, Definition: theSeries.Definition, Name: "vm-\xff"}
-	if collides, found, err := held.Collision(arriving); err != nil || found {
+	if collides, found, err := collision(t, held, arriving); err != nil || found {
 		t.Errorf("Collision(%q) = %+v, %v, %v; an unpaired byte is itself and not the replacement character", arriving.Name, collides, found, err)
 	}
 }
@@ -173,7 +188,7 @@ func TestCollision_ReadsTheIdentityFromTheFile(t *testing.T) {
 	_, held := seededStore(t, aVersion(t, stored, theEntryRunID, 1, theInstant))
 
 	arriving := store.Identity{Target: theSeries.Target, Definition: theSeries.Definition, Name: strings.ToLower(long)}
-	collides, found, err := held.Collision(arriving)
+	collides, found, err := collision(t, held, arriving)
 	if err != nil {
 		t.Fatalf("Collision: %v", err)
 	}

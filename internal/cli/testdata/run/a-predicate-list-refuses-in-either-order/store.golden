@@ -1,0 +1,103 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05c06/outcome.json (457 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "error_code": "predicate-type-mismatch",
+      "field": "steps[0].over.observations[0].older_than",
+      "file": "procedures/watch-and-reversed.yaml",
+      "line": 12,
+      "message": "on site-a, field: host holds the string \"status.hyper.dev\", and older_than: takes a timestamp",
+      "step": 1,
+      "step_id": "both"
+    }
+  ],
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05c06/run.json (478 bytes)
+{
+  "dry_run": false,
+  "procedure": "watch-and-reversed",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "60efe6b73a6250786e5657502e335141a175bd7a",
+    "repo_revision": "5981c76b7fcbecbaea2d2d454171b87a9a2e8cae"
+  },
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c06",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05c06/steps/0001.json (735 bytes)
+{
+  "definition": "uptime-check",
+  "disposition": "refused",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "both",
+  "kind": "read",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "0b07152f4cc4f28c380bf53e252373dc3a4d0019",
+    "manifest_digest": "sha256:b3480ee4ace0eb9ce88f25294ca7fdb7a1392b90c38f196b2ae414575040881d"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "selector": {
+    "declared": {
+      "observations": [
+        {
+          "field": "host",
+          "older_than": "14d"
+        },
+        {
+          "equals": 999,
+          "field": "status"
+        }
+      ]
+    },
+    "expanded_to": []
+  },
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/uptime-check/site-a/01991ea6-b118-7c93-8d41-6b2f7ae05c19-0001.json (694 bytes)
+{
+  "definition": "uptime-check",
+  "fields": {
+    "host": "status.hyper.dev",
+    "status": 200
+  },
+  "name": "site-a",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "077c633cf1996368e8d16880b0bf2d37b6ffe360",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7",
+    "procedure_revision": "54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329",
+    "repo_revision": "bcce2c10592d43450874312bb51af5ee2188ccc3"
+  },
+  "record_type": "observation",
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

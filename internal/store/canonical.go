@@ -222,10 +222,10 @@ func (s String) write(dst []byte, _ int) []byte {
 }
 
 func (n Number) write(dst []byte, _ int) []byte {
-	return append(dst, n.text()...)
+	return append(dst, n.Text()...)
 }
 
-// text is the number as the Store writes it. §7 says "the shortest decimal that
+// Text is the number as the Store writes it. §7 says "the shortest decimal that
 // round-trips", which is under-determined at the exponent threshold where
 // `1e+06` is shorter than `1000000` and both round-trip. #124 resolves it: an
 // integer is written as its decimal digits, exactly and at whatever width it
@@ -242,7 +242,12 @@ func (n Number) write(dst []byte, _ int) []byte {
 // costs, and it costs nothing on a Run — each form re-encodes to itself, so
 // neither mints a version, and an upstream that changed which form it sends is
 // an upstream whose bytes moved.
-func (n Number) text() string {
+//
+// It is exported because a predicate compares a stored number against an
+// authored operand, and the comparison reads this text: an Expansion is the one
+// caller outside this package holding a Number it did not write (§6, §12,
+// issue #139).
+func (n Number) Text() string {
 	if n.literal == "" {
 		return "0"
 	}

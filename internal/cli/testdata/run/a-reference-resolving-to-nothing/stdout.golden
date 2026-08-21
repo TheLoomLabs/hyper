@@ -1,0 +1,7 @@
+STEP  ID   KIND  DISPOSITION  RECORDS
+1     ttl  read  refused      –
+
+FILE                       LINE  FIELD              ERROR_CODE       MESSAGE
+procedures/watch-ttl.yaml  15    steps[0].args.ttl  schema-mismatch  {item: $.ttl} resolves to nothing on site-a, and every input check_ttl declares is supplied
+
+refused · exit 77 · run 01991ea6-b118-7c93-8d41-6b2f7ae05c10

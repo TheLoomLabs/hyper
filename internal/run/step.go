@@ -46,81 +46,36 @@ type binding struct {
 
 // perform runs one Step and answers what became of it.
 //
+// **The Expansion resolves first**, before the Step's first call goes out, and
+// what it declines is a Refusal the Run ends on rather than a fault (§6,
+// expand.go). Past it the members are called in Expansion order, each response
+// projected and each version written only where the bytes moved.
+//
 // The error it answers is what halted the Run, and the Step it answers beside
 // it stands whether or not there is one: a Step that reached a Disposition
 // wrote its file, and a halted Run leaves what it did (§6, ADR-0011). A zero
 // Step is a Step that reached none.
-func (r run) perform(position int, authored artefact.Step) (Step, error) {
+//
+// **A member whose call halts the Run halts it there**, the members after it
+// unattempted. Draining the Expansion — attempting every member and recording
+// every Observation that succeeded — is issue #140's, and it lands on this loop
+// rather than beside it.
+func (r run) perform(position int, authored artefact.Step) (Step, []Refusal, error) {
 	bound, err := resolve(r.request.Repository, authored)
 	if err != nil {
-		return Step{}, err
+		return Step{}, nil, err
 	}
 	provenance := store.StepProvenance{
 		DefinitionRevision: revision.Blob(bound.definition.Bytes),
 		ManifestDigest:     artefact.ManifestDigest(bound.manifest.Bytes),
 		OriginDigest:       artefact.ReadManifestFacts(bound.manifest.Root).OriginDigest,
 	}
-
 	started := r.request.Now()
-	concluded, err := r.call(bound, authored)
+
+	held, declined, err := r.expand(bound, authored, position)
 	if err != nil {
-		return Step{}, err
+		return Step{}, nil, err
 	}
-
-	// The version, written only where the bytes moved. An Operation
-	// returning what the head version already holds mints nothing, and the
-	// canonical encoding is what makes that an exact test (§7, ADR-0030).
-	identity := store.Identity{Target: authored.Target, Definition: authored.Definition, Name: concluded.name}
-	version := store.RecordVersion{
-		Metadata: store.Metadata{
-			Identity:   identity,
-			RecordType: store.RecordObservation,
-			Run:        r.id,
-			Step:       position,
-			Operation:  authored.Operation,
-			WrittenAt:  r.request.Now(),
-			Provenance: store.Provenance{Run: r.provenance, Step: provenance},
-		},
-		Fields: concluded.fields,
-	}
-	moved, err := mints(r.request.Store, version)
-	if err != nil {
-		return Step{}, err
-	}
-	if moved {
-		if err := r.request.Store.Append([]store.Write{{
-			Path:    store.RecordPath(identity, r.id, position),
-			Content: version.Encode(),
-		}}, fmt.Sprintf("Record %s/%s/%s at run %s step %d", identity.Target, identity.Definition, identity.Name, r.id, position)); err != nil {
-			return Step{}, err
-		}
-	}
-
-	// The identity set, and the digest it is written against: the last Run
-	// of this Procedure in which this Step carried one, which is never
-	// simply the previous Run (§7, ADR-0055).
-	previous, err := r.previousDigest(authored.ID)
-	if err != nil {
-		return Step{}, err
-	}
-	// A Step carrying no selector concludes about the one Record it would
-	// write, which is a set of one (§6). The set is built before it is
-	// written because the count is read off it here and cannot be read back
-	// off what is written: an entry whose digest did not move carries no
-	// members at all (§7, §8, ADR-0030).
-	names := store.Names([]string{concluded.name})
-	identities := store.Concluded(names, previous)
-
-	step := Step{
-		Position:    position,
-		ID:          authored.ID,
-		Kind:        store.Kind(bound.operation.Kind),
-		Disposition: store.DispositionRan,
-		Records:     len(names),
-		Concluded:   true,
-		Provenance:  provenance,
-	}
-
 	file := store.StepFile{
 		Step: position,
 		StepCode: store.StepCode{
@@ -129,21 +84,109 @@ func (r run) perform(position int, authored artefact.Step) (Step, error) {
 			Operation:  authored.Operation,
 			Provider:   bound.manifest.Name,
 			Target:     authored.Target,
-			Kind:       step.Kind,
+			Kind:       store.Kind(bound.operation.Kind),
 		},
-		Disposition: step.Disposition,
-		StartedAt:   started,
-		EndedAt:     r.request.Now(),
+		StartedAt:  started,
+		Provenance: provenance,
+		Selector:   store.Selector{Declared: held.Selector.Declared, ExpandedTo: held.names()},
+	}
+
+	// A Refusal at a Step's Expansion. The Step file records what actually
+	// happened to that Step — its Disposition, its selector, and what it
+	// expanded to — and carries **no identity set**, nothing having been
+	// concluded about anything. The Refusal itself is held on
+	// `outcome.json` and never here (§7, ADR-0061).
+	if len(declined) > 0 {
+		step := Step{
+			Position: position, ID: authored.ID, Kind: file.Kind,
+			Disposition: store.DispositionRefused, Provenance: provenance,
+		}
+		file.Disposition = step.Disposition
+		return step, declined, r.write(file)
+	}
+
+	// The calls, in Expansion order, and the versions they moved. A version
+	// is written only where the bytes moved: an Operation returning what
+	// the head version already holds mints nothing, and the canonical
+	// encoding is what makes that an exact test (§7, ADR-0030).
+	names := make([]string, 0, len(held.Members))
+	for _, resolving := range held.Members {
+		concluded, err := r.call(bound, authored, resolving)
+		if err != nil {
+			return Step{}, nil, err
+		}
+		names = append(names, concluded.name)
+
+		identity := store.Identity{Target: authored.Target, Definition: authored.Definition, Name: concluded.name}
+		version := store.RecordVersion{
+			Metadata: store.Metadata{
+				Identity:   identity,
+				RecordType: store.RecordObservation,
+				Run:        r.id,
+				Step:       position,
+				Operation:  authored.Operation,
+				WrittenAt:  r.request.Now(),
+				Provenance: store.Provenance{Run: r.provenance, Step: provenance},
+			},
+			Fields: concluded.fields,
+		}
+		moved, err := mints(r.request.Store, version)
+		if err != nil {
+			return Step{}, nil, err
+		}
+		if moved {
+			if err := r.request.Store.Append([]store.Write{{
+				Path:    store.RecordPath(identity, r.id, position),
+				Content: version.Encode(),
+			}}, fmt.Sprintf("Record %s/%s/%s at run %s step %d", identity.Target, identity.Definition, identity.Name, r.id, position)); err != nil {
+				return Step{}, nil, err
+			}
+		}
+	}
+
+	// The identity set, and the digest it is written against: the last Run
+	// of this Procedure in which this Step carried one, which is never
+	// simply the previous Run (§7, ADR-0055).
+	previous, err := r.previousDigest(authored.ID)
+	if err != nil {
+		return Step{}, nil, err
+	}
+	// The set is built before it is written because the count is read off
+	// it here and cannot be read back off what is written: an entry whose
+	// digest did not move carries no members at all. It is a **set**, so a
+	// Step carrying no selector concludes about the one Record it would
+	// write and an Expansion of three concludes about three (§6, §7, §8,
+	// ADR-0030).
+	concluded := store.Names(names)
+
+	step := Step{
+		Position:    position,
+		ID:          authored.ID,
+		Kind:        file.Kind,
+		Disposition: store.DispositionRan,
+		Records:     len(concluded),
+		Concluded:   true,
 		Provenance:  provenance,
-		Identities:  identities,
 	}
-	if err := r.request.Store.Append([]store.Write{{
-		Path:    r.entry.StepPath(position),
+	file.Disposition = step.Disposition
+	file.Identities = store.Concluded(names, previous)
+	return step, nil, r.write(file)
+}
+
+// write puts one Step's file down, which is the last thing that happens at a
+// Step's own turn: a Step writes its file as it reaches its Disposition (§6,
+// §7).
+//
+// It takes the file and nothing beside it. The position the entry names it by
+// and the id the commit message carries are members of the file already, and a
+// caller passing either a second time is a caller that can pass a different
+// one.
+func (r run) write(file store.StepFile) error {
+	file.EndedAt = r.request.Now()
+	return r.request.Store.Append([]store.Write{{
+		Path:    r.entry.StepPath(file.Step),
 		Content: file.Encode(),
-	}}, fmt.Sprintf("Step %d %s of run %s: %s", position, authored.ID, r.id, step.Disposition)); err != nil {
-		return Step{}, err
-	}
-	return step, nil
+	}}, fmt.Sprintf("Step %d %s of run %s: %s", file.Step, file.ID, r.id, file.Disposition))
 }
 
 // resolve reads every artefact the Step names, and answers the one fault a Step
@@ -198,15 +241,16 @@ type conclusion struct {
 // in this milestone that is the identity path alone — the recorded fields are
 // an absence a version simply does not carry, and the rest of what a projection
 // that does not resolve does is issue #144's.
-func (r run) call(bound binding, authored artefact.Step) (conclusion, error) {
+func (r run) call(bound binding, authored artefact.Step, resolving member) (conclusion, error) {
 	if bound.operation.Identity == "" {
 		return conclusion{}, fmt.Errorf("step %s binds %s %s, whose record: declares no identity, so hyper cannot say which Record a call would be holding — hyper check reports it",
 			authored.ID, bound.manifest.Name, authored.Operation)
 	}
-	inputs, err := arguments(bound.operation, authored)
-	if err != nil {
-		return conclusion{}, err
-	}
+	// The inputs are the Expansion's, resolved for this member before the
+	// first call of the Step went out: an `args:` value arriving from a
+	// reference is read there, where a value it cannot read is still a
+	// Refusal (§6, expand.go).
+	inputs := resolving.Inputs
 
 	reach := artefact.ResolveHost(bound.provider, bound.operation, bound.target,
 		bound.operation.SuppliedHost(inputs))
@@ -273,32 +317,6 @@ func (r run) call(bound binding, authored artefact.Step) (conclusion, error) {
 // surface remembering to (ADR-0007, ADR-0031).
 func (r run) credential(bound binding, target string) capability.Credential {
 	return capability.ReadAuth(bound.manifest.Root).Credential(r.credentials[target])
-}
-
-// arguments reads the Step's `args:` against the Operation's declared input
-// schema **at that position** rather than by what the value looks like
-// (ADR-0081) — the same rule a Probe's `--input` is read under, and the same
-// rule §4 checks the authored value against offline.
-//
-// Every declared input is supplied, there being no null and no key-omission
-// syntax (§3, ADR-0081), so an input nothing filled is a fault rather than a
-// hole left open.
-func arguments(operation artefact.OperationInfo, authored artefact.Step) (map[string]schema.Scalar, error) {
-	read := make(map[string]schema.Scalar, len(authored.Args))
-	for _, name := range slices.Sorted(keys(operation.Inputs)) {
-		node := authored.Args[name]
-		if node == nil {
-			return nil, fmt.Errorf("step %s supplies no %s, which %s declares — hyper check reports it", authored.ID, name, authored.Operation)
-		}
-		declared := operation.Inputs[name]
-		value, reads := schema.ReadScalar(schema.Type(declared.Type), node.Value)
-		if !reads {
-			return nil, fmt.Errorf("step %s writes %s: %s, which does not read as the %s %s declares it",
-				authored.ID, name, node.Value, declared.Type, authored.Operation)
-		}
-		read[name] = value
-	}
-	return read, nil
 }
 
 // identityOf is the name the Record is held under: what the Operation's

@@ -24,8 +24,10 @@ const checkCorpus = "testdata/check"
 //   - The offline halves of three codes §4 and §6 share — bound-exceeded (an
 //     authored values: list longer than the Bound), predicate-type-mismatch
 //     (the authored operand faults), and record-identity-collision (its §3
-//     load site and its §4 wiring site). Their run-time halves at Expansion
-//     are milestone 5's and 6's.
+//     load site and its §4 wiring site). Two of those three grew their
+//     run-time halves at Expansion with issue #139, driven under
+//     testdata/run/; bound-exceeded's is milestone 6's, a Bound guarding an
+//     effectful Step alone.
 //   - §10's two Cadence walk codes — cadence-run-once and
 //     cadence-secret-output — both stated by §4 and riding
 //     envelope-exceeded's transitive walk.

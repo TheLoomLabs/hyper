@@ -38,8 +38,10 @@ names one in a **`repo-from`** file instead, and the ones here are:
   `read` Operation, no credential, `class: local`, bound by a Definition and a
   Procedure of one Step with no selector. It is the tracer bullet's repository.
 - [`repo-not-built-yet/`](repo-not-built-yet) — the same, plus the artefacts
-  three later milestones need: a `mutate` Step, a `read` Step carrying an
-  `over:` selector, and a nested invocation.
+  two later milestones need: a `mutate` Step and a nested invocation. It held a
+  Step carrying an `over:` selector until issue #139 built the Expansion, and
+  that Procedure moved to `repo-expansion/` rather than staying here under a
+  name that had stopped being true.
 - [`repo-untracked/`](repo-untracked) — `repo-watch-status` with no
   `definitions/` in it, so the case that adds one through `uncommitted/` is
   running against an artefact git has never seen.
@@ -63,6 +65,14 @@ names one in a **`repo-from`** file instead, and the ones here are:
   Step (issue #138), and it is a repository of its own because adding a
   Procedure to `repo-watch-status` would move the `repo_revision` in every
   golden that names it.
+- [`repo-expansion/`](repo-expansion) — the Expansion (issue #139): the same
+  `uptime` Manifest with two Operations beside `check_http` — `check_named`,
+  whose `identity:` is a template hole and therefore resolves **before** the
+  call, and `check_ttl`, which wires an `integer` input into a request header
+  the fixture echoes back — and eleven Procedures, one per shape the Expansion
+  has. Each case seeds its own branch under `store/` and names the Procedure it
+  runs, so the population a selector reaches is the case's and the artefacts are
+  shared.
 
 The rest carry a repository of their own, each written for the one edge it
 drives.
@@ -86,8 +96,22 @@ drives.
 | `a-sync-that-could-not-reach-the-remote` | the sync fails and the Run **tolerates it**, saying so on stderr, reading the branch the clone holds and completing at `0` — never `75` for a sync it could not complete |
 | `a-sync-that-could-not-bring-a-branch` | the same failure with no branch in hand: the same stderr line, then `store-absent` at `77`, because what is missing is an act and not a network |
 | `a-later-run-pushes-what-an-earlier-one-stranded` | an earlier Run's unpushed commit and a second environment's published one, over one root: the push is rejected, the **whole** unpushed set is re-applied, and `remote.golden` holds all three Runs |
-| `two-read-steps-push-once` | the corpus's only two-Step Run, and what `run_push_test.go` counts the reaches of |
-| `an-effectful-step-declines`, `a-selector-declines`, `a-nested-invocation-declines` | the three things this binary does not implement, each declining before Step 1 with no entry written |
+| `two-read-steps-push-once` | a two-Step Run with a host each, and what `run_push_test.go` counts the reaches of |
+| `an-effectful-step-declines`, `a-nested-invocation-declines`, `a-step-reference-declines` | the three things this binary does not implement, each declining before Step 1 with no entry written |
+| `an-expansion-over-values` | the demonstration §5 writes out: two members, `{item: $}` into the Operation's `host-input:`, two Observations, and `RECORDS 2`. Its `declared` is the authored list and its `expanded_to` is the same order, where the identity set beside them is sorted |
+| `an-expansion-over-observations` | the record form: two seeded series, `{item: $.host}`, and `expanded_to` in **name** order — `zone-a` before `Über-vm`, which is the opposite of the order their percent-encoded paths sort in (ADR-0044). Two further series are seeded where the Expansion may not reach them, one under another Definition and one under another Target the Definition accepts (§5, ADR-0012) |
+| `a-predicate-reads-the-head-version` | a series whose **earlier** version matches the predicate and whose head does not: the Expansion resolves to nothing, `expanded_to` is written `[]`, and `RECORDS` renders `0` rather than the dash |
+| `a-tombstoned-series-stands-for-nothing` | an `assets:` selector over three series — one Asset standing, one whose head is a Tombstone, one Observation — reaching the first alone |
+| `a-relative-predicate-resolves-against-the-run` | `older_than: 14d` against the instant on `run.json`, over two series either side of it; **two Steps** carry the same predicate and reach the same member, the instant being the Run's and not each Step's |
+| `a-predicate-list-does-not-short-circuit`, `-refuses-in-either-order` | the same two conjuncts written in both orders: the one that excludes the candidate first, then the one that cannot compare it. Both Refuse `predicate-type-mismatch`, so whether a Run Refuses does not depend on the order two conjuncts were written in (ADR-0035) |
+| `a-stored-value-fills-an-integer-input` | a stored `"2592000"` filling an `integer` input — characters against the declared type, never the stored value's own JSON type — and the number reaching the wire, echoed back by the fixture |
+| `a-stored-value-that-will-not-read` | the same wiring over a stored `"thirty"`: `schema-mismatch`, the code §4 fires where the value is on the page |
+| `a-reference-resolving-to-nothing` | a member whose head carries no such field at all: the same code again, a reference resolving to nothing supplying no value |
+| `two-members-one-identity`, `-json` | two members of one Expansion resolving to one identity under §7's fold: `record-identity-collision`, nothing touched, and the Step *refused* with its selector and no identity set |
+| `an-identity-the-store-already-holds` | the second comparand: an identity that folds onto a standing series, refused with the same code |
+| `the-sibling-collision-is-named-first` | both comparands available at once — the sibling is named, being reproducible from the artefact alone with no Store in hand |
+| `a-step-with-no-selector-meets-the-store` | the Store comparand reaching a Step carrying no `over:`: vacuous against itself, and not against the branch |
+| `four-runs-of-one-step` | driven once here and four times by [`../../run_expansion_test.go`](../../run_expansion_test.go) |
 | `an-effectful-step-declines-before-the-store` | the same decline in a repository with no Store: `2` and not `77`, because a working-tree name is judged before the Store is located |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
@@ -168,6 +192,32 @@ so that is counted instead:
 the bare origin that accepts a push and tallies it, drives
 [`two-read-steps-push-once`](two-read-steps-push-once), and holds the tally at
 one.
+
+**That an identity set is written as a digest alone where it did not move.**
+What that is about is what the *second* entry writes given the first, and a case
+drives one Run. [`../../run_expansion_test.go`](../../run_expansion_test.go)
+drives [`four-runs-of-one-step`](four-runs-of-one-step) four times through one
+materialised repository — narrowing the Step's `values:` list between the second
+Run and the third — and reads the four Step files: members, digest alone,
+members, digest alone.
+
+**Three of the Expansion's rules are structural, and the corpus shows their
+consequence rather than the rule.** They are named here so that a reader does
+not look for a case that cannot exist.
+
+- **A `values:` member the Store dropped** is present in `declared` and absent
+  from `expanded_to`, and the drop is a `destroy`'s: §5 drops a member whose
+  head is a Tombstone on a `destroy` Step and reaches one on a `mutate`. A
+  `read` drops nothing, so what the cases here show is the two lists standing
+  side by side, and milestone 6 is where they differ.
+- **A Tombstone stands for nothing under either form**, and only an `assets:`
+  selector can meet one: a Definition observes or effects and never both
+  (ADR-0032), so an Observation series never holds a Tombstone and a fixture
+  that seeded one would be evidence of a state the Store cannot reach.
+- **The two identity checks run once over the resolved set**, before the first
+  call. What a golden holds is the consequence — a Refusal with nothing written
+  and no version minted — since one check per member and one check over the set
+  Refuse the same way when the Refusal comes first either way.
 
 ## Why the halted Run halts on an identity path
 

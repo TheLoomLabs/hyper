@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/revision"
@@ -67,13 +69,14 @@ func NotBuilt(loaded repository.Loaded, procedure string) []string {
 	var declined []string
 	steps := readSteps(file)
 	for _, step := range steps {
+		reference := stepReference(step)
 		switch {
 		case step.IsInvocation():
 			declined = append(declined, fmt.Sprintf(
 				"step %s invokes the Procedure %s, and a nested invocation is not built yet", named(step), step.Invocation))
-		case step.Over != nil:
+		case reference != "":
 			declined = append(declined, fmt.Sprintf(
-				"step %s carries an over: selector, and Expansion is not built yet", named(step)))
+				"step %s reads %s through a reference to an earlier Step's Record, and a Step's Record is not readable yet", named(step), reference))
 		case step.When != nil:
 			declined = append(declined, fmt.Sprintf(
 				"step %s carries a when: condition, and conditions are not built yet", named(step)))
@@ -85,6 +88,37 @@ func NotBuilt(loaded repository.Loaded, procedure string) []string {
 		}
 	}
 	return declined
+}
+
+// stepReference is the `args:` input this Step fills from an earlier Step's
+// Record, and "" where it fills none that way.
+//
+// It is one of the things declineUnbuilt stops the Run on, and it is here
+// rather than at the Expansion that resolves an `{item:}` reference beside it
+// (§6, expand.go). The two reference forms resolve at one moment and against
+// two things: `{item:}` names the Record the Step is ranging over, which the
+// Expansion has in hand, and `{step:, path:}` names the Record an earlier Step
+// of **this Run** acted on — the condition's root, arriving with it (§3, §12,
+// issue #141).
+//
+// Declining it here rather than there is the difference between a Run that
+// stops before Step 1 and a Run that Refuses at Step 4 having already recorded
+// three Steps' worth of the world, under a code that would name the reference
+// as resolving to nothing when what it names is a thing this binary cannot yet
+// read.
+func stepReference(step artefact.Step) string {
+	for _, name := range slices.Sorted(keys(step.Args)) {
+		node := step.Args[name]
+		if node == nil || node.Kind != yaml.MappingNode {
+			continue
+		}
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			if key := node.Content[i]; key.Kind == yaml.ScalarNode && key.Value == "step" {
+				return name + ": {step: " + node.Content[i+1].Value + ", …}"
+			}
+		}
+	}
+	return ""
 }
 
 // named is how a decline names a Step: its authored id, or its position in the

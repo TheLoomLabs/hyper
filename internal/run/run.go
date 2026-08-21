@@ -314,12 +314,19 @@ func Perform(request Request) Answer {
 	for position, step := range steps {
 		narrator.Reached(position+1, len(steps), step.ID)
 
-		performed, err := inFlight.perform(position+1, step)
+		performed, declined, err := inFlight.perform(position+1, step)
 		if performed.Position != 0 {
 			answer.Steps = append(answer.Steps, performed)
 		}
 		if err != nil {
 			return inFlight.closed(failed(answer, err))
+		}
+		// A guardrail declining at this Step's Expansion, which is the
+		// one Refusal a Run reaches past Step 1 — and it is terminal
+		// like every other: the Steps before it ran and what they did
+		// stands, and this one wrote nothing (§6, §8, ADR-0061).
+		if len(declined) > 0 {
+			return inFlight.closed(refused(answer, declined))
 		}
 	}
 

@@ -1,0 +1,15 @@
+kind: procedure
+procedure: watch-ttl
+targets: [local]
+steps:
+  - id: ttl
+    definition: uptime-check
+    operation: check_ttl
+    target: local
+    over:
+      observations:
+        - field: host
+          exists: true
+    args:
+      host: {item: $.host}
+      ttl: {item: $.ttl}

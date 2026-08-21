@@ -1,0 +1,14 @@
+kind: procedure
+procedure: watch-observations
+targets: [local]
+steps:
+  - id: seen
+    definition: uptime-check
+    operation: check_http
+    target: local
+    over:
+      observations:
+        - field: host
+          exists: true
+    args:
+      host: {item: $.host}

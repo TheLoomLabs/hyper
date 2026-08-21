@@ -1,0 +1,16 @@
+kind: procedure
+procedure: watch-chain
+targets: [local]
+steps:
+  - id: first
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev
+  - id: second
+    definition: uptime-check
+    operation: check_named
+    target: local
+    args:
+      host: {step: first, path: $.host}

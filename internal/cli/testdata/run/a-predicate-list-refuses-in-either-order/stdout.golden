@@ -1,0 +1,7 @@
+STEP  ID    KIND  DISPOSITION  RECORDS
+1     both  read  refused      –
+
+FILE                                LINE  FIELD                                     ERROR_CODE               MESSAGE
+procedures/watch-and-reversed.yaml  12    steps[0].over.observations[0].older_than  predicate-type-mismatch  on site-a, field: host holds the string "status.hyper.dev", and older_than: takes a timestamp
+
+refused · exit 77 · run 01991ea6-b118-7c93-8d41-6b2f7ae05c06

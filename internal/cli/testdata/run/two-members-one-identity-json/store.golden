@@ -1,0 +1,123 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05c12/outcome.json (483 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "error_code": "record-identity-collision",
+      "field": "steps[0].over",
+      "file": "procedures/watch-named.yaml",
+      "line": 10,
+      "message": "alpha resolves to status.hyper.dev and beta resolves to Status.hyper.dev, which are one Record identity — every member of an Expansion is one identity",
+      "step": 1,
+      "step_id": "named"
+    }
+  ],
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05c12/run.json (471 bytes)
+{
+  "dry_run": false,
+  "procedure": "watch-named",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "23a0fdac4a8d79bda730d8739a5fbe9a6e17d51e",
+    "repo_revision": "5981c76b7fcbecbaea2d2d454171b87a9a2e8cae"
+  },
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c12",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05c12/steps/0001.json (691 bytes)
+{
+  "definition": "uptime-check",
+  "disposition": "refused",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "named",
+  "kind": "read",
+  "operation": "check_named",
+  "provenance": {
+    "definition_revision": "0b07152f4cc4f28c380bf53e252373dc3a4d0019",
+    "manifest_digest": "sha256:b3480ee4ace0eb9ce88f25294ca7fdb7a1392b90c38f196b2ae414575040881d"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "selector": {
+    "declared": {
+      "observations": [
+        {
+          "exists": true,
+          "field": "host"
+        }
+      ]
+    },
+    "expanded_to": [
+      "alpha",
+      "beta"
+    ]
+  },
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/uptime-check/alpha/01991ea6-b118-7c93-8d41-6b2f7ae05c19-0001.json (674 bytes)
+{
+  "definition": "uptime-check",
+  "fields": {
+    "host": "status.hyper.dev"
+  },
+  "name": "alpha",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "077c633cf1996368e8d16880b0bf2d37b6ffe360",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7",
+    "procedure_revision": "54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329",
+    "repo_revision": "bcce2c10592d43450874312bb51af5ee2188ccc3"
+  },
+  "record_type": "observation",
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/uptime-check/beta/01991ea6-b118-7c93-8d41-6b2f7ae05c19-0001.json (673 bytes)
+{
+  "definition": "uptime-check",
+  "fields": {
+    "host": "Status.hyper.dev"
+  },
+  "name": "beta",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "077c633cf1996368e8d16880b0bf2d37b6ffe360",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7",
+    "procedure_revision": "54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329",
+    "repo_revision": "bcce2c10592d43450874312bb51af5ee2188ccc3"
+  },
+  "record_type": "observation",
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

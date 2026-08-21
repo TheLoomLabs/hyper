@@ -1,0 +1,24 @@
+kind: procedure
+procedure: watch-created
+targets: [local]
+steps:
+  - id: stale
+    definition: uptime-check
+    operation: check_http
+    target: local
+    over:
+      observations:
+        - field: created_at
+          older_than: 14d
+    args:
+      host: {item: $.host}
+  - id: stale-again
+    definition: uptime-check
+    operation: check_http
+    target: local
+    over:
+      observations:
+        - field: created_at
+          older_than: 14d
+    args:
+      host: {item: $.host}
