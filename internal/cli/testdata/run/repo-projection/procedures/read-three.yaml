@@ -1,0 +1,12 @@
+kind: procedure
+procedure: read-three
+targets: [local]
+steps:
+  - id: three
+    definition: inventory-read
+    operation: read_item
+    target: local
+    over:
+      values: [one.hyper.dev, two.hyper.dev, three.hyper.dev]
+    args:
+      host: {item: $}

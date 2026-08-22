@@ -1,0 +1,11 @@
+kind: target-declaration
+target: local
+class: local
+kinds: [read]
+capabilities: [http]
+hosts:
+  - item.hyper.dev
+  - series.hyper.dev
+  - one.hyper.dev
+  - two.hyper.dev
+  - three.hyper.dev

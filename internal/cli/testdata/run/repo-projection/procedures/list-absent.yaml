@@ -1,0 +1,10 @@
+kind: procedure
+procedure: list-absent
+targets: [local]
+steps:
+  - id: absent
+    definition: inventory-read
+    operation: list_absent
+    target: local
+    args:
+      host: series.hyper.dev

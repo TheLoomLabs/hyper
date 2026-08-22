@@ -112,6 +112,15 @@ names one in a **`repo-from`** file instead, and the ones here are:
   says what the world answers on the second call and the third — the Patterns
   being the one thing in the tool whose subject is a world that changes between
   calls.
+- [`repo-projection/`](repo-projection) — when a projection does not resolve
+  (issue #144): an `inventory` Manifest of four `read` Operations differing in
+  the one thing this corpus is about — one of `one` cardinality projecting two
+  fields, one of `series` cardinality whose `over:` names a collection, one
+  whose `over:` names a path no response carries, and one of `series`
+  cardinality whose `identity:` is a template hole rather than a response path —
+  and six Procedures, one per shape the failure has: one host, a pair, three,
+  and the three collections. Each case's own `serve/` is what decides whether a
+  path resolves, so the artefacts are shared and the fault is the case's.
 - [`repo-shell-unresolvable/`](repo-shell-unresolvable) — `repo-shell` cut down
   to the one artefact that does not load: a Step whose argv word references a
   field the Record it names does not carry. It is a repository of its own
@@ -181,6 +190,14 @@ drives.
 | `a-secret-sink-names-every-step`, `-json` | the sink gate: two Steps declaring secret output, both named at once, neither of them run |
 | `usage-secret-out-to-stdout`, `-inside-the-repository`, `-with-no-path` | the three things `--secret-out` will not take, all `2` and all carrying no `error_code` |
 | `a-member-that-reaches-the-deadline`, `-json` | the drain (issue #140): three members, the middle one reaching the Operation's `deadline:`, **every** member attempted, the two Observations that succeeded committed, the Step *ran* with the set it concluded about, `RECORDS` reading `2 of 3` and naming no member, and the `step` row carrying `expanded` beside `records` |
+| `a-field-that-went-quiet` | a recorded field's path resolving to nothing is an **absence** and not a fault: the seeded head carries `note`, the answer does not, and the Run mints a second version **without** it and completes at `0` — the bytes moved, so the field going quiet renders as a change like any other |
+| `a-collection-path-that-does-not-resolve` | the other half of that distinction: an Operation of `series` cardinality whose `over:` names a path the response does not carry. The Run halts at `1`, the Step is *ran* with an empty set, and its file carries `projection_failed_path` — without it `hyper` could not tell a collection that was empty from a path that was wrong |
+| `a-series-whose-tenth-member-has-no-identity`, `-json` | the half-projected response: ten Records out of one, the tenth carrying no `id`. The nine that projected are **written**, the tenth is not, `RECORDS` reads `9 of 10` and the `step` row carries `expanded` beside `records` — the entry says expanded to one, the column counts the Records the answer reached |
+| `a-projection-failure-drains-the-expansion` | the same failure inside an Expansion of three: every member attempted, the two that projected committed, the Step *ran* at `2 of 3`, and `projection_failed_path` naming the identity path. It is the deadline case's shape with `hyper`'s reading of an answer in place of an answer that never came |
+| `two-members-one-identity-after-the-call` | the sibling comparand where the identity reads from the **response**: two members resolving `Crate` and `crate`. There is no Refusal available — the calls have gone out — so the Run **halts**, carries no `error_code`, names both spellings verbatim, and the first member in Expansion order keeps the identity |
+| `two-records-of-one-response-one-identity` | the comparand no pre-call form reaches at all: two Records out of one `series` response, decided by the collection's own order. The colliding Record is written under no name and the other two are, at `2 of 3` |
+| `an-identity-the-store-holds-after-the-call` | the third comparand, and `an-identity-the-store-already-holds`'s other half: the branch holds `Crate`, the answer resolves `crate`, and there is nothing to decide — the standing series was written by an earlier Run. `0 of 1`, nothing written, no `error_code` |
+| `a-series-under-an-identity-that-fills-before-the-call` | the collision no pre-call pass could ever see: an Operation of `series` cardinality whose `identity:` is a template hole, so every Record of one response resolves the one name that hole filled to. The Expansion holds one identity per **member** (ADR-0070) and this one member holds two Records, so the halt is the only place it can be caught — `1 of 2`, the first Record written and the second under no name at all |
 | `eight-members-under-a-limit-of-four` | an Expansion of eight under `concurrency: 4`. Its page says only that eight Observations landed; what the limit did is [`../../run_concurrency_test.go`](../../run_concurrency_test.go)'s |
 | `an-expansion-with-no-declared-limit` | the same over an Operation declaring no `concurrency:`, which is the serial half of ADR-0045 |
 | `two-read-steps-do-not-overlap` | two `read` Steps of two members each, both under `concurrency: 2` — all concurrency lives inside one Step's Expansion (ADR-0002) |
@@ -449,25 +466,51 @@ than the answer (§6, ADR-0050).
 
 It lands on the drain rather than beside it (issue #140). Its one member is its
 whole Expansion, so the Step concludes about nothing, is *ran* all the same, and
-renders `0 of 1` — expanded to one and accounted for none. What it does **not**
-yet carry is `projection_failed_path`, the member §7 puts the failed path on;
-that is issue #144's, and it is a key added to a file that now exists rather
-than a Step file that does not.
+renders `0 of 1` — expanded to one and accounted for none. Its file carries
+`projection_failed_path`, the member §7 puts the failed path on, and nothing
+whatever of the response it failed against: a rendering goes to a terminal that
+scrolls, and no surface shows the answer (ADR-0017).
 
-Two neighbours of that halt landed with the Patterns and one did not, and the
-split is worth naming so that issue #144 does not have to rediscover it.
+Three faults share that shape and the `repo-projection` cases above drive each
+of them.
 
 - **The collection path** an Operation of `series` cardinality reads its Records
   from halts the same way, and it had to: both pagination forms terminate when
   that collection comes back empty, so conflating *there was nothing there* with
   *the path was wrong* would have made the Pattern's own terminator a lie (§6).
-- **The `series` projection itself** landed for the same reason — a paginated
-  `read` has nothing to project without it.
-- **A half-projected response is still discarded whole.** §6 says *what
-  projected is written*, and a member whose call faulted is skipped by the drain
-  as it was before (`internal/run/step.go`), so nine members that projected are
-  dropped with the tenth that did not. That is issue #144's to flip, and it is
-  the one place these two tickets touch and disagree.
+- **A recorded field's path is not one of them.** It resolving to nothing is an
+  absence, and the version is written without the field — which is why
+  `a-field-that-went-quiet` completes at `0` beside these.
+- **A half-projected response writes what projected.** The response arrived and
+  part of it read, so the nine Records that projected are written and the tenth
+  is what the Run halts on (issue #144). The drain is untouched by that: a
+  member whose call reached the Operation's deadline holds no answer at all and
+  is skipped as it always was, which is what `a-member-that-reaches-the-deadline`
+  and `a-projection-failure-drains-the-expansion` hold side by side.
+
+## Why a collision after the call is a halt and not a Refusal
+
+The Expansion's two identity comparands Refuse with nothing touched
+(`two-members-one-identity`, `an-identity-the-store-already-holds`), and their
+three neighbours here halt with the calls already made. Which of the two a
+repository gets is decided by the Manifest and by nothing else: an `identity:`
+that is a template hole fills from the resolved inputs before the call, and a
+`$`-rooted one names a value that exists only once the answer is in hand
+(ADR-0072). The two `repo-projection` Operations that read theirs from a
+response are what put these cases on the halting side of that line.
+
+**What each comparand supplies is an order**, and the three cases differ in
+which one. Across an Expansion it is Expansion order — read off the drain rather
+than off a completion order, a `read` Expansion running concurrently. Across one
+`series` response it is the collection's own order, which the response states.
+Against the Store there is nothing to decide, the standing series having been
+written by an earlier Run.
+
+That the rule is an order and not a race is not a thing a case can show: two
+members that always answer in the same order would report the same winner
+whichever decided it. [`../../../run/reading_test.go`](../../../run/reading_test.go)
+holds the rule; the cases here hold the answer, the halt, and that both spellings
+reach the report verbatim.
 
 ## Why `a-procedure-matching-nothing` has no repository
 

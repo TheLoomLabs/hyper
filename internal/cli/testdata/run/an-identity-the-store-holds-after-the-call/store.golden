@@ -1,0 +1,81 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05d08/outcome.json (91 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "failed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05d08/run.json (469 bytes)
+{
+  "dry_run": false,
+  "procedure": "read-item",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "dda74ade1d2838cb67754f5d41be8e52912b3d1f",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d08",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05d08/steps/0001.json (614 bytes)
+{
+  "definition": "inventory-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "item",
+  "identities": {
+    "digest": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "members": []
+  },
+  "kind": "read",
+  "operation": "read_item",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3"
+  },
+  "provider": "inventory",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/inventory-read/Crate/01991ea6-b118-7c93-8d41-6b2f7ae05a02-0001.json (710 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "name": "a crate of nothing",
+    "note": "counted on Monday"
+  },
+  "name": "Crate",
+  "operation": "read_item",
+  "provenance": {
+    "definition_revision": "0000000000000000000000000000000000000000",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "procedure_revision": "0000000000000000000000000000000000000000",
+    "repo_revision": "0000000000000000000000000000000000000000"
+  },
+  "record_type": "observation",
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05a02",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

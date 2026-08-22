@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "headers": {"Content-Type": "application/json"},
+  "body": "{\"id\":\"crate-three\",\"name\":\"the third crate\"}"
+}

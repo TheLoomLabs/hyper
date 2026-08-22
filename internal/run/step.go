@@ -154,6 +154,14 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// drain (§6, drain.go). The fault the Run carries is the **first in
 	// Expansion order** and not the first to arrive, which is what keeps
 	// *which fault* out of the completion order's reach as well.
+	//
+	// **A member `hyper` could not read the answer back from is the one
+	// exception**, and it is not a widening of the drain. The response
+	// arrived and part of it projected, so what projected is written and
+	// the tenth member that did not is what the Run halts on: what a
+	// half-projected response puts in doubt is the claim that its Records
+	// are all of them, and that claim lives in the identity set rather than
+	// in any Record (§6, ADR-0011, reading.go).
 	names := make([]string, 0, len(expanded.Members))
 	// `hyper`'s own account of the work, summed over the Expansion: a
 	// Pattern's attempts, its pages and its poll iterations, supplied by no
@@ -167,6 +175,24 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// version they would have written moved the bytes. A Record going
 	// unchanged is not a Record going missing (§6, ADR-0030, condition.go).
 	records := make([]store.Mapping, 0, len(expanded.Members))
+	// The Store comparand for the identities that could only resolve once
+	// the calls had gone out, read **once** and before the first version of
+	// this Step goes down — so a member of this Run's own Expansion is the
+	// sibling comparand beside it rather than a series that was already
+	// standing (§6, reading.go). An Operation whose `identity:` resolves
+	// before the call reads nothing here: the Expansion has already run both
+	// comparands over those identities and Refused, with nothing touched.
+	holders, err := r.heldBy(bound, answers, authored)
+	if err != nil {
+		return Step{}, nil, err
+	}
+	// How many Record identities the Step **reached**, concluded about or
+	// not: what `n of m` is read against, and what the arithmetic between it
+	// and the set says are unaccounted for (§7, §8). It counts one per
+	// Record the answers held and one per member that faulted, and a Record
+	// whose identity collides is one reached that will not be concluded
+	// about.
+	reachedIdentities := 0
 	var halted error
 	for at, member := range answers {
 		acted.add(member.account)
@@ -174,7 +200,13 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 			if halted == nil {
 				halted = fault
 			}
-			continue
+			// The one it could not conclude about: the identity it
+			// could not read, the collection it could not find, or
+			// the answer that never came.
+			reachedIdentities++
+			if !wroteWhatProjected(fault) {
+				continue
+			}
 		}
 		// One member is one Record on an Operation of `one` cardinality
 		// and one per member of the collection it walked on an Operation
@@ -184,10 +216,23 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 		// collection an unpaginated one would have, arriving a page at a
 		// time (§3, pattern.go).
 		for _, concluded := range member.records {
+			reachedIdentities++
+			identity := authored.identity(concluded.name)
+			// **An identity that resolved and collides halts the
+			// same way**, and the member it collided on is not
+			// written: it has no identity of its own to be written
+			// under, and a further version of the series it collided
+			// with would put its content on the head with the
+			// earlier member's beneath it (§6, reading.go).
+			if collision := holders.take(identity, projectedBy(expanded.Members[at].Name, concluded.at)); collision != nil {
+				if halted == nil {
+					halted = fmt.Errorf("step %s: %w", named(authored), collision)
+				}
+				continue
+			}
 			names = append(names, concluded.name)
 			records = append(records, concluded.fields)
 
-			identity := store.Identity{Target: authored.Target, Definition: authored.Definition, Name: concluded.name}
 			version := store.RecordVersion{
 				Metadata: store.Metadata{
 					Identity:   identity,
@@ -246,10 +291,14 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// the end of its Expansion accounted for all of it and has nothing for
 	// a second number to say, which is what keeps `n of m` meaning
 	// *unaccounted for* rather than *these two counts differ*.
+	//
+	// What it counts is Record identities and never Expansion members, which
+	// is Step.Expanded's own sentence (run.go) and is why the count is built
+	// above rather than read off `expanded_to` here.
 	reached.Disposition = store.DispositionRan
 	reached.Records, reached.Concluded = len(concluded), true
 	if halted != nil {
-		reached.Expanded = len(expanded.Members)
+		reached.Expanded = reachedIdentities
 	}
 	// What this Step acted on is held for the Steps after it at the moment
 	// it reaches its Disposition, which is the moment §6 fixes: a Step's
@@ -259,6 +308,12 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	file.Disposition = reached.Disposition
 	file.Identities = store.Concluded(names, previous)
 	file.Pattern = acted.written()
+	// The path that failed to project, where that is what halted the Run.
+	// The set beside it is then partial and this path is what says so — the
+	// digest says nothing about partiality either way — and it is held here
+	// and nowhere else: a rendering goes to a terminal that scrolls, and no
+	// surface shows the response it failed against (§7, ADR-0017).
+	file.ProjectionFailedPath = failedPath(halted)
 	// The Step's file goes down whether or not the Expansion drained: a
 	// Step that reached a Disposition wrote its file, and a halted Run
 	// leaves what it did (§6, ADR-0011). The fault travels beside it and is
@@ -362,6 +417,15 @@ func resolve(loaded repository.Loaded, authored sequenced) (binding, error) {
 type conclusion struct {
 	name   string
 	fields store.Mapping
+	// at is where this Record was read out of the response: its position in
+	// the collection an Operation of `series` cardinality named, counted
+	// from 1 across the member's whole walk, and 0 on an Operation of `one`
+	// cardinality, which projects one Record out of the response itself.
+	//
+	// It is carried for exactly one reader: an identity collision names the
+	// Record that projected it, and *the tenth of what this member read* is
+	// the only name such a Record has (§6, reading.go).
+	at int
 }
 
 // answer is what one member of an Expansion concluded: the Records its calls
@@ -440,7 +504,12 @@ func (r run) call(bound binding, authored sequenced, resolving member) (answer, 
 	var projected []conclusion
 	acted, halted := readPatterns(declaration).perform(ctx, r.started, send,
 		func(response capability.Object) (int, error) {
-			held, err := r.concluded(bound, authored, reading, resolving, response)
+			// The Records already read out of this member's walk,
+			// which is where this page's collection carries on
+			// counting: the pages are one collection arriving in
+			// instalments, so the position a collision names is the
+			// one a reader counting them would reach (§3, §6).
+			held, err := r.concluded(bound, authored, reading, resolving, response, len(projected))
 			projected = append(projected, held...)
 			return len(held), err
 		})
@@ -460,11 +529,23 @@ func (r run) call(bound binding, authored sequenced, resolving member) (answer, 
 // *there was nothing there* from *the path was wrong*, which is the *I recorded
 // nothing* an absent wire would otherwise be needed to diagnose (§6, ADR-0017).
 // An empty collection is an ordinary answer and projects nothing.
-func (r run) concluded(bound binding, authored sequenced, reading projection.Projection, resolving member, response capability.Object) ([]conclusion, error) {
+//
+// **The failure can be one member's, and what projected is written.** The
+// collection path resolves, nine members project, and the tenth's identity path
+// does not: the nine are answered beside the halt and the tenth is not, there
+// being no identity to write it under, and the Run halts leaving what it did
+// (§6, ADR-0011, issue #144). The drain rule does not decide this — that rule
+// is scoped to a Step's Expansion, and a `series` response is one call the
+// Expansion resolved to.
+//
+// already is how many Records this member's walk has read before this response,
+// which is what the positions below count on from.
+func (r run) concluded(bound binding, authored sequenced, reading projection.Projection, resolving member, response capability.Object, already int) ([]conclusion, error) {
 	if reading.Over == "" {
 		name, resolved := identityOf(bound.operation, resolving.Inputs, response)
 		if !resolved {
-			return nil, fmt.Errorf("step %s: the identity path %s did not resolve against what came back, so hyper cannot say which Record it is holding",
+			return nil, unreadable(bound.operation.Identity,
+				"step %s: the identity path %s did not resolve against what came back, so hyper cannot say which Record it is holding",
 				named(authored), bound.operation.Identity)
 		}
 		return []conclusion{{name: name, fields: projected(bound.operation, reading.Project(response))}}, nil
@@ -472,18 +553,24 @@ func (r run) concluded(bound binding, authored sequenced, reading projection.Pro
 
 	members, resolved := projection.Collection(reading.Over, response)
 	if !resolved {
-		return nil, fmt.Errorf("step %s: the collection path %s did not resolve against what came back, so hyper cannot tell a collection that was empty from a path that was wrong",
+		return nil, unreadable(reading.Over,
+			"step %s: the collection path %s did not resolve against what came back, so hyper cannot tell a collection that was empty from a path that was wrong",
 			named(authored), reading.Over)
 	}
 
 	held := make([]conclusion, 0, len(members))
-	for _, item := range members {
+	for at, item := range members {
 		name, resolved := identityOf(bound.operation, resolving.Inputs, item)
 		if !resolved {
-			return held, fmt.Errorf("step %s: the identity path %s did not resolve against a member of %s, so hyper cannot say which Record it is holding",
-				named(authored), bound.operation.Identity, reading.Over)
+			return held, unreadable(bound.operation.Identity,
+				"step %s: the identity path %s did not resolve against record %d of %s, so hyper cannot say which Record it is holding",
+				named(authored), bound.operation.Identity, already+at+1, reading.Over)
 		}
-		held = append(held, conclusion{name: name, fields: projected(bound.operation, reading.Project(item))})
+		held = append(held, conclusion{
+			name:   name,
+			fields: projected(bound.operation, reading.Project(item)),
+			at:     already + at + 1,
+		})
 	}
 	return held, nil
 }

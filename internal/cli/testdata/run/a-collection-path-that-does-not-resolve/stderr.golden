@@ -1,0 +1,3 @@
+run 01991f20-b118-7c93-8d41-6b2f7ae05d02
+step 1/1 absent
+hyper run: step absent: the collection path $.body.items did not resolve against what came back, so hyper cannot tell a collection that was empty from a path that was wrong

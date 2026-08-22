@@ -1,0 +1,7 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"records\":[{\"id\":\"crate-1\",\"state\":\"ready\"},{\"id\":\"crate-2\",\"state\":\"ready\"},{\"id\":\"crate-3\",\"state\":\"ready\"},{\"id\":\"crate-4\",\"state\":\"ready\"},{\"id\":\"crate-5\",\"state\":\"ready\"},{\"id\":\"crate-6\",\"state\":\"ready\"},{\"id\":\"crate-7\",\"state\":\"ready\"},{\"id\":\"crate-8\",\"state\":\"ready\"},{\"id\":\"crate-9\",\"state\":\"ready\"},{\"state\":\"ready\"}]}"
+}

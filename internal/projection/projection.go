@@ -21,10 +21,10 @@
 // position decides which root it means: the grammar gains no fourth production
 // for it (§3, §12).
 //
-// What a projection that does **not** resolve does to a Run is issue #144's,
-// and so is the `projection_failed_path` a halted Step's file carries. What is
-// here is the resolution itself and the two answers it has — *resolved to
-// nothing* and *resolved to null*.
+// What a projection that does **not** resolve does to a Run is
+// internal/run/reading.go's, and so is the `projection_failed_path` a halted
+// Step's file carries (issue #144). What is here is the resolution itself and
+// the two answers it has — *resolved to nothing* and *resolved to null*.
 package projection
 
 import (

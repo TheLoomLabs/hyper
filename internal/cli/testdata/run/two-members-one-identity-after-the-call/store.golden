@@ -1,0 +1,94 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05d06/outcome.json (91 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "failed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05d06/run.json (469 bytes)
+{
+  "dry_run": false,
+  "procedure": "read-pair",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "b301616e1702e6044c73e38779fd9bfd610691ce",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d06",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05d06/steps/0001.json (826 bytes)
+{
+  "definition": "inventory-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "pair",
+  "identities": {
+    "digest": "sha256:09ff64a9ba6dbca4b46c63d0dc2cd6c73448a9d1bc291f74707fb6d2eceb7942",
+    "members": [
+      "Crate"
+    ]
+  },
+  "kind": "read",
+  "operation": "read_item",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3"
+  },
+  "provider": "inventory",
+  "schema_version": 1,
+  "selector": {
+    "declared": {
+      "values": [
+        "one.hyper.dev",
+        "two.hyper.dev"
+      ]
+    },
+    "expanded_to": [
+      "one.hyper.dev",
+      "two.hyper.dev"
+    ]
+  },
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/inventory-read/Crate/01991f20-b118-7c93-8d41-6b2f7ae05d06-0001.json (674 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "name": "the first crate"
+  },
+  "name": "Crate",
+  "operation": "read_item",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "b301616e1702e6044c73e38779fd9bfd610691ce",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d06",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

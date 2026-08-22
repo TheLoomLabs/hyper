@@ -58,7 +58,7 @@ Editing it by hand is editing evidence.
   "step": 1,
   "target": "local"
 }
-=== journal/2026/04/02/01991f10-b118-7c93-8d41-6b2f7ae05c32/steps/0002.json (643 bytes)
+=== journal/2026/04/02/01991f10-b118-7c93-8d41-6b2f7ae05c32/steps/0002.json (684 bytes)
 {
   "definition": "inventory-read",
   "disposition": "ran",
@@ -71,6 +71,7 @@ Editing it by hand is editing evidence.
   "kind": "read",
   "operation": "read_item",
   "path": "halt-inner.item",
+  "projection_failed_path": "$.body.id",
   "provenance": {
     "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
     "manifest_digest": "sha256:8fb414a6d30775ea9f5bcdaaa677c27d3ace7ef3e2ef78bfac69ba406698c8a1"

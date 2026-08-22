@@ -146,8 +146,10 @@ Definition and Target, and by Kind: a `read` Step may expand over Observations, 
 over Assets. Anything `hyper` did not create must therefore be named by literal identifier, which is a
 selector form of its own. It is ordered as it resolves — by the artefact where the selector is a literal
 list, otherwise by the Record name — so *which three of the five* is a fact and not a race. Its members
-are one Record identity each, so what a Step expanded to and what it concluded about count the same
-things.
+are one Record identity each: every one projects an identity no other member of that Expansion projects,
+and two that are one identity under the fold are refused before the first call or halt the Run at the
+projection. They are not one *Record* each, though — an Operation of `series` cardinality projects many
+out of one response — so what a Step concluded about counts Records where `expanded_to` counts members.
 _Avoid_: Resolution, Matching, Fan-out, Globbing
 
 ### The record

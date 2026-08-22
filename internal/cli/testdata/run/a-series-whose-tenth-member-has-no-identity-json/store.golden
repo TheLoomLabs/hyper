@@ -1,0 +1,267 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05d04/outcome.json (91 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "failed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05d04/run.json (470 bytes)
+{
+  "dry_run": false,
+  "procedure": "list-items",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05d04/steps/0001.json (809 bytes)
+{
+  "definition": "inventory-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "items",
+  "identities": {
+    "digest": "sha256:2aa0570a306d948ea0174adaf16721a803a212445136378da57bd2a279a27996",
+    "members": [
+      "crate-1",
+      "crate-2",
+      "crate-3",
+      "crate-4",
+      "crate-5",
+      "crate-6",
+      "crate-7",
+      "crate-8",
+      "crate-9"
+    ]
+  },
+  "kind": "read",
+  "operation": "list_items",
+  "projection_failed_path": "$.id",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3"
+  },
+  "provider": "inventory",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/inventory-read/crate-1/01991f20-b118-7c93-8d41-6b2f7ae05d04-0001.json (668 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "crate-1",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/crate-2/01991f20-b118-7c93-8d41-6b2f7ae05d04-0001.json (668 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "crate-2",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/crate-3/01991f20-b118-7c93-8d41-6b2f7ae05d04-0001.json (668 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "crate-3",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/crate-4/01991f20-b118-7c93-8d41-6b2f7ae05d04-0001.json (668 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "crate-4",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/crate-5/01991f20-b118-7c93-8d41-6b2f7ae05d04-0001.json (668 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "crate-5",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/crate-6/01991f20-b118-7c93-8d41-6b2f7ae05d04-0001.json (668 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "crate-6",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/crate-7/01991f20-b118-7c93-8d41-6b2f7ae05d04-0001.json (668 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "crate-7",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/crate-8/01991f20-b118-7c93-8d41-6b2f7ae05d04-0001.json (668 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "crate-8",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/crate-9/01991f20-b118-7c93-8d41-6b2f7ae05d04-0001.json (668 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "crate-9",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "fdd0adb9065a63d9fd9170ca6023484d5e348d8e",
+    "repo_revision": "09d4eeee00928fbd442e4301fb3cada65f30703a"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

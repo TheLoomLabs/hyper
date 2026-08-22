@@ -5,6 +5,7 @@ import (
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/repository"
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
 // The Steps a Run holds, flattened: **a Procedure invoking another does not
@@ -58,6 +59,18 @@ type sequenced struct {
 	// reason, and it is neither the path nor a member of any file: it exists
 	// while the Run is in flight and is written nowhere.
 	Namespace int
+}
+
+// identity is one Record identity this Step writes under: the Target and
+// Definition it is bound to, and the name a projection resolved.
+//
+// It is here rather than at each site that builds one because the triple is a
+// Record's whole identity (§7) and two of the three are the Step's own: a caller
+// filling them one at a time is a caller that can fill one of them from
+// somewhere else, and an identity built against another Step's Definition is a
+// version written into a series nobody named.
+func (s sequenced) identity(name string) store.Identity {
+	return store.Identity{Target: s.Target, Definition: s.Definition, Name: name}
 }
 
 // name is how one Step of a Run is named where one name is wanted: its path

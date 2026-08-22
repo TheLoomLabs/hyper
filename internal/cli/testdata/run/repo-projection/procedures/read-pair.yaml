@@ -1,0 +1,12 @@
+kind: procedure
+procedure: read-pair
+targets: [local]
+steps:
+  - id: pair
+    definition: inventory-read
+    operation: read_item
+    target: local
+    over:
+      values: [one.hyper.dev, two.hyper.dev]
+    args:
+      host: {item: $}

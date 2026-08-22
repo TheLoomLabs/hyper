@@ -1,0 +1,22 @@
+{
+  "definition": "inventory-read",
+  "fields": {
+    "name": "a crate of nothing",
+    "note": "counted on Monday"
+  },
+  "name": "Crate",
+  "operation": "read_item",
+  "provenance": {
+    "definition_revision": "0000000000000000000000000000000000000000",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "procedure_revision": "0000000000000000000000000000000000000000",
+    "repo_revision": "0000000000000000000000000000000000000000"
+  },
+  "record_type": "observation",
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05a02",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

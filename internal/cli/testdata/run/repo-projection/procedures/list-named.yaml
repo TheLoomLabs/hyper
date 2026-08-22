@@ -1,0 +1,10 @@
+kind: procedure
+procedure: list-named
+targets: [local]
+steps:
+  - id: named
+    definition: inventory-read
+    operation: list_named
+    target: local
+    args:
+      host: series.hyper.dev

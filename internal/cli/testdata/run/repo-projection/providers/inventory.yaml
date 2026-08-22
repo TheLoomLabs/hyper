@@ -1,0 +1,75 @@
+kind: provider
+provider: inventory
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  read_item:
+    kind: read
+    deadline: 10s
+    concurrency: 4
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /item
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: $.body.id
+      fields:
+        name: $.body.name
+        note: $.body.note
+  list_items:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /records
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: $.id
+      over: $.body.records
+      fields:
+        state: $.state
+  list_absent:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /records
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: $.id
+      over: $.body.items
+      fields:
+        state: $.state
+  list_named:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /records
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: "{host}"
+      over: $.body.records
+      fields:
+        state: $.state
