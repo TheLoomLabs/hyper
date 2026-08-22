@@ -147,7 +147,8 @@ A condition is evaluated before the Step's Expansion resolves, so a Step it does
 over nothing, reaches no Target, and cannot Refuse on a Bound it never counted against.
 
 A Step whose condition does not hold is skipped by condition, which is a different Disposition from
-skipped as already recorded because only the latter is Repeatability evidence.
+skipped as already recorded because that skip ran a test and concluded about what it read, and this
+one reached no Target and concluded about nothing (§7).
 
 Where the Step a condition names wrote no Record in this Run — it was skipped by either Disposition, or
 never reached — the condition does not hold and the Step is skipped by condition in its turn. It does
@@ -530,10 +531,12 @@ its Records and its Dispositions rather than in its outcome.
 What each Step did in a Run is its Disposition, held by the Journal (§7) rather than by any Record
 and drawn from the seven values §12 defines.
 
-The two skips are distinct because only one of them is Repeatability evidence. Skipped as already
-recorded is the fact a later Run's Repeatability test reads; skipped by condition ran no such test
-and says nothing about what the world holds. Collapsing them into one value would make the second
-look like the first to every later Run.
+The two skips are distinct on what the Step concluded about, and neither is what a later Run reads:
+`skip-if-recorded` tests the Store's head version and consumes no Disposition (above, ADR-0056).
+Skipped as already recorded ran that test and reached a conclusion about every identity it read, so
+the Step carries an identity set; skipped by condition ran no test and reached no Target, so it
+carries none and its `RECORDS` cell renders `–` (§7, §8). Collapsing them into one value would
+report a Step that concluded about nothing under a name saying the world already held it.
 
 The two *attempted* values are distinct on the same axis and the other side of it: one carries how many
 times `hyper` may have touched the world, and the other that it certainly did not. Which one a Step

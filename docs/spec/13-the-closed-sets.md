@@ -50,8 +50,10 @@ claimed at Kind level and `destroy` by named Operation, granularity following se
   series per member of the Step's Expansion, so a Step may skip some members and call for others
   (§6, ADR-0056).
 - Undeclared — **run-once**. The Operation runs where the Journal holds no evidence it already ran, and
-  Refuses where it does. This is the effectful default, and it is the strict one: an effect nobody
-  vouched for is not repeated on a guess.
+  Refuses where it does (`run-once-recorded`, below). The evidence is two of the seven Dispositions
+  below — *ran* and *attempted, outcome unknown*, the Runs that touched the world or may have — read
+  off an entry no rehearsal wrote (§6, §7, ADR-0018). This is the effectful default, and it is the
+  strict one: an effect nobody vouched for is not repeated on a guess.
 
 **Which values a Kind may declare is fixed by what that Kind projects** (ADR-0037), since two of the
 three read a projection to decide:
@@ -108,11 +110,13 @@ leaves behind (§6).
   against a host that answers nothing recording an Observation whose `status` has gone quiet (§6,
   ADR-0050), and where the answer came back and `hyper` could not read it (§6).
 - **skipped as already recorded** — `skipped-as-already-recorded`. The Step's Operation declared
-  `skip-if-recorded` and the Asset it would produce still stands. The only value that is Repeatability
-  evidence. On an expanding Step it is the value where **every** member skipped; where any call went
-  out the Step is *ran*, that value claiming no count (§6, ADR-0056).
-- **skipped by condition** — `skipped-by-condition`. The Step's `when:` did not hold. Says nothing about
-  what the world holds, which is why it is not the same value as the skip above.
+  `skip-if-recorded` and the Asset it would produce still stands. The skip test read a head version,
+  which is a conclusion about that identity, so the Step carries an identity set holding every member
+  (§7). On an expanding Step it is the value where **every** member skipped; where any call went out
+  the Step is *ran*, that value claiming no count (§6, ADR-0056).
+- **skipped by condition** — `skipped-by-condition`. The Step's `when:` did not hold, so it ran no test
+  and reached no Target. It says nothing about what the world holds and carries no identity set, which
+  is why it is not the same value as the skip above (§7, §8).
 - **refused** — `refused`. A guardrail declined the Step before any effect reached the world (§5).
 - **never reached** — `never-reached`. The Run ended before the Step. A run-once Step in this state runs
   on a re-run.

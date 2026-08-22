@@ -45,10 +45,13 @@ const (
 	// recorded.
 	DispositionRan Disposition = "ran"
 	// DispositionSkippedAsAlreadyRecorded is skip-if-recorded finding the
-	// Asset still standing. The only value that is Repeatability evidence.
+	// Asset still standing. The skip test concluded about the identity it
+	// read, so the Step carries an identity set holding every member (§7,
+	// ADR-0056).
 	DispositionSkippedAsAlreadyRecorded Disposition = "skipped-as-already-recorded"
-	// DispositionSkippedByCondition is a `when:` that did not hold. It says
-	// nothing about what the world holds, which is why it is not the value
+	// DispositionSkippedByCondition is a `when:` that did not hold. It ran no
+	// test and reached no Target, so it says nothing about what the world
+	// holds and carries no identity set, which is why it is not the value
 	// above.
 	DispositionSkippedByCondition Disposition = "skipped-by-condition"
 	// DispositionRefused is a guardrail declining before any effect reached

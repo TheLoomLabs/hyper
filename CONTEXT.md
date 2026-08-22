@@ -239,7 +239,7 @@ _Avoid_: Conflict, Disputed run, Split entry, Zombie run
 **Disposition**:
 What a Step did in a Run: ran, skipped as already recorded, skipped by condition, refused, never
 reached, attempted with its outcome unknown, or attempted with the world provably untouched — the two
-skips being distinct because only the first is Repeatability evidence, and the two attempts because only
+skips being distinct because only the first concluded about anything, and the two attempts because only
 the first leaves any doubt that the world was touched — together with the Record identities it acted on
 and what `hyper` itself did to reach that outcome, which is the only account of a Pattern's attempts,
 pages and poll iterations. Held by the Journal rather than by any Record.
