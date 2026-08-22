@@ -199,6 +199,17 @@ A single execution of a Procedure, and the unit against which change is reviewed
 kind: a single Operation is reached only through a Step, and a Probe executes one without being a Run.
 _Avoid_: Execution, Invocation, Job
 
+**Rehearsal**:
+A Run performed under `--dry-run`. It performs the reads it reaches and stops at the first effectful
+Step, **withholding** it rather than simulating what it would do — `hyper` has no plan, and a surface
+describing an effect that has not happened would be the prospective counterpart the Comparison
+deliberately is not. The withheld Step and every Step after it are never reached, and the page says
+which one it stopped at. Its outcome is `completed`: a halted rehearsal is the correct outcome of a
+correct operation, so the answer is partial on the page rather than in the exit code. It earns no
+exemption from any guardrail, and the entry it writes is marked as one — evidence that a rehearsal
+happened and evidence of nothing else, which every consumer of Journal evidence filters out.
+_Avoid_: Plan, Preview, Simulation, What-if, Trial run
+
 **Probe**:
 A `read` Operation invoked against `local` without a Definition, writing no Record and no Journal
 entry. It is a lookup rather than a Run, so it has no Trigger, no Provenance and no Disposition, and
