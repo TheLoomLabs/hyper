@@ -1,0 +1,140 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d10/closed-by/01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e10.json (302 bytes)
+{
+  "definition": "preview-dns",
+  "disposition": "attempted-outcome-unknown",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "publish-again",
+  "kind": "mutate",
+  "operation": "create_dns_record",
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "step": 2,
+  "target": "cloudflare-prod"
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d10/run.json (471 bytes)
+{
+  "dry_run": false,
+  "procedure": "publish-two",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "d7c2830ba5224c6aef56ca915dad94285e19bdda",
+    "repo_revision": "0068d7c040147dc36822c72d1bf2e80ad7f9265b"
+  },
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05d10",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d10/steps/0001.json (675 bytes)
+{
+  "definition": "preview-dns",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "publish",
+  "identities": {
+    "digest": "sha256:059fd80bc53e9dad924c77d7a988b6a006b43e74d17afc44a6cd696a2b2d4601",
+    "members": [
+      "preview-42.example.com"
+    ]
+  },
+  "kind": "mutate",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "manifest_digest": "sha256:7a0c1b197f733dff795354060e1de1180bb98c966e81ecd8cbd0e18502fb3921"
+  },
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "cloudflare-prod"
+}
+=== journal/2026/04/02/01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e10/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e10/run.json (475 bytes)
+{
+  "dry_run": false,
+  "procedure": "publish-preview",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "99b77379e5aba6621a3d6c50505b1dc8e1d5b88a",
+    "repo_revision": "0068d7c040147dc36822c72d1bf2e80ad7f9265b"
+  },
+  "run_id": "01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e10",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e10/steps/0001.json (675 bytes)
+{
+  "definition": "preview-dns",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "publish",
+  "identities": {
+    "digest": "sha256:059fd80bc53e9dad924c77d7a988b6a006b43e74d17afc44a6cd696a2b2d4601",
+    "members": [
+      "preview-42.example.com"
+    ]
+  },
+  "kind": "mutate",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "manifest_digest": "sha256:7a0c1b197f733dff795354060e1de1180bb98c966e81ecd8cbd0e18502fb3921"
+  },
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "cloudflare-prod"
+}
+=== records/cloudflare-prod/preview-dns/preview-42.example.com/01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e10-0001.json (799 bytes)
+{
+  "definition": "preview-dns",
+  "fields": {
+    "created_on": "2026-04-02T09:41:14.221Z",
+    "id": "372e67954025e0ba6aaa6d586b9e0b59",
+    "name": "preview-42.example.com"
+  },
+  "name": "preview-42.example.com",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:7a0c1b197f733dff795354060e1de1180bb98c966e81ecd8cbd0e18502fb3921",
+    "procedure_revision": "99b77379e5aba6621a3d6c50505b1dc8e1d5b88a",
+    "repo_revision": "0068d7c040147dc36822c72d1bf2e80ad7f9265b"
+  },
+  "record_type": "asset",
+  "run_id": "01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e10",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

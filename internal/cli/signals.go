@@ -22,8 +22,10 @@ import (
 // the handler and the next signal lands on the kernel's own answer. What that
 // leaves is §6's **open** Journal entry — `run.json` and no account beside it,
 // neither an `outcome.json` this Run wrote nor a `closed-by/` file another Run
-// wrote — and closing one is an effectful Run's, which is milestone 6's. There
-// is no reaper here, no daemon and no heartbeat.
+// wrote. Closing one is the **next effectful Run's**, inside the push that
+// sends its own `run.json` (internal/run/reap.go): there is no reaper here, no
+// daemon and no heartbeat, and an abandoned entry is noticed by the next Run
+// that looks.
 //
 // `hyper` never claims to have stopped a command it started. A `shell` Step's
 // child runs in a process group of its own, which is what makes the drain true

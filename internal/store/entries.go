@@ -2,6 +2,7 @@ package store
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"iter"
 	"slices"
@@ -76,6 +77,18 @@ func (a Account) String() string {
 	}
 	return "no account"
 }
+
+// ErrUnreadable is a file under a Journal entry that would not decode: written
+// in a shape above this binary's ceiling, or holding bytes no decoder here
+// accepts (ADR-0028).
+//
+// It is named so that a caller can tell it from the other way a read of the
+// Journal stops. A file that will not decode is a **file** this binary cannot
+// read, and §6 puts a gate one place in a Run's order whose whole job is to
+// report exactly that over the Journal whole (Readable). A path that disagrees
+// with the file standing at it is something else — a directory `hyper` did not
+// write — and no gate reports it, so nothing may treat it as tolerable.
+var ErrUnreadable = errors.New("a file under this Journal entry would not decode")
 
 // Closer is one closing write as the reader answers it: another Run's inference
 // about this entry, and the Run that drew it.
@@ -219,14 +232,6 @@ func (e Entry) inference() (StepFile, bool) {
 	return e.Closers[0].Reading(), true
 }
 
-// at is where this entry's files sit: the coordinate the grammar builds every
-// path under the entry from, built from what the entry itself says rather than
-// from the path it was found at. The two are held to agreeing when an entry is
-// read, so this is that agreement used rather than restated.
-func (e Entry) at() JournalEntry {
-	return JournalEntry{Run: e.Run, Started: e.StartedAt}
-}
-
 // Dispositions is what became of the Steps of one entry: the records the entry
 // holds, and the entry itself.
 //
@@ -344,7 +349,7 @@ func (s *Store) Entries() ([]Entry, error) {
 	for i, visit := range visits {
 		entries[i] = visit.entry
 	}
-	slices.SortFunc(entries, newest)
+	slices.SortFunc(entries, func(a, b Entry) int { return newest(a.RunFile, b.RunFile) })
 	return entries, nil
 }
 
@@ -356,7 +361,7 @@ func (s *Store) Entries() ([]Entry, error) {
 // and the name where two share one — and it is defined over the files rather
 // than over the listing, so a date partition being a text order is a
 // convenience the walk uses and never the answer it gives.
-func newest(a, b Entry) int {
+func newest(a, b RunFile) int {
 	return cmp.Or(
 		b.StartedAt.Compare(a.StartedAt),
 		strings.Compare(b.Run.String(), a.Run.String()),
@@ -396,7 +401,7 @@ func (s *Store) Entry(run RunID) (Entry, bool, error) {
 // The entry is the one a listing answered, so its directory is built from what
 // its own run.json says rather than from a path a caller supplied.
 func (s *Store) Dispositions(entry Entry) (Dispositions, error) {
-	files, err := s.repo.listTree(s.commit, entryPrefix(entry.at()))
+	files, err := s.repo.listTree(s.commit, entryPrefix(entry.At()))
 	if err != nil {
 		return Dispositions{}, err
 	}
@@ -463,7 +468,7 @@ func (s *Store) Scan(id string) iter.Seq2[Evidence, error] {
 				yield(Evidence{}, err)
 				return
 			}
-			slices.SortFunc(visits, func(a, b visit) int { return newest(a.entry, b.entry) })
+			slices.SortFunc(visits, func(a, b visit) int { return newest(a.entry.RunFile, b.entry.RunFile) })
 
 			for _, visit := range visits {
 				dispositions, err := s.dispositionsOf(visit.files.steps, visit.entry)
@@ -645,21 +650,21 @@ func decodeEntry(held group, contents [][]byte) (Entry, error) {
 		case FormRun:
 			read, err := DecodeRunFile(contents[i])
 			if err != nil {
-				return Entry{}, fmt.Errorf("%q: %w", file.path, err)
+				return Entry{}, unreadable(file.path, err)
 			}
 			entry.RunFile, found = read, true
 
 		case FormOutcome:
 			read, err := DecodeOutcomeFile(contents[i])
 			if err != nil {
-				return Entry{}, fmt.Errorf("%q: %w", file.path, err)
+				return Entry{}, unreadable(file.path, err)
 			}
 			entry.Owner = read
 
 		case FormClosedBy:
 			read, err := DecodeClosedBy(contents[i])
 			if err != nil {
-				return Entry{}, fmt.Errorf("%q: %w", file.path, err)
+				return Entry{}, unreadable(file.path, err)
 			}
 			entry.Closers = append(entry.Closers, Closer{ClosedBy: read, Run: file.Run})
 		}
@@ -668,7 +673,7 @@ func decodeEntry(held group, contents [][]byte) (Entry, error) {
 	if !found {
 		return Entry{}, fmt.Errorf("%q holds no run.json: a Journal entry is written at Run start and every file under one sits beside it (§7)", held.dir)
 	}
-	if built := entry.at().RunPath(); built != held.dir+"/run.json" {
+	if built := entry.At().RunPath(); built != held.dir+"/run.json" {
 		return Entry{}, fmt.Errorf("%q holds an entry the grammar names %q: an entry sits under the UTC date of the instant its own run.json carries (§12)", held.dir, built)
 	}
 
@@ -683,6 +688,13 @@ func decodeEntry(held group, contents [][]byte) (Entry, error) {
 		)
 	})
 	return entry, nil
+}
+
+// unreadable is one file under an entry that would not decode, named by its
+// path and carrying ErrUnreadable so that a caller can tell this from a path
+// that disagrees with the file standing at it.
+func unreadable(path string, err error) error {
+	return fmt.Errorf("%q: %w: %w", path, ErrUnreadable, err)
 }
 
 // dispositionsOf reads one entry's Step files and puts them in the Run's
@@ -701,9 +713,9 @@ func (s *Store) dispositionsOf(files []entryFile, entry Entry) (Dispositions, er
 	for i, file := range files {
 		read, err := DecodeStepFile(contents[i])
 		if err != nil {
-			return Dispositions{}, fmt.Errorf("%q: %w", file.path, err)
+			return Dispositions{}, unreadable(file.path, err)
 		}
-		if built := entry.at().StepPath(read.Step); built != file.path {
+		if built := entry.At().StepPath(read.Step); built != file.path {
 			return Dispositions{}, fmt.Errorf("%q holds the record of a Step the grammar names %q: a Step file sits at the path its own position builds (§12)", file.path, built)
 		}
 		steps = append(steps, read)

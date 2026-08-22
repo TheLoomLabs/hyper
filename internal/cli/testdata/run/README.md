@@ -380,7 +380,32 @@ drives.
 | `four-paginated-members-under-a-limit-of-four` | an Expansion of four under `concurrency: 4`, each member walking three pages: twelve Observations and `pages: 12`. What the limit reached and what it did not is [`../../run_pattern_test.go`](../../run_pattern_test.go)'s |
 | `a-rehearsal-performs-the-reads-it-reaches`, `-json` | `--dry-run` over a Procedure of two `read` Steps: every read it reaches is performed, both Observations are recorded as ordinary versions carrying **no** marker of their own, the entry carries `dry_run: true`, the terminal line reads `completed · dry-run · exit 0`, and the `outcome` row carries the marker on the wire |
 | `a-rehearsal-refuses-the-sink-it-was-not-given` | the sink gate carries no `--dry-run` exemption: a rehearsal reaching two Steps declaring `secret:` output with no `--secret-out` Refuses `secret-sink-absent` at `77` — the marker is on the line and on the entry, and a rehearsal that Refuses is not a rehearsal that completes (§9, issue #137) |
-| `an-open-entry-is-left-open` | the branch is seeded with **another** Run's entry holding no account at all — no `outcome.json` it wrote, no `closed-by/` anybody wrote. This Run reads that branch, completes at `0`, and leaves the entry exactly as open as it found it: nothing in this milestone reaps one, closes one, or infers anything from an absent account |
+| `an-open-entry-is-left-open` | the branch is seeded with **another** Run's entry holding no account at all — no `outcome.json` it wrote, no `closed-by/` anybody wrote. This Run is **read-only**, so it reads that branch, completes at `0`, and leaves the entry exactly as open as it found it: a read-only Run holds the shared lock and can find a live effectful Run's entry open with no way to tell it from an abandoned one, so it reads and never reaps (§6) |
+
+### The reap (issue #154)
+
+Every case here is an **effectful** Run against a seeded Journal, and what it
+asserts is the closing write that rides out beside its own `run.json`. The pair
+no case can hold — a Run went quiet, and the next effectful Run closed what it
+left — is [`../../run_reap_test.go`](../../run_reap_test.go)'s, which drives
+real Runs at both ends.
+
+| Case | What it is about |
+| --- | --- |
+| `an-effectful-run-reaps-an-open-entry` | the whole of it: a seeded entry holding `run.json` and one Step file, closed by a `closed-by/<this-run-id>.json` carrying `schema_version`, `ended_at`, `step` and `disposition` — `attempted-outcome-unknown` and no other value — beside the `id` and the code facts the dead Run's `repo_revision` resolves. The Step is the highest ordinal present **plus one**, derived by loading that Run's Procedure at that revision, so the entry reads `publish-again` and not `publish`. Nothing the dead Run wrote is touched, and neither an `outcome.json` nor a file under `steps/` appears |
+| `an-open-entry-with-no-step-file-is-closed-at-step-one` | the same entry with its Step file taken away: a Run killed before its first Step finished went quiet on Step `1`, which is the same arithmetic rather than a case in the code |
+| `every-open-entry-is-reaped` | three seeded entries — two open, one under the **day before**, and one its own Run closed. Both open entries are closed and the third is left exactly as it was: the reap is every open entry it finds and not a subset, and no criterion of age or liveness appears anywhere (ADR-0076) |
+| `a-reaped-entry-whose-run-was-dirty-carries-no-code-facts` | the dead Run recorded `repo_dirty`, so the commit it named is not the code it ran: the closing write carries `step` and `disposition` and **no** `id` and no code facts. §7 names this one outright — *absent where it does not, which is every Run that recorded `repo_dirty`* |
+| `a-reaped-entry-at-a-revision-this-clone-lacks-carries-no-code-facts` | the other way the same absence arises, and the one a runner produces: the entry names a commit this clone has never fetched. The reaper omits what it cannot establish rather than guessing at it, and the file it writes is byte-identical to the one above |
+| `a-journal-file-this-binary-cannot-read` | the one place the reap and a gate meet: the seeded entry's own `run.json` is at schema version `2`, so the reap reads nothing it could act on and closes nothing — and the Run Refuses `store-schema-unsupported` at `77` one gate later, naming the file. §6 quantifies that gate over the Journal whole, so the condition is reported where it is reported for a read-only Run and the entry is left exactly as open as it was |
+| `a-refused-run-has-already-reaped` | the same seeded entry under a Run whose credential is absent: it Refuses `credential-absent` at `77` **having already closed the entry**, which is the same reason §6 puts `run.json` before the gates at all |
+
+Two further directories under `run/` hold no `argv` and are driven by name from
+[`../../run_reap_test.go`](../../run_reap_test.go): `two-runs-and-a-kill-between-them`,
+which freezes the branch mid-Run and drives the next effectful Run against it,
+and `a-reap-that-was-wrong-is-contested`, which overlaps two effectful Runs on
+two clones of one repository and reads the contest off the remote they both
+pushed to.
 
 ## How a case reaches a binary, and what it costs
 

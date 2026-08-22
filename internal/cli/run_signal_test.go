@@ -372,9 +372,10 @@ func TestSignals_AnEntryHoldsNoAccountUntilItsRunWritesOne(t *testing.T) {
 	assertBranch(t, midRun, present("run.json"), absent("outcome.json"), absent("closed-by"))
 
 	// And the same Run, having reached its end, closed its own entry: the
-	// account is `outcome.json` and it is the Run's own. Nothing in this
-	// milestone closes another Run's entry or reaps one, so a `closed-by/`
-	// file is a path no Run here writes at all.
+	// account is `outcome.json` and it is the Run's own. This Run is
+	// read-only, so it reaps nothing whatever it finds open — and the entry
+	// it left is the one a later effectful Run would close, which
+	// [run_reap_test.go](run_reap_test.go) drives end to end.
 	after, err := branchPaths(invocation.fixture)
 	if err != nil {
 		t.Fatal(err)

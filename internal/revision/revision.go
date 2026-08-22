@@ -121,15 +121,14 @@ func (g gitRepository) differs(commit string, files []File) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	records, err := treeRecords(listing)
+	if err != nil {
+		return false, err
+	}
 
 	committed := map[string]string{}
-	for _, record := range nulSeparated(listing) {
-		meta, path, named := strings.Cut(record, "\t")
-		fields := strings.Fields(meta)
-		if !named || len(fields) != 3 {
-			return false, fmt.Errorf("git ls-tree wrote %q, which is not a <mode> <type> <object>\\t<path> record", record)
-		}
-		committed[path] = fields[2]
+	for _, record := range records {
+		committed[record.path] = record.object
 	}
 
 	for _, file := range files {
@@ -138,6 +137,35 @@ func (g gitRepository) differs(commit string, files []File) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// treeRecord is one line of an `ls-tree -z` listing: what git holds at a path,
+// what kind of object it is, and where it sits.
+//
+// The kind is read rather than assumed. A submodule is a `commit` record naming
+// an object this repository does not hold, and under `-r` a tree does not
+// appear at all — so a caller that wants blobs says so and a repository holding
+// either still reads.
+type treeRecord struct {
+	kind, object, path string
+}
+
+// treeRecords reads an `ls-tree -z` listing into its records.
+//
+// It is one reader for both listings this package asks for — the file set a Run
+// read, and the artefacts one revision held — because they are one format, and
+// a second parser of it is a second place for the same record to be read wrong.
+func treeRecords(listing []byte) ([]treeRecord, error) {
+	var records []treeRecord
+	for _, line := range nulSeparated(listing) {
+		meta, path, named := strings.Cut(line, "\t")
+		fields := strings.Fields(meta)
+		if !named || len(fields) != 3 {
+			return nil, fmt.Errorf("git ls-tree wrote %q, which is not a <mode> <type> <object>\\t<path> record", line)
+		}
+		records = append(records, treeRecord{kind: fields[1], object: fields[2], path: path})
+	}
+	return records, nil
 }
 
 // gitRepository is one repository as this package reaches it: where it sits,
@@ -161,10 +189,22 @@ func repository(repoRoot string) gitRepository {
 // and git's narration must never reach hyper's own stderr, which the corpus
 // compares byte for byte (§9).
 func (g gitRepository) run(args ...string) ([]byte, error) {
+	return g.with(nil, args...)
+}
+
+// with runs one git command with something on its stdin, which is what the one
+// batch read here needs and what nothing else here does. It is the whole of
+// run, so a command reading stdin and one that does not run the same way — the
+// same directory, the same environment, and git's narration captured either
+// way.
+func (g gitRepository) with(stdin []byte, args ...string) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("git", args...)
 	cmd.Dir = g.root
 	cmd.Env = g.env
+	if stdin != nil {
+		cmd.Stdin = bytes.NewReader(stdin)
+	}
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("git %s: %w: %s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()))

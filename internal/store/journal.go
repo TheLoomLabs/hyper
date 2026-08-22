@@ -237,6 +237,14 @@ type RunFile struct {
 	Provenance RunProvenance
 }
 
+// At is where this Run's entry sits: the coordinate §12's grammar builds every
+// path under the entry from, built from what the file itself says rather than
+// from the path it was found at. Every reader of an entry holds the two to
+// agreeing, so this is that agreement used rather than restated.
+func (f RunFile) At() JournalEntry {
+	return JournalEntry{Run: f.Run, Started: f.StartedAt}
+}
+
 // Encode writes run.json in §7's canonical encoding.
 func (f RunFile) Encode() []byte {
 	return file(RunSchemaVersion, "run.json", runFileMembers, func(m members) {

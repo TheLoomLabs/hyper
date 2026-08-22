@@ -1,0 +1,18 @@
+{
+  "dry_run": false,
+  "procedure": "publish-two",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "d7c2830ba5224c6aef56ca915dad94285e19bdda",
+    "repo_revision": "0068d7c040147dc36822c72d1bf2e80ad7f9265b"
+  },
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05d10",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

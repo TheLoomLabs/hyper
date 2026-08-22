@@ -348,7 +348,21 @@ func Perform(request Request) Answer {
 	narrator := watching(request.Narrator)
 	narrator.Began(inFlight.id)
 
-	if err := request.Store.Append([]store.Write{{
+	// **The reap, read before this Run's own entry exists.** An effectful
+	// Run closes every open entry the Journal holds, and it reads them here
+	// so that the one entry it can never find open is its own — which is not
+	// yet on the branch (§6, reap.go).
+	reaped, err := inFlight.reaping()
+	if err != nil {
+		answer.Identified = false
+		return failed(answer, err)
+	}
+
+	// `run.json` and the closing writes beside it, as **one** commit. The
+	// reap is decided from one fetched tip at one instant, and a branch
+	// holding this Run's entry without the inferences it was drawn beside
+	// would be a state no Run ever put it in (§6, ADR-0076).
+	beginning := []store.Write{{
 		Path: inFlight.entry.RunPath(),
 		Content: store.RunFile{
 			Run:        inFlight.id,
@@ -358,7 +372,8 @@ func Perform(request Request) Answer {
 			DryRun:     request.DryRun,
 			Provenance: provenance,
 		}.Encode(),
-	}}, "Begin run "+inFlight.id.String()); err != nil {
+	}}
+	if err := request.Store.Append(append(beginning, reaped...), "Begin run "+inFlight.id.String()); err != nil {
 		// Nothing was written, so the entry the terminal line would name
 		// is not there: the Run is identified by its id and by nothing on
 		// the branch, which is what Identified says (§8).

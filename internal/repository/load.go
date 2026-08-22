@@ -150,25 +150,98 @@ func Load(repoRoot string) (Loaded, error) {
 		return Loaded{}, err
 	}
 
-	// The built-in shell Provider is loaded first and through the same shape
-	// as any other artefact: its bytes are the compiled-in constant and its
-	// path the pseudo-path §9 renders, and the one Provider with no blob in
-	// the repository is a member of the load on the same footing as the rest
-	// (§3, §11, ADR-0039). It is not read from disk and cannot fail to parse
-	// — hyper's own bytes are not reviewed text — so it carries no problem of
-	// its own; its schema is CheckBuiltinShellProvider's to state, exactly as
-	// a providers/ file's is CheckManifest's.
-	artefacts := make([]LoadedArtefact, 0, len(files)+1)
+	artefacts := make([]LoadedArtefact, 0, len(files))
+	for _, rel := range files {
+		artefacts = append(artefacts, loadFile(repoRoot, rel))
+	}
+	return build(artefacts), nil
+}
+
+// Source is one artefact's path and its exact bytes, as a caller that already
+// holds them supplies them to LoadFrom.
+//
+// The path is where the file sits in the repository, relative to the root and
+// with forward slashes — the same spelling a walk answers, because it is what
+// every namespace, every `check` problem and every Provenance member is stated
+// in terms of.
+type Source struct {
+	Path  string
+	Bytes []byte
+}
+
+// LoadFrom builds a repository out of artefact bytes a caller already holds,
+// which is what a reaper has: it reads the dead Run's artefacts out of the
+// **revision** that Run named rather than off the working tree, so there is no
+// directory to walk (§7, issue #154).
+//
+// It is the same load through another door and it judges nothing differently:
+// the same parse, the same problems carried per file, the same four namespaces,
+// and the same built-in Provider — which no walk found and no caller can hand
+// over, its bytes being compiled in (§3, ADR-0039).
+//
+// **The order handed in is the order it folds.** Where two files declare one
+// name the later one wins, which is the fold's rule rather than a precedence
+// this package is entitled to (manifestsByName), so the sequence is the
+// caller's to fix: a walk answers its directories' order and a revision answers
+// git's, and both are one answer for two reads.
+//
+// It answers no error. Everything a single file can do wrong — bytes that will
+// not parse, a name it does not declare — is carried on that file's own
+// LoadedArtefact, and the walk's one error is the directory listing this door
+// does not have (issue #88).
+func LoadFrom(sources []Source) Loaded {
+	artefacts := make([]LoadedArtefact, 0, len(sources))
+	for _, source := range sources {
+		artefacts = append(artefacts, parseFile(source.Path, source.Bytes))
+	}
+	return build(artefacts)
+}
+
+// IsArtefact says whether a repository path is one of the five artefact
+// locations' files: a `.yaml` directly under one of the four directories, or
+// `hyper.yaml` at the root.
+//
+// It is exported because the walk is no longer the only reader of that rule — a
+// caller reading a revision out of git filters a listing by it where
+// artefactFiles filters a directory — and the two must be one rule rather than
+// two that happen to agree. The walk is what it is checked against
+// (source_test.go).
+func IsArtefact(path string) bool {
+	if path == DeclarationPath {
+		return true
+	}
+	dir, name, nested := strings.Cut(path, "/")
+	return nested &&
+		slices.Contains(artefactDirs, dir) &&
+		!strings.Contains(name, "/") &&
+		strings.HasSuffix(name, ".yaml")
+}
+
+// build is the load past the reading: the built-in Provider, and the four
+// namespaces folded out of what parsed.
+//
+// It is where the two doors meet, and it is one function rather than two
+// because a repository read from a revision and a repository read from the
+// working tree must be one repository — a namespace built differently by the
+// door its bytes came in is two readings of one name.
+//
+// The built-in shell Provider is loaded first and through the same shape as any
+// other artefact: its bytes are the compiled-in constant and its path the
+// pseudo-path §9 renders, and the one Provider with no blob in the repository
+// is a member of the load on the same footing as the rest (§3, §11, ADR-0039).
+// It is not read from disk and cannot fail to parse — hyper's own bytes are not
+// reviewed text — so it carries no problem of its own; its schema is
+// CheckBuiltinShellProvider's to state, exactly as a providers/ file's is
+// CheckManifest's.
+func build(read []LoadedArtefact) Loaded {
+	artefacts := make([]LoadedArtefact, 0, len(read)+1)
 	artefacts = append(artefacts, LoadedArtefact{
 		Path:  artefact.BuiltinShellProviderPath,
 		Bytes: []byte(artefact.BuiltinShellProviderYAML),
 		Root:  artefact.BuiltinShellProviderRoot(),
 		OK:    true,
 	})
-
-	for _, rel := range files {
-		artefacts = append(artefacts, loadFile(repoRoot, rel))
-	}
+	artefacts = append(artefacts, read...)
 
 	declarations := targetDeclarationsByName(artefacts)
 	targets := artefact.BuildTargetIndex(sortedByName(declarations))
@@ -183,7 +256,7 @@ func Load(repoRoot string) (Loaded, error) {
 		Manifests:              manifests,
 		TargetDeclarations:     declarations,
 		DefinitionDeclarations: definitions,
-	}, nil
+	}
 }
 
 // targetDeclarationsByName folds the loaded artefacts into the Target
@@ -320,6 +393,14 @@ func loadFile(repoRoot, rel string) LoadedArtefact {
 		}}}
 	}
 
+	return parseFile(rel, data)
+}
+
+// parseFile is the reading itself, over bytes that are already in hand: the
+// grammar and then the subset's violations, which is what a caller that read
+// them off a revision needs and what loadFile does once it has the bytes off
+// disk.
+func parseFile(rel string, data []byte) LoadedArtefact {
 	root, problems, ok := yamlsubset.Parse(rel, data)
 	if ok && root != nil {
 		problems = append(problems, yamlsubset.Violations(root, rel)...)
