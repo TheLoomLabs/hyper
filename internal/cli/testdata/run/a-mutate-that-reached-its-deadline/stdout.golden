@@ -1,0 +1,4 @@
+STEP  ID       KIND    DISPOSITION                RECORDS
+1     publish  mutate  attempted-outcome-unknown  0 of 1
+
+failed · exit 1 · run 01991ea6-b118-7c93-8d41-6b2f7ae05d07

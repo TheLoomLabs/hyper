@@ -10,7 +10,9 @@ import "sync"
 // Step's Expansion may run concurrently; a `mutate` or `destroy` Expansion runs
 // strictly serially. There is no authored knob, no flag and no environment
 // override anywhere in it, and this package reads no process fact of its own to
-// find one with (run.go).
+// find one with (run.go). Which of the two a Step gets is decided off its Kind
+// one file over and arrives here as a number, so *serial* and *limit one* are
+// one mechanism rather than a second code path (effect.go).
 //
 // **How much runs at once is the Operation's Manifest-declared `concurrency:`
 // limit**, since the Provider author is the one who knows where the API
@@ -36,6 +38,13 @@ import "sync"
 // an Expansion of a `read` runs concurrently and the order its calls complete
 // in is defined nowhere, so halting at the *first* failure would make which
 // Observations were recorded depend on the one thing nothing may derive from.
+//
+// **An effectful Expansion stops at the first error instead**, everything it
+// confirmed already committed and pushed, and it can: it is serial, so *which
+// three of the five* is a determinate fact rather than a race. That arm is
+// issue #150's, and until it lands an effectful Expansion drains like the
+// `read` above — which changes what a multi-member effectful Step attempts and
+// nothing about what any of them records.
 
 // dispatch calls every member of an Expansion and answers what each of them
 // concluded, in **Expansion order** and never in the order they answered.

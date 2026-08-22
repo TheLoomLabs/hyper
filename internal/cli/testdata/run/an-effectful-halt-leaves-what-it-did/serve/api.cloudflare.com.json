@@ -1,0 +1,5 @@
+{
+  "status": 500,
+  "headers": {"Content-Type": "application/json"},
+  "body": "{\"success\":false,\"errors\":[{\"code\":1004,\"message\":\"DNS Validation Error\"}]}"
+}

@@ -79,13 +79,13 @@ type Request struct {
 	// DryRun says this Run is a rehearsal. It is carried into the entry on
 	// every Run, false included (§7, ADR-0001).
 	//
-	// **Nothing else here reads it, and in this milestone nothing could.** A
-	// rehearsal performs the reads it reaches and stops rather than
-	// simulating an effect, and every Step this binary performs is a `read`
-	// — an effectful one declines before the Store is located at all
-	// (NotBuilt). So a rehearsal here performs every Step, completes and
-	// exits `0`, and the Step it would have stopped at arrives with the
-	// Steps that can have one.
+	// **Nothing else here reads it yet.** A rehearsal performs the reads it
+	// reaches and **stops at the first effectful Step** rather than
+	// simulating one (§9, ADR-0010), and with issue #148 there is at last an
+	// effectful Step for it to stop at — so what a rehearsal here still does
+	// is perform every Step, complete and exit `0`. The stop, the withheld
+	// Step it names and the *never reached* Steps after it are issue #155's,
+	// which is the ticket that reads this member.
 	//
 	// The one place the marker is read back is already built: an entry a
 	// rehearsal wrote is evidence that a rehearsal happened and evidence of
@@ -224,14 +224,6 @@ type Answer struct {
 	// the whole of what the surface has to say about a `failed` Run beyond
 	// the outcome itself.
 	Fault error
-	// Unbuilt is what the Run reached that this binary does not implement,
-	// one line each. It is **not a Refusal**: it carries no `error_code`, it
-	// writes no Journal entry, it opens no stream, and the milestone that
-	// builds the thing deletes its line rather than reclassifying it. A name
-	// in §9's tree is a name the spec fixes and not a claim that the binary
-	// implements it yet, which is the precedent internal/cli/tree.go already
-	// states in as many words.
-	Unbuilt []string
 }
 
 // Step is one Step of a Run as a surface reads it back.
@@ -318,17 +310,6 @@ func Perform(request Request) Answer {
 	walked := flatten(loaded, request.Procedure)
 	steps := walked.Steps
 
-	// What this binary does not implement, restated here as this call's own
-	// precondition. The caller has already asked — NotBuilt is what decides
-	// the order, and it is asked before the Store is even located — and it
-	// is asked again because there is one door into the engine and a
-	// two-call contract is a contract that can be got wrong: without it the
-	// engine would perform the `read` path's semantics against a Step that
-	// is not a `read`, which is a binary doing something undefined.
-	if unbuilt := NotBuilt(loaded, request.Procedure); len(unbuilt) > 0 {
-		return Answer{Unbuilt: unbuilt}
-	}
-
 	// The code branch, read once over the artefacts the Run read. It is here
 	// rather than beside the first Step that needs it because `run.json`
 	// carries the Run-wide half, and `run.json` is written before Step 1
@@ -350,6 +331,7 @@ func Perform(request Request) Answer {
 		id:         request.Mint(started),
 		provenance: provenance,
 		started:    started,
+		effectful:  effectful(loaded, walked),
 		acted:      acted{},
 	}
 	inFlight.entry = store.JournalEntry{Run: inFlight.id, Started: started}
@@ -380,6 +362,20 @@ func Perform(request Request) Answer {
 		// the branch, which is what Identified says (§8).
 		answer.Identified = false
 		return failed(answer, err)
+	}
+
+	// **The push of `run.json` is an effectful Run's Store sync**, and it is
+	// here — before the gates, before Step 1 — because it is the earliest
+	// moment such a Run can know it will be able to record what it does (§7,
+	// ADR-0083). The fetch has already landed one layer up, where a read-only
+	// Run tolerated its failure and proceeded; this is the half that arm has
+	// no counterpart for, and a Run that could not complete it is `failed` at
+	// `75` on the code §12 fixes for a Run that lost the Store.
+	//
+	// A Run that then declines at a gate has already pushed its entry, which
+	// is the whole reason §6 puts `run.json` before the gates at all.
+	if err := inFlight.synced(); err != nil {
+		return inFlight.closed(failed(answer, err))
 	}
 
 	// The gates §6 states between `run.json` and Step 1, in its order: the
@@ -421,6 +417,21 @@ func Perform(request Request) Answer {
 		if request.drained() {
 			answer.Steps = append(answer.Steps, neverReached(loaded, steps, position)...)
 			return inFlight.closed(failed(answer, ErrInterrupted))
+		}
+
+		// **The push rhythm, read at the boundary the Step before this
+		// one ended at.** An effectful Run sends what that Step wrote
+		// before this one starts, so nothing on a runner is more than
+		// one Step behind the remote and a crash loses at most the Step
+		// in flight; a read-only Run sends nothing here and batches to
+		// its end (§7, ADR-0006). The last Step's writes go out with
+		// `outcome.json`, which is the same boundary one line further
+		// on (closed).
+		if position > 0 {
+			if err := inFlight.published(); err != nil {
+				answer.Steps = append(answer.Steps, neverReached(loaded, steps, position)...)
+				return inFlight.closed(failed(answer, err))
+			}
 		}
 
 		narrator.Reached(position+1, len(steps), named(step))
@@ -520,7 +531,7 @@ func neverReached(loaded repository.Loaded, steps []sequenced, from int) []Step 
 			Position:    from + position + 1,
 			ID:          step.ID,
 			Path:        step.Path,
-			Kind:        store.Kind(kindOf(loaded, step)),
+			Kind:        kindOf(loaded, step),
 			Disposition: store.DispositionNeverReached,
 		})
 	}
@@ -555,6 +566,13 @@ type run struct {
 	// composition is where the day comes that two children of one Run
 	// disagree about what was withheld (§3, §11).
 	environment capability.Environment
+	// effectful says this Run touches the world, and it is the whole of what
+	// decides its push rhythm: an effectful Run pushes at every Step
+	// boundary and a read-only Run batches to its end (§7, ADR-0006,
+	// lock.go). It is a member because it is read three times — before Step
+	// 1, between Steps, and at the close — and it is the same fact that
+	// already decided which lock the Run took, read once off the same walk.
+	effectful bool
 	// acted is what each Step of this Run acted on, filled at that Step's
 	// turn and read by the `when:` conditions and the `{step:, path:}`
 	// references of the Steps after it. It is a mapping rather than a value
@@ -562,6 +580,52 @@ type run struct {
 	// Steps write into what the Run holds and never into the Run
 	// (condition.go).
 	acted acted
+}
+
+// ErrSyncFailed is an effectful Run whose push of `run.json` did not land: its
+// Store sync, and the earliest moment such a Run could have known it would be
+// able to record what it does (§7, ADR-0083).
+//
+// It is the third way a Run loses the Store, beside the lock and the push, and
+// it is `failed` at `75` for their reason: what it would take to clear it is
+// time rather than an act of anyone's, which is exactly what sorts `75` from a
+// Refusal's `77` (§12, ADR-0061). That mapping is the surface's, one package up
+// — this one holds no exit code and maps none — and what stands here is the
+// condition a reader can act on.
+//
+// A read-only Run never reaches it. Its sync is the fetch one layer up, which
+// it attempts and tolerates, and it pushes nothing until its end (ADR-0083).
+var ErrSyncFailed = errors.New("the Store could not be synced: this Run's entry did not reach the remote, and an effectful Run does not touch the world against a record it cannot write")
+
+// synced is the effectful Run's Store sync — the push its `run.json` went out
+// on — and nothing at all on a read-only Run, whose entry batches to its end
+// with everything else it writes.
+//
+// It is named for what the act *is* rather than for what it does, because the
+// two are one sentence: §7 says an effectful Run syncs before its first effect
+// and the push of its open entry is that sync (ADR-0083). A second reach at the
+// remote to confirm what the first one sent would be a Run asking the world
+// whether it was heard.
+func (r run) synced() error {
+	if err := r.published(); err != nil {
+		return fmt.Errorf("%w: %w", ErrSyncFailed, err)
+	}
+	return nil
+}
+
+// published sends what stands locally, at the rhythm the Run's own Kinds
+// decided: every Step boundary on an effectful Run, and nothing at all on a
+// read-only one.
+//
+// It is one push and the same push `closed` makes — one rhythm, two call sites
+// — and what a failure costs is the caller's, which is the Run being `failed`
+// with what stands on the local branch going out with the next Run that syncs
+// (§7, ADR-0076).
+func (r run) published() error {
+	if !r.effectful {
+		return nil
+	}
+	return r.request.Store.Publish()
 }
 
 // closed writes `outcome.json` and publishes, and answers whatever the Run had
@@ -573,12 +637,12 @@ type run struct {
 // locally. A Run that could not write its own outcome is `failed` and says so,
 // which is the one place this can change the answer it was handed.
 //
-// The push is here rather than after each Step because this milestone's Run is
-// read-only, and **a read-only Run's pushes batch to its end** (§7, ADR-0006).
-// The Store carries no uncommitted local state at any moment either way — every
-// write is already a commit — so what batching decides is when the commits
-// leave and never whether they exist. Pushing after every effectful Step is
-// milestone 6's.
+// **The push here is every Run's last one**, and on a read-only Run it is the
+// only one: a read-only Run's pushes batch to its end, and an effectful Run has
+// already sent everything up to its last Step at that Step's own boundary (§7,
+// ADR-0006, Perform). The Store carries no uncommitted local state at any moment
+// either way — every write is already a commit — so what batching decides is
+// when the commits leave and never whether they exist.
 //
 // A push the remote moved under three times running is ErrPushExhausted, and it
 // arrives here as any other fault does: the Run is `failed`, and what it wrote

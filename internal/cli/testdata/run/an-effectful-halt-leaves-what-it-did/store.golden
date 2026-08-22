@@ -1,0 +1,62 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d04/outcome.json (91 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "failed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d04/run.json (471 bytes)
+{
+  "dry_run": false,
+  "procedure": "publish-two",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "d7c2830ba5224c6aef56ca915dad94285e19bdda",
+    "repo_revision": "0068d7c040147dc36822c72d1bf2e80ad7f9265b"
+  },
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05d04",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d04/steps/0001.json (712 bytes)
+{
+  "answered": {
+    "host": "api.cloudflare.com",
+    "status": 500
+  },
+  "definition": "preview-dns",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "publish",
+  "identities": {
+    "digest": "sha256:37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "members": []
+  },
+  "kind": "mutate",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "manifest_digest": "sha256:7a0c1b197f733dff795354060e1de1180bb98c966e81ecd8cbd0e18502fb3921"
+  },
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "cloudflare-prod"
+}

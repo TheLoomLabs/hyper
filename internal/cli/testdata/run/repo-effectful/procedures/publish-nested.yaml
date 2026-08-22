@@ -1,0 +1,13 @@
+kind: procedure
+procedure: publish-nested
+targets: [local, cloudflare-prod]
+steps:
+  - id: status
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev
+
+  - id: inner
+    procedure: publish-inner

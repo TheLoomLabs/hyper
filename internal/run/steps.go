@@ -1,76 +1,54 @@
 package run
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/revision"
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
-// What this binary does not implement in a Run, and the artefacts a Run read
-// (§6, §9, issues #136, #141).
+// The artefacts a Run read, and the Kind a Step binds (§6, §9, issues #136,
+// #141).
 //
 // The Steps themselves are sequence.go's: a Run's Steps are the top-level
 // Procedure's and everything it invokes, flattened into one written order.
-
-// NotBuilt is what this binary does not implement in the named Procedure, one
-// line each, and nothing at all where every Step of it is one this milestone
-// performs.
 //
-// **It is not a Refusal.** It carries no `error_code`, writes no Journal entry,
-// opens no stream, renders on stderr and exits `2` — and the milestone that
-// builds the thing deletes its arm rather than reclassifying it. The precedent
-// is internal/cli/tree.go's, stated there in as many words: a name in §9's tree
-// is a name the spec fixes and not a claim that the binary implements it yet.
+// **Nothing here declines a Step for being effectful.** The arm that did —
+// NotBuilt, and the engine's own precondition on it — was the interim milestone
+// 5 shipped on the stated understanding that milestone 6 deletes it, and issue
+// #148 is where it went: a `mutate` or `destroy` Step resolves, expands, calls
+// and records like a `read` Step, and what an effect *means* is effect.go's
+// (§6).
 //
-// It exists because the alternative is worse than an unimplemented feature. The
-// engine implements the `read` path's semantics; handed a `mutate` Step it
-// would make the call and write an Observation. That is a binary doing
-// something undefined, which is the one thing `run` may not do on the day it
-// lands.
-//
-// **It walks the flattened sequence**, so an effectful Step reached through a
-// nested invocation declines exactly as one written at the top level does. The
-// invocation itself is no longer among them: a nested invocation runs as part
-// of the one Run (issue #141), and what its Steps are is judged here like any
-// other Step's.
-//
-// It is exported because it decides an **order**, and the order is §9's: a
-// working-tree name resolves against the working tree and needs nothing
-// further, so this is asked before the Store is located and an operator whose
-// Procedure this binary cannot perform is told so rather than sent to run
-// `hyper store init` first. The engine asks it again as its own precondition —
-// one door, and a two-call contract is a contract that can be got wrong.
-//
-// Every reached Step is reported rather than the first, which is the reading
-// §6's credential gate already takes: an operator sent round the loop once per
-// Step earns one decline per round trip.
-//
-// The Kind is read off the Operation the Step binds and never off the Step: a
-// Kind is declared per Operation in a Manifest and never inferred (ADR-0025),
-// so a Step whose binding does not resolve carries no Kind here and is left to
-// the resolution that will report it.
-func NotBuilt(loaded repository.Loaded, procedure string) []string {
-	var declined []string
-	for _, step := range flatten(loaded, procedure).Steps {
-		if kind := kindOf(loaded, step); kind != "" && kind != "read" {
-			declined = append(declined, fmt.Sprintf(
-				"step %s is a %s Step, and effectful Steps are not built yet", named(step), kind))
-		}
-	}
-	return declined
-}
+// **What that leaves a `destroy` inside this milestone is stated rather than
+// discovered.** #148 lands the spine and the `mutate` semantics on it; a
+// `destroy` reaching the same path completes on `2xx` alone rather than on
+// `404` besides, writes an Asset where a Tombstone belongs, and dispatches
+// under the Operation's `concurrency:` limit where it must be serial. All three
+// are issue #150's, and each is named at the line that will change: effect.go's
+// judgement, its recordType, and drain.go's limit. The decline was deleted
+// rather than narrowed to `destroy` because narrowing is what the ticket calls
+// reclassifying — a reviewer of that diff should see a gate removed, not a
+// behaviour changed — and because the Kinds land on one branch before the
+// milestone ships.
 
 // kindOf is the Kind the Step's Operation declares, and "" where the binding
 // does not resolve far enough to say.
-func kindOf(loaded repository.Loaded, step sequenced) string {
+//
+// It answers store.Kind rather than the string internal/artefact holds, because
+// §12's set is closed and every reader of it here compares against a member:
+// the lock mode, the push rhythm, what a call's answer means and what a version
+// a Step writes is a version of. A bare string compared against a literal in
+// one place and a constant in another is one set spelled two ways (§12,
+// effect.go, lock.go).
+func kindOf(loaded repository.Loaded, step sequenced) store.Kind {
 	definition, declared := loaded.Definitions[step.Definition]
 	if !declared {
 		return ""
 	}
-	return loaded.Providers[definition.ProviderName].Operations[step.Operation].Kind
+	return store.Kind(loaded.Providers[definition.ProviderName].Operations[step.Operation].Kind)
 }
 
 // artefactsRead is the reviewed artefacts the Run read, which is exactly the

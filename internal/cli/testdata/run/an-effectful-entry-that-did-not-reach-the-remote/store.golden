@@ -1,0 +1,61 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/01/01991f29-2345-7b6c-9d7e-8f90a1b2c3d4/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-01T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/01/01991f29-2345-7b6c-9d7e-8f90a1b2c3d4/run.json (475 bytes)
+{
+  "dry_run": false,
+  "procedure": "watch-status",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329",
+    "repo_revision": "1111111111111111111111111111111111111111"
+  },
+  "run_id": "01991f29-2345-7b6c-9d7e-8f90a1b2c3d4",
+  "schema_version": 1,
+  "started_at": "2026-04-01T09:41:14.221Z",
+  "trigger": {
+    "actor": "dana",
+    "cause": "manual",
+    "executor": "local",
+    "host": "workstation"
+  }
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d0b/outcome.json (91 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "failed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d0b/run.json (475 bytes)
+{
+  "dry_run": false,
+  "procedure": "publish-preview",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "99b77379e5aba6621a3d6c50505b1dc8e1d5b88a",
+    "repo_revision": "0068d7c040147dc36822c72d1bf2e80ad7f9265b"
+  },
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05d0b",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

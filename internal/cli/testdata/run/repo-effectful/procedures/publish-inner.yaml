@@ -1,0 +1,13 @@
+kind: procedure
+procedure: publish-inner
+targets: [cloudflare-prod]
+steps:
+  - id: publish
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: preview-42.example.com
+      type: A
+      content: 203.0.113.10

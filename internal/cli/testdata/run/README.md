@@ -37,11 +37,29 @@ names one in a **`repo-from`** file instead, and the ones here are:
 - [`repo-watch-status/`](repo-watch-status) — §3's own `uptime` Manifest, one
   `read` Operation, no credential, `class: local`, bound by a Definition and a
   Procedure of one Step with no selector. It is the tracer bullet's repository.
-- [`repo-not-built-yet/`](repo-not-built-yet) — the same, plus the artefacts a
-  later milestone needs: a `mutate` Step. It held a Step carrying an `over:`
-  selector until issue #139 built the Expansion and a nested invocation until
-  issue #141 built that, and each moved to the corpus of the thing it is now an
-  example of rather than staying here under a name that had stopped being true.
+- [`repo-effectful/`](repo-effectful) — the effectful spine (issue #148): a
+  `cloudflare-dns` Manifest whose `create_dns_record` is a `mutate` of `one`
+  cardinality, a Definition claiming `mutate` against a credentialled Target,
+  and four Procedures — one `mutate` Step, two of them, one invoked through a
+  nested Procedure, and `repo-watch-status`' own read-only Procedure beside
+  them, which is what lets one fixture drive both arms of a rule that splits by
+  Kind. Each case serves its own `api.cloudflare.com`, so what the world answers
+  is the case's and the artefacts are shared.
+
+  Its Operation declares `deadline: 1s` and `retry: {attempts: 3}` for the same
+  reason [`repo-drain/`](repo-drain) declares the first: a number an artefact
+  declared is a number a case can drive to, and a suite that waited thirty
+  seconds for one of them would be a corpus nobody runs. The retry is what makes
+  *an exhausted retry leaves the response object for the projection to read* a
+  case rather than a sentence — the refused connection below is retried three
+  times and is still *attempted, world untouched*.
+
+  It was `repo-not-built-yet/` while the binary declined every effectful Step,
+  and it held a Step carrying an `over:` selector until issue #139 built the
+  Expansion and a nested invocation until issue #141 built that. Each of those
+  moved to the corpus of the thing it is now an example of, and issue #148
+  renamed what was left to what its artefacts now demonstrate rather than
+  leaving it under a name that had stopped being true.
 - [`repo-untracked/`](repo-untracked) — `repo-watch-status` with no
   `definitions/` in it, so the case that adds one through `uncommitted/` is
   running against an artefact git has never seen.
@@ -157,7 +175,15 @@ drives.
 | `a-sync-that-could-not-bring-a-branch` | the same failure with no branch in hand: the same stderr line, then `store-absent` at `77`, because what is missing is an act and not a network |
 | `a-later-run-pushes-what-an-earlier-one-stranded` | an earlier Run's unpushed commit and a second environment's published one, over one root: the push is rejected, the **whole** unpushed set is re-applied, and `remote.golden` holds all three Runs |
 | `two-read-steps-push-once` | a two-Step Run with a host each, and what `run_push_test.go` counts the reaches of |
-| `an-effectful-step-declines` | the one thing this binary does not implement, declining before Step 1 with no entry written |
+| `two-effectful-steps-push-three-times` | the other rhythm, driven by the same test: two `mutate` Steps, two Assets, and three reaches — the sync, then one per Step |
+| `a-read-only-sync-in-the-same-fixture` | the read-only half of the sync that splits by Kind: an unfetchable remote, tolerated, and the Run completes at `0`. The effectful half is `an-effectful-sync-that-could-not-reach-the-remote`, which cannot be a golden — see below |
+| `a-mutate-step-lands-an-asset` | the effectful spine end to end (issue #148): one `mutate` Step over `http`, `2xx`, one version with `record_type: asset`, *ran*, exit `0` |
+| `an-effectful-step-inside-a-nested-procedure` | the same Step reached through an invocation, running exactly as one written at the top level does — one Run, one entry, and the nested Step's `path` on its file and its version |
+| `a-mutate-against-an-unchanged-answer` | the case ADR-0030 exists for, on the effectful side: the branch already holds the Asset the call returns, so the Run **mints nothing** and the Record is in the identity set all the same. `store.golden` holds one version |
+| `an-effectful-halt-leaves-what-it-did` | a `mutate` answered `500`: the Run halts at exit `1`, the Step is ***ran*** with `answered` carrying the host and the status and **no** `error_code`, and the Step after it is *never reached* and writes no file |
+| `a-mutate-answered-a-redirect` | the same halt on a `302`, which is where *completes on `2xx`* is a rule rather than a synonym for *did not fail*. Its `Location:` names a host the case does **not** serve, so a redirect followed would reach a refused connection and the Step would be *attempted, world untouched* — that the Step is ***ran*** carrying `status: 302` on `api.cloudflare.com` is the assertion that none was followed, a redirect target being reach arriving from data |
+| `a-mutate-whose-connection-was-refused` | the request that provably never left: ***attempted, world untouched***, `answered` carrying the host **alone**, no identity set, and `–` in `RECORDS` — the safest state in the tool, rendered as the absence of doubt rather than as `0 of 1` |
+| `a-mutate-that-reached-its-deadline` | the other `attempted`: the call went out and nothing came back, so the Step is ***attempted, outcome unknown***, carries no `answered`, and its `pattern` reads `attempts: 1` — the one Disposition §7 writes a single attempt on, which is how *nothing was retried* is legible |
 | `a-step-reference-reads-an-earlier-steps-record` | `{step:, path:}` resolved: the second Step's `host:` is the first Step's Record read at its turn, and the two Steps write two versions of one series |
 | `a-nested-invocation-is-one-run` | a Procedure invoking a Procedure that invokes a third: four Steps in one written order, **one** `run.json`, one `outcome.json`, one exit code and one Run id. The three nested Steps carry `path` on their files and on the versions they wrote; the two top-level ones carry none, and the two invocations write no file at all |
 | `a-halt-inside-a-nested-procedure`, `-json` | the halt inside a nested Procedure is a halt of the whole: the Step after the invocation is *never reached* like the one beside it, **neither writes a Step file**, and both still have a row on the page and a `step` row on the wire rendering `–` |
@@ -182,7 +208,6 @@ drives.
 | `the-sibling-collision-is-named-first` | both comparands available at once — the sibling is named, being reproducible from the artefact alone with no Store in hand |
 | `a-step-with-no-selector-meets-the-store` | the Store comparand reaching a Step carrying no `over:`: vacuous against itself, and not against the branch |
 | `four-runs-of-one-step` | driven once here and four times by [`../../run_expansion_test.go`](../../run_expansion_test.go) |
-| `an-effectful-step-declines-before-the-store` | the same decline in a repository with no Store: `2` and not `77`, because a working-tree name is judged before the Store is located |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
 | `check-refuses-the-run`, `-json` | `check` re-run in full: five codes across the five artefact kinds, one `refusal` row each, in `check`'s own order |
@@ -219,7 +244,6 @@ drives.
 | `the-child-stands-in-the-repository-root` | `cwd` is fixed and unauthorable: the command finds `hyper.yaml` and `procedures/` beside it |
 | `the-child-inherits-no-credential-slot` | the environment less every credential-slot variable **in the repository**: the case sets both, the command prints both, and the one a Target declaration names — a declaration no Step of this Run binds — reads `<unset>` |
 | `an-expansion-of-shell-steps-is-serial` | an Expansion of three over an Operation declaring no `concurrency:`: each member appends to a file the next one reads, so the three stdouts accumulate in Expansion order — which is serial dispatch shown rather than described |
-| `a-shell-mutate-step-declines` | the other half of the Capability is not built: a `mutate` shell Step declines at `2` with no entry written |
 | `usage-no-concurrency-flag` | there is no `--concurrency`: `2`, an unknown flag, and stdout silent. How much of an Expansion runs at once is a Manifest's and nobody else's |
 | `a-cursor-walks-three-pages` | pagination's `cursor:` form (issue #143): three pages, six Records, and each Record carrying the query the server saw — nothing on page one, `cursor=c2` on page two, `cursor=c3` on page three. The walk ends where the third page hands no token back, and the Step file's `pattern` block reads `pages: 3` |
 | `a-page-number-walks-until-the-collection-is-empty` | the other form and the other position: an integer `hyper` increments from `1`, written into a `header:`, and a **fourth** page whose collection comes back empty — which is the terminator both forms share. Six Records and `pages: 4`, the empty page having been fetched and being part of what `hyper` did |
@@ -309,20 +333,36 @@ anything in a golden beside it.
 
 `75` is a Run that lost the Store — to the lock, to the sync at Run start, or to
 a push it could not land — and none of the three is a Refusal or a failure of
-the work (§12, ADR-0061, issue #138). Two of the three sit above as ordinary
-cases. The rest are in [`../../run_store_lost_test.go`](../../run_store_lost_test.go),
-each for a reason a golden cannot get past:
+the work (§12, ADR-0061, issues #138, #148). Two of the three sit above as
+ordinary cases. The rest are in
+[`../../run_store_lost_test.go`](../../run_store_lost_test.go), each for a
+reason a golden cannot get past:
 
 - **The lock** is not a directory of files. It is held by a *live* process —
-  which is exactly why a crash cannot leave one behind — so the two cases that
+  which is exactly why a crash cannot leave one behind — so the three cases that
   drive it take it in the test process and run the command against the same
-  repository.
+  repository. Two hold the exclusive lock against a `read` Run; the third holds
+  the **shared** one against an effectful Run, which is what proves the *mode*
+  rather than the lock — a Run that contends whichever mode it asked for says
+  nothing about which one it asked for.
 - **The exhausted push** renders git's own account of the rejection, and that
   account names the bare repository by path: a temp directory, different on
   every run of the suite. Its streams are asserted by what they say; its two
   branch goldens, which name no path and no commit, are checked in beside
   [`a-push-rejected-three-times/`](a-push-rejected-three-times) and compared
   like any other case's.
+- **An effectful Run's sync** is the same shape one moment earlier: the push of
+  that Run's own `run.json` **is** the sync (§7, ADR-0083), so a Run that could
+  not complete it lost the Store before it touched the world. Both halves render
+  git's words and both are driven there —
+  [`an-effectful-sync-that-could-not-reach-the-remote/`](an-effectful-sync-that-could-not-reach-the-remote),
+  whose fetch URL points at nothing, and
+  [`an-effectful-entry-that-did-not-reach-the-remote/`](an-effectful-entry-that-did-not-reach-the-remote),
+  whose push is refused three times running. The first leaves no entry at all,
+  the second an entry that stands locally and reached nothing, and the read-only
+  half of the first is the ordinary golden
+  [`a-read-only-sync-in-the-same-fixture`](a-read-only-sync-in-the-same-fixture),
+  which tolerates the failure and completes.
 
 ## How a case reaches the Operation's deadline
 
@@ -377,6 +417,17 @@ a pagination Pattern's token lands in a **projected field** and therefore in
 `store.golden`. That is what makes *the cursor was written into the declared
 `query:` position* a checked-in constant rather than an inference from the pages
 arriving in order.
+
+## What one golden cannot prove, and what reads all of them
+
+**That `answered` is written on no `read` Step anywhere.** A per-case golden
+says what that case wrote, and a hundred goldens that happen not to carry the
+key say nothing about the hundred-and-first. So the rule is held over the whole
+corpus instead: [`../../run_answered_test.go`](../../run_answered_test.go) walks
+every branch golden under `testdata/`, decodes every Step file it finds, and
+fails on a `read` Step carrying the key — and on a corpus holding no `read` Step
+file, or no effectful one carrying it, either of which would be the rule passing
+over nothing (§7, ADR-0010, issue #148).
 
 ## What no golden here proves
 
@@ -453,14 +504,17 @@ knows came before any byte left — the dialler answering nothing, and
 [`../../../capability/sent_test.go`](../../../capability/sent_test.go) holds
 both sides of it, a non-zero exit and a `503` included.
 
-**That a read-only Run's pushes batch to its end.** One push at the end and a
-push per Step leave the remote holding the same commits, so no branch golden can
-tell them apart. What tells them apart is how many times the remote was reached,
-so that is counted instead:
+**Which rhythm a Run pushes at.** A read-only Run batches to its end and an
+effectful one pushes at every Step boundary, and both leave the remote holding
+the same commits — so no branch golden can tell them apart. What tells them
+apart is how many times the remote was reached, so that is counted instead:
 [`../../run_push_test.go`](../../run_push_test.go) installs a receive hook on
-the bare origin that accepts a push and tallies it, drives
-[`two-read-steps-push-once`](two-read-steps-push-once), and holds the tally at
-one.
+the bare origin that accepts a push and tallies it, and drives two two-Step
+Runs. [`two-read-steps-push-once`](two-read-steps-push-once) holds the tally at
+one and
+[`two-effectful-steps-push-three-times`](two-effectful-steps-push-three-times)
+at three — the sync that is the push of `run.json`, then one per Step, the last
+Step's going out with `outcome.json`.
 
 **That an identity set is written as a digest alone where it did not move.**
 What that is about is what the *second* entry writes given the first, and a case

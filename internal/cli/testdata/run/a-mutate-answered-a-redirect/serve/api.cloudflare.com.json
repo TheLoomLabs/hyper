@@ -1,0 +1,4 @@
+{
+  "status": 302,
+  "headers": {"Location": "https://elsewhere.example.com/client/v4/zones/023e105f4ecef8ad9ca31a8372d0c353/dns_records"}
+}

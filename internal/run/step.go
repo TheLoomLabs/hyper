@@ -22,10 +22,10 @@ import (
 // versions the projections moved, and the file that says what became of it (§6,
 // §7, issues #136, #140).
 //
-// What is here is the `read` path and no other Kind's. An effectful Step
-// declines before Step 1 — run.go states that and why — so nothing below has to
-// carry a Kind it cannot perform, and milestone 6 grows this file rather than
-// working around it.
+// **One path, three Kinds.** An effectful Step resolves, expands, calls and
+// projects exactly as a `read` does; what a Kind changes is what a call's
+// answer *means* and what a version it writes is a version of, and both of
+// those are effect.go's (§6, issue #148).
 
 // binding is what a Step is bound to, resolved: every artefact the Step names,
 // read once, so that nothing below resolves a name a second time and gets a
@@ -132,14 +132,16 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 		return reached, declined, r.write(file)
 	}
 
-	// The calls, dispatched in Expansion order and bounded by the
-	// Operation's declared `concurrency:` limit — which arrives effective,
+	// The calls, dispatched in Expansion order and bounded by how much of
+	// this Step's Expansion may be in flight at once: the Operation's
+	// declared `concurrency:` limit on a `read` — which arrives effective,
 	// so a Manifest that declared nothing runs its Expansion one member at
-	// a time (§6, ADR-0045, drain.go).
+	// a time — and **one** on an effectful Step, whatever that limit says
+	// (§6, ADR-0045, drain.go, effect.go).
 	//
 	// **Every member is attempted**, whatever any other member's call did,
 	// and what stopped one is read back below in Expansion order.
-	answers, faults := dispatch(bound.detail.ConcurrencyLimit, expanded.Members, func(resolving member) (answer, error) {
+	answers, faults := dispatch(bound.dispatched(), expanded.Members, func(resolving member) (answer, error) {
 		return r.call(bound, authored, resolving)
 	})
 
@@ -236,7 +238,7 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 			version := store.RecordVersion{
 				Metadata: store.Metadata{
 					Identity:   identity,
-					RecordType: store.RecordObservation,
+					RecordType: bound.recordType(),
 					Run:        r.id,
 					Step:       position,
 					Operation:  authored.Operation,
@@ -287,18 +289,41 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// which the entry says by the arithmetic between this set and
 	// `expanded_to` beside it, and §8 renders as `n of m` (§6, §7, §8).
 	//
-	// Expanded is written on the drained Step alone. A Step that reached
-	// the end of its Expansion accounted for all of it and has nothing for
-	// a second number to say, which is what keeps `n of m` meaning
+	// **An effectful halt is the one thing that moves it**, and effect.go
+	// decides which of §12's three values it moves to: a status outside
+	// `2xx` is *ran* all the same, a deadline is *attempted, outcome
+	// unknown*, and a request that provably never left is *attempted, world
+	// untouched* (§6, issue #148).
+	//
+	// ***attempted, world untouched* is a fact about the Step and not about
+	// its last call.** A Step that concluded about anything at all touched
+	// the world, whatever stopped the member after it, so it is *ran*
+	// carrying what it concluded — which is what keeps *world untouched*
+	// literally true of every Step that carries it, and what makes it the
+	// one failure that is not Repeatability evidence (§7, ADR-0062).
+	reached.Disposition = dispositionAfter(halted)
+	if reached.Disposition == store.DispositionAttemptedWorldUntouched && len(concluded) > 0 {
+		reached.Disposition = store.DispositionRan
+	}
+	// The identity set, carried by four of §12's seven Dispositions and by
+	// *attempted, world untouched* never: nothing was concluded about
+	// anything by construction, and a set written empty there would render
+	// the safest state in the tool as a *ran* Step that concluded about
+	// nothing (§7, §8, ADR-0062).
+	//
+	// Expanded is written on the halted Step alone. A Step that reached the
+	// end of its Expansion accounted for all of it and has nothing for a
+	// second number to say, which is what keeps `n of m` meaning
 	// *unaccounted for* rather than *these two counts differ*.
 	//
 	// What it counts is Record identities and never Expansion members, which
 	// is Step.Expanded's own sentence (run.go) and is why the count is built
 	// above rather than read off `expanded_to` here.
-	reached.Disposition = store.DispositionRan
-	reached.Records, reached.Concluded = len(concluded), true
-	if halted != nil {
-		reached.Expanded = reachedIdentities
+	if reached.Disposition != store.DispositionAttemptedWorldUntouched {
+		reached.Records, reached.Concluded = len(concluded), true
+		if halted != nil {
+			reached.Expanded = reachedIdentities
+		}
 	}
 	// What this Step acted on is held for the Steps after it at the moment
 	// it reaches its Disposition, which is the moment §6 fixes: a Step's
@@ -306,8 +331,15 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// next Step starts.
 	r.acted[stepKey{authored.Namespace, authored.ID}] = records
 	file.Disposition = reached.Disposition
-	file.Identities = store.Concluded(names, previous)
-	file.Pattern = acted.written()
+	if reached.Concluded {
+		file.Identities = store.Concluded(names, previous)
+	}
+	file.Pattern = acted.written(reached.Disposition)
+	// What an effectful call gave back where it did not give the ordinary
+	// answer: the host and the status. Its presence is the fact that
+	// something other than the ordinary answer decided this Step, and it is
+	// written on effectful Steps and **never on a `read`** (§7, effect.go).
+	file.Answered = answeredBy(halted)
 	// The path that failed to project, where that is what halted the Run.
 	// The set beside it is then partial and this path is what says so — the
 	// digest says nothing about partiality either way — and it is held here
@@ -504,6 +536,17 @@ func (r run) call(bound binding, authored sequenced, resolving member) (answer, 
 	var projected []conclusion
 	acted, halted := readPatterns(declaration).perform(ctx, r.started, send,
 		func(response capability.Object) (int, error) {
+			// **What an effectful Step makes of the answer, before
+			// anything is projected off it.** A `mutate` completes
+			// on `2xx` and halts on everything else, and a
+			// response that never arrived halts with the world
+			// untouched — so nothing below reads a body `hyper`
+			// has already decided says its effect did not happen
+			// (§6, effect.go). A `read` is judged by nothing and
+			// falls straight through.
+			if fault := bound.judged(authored, response); fault != nil {
+				return 0, fault
+			}
 			// The Records already read out of this member's walk,
 			// which is where this page's collection carries on
 			// counting: the pages are one collection arriving in
@@ -634,14 +677,20 @@ func (r run) requested(bound binding, authored sequenced, resolving member, decl
 		// (ADR-0034).
 		response, err := at.write(built).Perform(ctx, r.request.Dial, r.started, credential)
 
-		// **A deadline reached on a `read` fails the Step** (§6). It is
-		// the one error beside the response object this reads as a halt,
-		// and it is read because it is the one an artefact declared: a
-		// refused connection, a name that does not resolve and a
-		// handshake that failed are all *no response arrived*, which a
-		// `read` records as the answer it is — and which a retry Pattern
-		// follows, those three being exactly the class the request
-		// provably never left under (ADR-0018).
+		// **A deadline reached fails the Step** (§6). It is the one
+		// error beside the response object this reads as a halt, and it
+		// is read because it is the one an artefact declared: a refused
+		// connection, a name that does not resolve and a handshake that
+		// failed are all *no response arrived*, which a `read` records
+		// as the answer it is and an effectful Step reads off the
+		// object one layer up — and which a retry Pattern follows,
+		// those three being exactly the class the request provably
+		// never left under (ADR-0018, effect.go).
+		//
+		// Which Disposition the halt carries is the Step's Kind's: a
+		// `read` is *ran* and an effectful Step is *attempted, outcome
+		// unknown*, the call having gone out with no answer to say
+		// whether it landed (§12, effect.go).
 		//
 		// The deadline is named as itself rather than as the transport's
 		// word for it, and beside the host it was reached on — the two
@@ -649,7 +698,7 @@ func (r run) requested(bound binding, authored sequenced, resolving member, decl
 		// a look at the far end. Which **member** drained is
 		// `expanded_to`'s and nowhere else (§7, §8).
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, false, fmt.Errorf("step %s: the Operation's deadline of %s was reached on %s and no response arrived",
+			return nil, false, bound.haltedByDeadline("step %s: the Operation's deadline of %s was reached on %s and no response arrived",
 				named(authored), bound.detail.Deadline, reach.Host)
 		}
 		return response, capability.NeverSent(err), nil
@@ -691,12 +740,13 @@ func (r run) running(bound binding, authored sequenced, resolving member) (reque
 	return func(ctx context.Context, _ page) (capability.Object, bool, error) {
 		response, err := command.Perform(ctx, r.request.Exec, r.request.RepoRoot, r.environment)
 
-		// **A deadline reached on a `read` fails the Step** (§6), and it
-		// is the one error beside the object this reads as a halt. A
-		// command that could not be started at all is *no answer* rather
-		// than a fault — the object is `command` and nothing else, and a
-		// `read` records the attempt with its `exit_code` gone quiet
-		// (§12, ADR-0050).
+		// **A deadline reached fails the Step** (§6), and it is the one
+		// error beside the object this reads as a halt; which
+		// Disposition it carries is the Step's Kind's (effect.go). A
+		// command that could not be started at all is *no answer*
+		// rather than a fault — the object is `command` and nothing
+		// else, and a `read` records the attempt with its `exit_code`
+		// gone quiet (§12, ADR-0050).
 		//
 		// The child's whole process group has been killed with SIGKILL
 		// and no grace period by the time this line runs, so a command's
@@ -706,7 +756,7 @@ func (r run) running(bound binding, authored sequenced, resolving member) (reque
 		// edit to the Manifest and one a look at what the Procedure
 		// asked for.
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, false, fmt.Errorf("step %s: the Operation's deadline of %s was reached and %s was killed",
+			return nil, false, bound.haltedByDeadline("step %s: the Operation's deadline of %s was reached and %s was killed",
 				named(authored), bound.detail.Deadline, command.Text())
 		}
 		return response, capability.NeverSent(err), nil

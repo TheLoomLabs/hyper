@@ -1,0 +1,5 @@
+STEP  ID             KIND    DISPOSITION    RECORDS
+1     publish        mutate  ran            0 of 1
+2     publish-again  mutate  never-reached  –
+
+failed · exit 1 · run 01991ea6-b118-7c93-8d41-6b2f7ae05d04

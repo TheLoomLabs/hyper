@@ -137,7 +137,16 @@ type retry struct {
 // the page from the same Disposition after a single call (§7). A member whose
 // Patterns did no more than the single call every Operation makes contributes
 // nothing to it, which is what beyondTheTrivialCall is for.
-type account struct{ attempts, pages, polls int }
+//
+// made is the same attempts unreduced, and it is here for the one Disposition
+// §7 exempts from that reduction: on *attempted, outcome unknown* the attempts
+// are written whenever a retry was declared at all, one included, because how
+// many times `hyper` may have touched the world is the fact that Disposition
+// exists to carry. It is a second counter rather than a reduction moved later
+// because each of the three is reduced where its own single call is defined,
+// and a sum reduced at the end would read three members' single attempts as an
+// exhausted retry.
+type account struct{ attempts, made, pages, polls int }
 
 // add sums one member's account into a Step's. A Step holds one account and an
 // Expansion holds many members, so what the Step's file carries is the total
@@ -145,6 +154,7 @@ type account struct{ attempts, pages, polls int }
 // fetched, which is what *what hyper did to reach that outcome* means (§7).
 func (a *account) add(member account) {
 	a.attempts += member.attempts
+	a.made += member.made
 	a.pages += member.pages
 	a.polls += member.polls
 }
@@ -158,12 +168,26 @@ func (a *account) add(member account) {
 // Each is reduced where its own *single call* is defined — a retry's per
 // request, a poll's per page, a page's per member — so that an Operation
 // declaring two Patterns cannot have one of them inflate the other's count.
-// written is the account as the Step's file carries it (§7). It is a method
-// rather than three assignments at the writer because the two shapes are one
-// fact under two encodings, and a caller unpacking it field by field is where
-// the day comes that a fourth counter reaches one of them and not the other.
-func (a account) written() store.Pattern {
-	return store.Pattern{Attempts: a.attempts, Pages: a.pages, Polls: a.polls}
+// written is the account as the Step's file carries it, at the Disposition the
+// Step reached (§7). It is a method rather than three assignments at the writer
+// because the two shapes are one fact under two encodings, and a caller
+// unpacking it field by field is where the day comes that a fourth counter
+// reaches one of them and not the other.
+//
+// **The Disposition decides one of the two rules §7 states**, and it decides it
+// for `attempts` alone. Everywhere else a Pattern is written where it did more
+// than the trivial single call and absent otherwise; on *attempted, outcome
+// unknown* the attempts are written whenever a retry was declared at all, one
+// included. *One attempt* and *no retry declared* are the same silence
+// everywhere else and must not be here — how many times `hyper` may have
+// touched the world is the fact that Disposition exists to carry (§7,
+// ADR-0018).
+func (a account) written(disposition store.Disposition) store.Pattern {
+	attempts := a.attempts
+	if disposition == store.DispositionAttemptedOutcomeUnknown {
+		attempts = a.made
+	}
+	return store.Pattern{Attempts: attempts, Pages: a.pages, Polls: a.polls}
 }
 
 // beyondOne is a count that says something, and zero where it says only that
@@ -432,7 +456,10 @@ func (p patterns) retried(ctx context.Context, acted *account, at page, send req
 	// single attempts, which is the silence §7 requires — where reducing
 	// per member would write `attempts: 3` and read as an exhausted retry.
 	made := 0
-	defer func() { acted.attempts += beyondOne(made) }()
+	defer func() {
+		acted.made += made
+		acted.attempts += beyondOne(made)
+	}()
 
 	attempts := 1
 	if p.retry.declared {

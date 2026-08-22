@@ -29,6 +29,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/TheLoomLabs/hyper/internal/capability"
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
 // collection is a response carrying one page of a collection: the members it
@@ -330,8 +331,8 @@ func TestRetry_AnAnswerIsNeverFollowed(t *testing.T) {
 	}
 	// One attempt and no retry declared are the same silence, so a Pattern
 	// that was declared and never followed anything writes nothing (§7).
-	if acted != (account{}) {
-		t.Errorf("one attempt accounts for %#v, want silence", acted)
+	if written := acted.written(store.DispositionRan); written != (store.Pattern{}) {
+		t.Errorf("one attempt accounts for %#v, want silence", written)
 	}
 }
 
@@ -362,8 +363,8 @@ func TestAccount_TheTrivialSingleCallIsSilent(t *testing.T) {
 	if calls != 3 {
 		t.Fatalf("%d calls were made, want three — three pages, none of them retried", calls)
 	}
-	if acted != (account{pages: 3}) {
-		t.Errorf("three unretried pages account for %#v, want three pages and **no** attempts — three single attempts are the same silence three times", acted)
+	if written := acted.written(store.DispositionRan); written != (store.Pattern{Pages: 3}) {
+		t.Errorf("three unretried pages account for %#v, want three pages and **no** attempts — three single attempts are the same silence three times", written)
 	}
 
 	// One Pattern doing nothing at all, which is the other end of the rule:
@@ -373,8 +374,50 @@ func TestAccount_TheTrivialSingleCallIsSilent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform err = %v", err)
 	}
-	if quiet != (account{}) {
-		t.Errorf("one page under one attempt accounts for %#v, want silence", quiet)
+	if written := quiet.written(store.DispositionRan); written != (store.Pattern{}) {
+		t.Errorf("one page under one attempt accounts for %#v, want silence", written)
+	}
+}
+
+// TestAccount_AttemptedOutcomeUnknownCarriesEverySingleAttempt is §7's one
+// exception to the rule above, and this milestone is the first that can reach
+// it: an effectful call that reached its deadline is *attempted, outcome
+// unknown*, and there the attempts are written whenever a retry was declared at
+// all — one included (§7, ADR-0018, issue #148).
+//
+// *One attempt* and *no retry declared* are the same silence everywhere else
+// and must not be here: how many times `hyper` may have touched the world is
+// the fact that Disposition exists to carry, and a Step that read as *no retry
+// declared* would be saying nothing where it has the most to say.
+func TestAccount_AttemptedOutcomeUnknownCarriesEverySingleAttempt(t *testing.T) {
+	retried := declaring(t, "kind: mutate\npatterns:\n  retry: {attempts: 3}\n")
+
+	call := func(context.Context, page) (capability.Object, bool, error) {
+		return collection(1, ""), false, nil
+	}
+	keep, _ := keeping(1)
+	acted, err := retried.perform(t.Context(), time.Time{}, call, keep)
+	if err != nil {
+		t.Fatalf("perform err = %v", err)
+	}
+
+	if written := acted.written(store.DispositionAttemptedOutcomeUnknown); written != (store.Pattern{Attempts: 1}) {
+		t.Errorf("one attempt on an *attempted, outcome unknown* Step accounts for %#v, want one attempt written", written)
+	}
+	if written := acted.written(store.DispositionRan); written != (store.Pattern{}) {
+		t.Errorf("the same one attempt on a *ran* Step accounts for %#v, want silence — the exception is one Disposition's", written)
+	}
+
+	// An Operation declaring no retry has nothing to write on either
+	// Disposition: the exception is *whenever a retry was declared at all*
+	// and not *whenever a call was made*.
+	none := declaring(t, "kind: mutate\n")
+	quiet, err := none.perform(t.Context(), time.Time{}, call, keep)
+	if err != nil {
+		t.Fatalf("perform err = %v", err)
+	}
+	if written := quiet.written(store.DispositionAttemptedOutcomeUnknown); written != (store.Pattern{}) {
+		t.Errorf("an Operation declaring no retry accounts for %#v, want silence", written)
 	}
 }
 
@@ -389,7 +432,7 @@ func TestAccount_AnExpansionsMembersSum(t *testing.T) {
 	if step != (account{pages: 9}) {
 		t.Errorf("three members walking three pages each account for %#v, want nine pages", step)
 	}
-	if written := step.written(); written.Pages != 9 || written.Attempts != 0 || written.Polls != 0 {
+	if written := step.written(store.DispositionRan); written.Pages != 9 || written.Attempts != 0 || written.Polls != 0 {
 		t.Errorf("the Step file carries %#v, want nine pages and nothing else", written)
 	}
 }

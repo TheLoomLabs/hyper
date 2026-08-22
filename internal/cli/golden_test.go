@@ -82,6 +82,29 @@ func goldenCases(t *testing.T) []goldenCase {
 	return cases
 }
 
+// corpusCase is one case under testdata/ as a driver beside TestGolden reads
+// it: its directory, the subtest name it is known by, and the argv it is driven
+// from.
+//
+// It exists because the drivers that reach past a golden — the signal, the push
+// tally, the three ways a Run loses the Store — each drive a case TestGolden
+// already knows, and reading its directory a second way is how the day comes
+// that one of them drives something else.
+//
+// argv is the case's own `argv` file where it has one, and the case names it
+// here where it has none. Those cases carry none deliberately: a directory
+// holding an argv is one TestGolden walks, and a case whose streams name a temp
+// directory is one no golden can hold (run_store_lost_test.go).
+func corpusCase(t *testing.T, name string, argv ...string) goldenCase {
+	t.Helper()
+
+	dir := filepath.Join("testdata", filepath.FromSlash(name))
+	if len(argv) == 0 {
+		argv = readArgv(t, filepath.Join(dir, "argv"))
+	}
+	return goldenCase{dir: dir, name: name, argv: argv}
+}
+
 // walkTestdata walks the corpora for files of one name and hands each one's
 // directory to visit, in walk order. Both of the questions asked of testdata/
 // are this walk — which directories are cases, and which hold checked-in

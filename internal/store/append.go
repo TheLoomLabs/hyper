@@ -107,4 +107,27 @@ func (s *Store) Append(writes []Write, message string) error {
 // A repository with no remote configured publishes nothing and answers no
 // error. What was written stands locally either way, which is the sentence §7
 // makes true of every push that did not land.
-func (s *Store) Publish() error { return s.repo.publish() }
+//
+// **The handle is pointed at what the branch now holds, whichever way the push
+// went.** A push the remote moved under re-applies this clone's unpushed
+// commits onto the fetched tip, which moves the branch out from under the
+// commit this handle was holding — and an effectful Run goes on writing after
+// its pushes rather than stopping at one, so an Append that built on the old
+// commit would be refused by the ref guard and lose the file it was writing
+// (§7, ADR-0076, push.go).
+//
+// The re-resolution's own failure is answered only where the push did not fail
+// first: what a caller acts on is the push, and a second error about the ref it
+// left behind would name the wrong cause.
+func (s *Store) Publish() error {
+	published := s.repo.publish()
+	tip, err := s.repo.resolveRef(Ref)
+	if err != nil {
+		if published == nil {
+			return err
+		}
+		return published
+	}
+	s.commit = tip
+	return published
+}

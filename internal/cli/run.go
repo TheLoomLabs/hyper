@@ -106,18 +106,6 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		return ExitUsage
 	}
 
-	// What the binary has not built declines here, before the Store is
-	// located and for the reason the positional above resolves before it: a
-	// working-tree name needs nothing further, and an operator whose
-	// Procedure this binary cannot perform is owed that answer rather than
-	// a `hyper store init` that would not help. internal/run states why the
-	// decline exists and why it is not a Refusal — no `error_code`, no
-	// Journal entry, no row stream, and the milestone that builds the thing
-	// deletes its line.
-	if declined := run.NotBuilt(loaded, name); len(declined) > 0 {
-		return declineNotBuilt(stderr, declined)
-	}
-
 	// The lock, taken before the Store is reached at all and held for the
 	// Run's duration. Which of the two it is was decided from the Kinds
 	// `check` already computed, and it is taken here — before the sync,
@@ -186,16 +174,6 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		Narrator:    narration{stderr: stderr},
 	})
 
-	// The engine's own answer to the same question, which the call above has
-	// already made unreachable. It is read rather than assumed away because
-	// the decline is the engine's precondition and not this command's: a
-	// second caller — the MCP surface, milestone 11 — reaches Perform
-	// through its own dispatch, and an answer nobody looked at would be a
-	// Run declining into silence there.
-	if len(answer.Unbuilt) > 0 {
-		return declineNotBuilt(stderr, answer.Unbuilt)
-	}
-
 	// The fault is narration's and stdout carries none of it: a failure
 	// carries no `error_code`, and what tells two failures apart is the exit
 	// code (§9, §12).
@@ -231,17 +209,6 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	return terminal.Code
 }
 
-// declineNotBuilt renders what this binary does not implement and answers the
-// exit code: one line each on stderr, `2`, and stdout completely silent — no
-// `error_code`, no row stream, and no Journal entry, which is what makes it a
-// usage error rather than a Refusal (§9, ADR-0060).
-func declineNotBuilt(stderr io.Writer, declined []string) int {
-	for _, line := range declined {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, line)
-	}
-	return ExitUsage
-}
-
 // exitFor maps a Run's answer onto the exit code §12 fixes for it. The code
 // space is finer than the triple and never coarser, so `failed` is the one
 // member that has to read more than the outcome: it takes four codes, and which
@@ -253,6 +220,13 @@ func declineNotBuilt(stderr io.Writer, declined []string) int {
 // the Run did happened, its commits stand on the local branch, and the next Run
 // that syncs sends them (§7, ADR-0061, ADR-0076). Everything else a Run failed
 // on is 1.
+//
+// **So is an effectful Run whose `run.json` push did not land**, and it is the
+// same sentence one moment earlier: that push *is* the Run's Store sync, so a
+// Run that could not complete it lost the Store before it touched the world
+// (§7, ADR-0083, run.ErrSyncFailed). The fetch half of the same sync is
+// answered one function down, where the mode is in hand and no Run exists yet
+// to carry a fault (locateStore).
 //
 // **The two signals' codes, 130 and 143, are decided where the signal was
 // caught** and never derived from an outcome, which is why they arrive here as
@@ -276,7 +250,7 @@ func exitFor(answer run.Answer, signalled int, caught bool) int {
 		if caught && errors.Is(answer.Fault, run.ErrInterrupted) {
 			return signalled
 		}
-		if errors.Is(answer.Fault, store.ErrPushExhausted) {
+		if errors.Is(answer.Fault, store.ErrPushExhausted) || errors.Is(answer.Fault, run.ErrSyncFailed) {
 			return ExitStoreLost
 		}
 		return ExitProblems
@@ -507,10 +481,11 @@ func unresolvedProcedure(loaded repository.Loaded, name string) string {
 // open Journal entry — the earliest moment it can know it will be able to
 // record what it does — so a sync it could not complete is a Run that lost the
 // Store before it touched the world, and it is `failed` at 75 (§7, ADR-0061).
-// Nothing in this milestone reaches that arm: an effectful Step declines before
-// the Store is located at all. It lands beside the shared arm rather than after
-// it, for the reason both lock modes land together — which sync a Run performs
-// is read off the one value that already decided which lock it took.
+// **This is the fetch half of that sync**, and the push half is the engine's,
+// where the entry it sends exists (run.ErrSyncFailed). It lands beside the
+// shared arm rather than after it, for the reason both lock modes land together
+// — which sync a Run performs is read off the one value that already decided
+// which lock it took.
 //
 // ErrAbsent is the one answer here that is a Refusal, and it is 77 from either
 // call: a branch neither side holds is cleared by an act of somebody's, `hyper
