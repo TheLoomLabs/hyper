@@ -193,6 +193,12 @@ names one in a **`repo-from`** file instead, and the ones here are:
   for the reason above: a cyclic invocation graph is `procedure-cycle` at
   `check`, and `check` re-runs in full at Run start, so it would Refuse every
   Run of every Procedure beside it.
+- [`repo-unscoped-destroy/`](repo-unscoped-destroy) — `repo-destroy`'s Manifest,
+  Definition and Target unchanged, over one Procedure whose `destroy` Step
+  carries its mandatory `bound:` and **no `over:` at all** (issue #157). It is a
+  repository of its own for the reason above, and it is the one repository here
+  written to be refused: the shape it holds is `destroy-unscoped` at `check`,
+  which is the whole of what its case asserts.
 
 The rest carry a repository of their own, each written for the one edge it
 drives.
@@ -268,6 +274,7 @@ drives.
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
 | `check-refuses-the-run`, `-json` | `check` re-run in full: five codes across the five artefact kinds, one `refusal` row each, in `check`'s own order |
 | `a-cyclic-procedure-refuses-the-run` | the invocation graph that closes on itself: `procedure-cycle` at the Run-start `check`, `77`, and the Refusal on the entry. A cycle is `check`'s to refuse — the engine's own arm for one is a precondition no Run reaches (§4, §6, issue #146) |
+| `a-destroy-with-no-selector-refuses-the-run` | the `destroy` Step carrying no `over:`: `destroy-unscoped` at the Run-start `check`, `77`, and the Refusal on the entry. It is here rather than under `check/` alone because what issue #157 found was a Run — the call went out and the process died in the Store afterwards — so the case that proves it fixed has to be one that would have made the call (§4, §5, ADR-0085) |
 | `a-working-tree-edited-since-check-passed` | the same gate driven the way an operator meets it — one `uncommitted/` line narrows `local`'s `kinds:`, and the Run refuses with the codes the edit earns |
 | `a-credential-the-environment-does-not-hold` | one absent slot, `credential-absent`, citing the `env:` line of the declaration whose slot the environment did not fill |
 | `every-absent-credential-at-once`, `-json` | three absent slots across two Targets in **one** Refusal, and the two slots `paid` carries that no Step of this Run could send are not among them |

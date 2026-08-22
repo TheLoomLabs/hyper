@@ -1,5 +1,5 @@
 kind: procedure
-procedure: opaque-unscoped
+procedure: destroy-unscoped
 targets: [shell-host]
 steps:
   - id: purge

@@ -1,0 +1,2 @@
+FILE                         LINE  FIELD                 ERROR_CODE       MESSAGE
+procedures/purge-empty.yaml  11    steps[0].over.values  schema-mismatch  a values: member is empty — a member is the Record name its Expansion acts under, and an empty scalar names nothing a Record can be held under

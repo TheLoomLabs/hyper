@@ -29,9 +29,11 @@ words, and it is refused unless two separate opt-ins agree. The Target's declara
 the artefact half, checked statically with no credential resolved (`opaque-destroy-not-granted`, §4).
 The credential resolved for that Target at Run start must carry the same opt-in, or the Step Refuses —
 the half no static check can perform, since no credential exists before then. A third requirement is
-stated with the Bound below, where the reason for it is: an `opaque` `destroy` Step must name the
-population it is destroying. The two opt-ins are
-independent by design: a laptop's credential for a Target can carry the opt-in while the credential
+stated with the Bound below, where the reason for it is: such a Step must name the population it is
+destroying. That one is not an opt-in and is not the `opaque` Step's alone — it holds on every
+`destroy` (`destroy-unscoped`, §4, ADR-0085) — and it is stated there because the `opaque` Step is
+where it does the most work. The two opt-ins are independent by design: a laptop's credential for a
+Target can carry the opt-in while the credential
 Actions holds for the same Target does not, which makes "CI may not do this" a fact about what the CI
 credential holds rather than a belief about where the process runs — credentials resolve the same way
 regardless of where `hyper` runs (ADR-0007).
@@ -54,15 +56,23 @@ is implied by the first two on every such Step, having no other form to take. It
 (§12): a surface indexing what is unbounded, silent on the one Step where nothing can be bounded, is
 omitting rather than economising.
 
-**An `opaque` `destroy` Step must carry an `over:` selector** (`opaque-destroy-unscoped`, §4). Without
-one it is invoked once (§3), so it has no Expansion, no series to write a Tombstone under, and no
-declared identity — a `destroy` carries no `record:` at all (§3, ADR-0037). It would reach the world
-and write nothing whatever: no Record, no Tombstone, an empty identity set, and no row in `YOU DID
-THIS`, which is the one thing an effectful path may not do. The requirement is not a Bound arriving
-under another name (ADR-0053). It buys two different things: the population is authored literally, on
-lines the gutter annotates, so a reviewer reads what is being destroyed rather than inferring it from a
-command; and `expanded_to` records what the Step resolved to in Expansion order (§7), so *which three
-of the five* is legible after a halt with no Bound anywhere claiming to have guarded it.
+**A `destroy` Step must carry an `over:` selector** (`destroy-unscoped`, §4). Without one it is
+invoked once (§3), so it has no Expansion, no series to write a Tombstone under, and no declared
+identity — a `destroy` carries no `record:` at all (§3, ADR-0037). It would reach the world and write
+nothing whatever: no Record, no Tombstone, an empty identity set, and no row in `YOU DID THIS`, which
+is the one thing an effectful path may not do. The requirement is not a Bound arriving under another
+name (ADR-0053).
+
+**None of that sentence is about opacity**, and the rule is stated here rather than scoped here: an
+`http` `destroy` with no selector reaches the world and writes nothing by the same three steps. It is
+one requirement on the Kind, and one code (ADR-0085).
+
+What the `opaque` Step adds is the second thing the selector buys, which is why the requirement is
+stated in this section at all. The population is authored literally, on lines the gutter annotates, so
+a reviewer reads what is being destroyed rather than inferring it from a command; and `expanded_to`
+records what the Step resolved to in Expansion order (§7), so *which three of the five* is legible
+after a halt with no Bound anywhere claiming to have guarded it. On an `opaque` Step that is the only
+account of the population there is. On every other `destroy` it is a second one beside the Bound.
 
 ```yaml
   - id: purge-releases

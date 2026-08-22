@@ -446,10 +446,12 @@ invoking one that is already invoking it, directly or through a chain of any len
 invocation entry that closes the loop, which is the line an author edits to break it (§4, §6,
 ADR-0002); `opaque-destroy-not-granted`, `bound-missing`, `bound-illegal`, `host-not-granted`,
 `command-malformed`, a shell Step's `command:` that is empty or names its executable by reference
-(§3, ADR-0051), `opaque-destroy-unscoped`, an `opaque` `destroy` Step carrying no `over:` selector
-and therefore reaching the world with nothing to write a Tombstone under (§5, ADR-0053), and
-`skip-if-recorded-unreachable`, a `skip-if-recorded` Step expanding over `assets:`, whose every member
-stands by construction and whose test can therefore only ever answer *skip* (above, ADR-0056). §6's two run-time checks carry `bound-exceeded`, an Expansion
+(§3, ADR-0051), `destroy-unscoped`, a `destroy` Step of any Capability carrying no `over:` selector
+and therefore reaching the world with nothing to write a Tombstone under — one code on the Kind
+rather than one per Capability, opacity being the reason the requirement is stated in §5 and never
+the extent of it (§5, ADR-0053, ADR-0085), and `skip-if-recorded-unreachable`, a `skip-if-recorded`
+Step expanding over `assets:`, whose every member stands by construction and whose test can therefore
+only ever answer *skip* (above, ADR-0056). §6's two run-time checks carry `bound-exceeded`, an Expansion
 resolving to more Records than the Step's declared Bound, and `run-once-recorded`, a run-once Step the
 Journal already holds as *ran* or *attempted, outcome unknown*.
 

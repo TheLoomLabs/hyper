@@ -1,0 +1,45 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f65-5f66-7195-8c71-8fa0c6152e6b/outcome.json (382 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "error_code": "destroy-unscoped",
+      "field": "steps[0]",
+      "file": "procedures/purge-unscoped.yaml",
+      "line": 5,
+      "message": "a destroy Step carries no over: selector — it would reach the world once and leave nothing in the record"
+    }
+  ],
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f65-5f66-7195-8c71-8fa0c6152e6b/run.json (474 bytes)
+{
+  "dry_run": false,
+  "procedure": "purge-unscoped",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "14f6d4eca968f7e3e6b72ece777abaee6ac81fc4",
+    "repo_revision": "0847fbf07cde0c17be3558f3e3a63cb8c7a618bc"
+  },
+  "run_id": "01991f65-5f66-7195-8c71-8fa0c6152e6b",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

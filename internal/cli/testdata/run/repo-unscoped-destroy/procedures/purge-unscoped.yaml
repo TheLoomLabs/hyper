@@ -1,0 +1,12 @@
+kind: procedure
+procedure: purge-unscoped
+targets: [cloudflare-prod]
+steps:
+  - id: purge
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: 1
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: 372e67954025e0ba6aaa6d586b9e0b59

@@ -73,7 +73,7 @@ var milestoneOneErrorCodes = []string{
 	"bound-illegal",
 	"host-not-granted",
 	"command-malformed",
-	"opaque-destroy-unscoped",
+	"destroy-unscoped",
 	"skip-if-recorded-unreachable",
 	"bound-exceeded",
 	"predicate-type-mismatch",

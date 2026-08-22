@@ -1,0 +1,6 @@
+nothing ran. no step was reached.
+
+FILE                            LINE  FIELD     ERROR_CODE        MESSAGE
+procedures/purge-unscoped.yaml  5     steps[0]  destroy-unscoped  a destroy Step carries no over: selector — it would reach the world once and leave nothing in the record
+
+refused · exit 77 · run 01991f65-5f66-7195-8c71-8fa0c6152e6b

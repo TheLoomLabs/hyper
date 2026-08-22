@@ -4,6 +4,11 @@
 one it reaches the world and writes nothing whatever: no Record, no Tombstone, an empty identity set,
 and no row in `YOU DID THIS`.
 
+_ADR-0085 amends this:_ every clause of the argument below is about the Kind and none of it is about
+opacity, so the requirement holds on every `destroy` Step and the code is `destroy-unscoped`. What is
+written here about the `opaque` Step stays true of it; what changes is that it was never only the
+`opaque` one's to satisfy.
+
 The reading a competent implementer reaches unaided is that nothing is wrong. §3 says a Step declaring
 no `over:` is invoked once, which is an ordinary and common thing for a Step to be; §3 says a `destroy`
 carries no `record:` at all (ADR-0037); and §7 says what a `destroy` writes is a Tombstone under the

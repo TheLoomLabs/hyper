@@ -423,6 +423,8 @@ steps:
     definition: preview-dns
     operation: delete_dns_record
     target: cloudflare-prod
+    over:
+      values: [preview-42.example.com]
     args:
       zone_id: 023e105f4ecef8ad9ca31a8372d0c353
       record_id: {step: publish, path: $.id}
@@ -991,7 +993,7 @@ steps:
       command: [rm, -rf, /srv/app/releases/r41]
 `
 	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
-	p := mustCode(t, got, CodeOpaqueDestroyUnscoped)
+	p := mustCode(t, got, CodeDestroyUnscoped)
 	if p.Field != "steps[0]" {
 		t.Errorf("Field = %q, want steps[0]", p.Field)
 	}
@@ -1010,7 +1012,166 @@ steps:
       values: [/srv/app/releases/r41]
     args:
       command: [rm, -rf, {item: $}]
-`), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{}), CodeOpaqueDestroyUnscoped)
+`), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{}), CodeDestroyUnscoped)
+}
+
+// TestCheckProcedure_NonOpaqueDestroyWithNoOverIsUnscoped is issue #157's
+// reproduction, refused where §5's own argument holds rather than where it was
+// noticed: an `http` `destroy` carrying a mandatory Bound and no `over:` at
+// all. It is invoked once, so its one member has no name, and what it would
+// conclude about is that member — an identity the Store cannot hold. Every
+// clause of the requirement is true here and none of them is about opacity
+// (§4, §5, ADR-0085).
+func TestCheckProcedure_NonOpaqueDestroyWithNoOverIsUnscoped(t *testing.T) {
+	doc := `kind: procedure
+procedure: purge-unscoped
+targets: [cloudflare-prod]
+steps:
+  - id: purge
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: 1
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: 372e67954025e0ba6aaa6d586b9e0b59
+`
+	got := CheckProcedure("procedures/purge-unscoped.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
+	p := mustCode(t, got, CodeDestroyUnscoped)
+	if p.Field != "steps[0]" {
+		t.Errorf("Field = %q, want steps[0]", p.Field)
+	}
+	for _, prob := range got {
+		if prob.ErrorCode == CodeBoundMissing || prob.ErrorCode == CodeBoundIllegal {
+			t.Errorf("got %s beside destroy-unscoped, want the Bound left alone — this Step's bound: is correct", prob.ErrorCode)
+		}
+	}
+}
+
+// TestCheckProcedure_NonOpaqueDestroyWithOverIsScoped is the widened check's
+// other side: the ordinary scoped `destroy` every landed corpus already holds
+// draws nothing new.
+func TestCheckProcedure_NonOpaqueDestroyWithOverIsScoped(t *testing.T) {
+	mustNoCode(t, CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, `kind: procedure
+procedure: retire-preview-dns
+targets: [cloudflare-prod]
+steps:
+  - id: retire
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    over:
+      assets:
+        - field: name
+          starts_with: preview-
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $.id}
+    bound: 5
+`), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{}), CodeDestroyUnscoped)
+}
+
+// TestCheckProcedure_MutateWithNoOverIsClean holds the widening to the Kind it
+// is stated on. A `mutate` invoked once mints a Record under an identity its
+// Operation declares (§3, ADR-0037), so it has a name and needs no selector to
+// find one; only a `destroy`, which declares no identity at all, is left with
+// nothing.
+func TestCheckProcedure_MutateWithNoOverIsClean(t *testing.T) {
+	mustNoCode(t, CheckProcedure("procedures/publish.yaml", parse(t, `kind: procedure
+procedure: publish
+targets: [cloudflare-prod]
+steps:
+  - id: publish
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: preview-42.example.com
+      type: A
+      content: 203.0.113.10
+`), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{}), CodeDestroyUnscoped)
+}
+
+// TestCheckProcedure_EmptyValuesMemberIsSchemaMismatch closes the other
+// direction on the same Store guard (issue #157). A `values:` member that is an
+// empty scalar carries the Expansion a member whose Name is "", and a `destroy`
+// concludes about the member — so the head lookup that decides whether it is
+// already gone asks the Store for a series under an identity with no name,
+// which is `store.seriesDir`'s own `impossible`. It is refused on the page
+// instead: an empty scalar names nothing a Record can be held under, which is
+// §4's schema-mismatch where the value is authored (§4, §7, ADR-0085).
+func TestCheckProcedure_EmptyValuesMemberIsSchemaMismatch(t *testing.T) {
+	doc := `kind: procedure
+procedure: purge-empty
+targets: [cloudflare-prod]
+steps:
+  - id: purge
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: 1
+    over:
+      values: [""]
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $}
+`
+	got := CheckProcedure("procedures/purge-empty.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
+	p := mustCode(t, got, schema.CodeMismatch)
+	if p.Field != "steps[0].over.values" {
+		t.Errorf("Field = %q, want steps[0].over.values", p.Field)
+	}
+}
+
+// TestCheckProcedure_EmptyValuesMemberIsRefusedOnEveryKind holds the check to
+// the page rather than to the Kind. A `mutate` never reaches the head lookup
+// above — a Tombstoned series is one a `mutate` is asking for, so it drops
+// nothing (§5) — but an empty member is not an identifier on any Kind, and a
+// check that fired only on `destroy` would leave the same authored nonsense
+// legal one key over.
+func TestCheckProcedure_EmptyValuesMemberIsRefusedOnEveryKind(t *testing.T) {
+	doc := `kind: procedure
+procedure: publish-empty
+targets: [cloudflare-prod]
+steps:
+  - id: publish
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    over:
+      values: ["", other.example.com]
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: {item: $}
+      type: A
+      content: 203.0.113.10
+`
+	got := CheckProcedure("procedures/publish-empty.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
+	p := mustCode(t, got, schema.CodeMismatch)
+	if p.Field != "steps[0].over.values" {
+		t.Errorf("Field = %q, want steps[0].over.values", p.Field)
+	}
+}
+
+// TestCheckProcedure_ValuesMembersThatNameSomethingAreClean is the check's
+// other side: an ordinary list draws nothing.
+func TestCheckProcedure_ValuesMembersThatNameSomethingAreClean(t *testing.T) {
+	mustNoCode(t, CheckProcedure("procedures/purge-two.yaml", parse(t, `kind: procedure
+procedure: purge-two
+targets: [cloudflare-prod]
+steps:
+  - id: purge
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: 2
+    over:
+      values: [preview-41.example.com, preview-42.example.com]
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $}
+`), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{}), schema.CodeMismatch)
 }
 
 // --- issue #96: the transitive walks — the envelope and the two Cadence rules ---

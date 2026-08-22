@@ -12,8 +12,11 @@
 // a Step's binding needs against its Definition's claim and its Target's
 // grant — are issue #95's, landed here: kind-not-granted,
 // operation-not-claimed, target-not-claimed, bound-missing, bound-illegal
-// and opaque-destroy-unscoped. A Capability its Target grants is checked
-// already, in definition.go, needing no Step to exist.
+// and destroy-unscoped, the last widened past its opaque origin by issue
+// #157 — which also lands the empty `over: values:` member beside it, the
+// other authored shape reaching an identity with no name. A Capability its
+// Target grants is checked already, in definition.go, needing no Step to
+// exist.
 //
 // Issue #97 lands here too: the closed eleven-member operator set's own
 // operand-type rules (predicate-type-mismatch), checked wherever a
@@ -112,12 +115,18 @@ const CodeBoundMissing = "bound-missing"
 // ran saying nothing about what any of them did (§4, §5, issue #95).
 const CodeBoundIllegal = "bound-illegal"
 
-// CodeOpaqueDestroyUnscoped is the code an opaque destroy Step carrying no
-// over: selector earns: without one it is invoked once, has no Expansion
-// to write a Tombstone under and declares no identity, so it would reach
-// the world and leave nothing in the record at all (§4, §5, ADR-0053,
-// issue #95).
-const CodeOpaqueDestroyUnscoped = "opaque-destroy-unscoped"
+// CodeDestroyUnscoped is the code a destroy Step carrying no over: selector
+// earns: without one it is invoked once, has no Expansion to write a
+// Tombstone under and declares no identity, so it would reach the world and
+// leave nothing in the record at all (§4, §5, ADR-0053, issue #95).
+//
+// It is one code because it is one check. Opacity is not a clause of that
+// argument — a `destroy` carries no `record:` whatever its Capability, so an
+// `http` one with no selector holds the same nameless member and reaches the
+// Store with the same empty identity. The check was stated where it was
+// noticed rather than where it holds, and it fires on every destroy Step now
+// (§4, §5, ADR-0085, issue #157).
+const CodeDestroyUnscoped = "destroy-unscoped"
 
 // CodeEnvelopeExceeded is the code a Step outside its own Procedure's
 // declared Target and Kind envelope earns, and the code an invoked
@@ -457,6 +466,7 @@ func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yam
 		problems = append(problems, checkStepArgs(file, field+".args", entry, fields["args"], op, stepIndex)...)
 		problems = append(problems, checkExpansionIdentity(file, field, fields, op)...)
 	}
+	problems = append(problems, checkOverValuesEmpty(file, field+".over", fields["over"])...)
 	problems = append(problems, checkOverValuesDuplicates(file, field+".over", fields["over"])...)
 	problems = append(problems, checkOverForm(file, field+".over", fields["over"], op, haveOp, provider, haveProvider)...)
 	problems = append(problems, checkBoundExceeded(file, field+".over.values", fields["bound"], fields["over"])...)
@@ -756,9 +766,14 @@ func checkSkipIfRecordedReachability(file, field string, entry, overVal *yaml.No
 // unknown-key; a destroy Step's Bound is mandatory unless op is opaque, in
 // which case one present is bound-illegal and one absent is the correct
 // combination; a mutate Step's Bound is optional either way and draws no
-// code. Where op is an opaque destroy Operation this also fires
-// opaque-destroy-unscoped for a Step carrying no over: selector — the third
-// requirement the Bound's own place stands in for (§5, ADR-0053).
+// code.
+//
+// It also fires destroy-unscoped for any destroy Step carrying no over:
+// selector — the third requirement the Bound's own place stands in for (§5,
+// ADR-0053), and one that never depended on opacity. A destroy declares no
+// identity at all, so a Step with no Expansion holds one nameless member and
+// concludes about it; the Store's own guard is what caught the empty name,
+// one call too late (§5, ADR-0085, issue #157).
 func checkStepBound(file, field string, entry, boundVal, overVal *yaml.Node, op OperationInfo) []problem.Problem {
 	var problems []problem.Problem
 	line, column := position(entry)
@@ -788,12 +803,12 @@ func checkStepBound(file, field string, entry, boundVal, overVal *yaml.Node, op 
 		})
 	}
 
-	if opaqueDestroy && overVal == nil {
+	if op.Kind == "destroy" && overVal == nil {
 		entryLine, entryColumn := position(entry)
 		problems = append(problems, problem.Problem{
 			File: file, Line: entryLine, Column: entryColumn, Field: field,
-			ErrorCode: CodeOpaqueDestroyUnscoped,
-			Message:   "an opaque destroy Step carries no over: selector — it would reach the world once and leave nothing in the record",
+			ErrorCode: CodeDestroyUnscoped,
+			Message:   "a destroy Step carries no over: selector — it would reach the world once and leave nothing in the record",
 		})
 	}
 	return problems
@@ -947,6 +962,43 @@ func checkOverValuesDuplicates(file, field string, overVal *yaml.Node) []problem
 			continue
 		}
 		seen[fold] = item.Value
+	}
+	return problems
+}
+
+// checkOverValuesEmpty reports schema-mismatch on an over: values: member
+// that is an empty scalar (§4, §7, ADR-0085, issue #157).
+//
+// A `values:` member **is** a Record name: it is what `expanded_to` holds for
+// that member, and what a `destroy`'s Tombstone opens its series under, there
+// being no `record:` block anywhere to name one instead (§3, ADR-0037). An
+// empty scalar names nothing a Record can be held under — `store.seriesDir`
+// says so and panics rather than build a path from one — and the head lookup
+// deciding whether a `destroy`'s member is already gone reaches it before the
+// first call goes out. So the fault is a value on the page, which is where §4
+// fires schema-mismatch, and it is the same code a member that is not a bare
+// scalar draws one line over (§4, ADR-0081).
+//
+// It is checked on every Kind and not only where it panics. A `mutate` drops
+// nothing and never reaches that lookup (§5), but an empty member is not an
+// identifier on any Kind, and a check scoped to the Kind that happens to crash
+// would be this file's own issue-#157 mistake made twice.
+func checkOverValuesEmpty(file, field string, overVal *yaml.Node) []problem.Problem {
+	valuesVal := overValuesList(overVal)
+	if valuesVal == nil {
+		return nil
+	}
+
+	var problems []problem.Problem
+	for _, item := range valuesVal.Content {
+		if item.Kind != yaml.ScalarNode || item.Value != "" {
+			continue
+		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: item.Line, Column: item.Column, Field: field + ".values",
+			ErrorCode: schema.CodeMismatch,
+			Message:   "a values: member is empty — a member is the Record name its Expansion acts under, and an empty scalar names nothing a Record can be held under",
+		})
 	}
 	return problems
 }

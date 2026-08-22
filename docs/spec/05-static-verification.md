@@ -191,10 +191,26 @@ opted in; a Definition claiming one against a Target that has not is `opaque-des
 is the artefact half of the check — whether the credential in hand also carries the opt-in is resolved
 at Run start and belongs to §5.
 
-Such a Step must also name the population it destroys. An `opaque` `destroy` Step carrying no `over:`
-selector is `opaque-destroy-unscoped`: it is invoked once (§3), has no Expansion to write a Tombstone
-under and declares no identity, so it would reach the world and leave nothing in the record at all
-(§5, ADR-0053).
+Every `destroy` Step must name the population it destroys. A `destroy` Step carrying no `over:`
+selector is `destroy-unscoped`: it is invoked once (§3), has no Expansion to write a Tombstone under
+and declares no identity — a `destroy` carries no `record:` at all (§3, ADR-0037) — so it would reach
+the world and leave nothing in the record at all (§5, ADR-0053).
+
+The rule holds on every Capability and not only on the `opaque` one it was first stated against. What
+opacity adds is the reviewability argument beside it — that the population is authored literally
+rather than inferred from a command — and that argument is the *reason* the requirement is stated in
+§5's Bound section, never the extent of it. An `http` `destroy` with no selector holds the same single
+nameless member and would write under the same empty identity, so it is refused under the same code
+(ADR-0085).
+
+An `over:` `values:` member that is an **empty scalar** is refused here too, and under
+`schema-mismatch` rather than under the rule above: the selector is present, and what is wrong is a
+value on the page. A member *is* a Record name — it is what `expanded_to` holds and what a `destroy`'s
+Tombstone opens its series under, there being no `record:` block to name one instead (§3, ADR-0037) —
+and an empty scalar names nothing a Record can be held under (§7). It draws the same code a member
+that is not a bare scalar draws, is checked on every Kind rather than on the one whose Expansion
+reaches the Store first, and needs no Store to decide, the list being authored (§12, ADR-0081,
+ADR-0085).
 
 ## A graph that closes on itself
 
