@@ -44,8 +44,8 @@ the artefact the review surface. A cron line in `.github/workflows` escaped both
 - **A missed window is never made up.** Cadence is a lower bound on staleness, not a promise of
   coverage. An Observation is a fact read at a point in time and a past window is unreadable; for
   effectful Steps, catch-up would mean the clock deciding to repeat an effect, which Repeatability
-  decides on evidence instead. GitHub documents that scheduled runs are delayed under load and
-  dropped outright when it is severe, so no coverage promise was available to make.
+  decides instead. GitHub documents that scheduled runs are delayed under load and dropped outright
+  when it is severe, so no coverage promise was available to make.
 - **`hyper` claims periodic checking, not monitoring.** The floor is the executor's (five minutes on
   Actions) and delivery is best-effort. Continuous probing and alert-on-transition are a different
   product.
