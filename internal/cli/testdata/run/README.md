@@ -229,6 +229,22 @@ names one in a **`repo-from`** file instead, and the ones here are:
   `api.cloudflare.com`, so what stopped a call is the Refusal and never a
   refused connection.
 
+- [`repo-rehearsal/`](repo-rehearsal) — where a rehearsal stops (issue #155):
+  `repo-effectful`'s two Manifests and two Definitions, a `local` granting two
+  hosts and a credentialled `cloudflare-prod` accepting both effectful Kinds,
+  over three Procedures that each put a `read` Step **in front of** an effectful
+  one — `read`, `mutate`, `read`, so that a Step withheld and a Step after it
+  are two different rows; `read` then `destroy` over an `assets:` selector, so
+  that the stop is driven on both effectful Kinds; and the first of them again
+  with a `when:` on the `mutate` that the `read` in front of it does **not**
+  satisfy. It is a repository of its own for `repo-bounded`'s reason above.
+
+  Its cases serve the `read`'s host and **not** `api.cloudflare.com`, which is
+  what makes *no call went out* an assertion rather than a hope: a rehearsal
+  that reached the effectful Step would have its connection refused, and the
+  Run would be `failed` at `1` with the Step *attempted, world untouched*
+  instead of `completed` at `0`.
+
 - [`repo-unscoped-destroy/`](repo-unscoped-destroy) — `repo-destroy`'s Manifest,
   Definition and Target unchanged, over one Procedure whose `destroy` Step
   carries its mandatory `bound:` and **no `over:` at all** (issue #157). It is a
@@ -326,7 +342,7 @@ drives.
 | `one-run-that-reaches-a-run-once-step-twice` | the walk reaches **this Run's own entry** like any other: a Procedure invoking the run-once Step's Procedure twice runs the first occurrence and Refuses the second, on the file the first wrote a moment earlier. The Refusal names this Run's own id, and the two Steps carry one `path` between them — told apart by the position each holds in the Run (§7, ADR-0055) |
 | `a-run-once-destroy-refuses` | the same value on the other effectful Kind: a `destroy` over a `values:` list whose Step the Journal records as *ran*. It Refuses before its Expansion resolves, so its file carries **no `selector` block** at all — the Store never shortened the list, and nothing was counted against the `bound:` (§6, §12) |
 | `a-condition-decides-before-run-once` | the order of the two, and the Journal is what makes it visible: the seeded entry records the guarded Step as *ran*, and the Step is ***skipped by condition*** rather than refused. A Step whose `when:` does not hold makes no call, so refusing one that was going to be skipped anyway would end the Run over an effect nobody was about to repeat |
-| `a-rehearsal-then-the-real-run` | driven once here — the rehearsal, which is the Run this golden holds — and twice by [`../../run_run_once_test.go`](../../run_run_once_test.go), where the real Run after it **runs**. It is the round trip `a-rehearsal-is-no-evidence` seeds by hand |
+| `a-rehearsal-then-the-real-run` | driven once here — the rehearsal, which is the Run this golden holds — and twice by [`../../run_run_once_test.go`](../../run_run_once_test.go), where the real Run after it **runs**. Since issue #155 the rehearsal **withholds** the run-once Step rather than performing it, so what the round trip now shows is that a rehearsal reaches no run-once Step at all: the filter `a-rehearsal-is-no-evidence` seeds by hand is what catches an entry this binary did not write |
 | `four-runs-of-one-step` | driven once here and four times by [`../../run_expansion_test.go`](../../run_expansion_test.go) |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
@@ -380,6 +396,11 @@ drives.
 | `four-paginated-members-under-a-limit-of-four` | an Expansion of four under `concurrency: 4`, each member walking three pages: twelve Observations and `pages: 12`. What the limit reached and what it did not is [`../../run_pattern_test.go`](../../run_pattern_test.go)'s |
 | `a-rehearsal-performs-the-reads-it-reaches`, `-json` | `--dry-run` over a Procedure of two `read` Steps: every read it reaches is performed, both Observations are recorded as ordinary versions carrying **no** marker of their own, the entry carries `dry_run: true`, the terminal line reads `completed · dry-run · exit 0`, and the `outcome` row carries the marker on the wire |
 | `a-rehearsal-refuses-the-sink-it-was-not-given` | the sink gate carries no `--dry-run` exemption: a rehearsal reaching two Steps declaring `secret:` output with no `--secret-out` Refuses `secret-sink-absent` at `77` — the marker is on the line and on the entry, and a rehearsal that Refuses is not a rehearsal that completes (§9, issue #137) |
+| `a-rehearsal-stops-at-the-first-effect`, `-json` | `--dry-run` over `read`, `mutate`, `read` (issue #155): the `read` in front of the effect **ran** and its Observation is on the branch, the `mutate` is *never reached* and so is the `read` behind it, neither writes a Step file, the page names the withheld Step and says the Run stopped, and the outcome is `completed` at `0`. The `-json` half is the same Run's rows: three `step` rows, the Run-wide `provenance` and the one Step's, and the `outcome` row carrying `dry_run: true` |
+| `a-rehearsal-withholds-a-destroy` | the same stop on the other effectful Kind, against a branch seeded with the Asset the selector would have reached: the `destroy` is withheld before its Expansion resolves, and the branch holds that Asset's one version and **no Tombstone** |
+| `a-rehearsal-stops-before-the-condition`, `a-guarded-effect-a-real-run-skips` | **the Kind is the whole of the test**, driven from both sides over one Procedure whose `mutate` carries a `when:` that does not hold. The rehearsal stops at that `mutate` all the same, so the `read` behind it is *never reached*; the same Procedure without the flag skips the `mutate` **by condition** and reaches that `read`. Deciding the `when:` here would be `hyper` reporting that a `mutate` *would* have been skipped, which is the prospective rendering ADR-0010 declines |
+| `a-rehearsal-withholds-a-nested-step` | the withheld Step reached through an invocation: the page names it `publish-inner.publish`, under the path the table renders it at, so the sentence and the row point at one Step rather than at two spellings of one (§8) |
+| `a-rehearsal-then-the-real-run` | the same stop where the effectful Step is the **first** Step: no Step file is written at all, the entry is `run.json` and `outcome.json`, and no Asset lands. It is listed under the run-once cases above, which is the other half of what it drives |
 | `an-open-entry-is-left-open` | the branch is seeded with **another** Run's entry holding no account at all — no `outcome.json` it wrote, no `closed-by/` anybody wrote. This Run is **read-only**, so it reads that branch, completes at `0`, and leaves the entry exactly as open as it found it: a read-only Run holds the shared lock and can find a live effectful Run's entry open with no way to tell it from an abandoned one, so it reads and never reaps (§6) |
 
 ### The reap (issue #154)
@@ -709,10 +730,17 @@ members, digest alone.
 Same shape: `a-rehearsal-is-no-evidence` hand-writes the marker, and what no
 case can drive is the round trip — `--dry-run`, then the same argv without it.
 [`../../run_run_once_test.go`](../../run_run_once_test.go) drives
-[`a-rehearsal-then-the-real-run`](a-rehearsal-then-the-real-run) both ways and
-holds both Runs *ran*, with the entries carrying `dry_run: true` and then
-`false`. It is the claim the exception to the absence rule is bought against
-(§7, ADR-0001).
+[`a-rehearsal-then-the-real-run`](a-rehearsal-then-the-real-run) both ways: the
+rehearsal **withholds** the Step and writes no file for it, the real Run after
+it *ran*, and the entries carry `dry_run: true` and then `false`. It is the
+claim the exception to the absence rule is bought against (§7, ADR-0001).
+
+Since issue #155 a rehearsal cannot record a run-once Step even once — run-once
+is effectful-only and a rehearsal stops at the first effectful Step — so the
+filter itself is reachable only from a seeded entry, which is what
+`a-rehearsal-is-no-evidence` is. The round trip is what says the two ends meet
+all the same: what the flag leaves behind is an entry the Run after it is not
+refused by.
 
 **That the Disposition a run-once Step writes is the one a later Run refuses
 on.** Every seeded case here says what one Disposition *means* to the walk; none

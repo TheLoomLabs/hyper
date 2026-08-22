@@ -1,0 +1,108 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e12/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e12/run.json (473 bytes)
+{
+  "dry_run": true,
+  "procedure": "retire-preview",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "69538cda7d14ddcad24fa10d06c8c5a0cbab3f40",
+    "repo_revision": "0353643b1dce169342e2e0ebdc5e581f5fb9eb11"
+  },
+  "run_id": "01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e12",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e12/steps/0001.json (642 bytes)
+{
+  "definition": "uptime-check",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "status",
+  "identities": {
+    "digest": "sha256:71b6b20b46299db0f8ce502940468780b5795732c59cbf3d62f410d1117137e3",
+    "members": [
+      "status.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "077c633cf1996368e8d16880b0bf2d37b6ffe360",
+    "manifest_digest": "sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/cloudflare-prod/preview-dns/preview-42.example.com/01991a30-b118-7c93-8d41-6b2f7ae05d01-0001.json (799 bytes)
+{
+  "definition": "preview-dns",
+  "fields": {
+    "created_on": "2026-03-11T14:03:42.744Z",
+    "id": "372e67954025e0ba6aaa6d586b9e0b59",
+    "name": "preview-42.example.com"
+  },
+  "name": "preview-42.example.com",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:7a0c1b197f733dff795354060e1de1180bb98c966e81ecd8cbd0e18502fb3921",
+    "procedure_revision": "99b77379e5aba6621a3d6c50505b1dc8e1d5b88a",
+    "repo_revision": "0068d7c040147dc36822c72d1bf2e80ad7f9265b"
+  },
+  "record_type": "asset",
+  "run_id": "01991a30-b118-7c93-8d41-6b2f7ae05d01",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2026-03-11T14:03:42.744Z"
+}
+=== records/local/uptime-check/status.hyper.dev/01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e12-0001.json (725 bytes)
+{
+  "definition": "uptime-check",
+  "fields": {
+    "days_left": 34,
+    "host": "status.hyper.dev",
+    "status": 200
+  },
+  "name": "status.hyper.dev",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "077c633cf1996368e8d16880b0bf2d37b6ffe360",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7",
+    "procedure_revision": "69538cda7d14ddcad24fa10d06c8c5a0cbab3f40",
+    "repo_revision": "0353643b1dce169342e2e0ebdc5e581f5fb9eb11"
+  },
+  "record_type": "observation",
+  "run_id": "01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e12",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

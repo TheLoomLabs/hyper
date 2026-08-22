@@ -204,10 +204,26 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	}
 
 	rows := runRows(answer)
-	if code := writeAnswer(runCommand, stdout, stderr, parsed.json, rows, terminal, runPage(terminal)); code != 0 {
+	if code := writeAnswer(runCommand, stdout, stderr, parsed.json, rows, terminal, runPage(terminal, withheldStep(answer))); code != 0 {
 		return code
 	}
 	return terminal.Code
+}
+
+// withheldStep is the Step a rehearsal stopped at, named as the page names it,
+// and "" where the Run withheld none (§9, issue #155).
+//
+// It reads the position off the Answer and the name off the Step at it, rather
+// than taking the first *never reached* row: a Run the world resisted leaves
+// those rows too, and a page that inferred a rehearsal from them would put the
+// sentence under a Run that failed.
+func withheldStep(answer run.Answer) string {
+	for _, step := range answer.Steps {
+		if step.Position == answer.Withheld {
+			return namedStep(step.Path, step.ID)
+		}
+	}
+	return ""
 }
 
 // exitFor maps a Run's answer onto the exit code §12 fixes for it. The code
@@ -746,7 +762,13 @@ func (r refusalRow) Cells() []string {
 // two forms are one fact rendered twice: what the row carries the line carries,
 // and a fact the stream states and the page does not is the two surfaces
 // disagreeing about what happened rather than differing in shape (ADR-0026).
-func runPage(terminal outcomeRow) func(io.Writer, []render.Row) error {
+//
+// withheld is captured for the same reason and is the Step a rehearsal stopped
+// at, "" where it withheld none. It is a **page** fact and no row carries it:
+// the withheld Step's row is the *never reached* row it shares with every Step
+// after it, and what §9 puts here is the sentence that says which of them the
+// Run stopped at and why (§9, ADR-0010, issue #155).
+func runPage(terminal outcomeRow, withheld string) func(io.Writer, []render.Row) error {
 	return func(w io.Writer, rows []render.Row) error {
 		steps := rowsOf[stepRow](rows)
 		refusals := rowsOf[refusalRow](rows)
@@ -771,6 +793,18 @@ func runPage(terminal outcomeRow) func(io.Writer, []render.Row) error {
 		if len(refusals) > 0 {
 			blocks = append(blocks, func(w io.Writer) error { return render.WriteTable(w, checkColumns, refusals) })
 		}
+		// **A rehearsal that stopped says so, and names the Step it
+		// withheld** — the one the table renders *never reached* first,
+		// which without this line is indistinguishable from a Step the
+		// Run simply ended before (§9).
+		//
+		// It stands between the table and the terminal line because it
+		// is what the table's silence means: the rows say which Steps
+		// have no account, and this says which of them the Run stopped
+		// at and why it did.
+		if withheld != "" {
+			blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, stopped(withheld)); return err })
+		}
 		blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, terminal.line()); return err })
 
 		for i, block := range blocks {
@@ -790,6 +824,24 @@ func runPage(terminal outcomeRow) func(io.Writer, []render.Row) error {
 // nothingRan is what stands where the Step table would be on a Run that
 // Refused before Step 1 (§8).
 const nothingRan = "nothing ran. no step was reached."
+
+// stopped is what a rehearsal that stopped writes beneath its Step table: that
+// it stopped, the Step it withheld, and why there is nothing beneath that Step
+// (§9, ADR-0010).
+//
+// **It describes nothing the Step would have done.** `hyper` has no plan, and a
+// line here saying what the `mutate` would have changed would be the prospective
+// counterpart the Comparison deliberately is not — arriving on the one surface
+// whose whole purpose is to have touched nothing. What it says instead is what
+// the tool did: it read up to here, and it stopped.
+//
+// The Step is named as the table names it — the invocation chain where it was
+// reached through a nested Procedure, the authored id where it sits at the top
+// level — so the sentence and the row point at one Step rather than at two
+// spellings of one (§8).
+func stopped(withheld string) string {
+	return "stopped at " + withheld + ". a rehearsal performs the reads it reaches and withholds the first effectful step rather than simulating it."
+}
 
 // rowsOf narrows a Run's rows to one of the four types on its stream, in the
 // order they were built.
@@ -894,7 +946,11 @@ func (r stepRow) Cells() []string {
 	return []string{fmt.Sprintf("%d", r.Step), r.named(), r.Kind, r.Disposition, records}
 }
 
-// named is what the `ID` column renders: the invocation chain where the Step
+// named is what the `ID` column renders, which is the rule below over the two
+// members this row carries separately.
+func (r stepRow) named() string { return namedStep(r.Path, r.ID) }
+
+// namedStep is what a Step is called on the page: the invocation chain where it
 // was reached through a nested Procedure, and the authored id where it sits at
 // the top level.
 //
@@ -902,11 +958,16 @@ func (r stepRow) Cells() []string {
 // (§6, §8). The path ends in that id, so the column reads as one name at both
 // depths — `retire.probe` beside `probe` — and the row on the wire carries the
 // two separately, as the Step file does.
-func (r stepRow) named() string {
-	if r.Path != "" {
-		return r.Path
+//
+// It is a function over the pair rather than the row's method alone because the
+// page names a Step in two places now: this column, and the sentence a rehearsal
+// that stopped writes beneath it. One rule, so the two cannot come to spell one
+// Step differently (§9, issue #155).
+func namedStep(path, id string) string {
+	if path != "" {
+		return path
 	}
-	return r.ID
+	return id
 }
 
 // provenanceRow is which code performed the Run, at one of the two scopes §7

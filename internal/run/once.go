@@ -190,6 +190,14 @@ func (r run) recordedBy(authored sequenced) (store.Evidence, bool, error) {
 // is evidence that a rehearsal happened and evidence of nothing else, and the
 // marker is read here rather than trusted to be absent: `dry_run` is written on
 // every entry, `false` included, for exactly this reader (§7, ADR-0001).
+//
+// No rehearsal **this** binary runs can reach the state that would matter:
+// run-once is effectful-only and a rehearsal stops at the first effectful Step,
+// so a rehearsal records no run-once Step even once (§9, ADR-0010, run.go).
+// What this line still filters is an entry written by something else — a binary
+// before issue #155, a hand-edited branch — and it stays because the cost of
+// getting it wrong is unrecoverable while the cost of holding it is one read of
+// a marker that is always there (§7, ADR-0001).
 func isEvidence(held store.Evidence) bool {
 	if held.Entry.RunFile.DryRun {
 		return false

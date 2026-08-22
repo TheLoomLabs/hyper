@@ -1,0 +1,7 @@
+STEP  ID                     KIND    DISPOSITION    RECORDS
+1     status                 read    ran            1
+2     publish-inner.publish  mutate  never-reached  –
+
+stopped at publish-inner.publish. a rehearsal performs the reads it reaches and withholds the first effectful step rather than simulating it.
+
+completed · dry-run · exit 0 · run 01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e13

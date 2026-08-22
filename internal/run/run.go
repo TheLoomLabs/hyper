@@ -79,13 +79,13 @@ type Request struct {
 	// DryRun says this Run is a rehearsal. It is carried into the entry on
 	// every Run, false included (§7, ADR-0001).
 	//
-	// **Nothing else here reads it yet.** A rehearsal performs the reads it
-	// reaches and **stops at the first effectful Step** rather than
-	// simulating one (§9, ADR-0010), and with issue #148 there is at last an
-	// effectful Step for it to stop at — so what a rehearsal here still does
-	// is perform every Step, complete and exit `0`. The stop, the withheld
-	// Step it names and the *never reached* Steps after it are issue #155's,
-	// which is the ticket that reads this member.
+	// **A rehearsal performs the reads it reaches and stops at the first
+	// effectful Step** rather than simulating one (§9, ADR-0010). Nothing
+	// about that Step is simulated, predicted or described: `hyper` has no
+	// plan, and a surface saying what a `mutate` *would* do would be the
+	// prospective counterpart the Comparison deliberately is not. The stop
+	// is Perform's, and Withheld on the Answer is the Step it stopped at
+	// (issue #155).
 	//
 	// The places the marker is read back are already built, and both read
 	// it off an **entry** rather than off this member: an entry a rehearsal
@@ -208,6 +208,19 @@ type Answer struct {
 	// written order — which is the Step table's order and the `<nnnn>` the
 	// entry names its files by (§8, §12).
 	Steps []Step
+	// Withheld is the position of the Step a rehearsal stopped at, and zero
+	// where the Run withheld nothing — which is every Run that is not a
+	// `--dry-run`, and every rehearsal that reached the end of a Procedure
+	// with no effectful Step in it (§9, ADR-0010).
+	//
+	// It is the position and not a Disposition of its own, because §12's
+	// seven are closed and the withheld Step is one of them: the Run ended
+	// before it, it wrote no file, and *never reached* is what an entry
+	// reads back from that silence (§7). What this carries is the fact
+	// §9 puts on the **page** — *it stopped, and here is where* — which the
+	// entry holds as the first Step of the run of silent ones and the
+	// surface would otherwise have to re-derive.
+	Withheld int
 	// Provenance is the Run-wide half: what `run.json` carries, and what the
 	// Run-wide `provenance` row renders (§7, §8, ADR-0043).
 	Provenance store.RunProvenance
@@ -434,6 +447,35 @@ func Perform(request Request) Answer {
 		if request.drained() {
 			answer.Steps = append(answer.Steps, neverReached(loaded, steps, position)...)
 			return inFlight.closed(failed(answer, ErrInterrupted))
+		}
+
+		// **A rehearsal stops here**, at the first effectful Step and
+		// before it, which is where the Run stops being able to say
+		// anything true: performing the Step would be the effect the
+		// invocation asked not to have, and standing in for it would be
+		// a plan (§9, ADR-0010). The reads before it really happened and
+		// their Observations stand; this Step and every Step after it
+		// are *never reached* and write no file (§7).
+		//
+		// **The Kind is the whole of the test**, read off the Manifest
+		// exactly as the lock mode and the push rhythm read it. Nothing
+		// about the Step is evaluated first: a `when:` decided here
+		// would be `hyper` reporting that a `mutate` *would* have been
+		// skipped, and an Expansion resolved here would be it reporting
+		// what a `destroy` *would* have reached — both of them the
+		// prospective rendering ADR-0010 declines, arriving as a
+		// side-effect of a flag rather than as a surface anybody chose.
+		// A Step whose Kind cannot be read counts as effectful, which
+		// is steps.go's answer and every other reader's.
+		//
+		// It is `completed` and exits `0`. A halted rehearsal is the
+		// correct outcome of a correct operation rather than a failure —
+		// the answer is partial, and it says so on the page rather than
+		// in the exit code (§9).
+		if request.DryRun && effectfulStep(loaded, step) {
+			answer.Withheld = position + 1
+			answer.Steps = append(answer.Steps, neverReached(loaded, steps, position)...)
+			return inFlight.closed(answer)
 		}
 
 		// **The push rhythm, read at the boundary the Step before this

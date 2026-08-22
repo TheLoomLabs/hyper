@@ -54,6 +54,26 @@ func kindOf(loaded repository.Loaded, step sequenced) store.Kind {
 	return store.Kind(loaded.Providers[definition.ProviderName].Operations[step.Operation].Kind)
 }
 
+// effectfulStep says this one Step binds an Operation whose declared Kind is not
+// `read` — the per-Step half of the reading lock.go asks of a whole walk, and
+// the one three things now ask: which lock the Run takes, which rhythm it
+// pushes at, and where a rehearsal stops (§6, §9, ADR-0010).
+//
+// It carries the Step in its name rather than in its signature alone, because
+// *effectful* is the word for both readings and the one over a walk already
+// holds it (lock.go). Two spellings of one predicate is where the day comes that
+// a Run is effectful and its Steps are not.
+//
+// **A Step whose Kind cannot be read counts as effectful.** An unresolvable
+// binding leaves no Kind to judge, and every reader here wants the same safe
+// answer — a Step whose blast radius cannot be read may not share the Store,
+// may not keep its account to itself, and is not one a rehearsal walks past. No
+// such Step reaches a Run at all: `check` re-runs in full at Run start and
+// refuses it, so the answer costs nothing where nothing can reach it (lock.go).
+func effectfulStep(loaded repository.Loaded, step sequenced) bool {
+	return kindOf(loaded, step) != store.KindRead
+}
+
 // artefactsRead is the reviewed artefacts the Run read, which is exactly the
 // file set `repo_dirty` is decided over and exactly the file set §8's catch-all
 // row counts the moved lines of — one sentence, so the marker and the count

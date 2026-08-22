@@ -65,7 +65,7 @@ func effectful(loaded repository.Loaded, walked sequence) bool {
 		return true
 	}
 	for _, step := range walked.Steps {
-		if kindOf(loaded, step) != store.KindRead {
+		if effectfulStep(loaded, step) {
 			return true
 		}
 	}

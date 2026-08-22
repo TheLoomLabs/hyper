@@ -88,10 +88,16 @@ func TestRunOnce_TheSecondRunRefusesOnWhatTheFirstWrote(t *testing.T) {
 	}
 }
 
-// outcomeOf reads one Run's outcome.json back off the branch, the way
-// stepFileOf reads its Step file: by the id the case's mint named it, at the
-// instant the case's clock answers.
-func outcomeOf(t *testing.T, c goldenCase, invocation goldenRun, nth int) store.OutcomeFile {
+// journalEntryOf is where one of a driver's Runs wrote: the id the case's mint
+// named it by, at the instant the case's clock answers. Every path inside an
+// entry is built off that pair, so the readers below take it from here rather
+// than each spelling it out — and the one assertion that reads a **silence**
+// rather than a file takes it from here too.
+//
+// It is the entry as **paths**, which is what tells it from run_reap_test.go's
+// entryOf: that one opens the branch and reads an entry back, and this one says
+// where a Run's files are whether or not any of them is there.
+func journalEntryOf(t *testing.T, c goldenCase, nth int) store.JournalEntry {
 	t.Helper()
 
 	ids := strings.Fields(readFile(t, filepath.Join(c.dir, "mint")))
@@ -102,8 +108,16 @@ func outcomeOf(t *testing.T, c goldenCase, invocation goldenRun, nth int) store.
 	if err != nil {
 		t.Fatal(err)
 	}
+	return store.JournalEntry{Run: id, Started: c.instant(t)}
+}
 
-	entry := store.JournalEntry{Run: id, Started: c.instant(t)}
+// outcomeOf reads one Run's outcome.json back off the branch, the way
+// stepFileOf reads its Step file: by the id the case's mint named it, at the
+// instant the case's clock answers.
+func outcomeOf(t *testing.T, c goldenCase, invocation goldenRun, nth int) store.OutcomeFile {
+	t.Helper()
+
+	entry := journalEntryOf(t, c, nth)
 	branch := invocation.fixture.render(t, invocation.fixture.root)
 	content, held := blobOf(branch, entry.OutcomePath())
 	if !held {
@@ -119,16 +133,24 @@ func outcomeOf(t *testing.T, c goldenCase, invocation goldenRun, nth int) store.
 // **A rehearsal counts as no evidence at all, driven as the round trip rather
 // than as a seeded marker** (§7, §8, ADR-0001, issue #153).
 //
-// The corpus case beside it hand-writes `"dry_run": true` on an entry, which
-// says what the walk does with the marker. This says what a rehearsal actually
-// leaves: `--dry-run` writes its own entry, the real Run after it reads that
-// entry like any other, and the run-once Step **runs**.
+// The corpus case beside it hand-writes `"dry_run": true` on an entry recording
+// the Step as *ran*, which is what drives the filter itself. This says what a
+// rehearsal actually leaves: `--dry-run` writes its own entry, the real Run
+// after it reads that entry like any other, and the run-once Step **runs**.
 //
-// It is the claim the exception to the absence rule is bought against. `dry_run`
-// is written on every entry, `false` included, because a reader that took its
-// absence for `false` would refuse every run-once Step in the Procedure it
-// rehearsed — permanently, with no bypass to recover through and nothing but an
-// edit to a reviewed artefact left. The review aid would disarm the tool.
+// **The rehearsal never reaches the Step at all**, and that is the state of it
+// since issue #155: a rehearsal stops at the first effectful Step, run-once is
+// effectful-only, so no rehearsal can record a run-once Step even once. The
+// filter that would catch one if it did is therefore defence against an entry
+// this binary did not write, and the seeded case is the only thing that can
+// drive it — which is why both cases stand and why neither is the other's
+// duplicate (§7, §9, ADR-0010).
+//
+// It remains the claim the exception to the absence rule is bought against.
+// `dry_run` is written on every entry, `false` included, because a reader that
+// took its absence for `false` would refuse every run-once Step in the Procedure
+// it rehearsed — permanently, with no bypass to recover through and nothing but
+// an edit to a reviewed artefact left. The review aid would disarm the tool.
 //
 // It drives [testdata/run/a-rehearsal-then-the-real-run] twice: the case's own
 // argv, which carries `--dry-run`, and then the same argv with the flag taken
@@ -149,9 +171,22 @@ func TestRunOnce_ARehearsalIsNoEvidenceForTheRunAfterIt(t *testing.T) {
 			t.Fatalf("run %d (rehearsal %t): exit = %d, want 0; stderr: %s", nth+1, rehearsal, exit, stderr.String())
 		}
 
-		// **Both Runs *ran*.** The second is the one the claim is about:
-		// the Journal holds the first recording this very Step under this
-		// very `id`, and it is a rehearsal, so it is evidence of nothing.
+		// **The rehearsal wrote no Step file**, the Step it stopped at
+		// being *never reached* and that Disposition being read from the
+		// absence of a file rather than written by one (§7, §12). What
+		// its entry holds is `run.json` and `outcome.json`, and that is
+		// the whole of what a rehearsal of this Procedure records.
+		if rehearsal {
+			path := journalEntryOf(t, c, nth+1).StepPath(1)
+			if _, held := blobOf(invocation.fixture.render(t, invocation.fixture.root), path); held {
+				t.Errorf("the rehearsal wrote %s; it withheld the Step and writes no file for one it never reached", path)
+			}
+			continue
+		}
+
+		// **The real Run after it *ran*.** It is the one the claim is
+		// about: the Journal holds a rehearsal of this very Step under
+		// this very `id`, and it is evidence of nothing.
 		file := stepFileOf(t, c, invocation, nth+1)
 		if file.Disposition != store.DispositionRan {
 			t.Errorf("run %d (rehearsal %t) is %s, want %s", nth+1, rehearsal, file.Disposition, store.DispositionRan)
@@ -187,16 +222,7 @@ func withoutDryRun(args []string) []string {
 func runFileOf(t *testing.T, c goldenCase, invocation goldenRun, nth int) store.RunFile {
 	t.Helper()
 
-	ids := strings.Fields(readFile(t, filepath.Join(c.dir, "mint")))
-	if nth > len(ids) {
-		t.Fatalf("the case names %d Run ids and this is Run %d", len(ids), nth)
-	}
-	id, err := store.ParseRunID(ids[nth-1])
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	entry := store.JournalEntry{Run: id, Started: c.instant(t)}
+	entry := journalEntryOf(t, c, nth)
 	branch := invocation.fixture.render(t, invocation.fixture.root)
 	content, held := blobOf(branch, entry.RunPath())
 	if !held {
