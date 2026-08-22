@@ -59,10 +59,9 @@ A Cadence is a lower bound on staleness rather than a promise of coverage (ADR-0
 long a fact may go unrefreshed; it says nothing about any particular window having been served.
 
 A missed window is never made up. There is no catch-up, no backlog, and no queue of skipped
-occurrences: re-invocation is decided by Repeatability against the Journal's evidence and never by a
-clock (§6, ADR-0005).
+occurrences: re-invocation is decided by Repeatability and never by a clock (§6, §12, ADR-0005).
 
-Because that evidence is what decides, a Cadence and a **run-once** Step are refused together
+Because Repeatability is what decides, a Cadence and a **run-once** Step are refused together
 (`cadence-run-once`, §4, ADR-0038). Run-once Refuses where the Journal already holds the Step as *ran*,
 and a Refusal is terminal, so every occurrence after the first would stop there and carry the rest of
 the Procedure down with it: the clock would be attached to a body with a lifespan of one occurrence.
