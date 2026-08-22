@@ -1,0 +1,27 @@
+kind: procedure
+procedure: refresh-then-guarded
+targets: [cloudflare-prod]
+steps:
+  - id: refresh
+    definition: preview-dns
+    operation: refresh_dns_record
+    target: cloudflare-prod
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: preview-42.example.com
+      type: A
+      content: 203.0.113.10
+
+  - id: guarded
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    when:
+      step: refresh
+      field: name
+      equals: retired.example.com
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: docs.preview-42.example.com
+      type: CNAME
+      content: preview-42.example.com

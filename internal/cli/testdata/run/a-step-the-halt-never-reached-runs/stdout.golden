@@ -1,0 +1,5 @@
+STEP  ID       KIND    DISPOSITION  RECORDS
+1     refresh  mutate  ran          1
+2     commit   mutate  ran          1
+
+completed · exit 0 · run 01991f30-b118-7c93-8d41-6b2f7ae05a13

@@ -1,0 +1,9 @@
+kind: procedure
+procedure: publish-twice
+targets: [cloudflare-prod]
+steps:
+  - id: first
+    procedure: publish-preview
+
+  - id: again
+    procedure: publish-preview

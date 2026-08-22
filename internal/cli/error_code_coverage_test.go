@@ -153,6 +153,11 @@ const runCorpus = "testdata/run"
 // (§5, §6, issue #149). Its offline half has a fixture under testdata/check/
 // and a member in the list above; what this one holds is that the run-time
 // half is driven too, and that both spell one code.
+//
+// run-once-recorded is the fifth, and it is §6's own with no offline half at
+// all: what decides it is what the Journal holds for the Step, which is a fact
+// no artefact in the repository states and `check` therefore cannot read (§6,
+// §12, issue #153). It is a member here and in no list above for that reason.
 var codesReachingARun = []string{
 	"unknown-key",
 	"credential-slot-malformed",
@@ -165,6 +170,7 @@ var codesReachingARun = []string{
 	"credential-absent",
 	"secret-sink-absent",
 	"bound-exceeded",
+	"run-once-recorded",
 }
 
 // artefactKindsCitedByARefusal is the five reviewed artefacts by where each one

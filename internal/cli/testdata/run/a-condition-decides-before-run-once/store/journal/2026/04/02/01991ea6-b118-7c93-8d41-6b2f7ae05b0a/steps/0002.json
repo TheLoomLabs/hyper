@@ -1,0 +1,23 @@
+{
+  "definition": "preview-dns",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T08:12:03.114Z",
+  "id": "guarded",
+  "identities": {
+    "digest": "sha256:1a30bb37e0dc9c7fd7ba5f3f83bf20aa1e6d3f4d1f9a2b3c4d5e6f708192a3b4",
+    "members": [
+      "docs.preview-42.example.com"
+    ]
+  },
+  "kind": "mutate",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "manifest_digest": "sha256:7a0c1b197f733dff795354060e1de1180bb98c966e81ecd8cbd0e18502fb3921"
+  },
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "started_at": "2026-04-02T08:12:03.114Z",
+  "step": 2,
+  "target": "cloudflare-prod"
+}

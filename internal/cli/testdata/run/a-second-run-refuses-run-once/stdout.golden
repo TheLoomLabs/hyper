@@ -1,0 +1,8 @@
+STEP  ID       KIND    DISPOSITION    RECORDS
+1     publish  mutate  refused        –
+2     alias    mutate  never-reached  –
+
+FILE                                LINE  FIELD     ERROR_CODE         MESSAGE
+procedures/publish-then-alias.yaml  5     steps[0]  run-once-recorded  publish binds create_dns_record, which is run-once, and run 01991ea6-b118-7c93-8d41-6b2f7ae05b01 records it as ran
+
+refused · exit 77 · run 01991f30-b118-7c93-8d41-6b2f7ae05a11

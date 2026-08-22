@@ -212,6 +212,22 @@ names one in a **`repo-from`** file instead, and the ones here are:
   known before one goes out. One Definition, a `local` granting `shell`, and one
   Procedure over a `values:` list of two paths. It is a repository of its own
   rather than a Procedure added to `repo-shell` for `repo-two-reads`' reason.
+- [`repo-run-once/`](repo-run-once) — the other value that reads something, and
+  the one nobody writes (issue #153): the same `create_dns_record` with
+  `repeatability:` **omitted**, which is what makes it run-once, and a
+  `refresh_dns_record` declaring `repeatable` beside it — the Step that runs in
+  front of a run-once one, so that *a Step the halt never reached* is a
+  Procedure rather than an entry with nothing in it. One Definition, a
+  credentialled Target, a run-once `delete_dns_record` beside them so that the
+  value is driven on **both** effectful Kinds, and six Procedures: the one
+  run-once Step alone, a run-once Step with one after it, the
+  repeatable-then-run-once pair, one invoking the first of them **twice**, the
+  run-once `destroy`, and a run-once Step behind a `when:`. It is
+  a repository of its own for `repo-bounded`'s reason above, and its cases
+  differ from each other in the **Journal they were seeded with** rather than in
+  the artefact — which is the whole of what this value reads. Every case serves
+  `api.cloudflare.com`, so what stopped a call is the Refusal and never a
+  refused connection.
 
 - [`repo-unscoped-destroy/`](repo-unscoped-destroy) — `repo-destroy`'s Manifest,
   Definition and Target unchanged, over one Procedure whose `destroy` Step
@@ -298,6 +314,19 @@ drives.
 | `a-skip-then-a-request-that-never-left` | the value the skip must not defeat: the first member skips, the second member's request **provably never left**, and no call this Step made reached the world — so it is ***attempted, world untouched*** with no identity set and `–` in `RECORDS`, at exit `1`. A Step that concluded about something without calling has still touched nothing, which is what keeps *world untouched* literally true (ADR-0062) |
 | `a-shell-step-skips-the-command-it-recorded` | the `$.command` arm: the built-in `mutate_skip_if_recorded` over two authored paths, each Record named by the argv that made it. Driven once here and twice by [`../../run_skip_if_recorded_test.go`](../../run_skip_if_recorded_test.go), where the second Run skips both — the name the skip test reads and the name the projection writes being one string |
 | `three-runs-of-one-values-list` | driven once here and three times by [`../../run_skip_if_recorded_test.go`](../../run_skip_if_recorded_test.go) |
+| `two-runs-of-one-run-once-step` | run-once end to end (issue #153): driven once here — the first Run, which **runs**, the Journal holding no evidence of the Step — and twice by [`../../run_run_once_test.go`](../../run_run_once_test.go), where the second Refuses on what the first wrote. The case serves a **second answer carrying a different `id`**, so a second call that went out would mint a second version the branch does not hold |
+| `a-second-run-refuses-run-once` | the Refusal on the page and in the entry: a seeded entry records the Step as *ran*, so the Run Refuses `run-once-recorded` at `77` with **no call out**, the Step is *refused* carrying no identity set and no selector — its Expansion never resolved — and the Step after it is *never reached* and **writes no file**. The Refusal is on `outcome.json` with exactly one member, a Refusal being terminal |
+| `an-attempt-with-an-unknown-outcome-refuses` | the second of the two Dispositions that are evidence: the call went out and no answer came back, so a later Run may not treat it as either success or failure — and repeating the effect is the reading run-once declines (ADR-0018) |
+| `a-step-the-halt-never-reached-runs` | the exclusion the value would be unusable without: a seeded entry whose first Step *ran* and whose run-once Step has **no file at all**, which is *never reached*. The re-run reaches it and the Run completes — without which one run-once Step would make a whole Procedure permanently un-re-runnable after any halt, with no bypass and nothing but an artefact edit left (ADR-0001) |
+| `a-request-that-never-left-is-no-evidence` | the other exclusion, and the one stated rather than left to the list: the request provably never left, so nothing happened that a later Run could be evidence of. A firewall that lapsed for ten minutes leaves every artefact correct and nothing to edit (ADR-0062) |
+| `neither-skip-is-evidence` | two seeded entries, one recording the Step as *skipped by condition* and one as *skipped as already recorded*: the Step **runs**. The first ran no Repeatability test at all; the second is `skip-if-recorded`'s finding, which is a test of the Store's head version rather than of anything a Run did (ADR-0056). The two values are one `repeatability:` key's alternatives, so the second reaches a run-once Step only across a **Manifest that changed between the Runs** — which is the state this entry is, and it is a fact about the branch either way |
+| `a-rehearsal-is-no-evidence` | a seeded entry marked `dry_run: true` recording the Step as *ran*: the Step **runs**. An entry a rehearsal wrote is evidence that a rehearsal happened and evidence of nothing else, and a reader that counted it would permanently refuse every run-once Step in the Procedure it rehearsed — the review aid disarming the tool (ADR-0001) |
+| `an-id-that-moved-has-no-evidence` | the match, and the whole of it: a seeded entry records `published` as *ran* and the Procedure's Step is `publish`. An `id` that moved is a different Step, with no evidence behind it |
+| `run-once-does-not-read-the-record` | the mirror of `the-skip-test-does-not-read-the-journal` one value over: a branch whose `records/` holds the very Asset this Step would write and whose Journal holds nothing at all. The Step **runs** and mints a second version — run-once reads the Journal and never the Store's head versions |
+| `one-run-that-reaches-a-run-once-step-twice` | the walk reaches **this Run's own entry** like any other: a Procedure invoking the run-once Step's Procedure twice runs the first occurrence and Refuses the second, on the file the first wrote a moment earlier. The Refusal names this Run's own id, and the two Steps carry one `path` between them — told apart by the position each holds in the Run (§7, ADR-0055) |
+| `a-run-once-destroy-refuses` | the same value on the other effectful Kind: a `destroy` over a `values:` list whose Step the Journal records as *ran*. It Refuses before its Expansion resolves, so its file carries **no `selector` block** at all — the Store never shortened the list, and nothing was counted against the `bound:` (§6, §12) |
+| `a-condition-decides-before-run-once` | the order of the two, and the Journal is what makes it visible: the seeded entry records the guarded Step as *ran*, and the Step is ***skipped by condition*** rather than refused. A Step whose `when:` does not hold makes no call, so refusing one that was going to be skipped anyway would end the Run over an effect nobody was about to repeat |
+| `a-rehearsal-then-the-real-run` | driven once here — the rehearsal, which is the Run this golden holds — and twice by [`../../run_run_once_test.go`](../../run_run_once_test.go), where the real Run after it **runs**. It is the round trip `a-rehearsal-is-no-evidence` seeds by hand |
 | `four-runs-of-one-step` | driven once here and four times by [`../../run_expansion_test.go`](../../run_expansion_test.go) |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
@@ -650,6 +679,26 @@ drives [`four-runs-of-one-step`](four-runs-of-one-step) four times through one
 materialised repository — narrowing the Step's `values:` list between the second
 Run and the third — and reads the four Step files: members, digest alone,
 members, digest alone.
+
+**That a rehearsal leaves an entry the Run after it reads as no evidence.**
+Same shape: `a-rehearsal-is-no-evidence` hand-writes the marker, and what no
+case can drive is the round trip — `--dry-run`, then the same argv without it.
+[`../../run_run_once_test.go`](../../run_run_once_test.go) drives
+[`a-rehearsal-then-the-real-run`](a-rehearsal-then-the-real-run) both ways and
+holds both Runs *ran*, with the entries carrying `dry_run: true` and then
+`false`. It is the claim the exception to the absence rule is bought against
+(§7, ADR-0001).
+
+**That the Disposition a run-once Step writes is the one a later Run refuses
+on.** Every seeded case here says what one Disposition *means* to the walk; none
+of them says that a real Run writes one a real Run reads, and a case drives one
+Run. [`../../run_run_once_test.go`](../../run_run_once_test.go) drives
+[`two-runs-of-one-run-once-step`](two-runs-of-one-run-once-step) twice through
+one materialised repository, editing nothing between them: the first *ran* at
+`0` and the second Refuses `run-once-recorded` at `77`, its Refusal naming the
+first Run's own id. That **no call went out** is the branch's to say — the case
+serves a second answer carrying a different `id`, so a call would have minted a
+version, and the branch holds one after both Runs.
 
 **Three of the Expansion's rules are structural, and the corpus shows their
 consequence rather than the rule.** They are named here so that a reader does

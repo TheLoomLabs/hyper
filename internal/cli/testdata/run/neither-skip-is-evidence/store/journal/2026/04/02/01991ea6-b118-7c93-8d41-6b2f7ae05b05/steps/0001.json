@@ -1,0 +1,17 @@
+{
+  "definition": "preview-dns",
+  "disposition": "skipped-by-condition",
+  "ended_at": "2026-04-02T07:04:51.902Z",
+  "id": "publish",
+  "kind": "mutate",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "manifest_digest": "sha256:7a0c1b197f733dff795354060e1de1180bb98c966e81ecd8cbd0e18502fb3921"
+  },
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "started_at": "2026-04-02T07:04:51.902Z",
+  "step": 1,
+  "target": "cloudflare-prod"
+}

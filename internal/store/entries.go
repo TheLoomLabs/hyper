@@ -423,7 +423,7 @@ func (s *Store) Dispositions(entry Entry) (Dispositions, error) {
 // branch and then the files of each entry it visits, in order, until the caller
 // stops. **Stopping is what makes it cheap** — a set read off a recent entry
 // costs one entry's files and one off an old one costs the entries between —
-// and both of its callers stop: milestone 5's run-once test at the first Run
+// and both of its callers stop: run-once Repeatability at the first Run
 // recording this Step as *ran* or *attempted, outcome unknown*, and the
 // identity digest's comparand at the last Run in which the Step carried a set
 // at all (§6, §7, ADR-0055).

@@ -1,0 +1,15 @@
+kind: procedure
+procedure: retire-preview
+targets: [cloudflare-prod]
+steps:
+  - id: retire
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    over:
+      values:
+        - preview-42.example.com
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: {item: $}
+    bound: 1

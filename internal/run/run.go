@@ -87,12 +87,14 @@ type Request struct {
 	// Step it names and the *never reached* Steps after it are issue #155's,
 	// which is the ticket that reads this member.
 	//
-	// The one place the marker is read back is already built: an entry a
-	// rehearsal wrote is evidence that a rehearsal happened and evidence of
-	// nothing else, so a Step's identity digest filters it out (step.go).
-	// Getting that wrong is what the exception to the absence rule is bought
-	// against — a rehearsal counted as evidence would permanently refuse
-	// every run-once Step in the Procedure it rehearsed (§7, §8, ADR-0001).
+	// The places the marker is read back are already built, and both read
+	// it off an **entry** rather than off this member: an entry a rehearsal
+	// wrote is evidence that a rehearsal happened and evidence of nothing
+	// else, so a Step's identity digest filters it out (step.go) and so does
+	// run-once Repeatability (once.go). Getting the second wrong is what the
+	// exception to the absence rule is bought against — a rehearsal counted
+	// as evidence would permanently refuse every run-once Step in the
+	// Procedure it rehearsed (§7, §8, ADR-0001).
 	DryRun bool
 	// Version is the binary's, and it is Provenance's `hyper_version`. It is
 	// always a release string: the pin gate refuses any binary whose version

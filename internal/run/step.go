@@ -117,6 +117,24 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 		return reached, nil, r.write(file)
 	}
 
+	// **Run-once decides next**, on the Journal alone and with no selector
+	// resolved: a Step the Journal already holds as *ran* or as *attempted,
+	// outcome unknown* Refuses `run-once-recorded` before its Expansion
+	// reads anything, so what stopped it is what it already did rather than
+	// what the Store happens to hold now (§6, §12, once.go).
+	//
+	// Its file is the *refused* Step's like any other, and it carries no
+	// `selector` block: the Expansion below never ran, and a Step that
+	// resolved no selector holds none (§7).
+	declined, err = r.recordedAlready(bound, authored, position)
+	if err != nil {
+		return Step{}, nil, err
+	}
+	if len(declined) > 0 {
+		reached.Disposition, file.Disposition = store.DispositionRefused, store.DispositionRefused
+		return reached, declined, r.write(file)
+	}
+
 	expanded, declined, err := r.expand(bound, authored, position)
 	if err != nil {
 		return Step{}, nil, err

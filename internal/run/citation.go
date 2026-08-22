@@ -6,14 +6,16 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
-// Where a Refusal at a Step's Expansion points, and how it names what it found
-// (§7, §8, ADR-0061, issue #139).
+// Where a Refusal at a Step points, and how it names what it found (§7, §8,
+// ADR-0061, issues #139, #153).
 //
-// The four checks that decide at an Expansion are the only ones in the closed
-// set that cite a Step that **ran** — every other member declines before Step 1,
-// where the Step a Refusal names has no file in the entry at all. That is a
-// property of those four codes and not of the coordinate: `step` is an artefact
-// coordinate everywhere, and this file builds one the same way for all of them.
+// The five checks that decide **at or before** a Step's Expansion are the only
+// ones in the closed set that cite a Step that was reached at all — every other
+// member declines before Step 1, where the Step a Refusal names has no file in
+// the entry at all. Four of them decide at the Expansion and run-once decides in
+// front of it (§12, once.go), and that is a property of those five codes rather
+// than of the coordinate: `step` is an artefact coordinate everywhere, and this
+// file builds one the same way for all of them.
 //
 // It is beside the Expansion rather than inside it because the two change for
 // different reasons: what a selector resolves to is §5's and §6's, and where a
@@ -79,19 +81,32 @@ func (c citation) at(line int, field string) citation {
 	return c
 }
 
+// wholeStep is the citation pointing at the Step's own entry rather than at a
+// key inside it: the line the Step begins on, under the field path §8's
+// remediation notation writes for the Step itself.
+//
+// It is what a Refusal about the **Step** cites where the fact that declined it
+// is written in no artefact this repository holds: run-once is a Manifest's
+// silence and the Journal's evidence, and neither has a line here for a caret
+// to sit on (§7, §8, once.go).
+func (c citation) wholeStep() citation {
+	c.field = fmt.Sprintf("steps[%d]", c.index)
+	return c
+}
+
 // selector is the citation pointing at the Step's `over:` line, which is what
 // an identity collision cites: the population is what an edit would narrow, and
 // on a Step carrying no selector it is the Step's own line.
 func (c citation) selector() citation {
-	c.field = fmt.Sprintf("steps[%d]", c.index)
+	cited := c.wholeStep()
 	if c.selectorAt != 0 {
-		c.line, c.field = c.selectorAt, c.field+".over"
+		cited.line, cited.field = c.selectorAt, cited.field+".over"
 	}
-	return c
+	return cited
 }
 
-// refusal is one check declining at a Step's Expansion, in the shape §7 holds a
-// Refusal member in and §8 renders a row from.
+// refusal is one check declining at a Step, in the shape §7 holds a Refusal
+// member in and §8 renders a row from.
 func (r run) refusal(code, message string, cited citation) Refusal {
 	return Refusal{
 		RefusalMember: store.RefusalMember{
