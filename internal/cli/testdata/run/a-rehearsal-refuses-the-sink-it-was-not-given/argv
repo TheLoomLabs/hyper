@@ -1,0 +1,1 @@
+hyper run read-sessions --dry-run

@@ -184,6 +184,13 @@ func TestGolden(t *testing.T) {
 // what its bin/ holds, so a case that names a binary it does not hold drives
 // *the command could not be started at all* and a case that names nothing execs
 // nothing.
+//
+// The tenth read is left nil, and that is what a case directory can say about
+// signals: a corpus case is a Run **nobody interrupts**. A signal is a fact
+// about *when* it arrived, which no file beside an argv can state, so the
+// delivery is driven by [run_signal_test.go](run_signal_test.go) — the same
+// cases, the same entry point, with this one member supplied there (issue
+// #145).
 func (c goldenCase) process(t *testing.T, run goldenRun) cli.Process {
 	t.Helper()
 

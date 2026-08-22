@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -51,6 +52,7 @@ type process struct {
 	mint      int
 	dial      int
 	exec      int
+	notify    int
 }
 
 // value is those reads as cli.Main takes them: one value, wired to the counting
@@ -71,6 +73,7 @@ func (p *process) value() cli.Process {
 		Mint:      p.Mint,
 		Dial:      p.Dial,
 		Exec:      p.Exec,
+		Notify:    p.Notify,
 	}
 }
 
@@ -128,6 +131,15 @@ func (p *process) Exec(context.Context, []string) *exec.Cmd {
 	return nil
 }
 
+// Notify installs nothing: this stand-in is a process no signal reaches, so the
+// channel it answers never delivers and the release is a no-op. No case here
+// performs a Run, so the count beside it is the whole of what it stands for —
+// the read is threaded ahead of the one command that makes it (issue #145).
+func (p *process) Notify(...os.Signal) (<-chan os.Signal, func()) {
+	p.notify++
+	return make(chan os.Signal), func() {}
+}
+
 // fixedInstant is the clock the stand-in answers with: one instant, so a case
 // that ever compares a rendering of it compares a fixed string rather than the
 // time the suite happened to run.
@@ -149,6 +161,7 @@ func (p *process) untouched(t *testing.T) {
 		{"a host was dialled", p.dial},
 		{"the environment was read whole", p.environ},
 		{"a child process was started", p.exec},
+		{"the signals were watched", p.notify},
 	} {
 		if read.count != 0 {
 			t.Errorf("%s %d times, want it left alone", read.what, read.count)

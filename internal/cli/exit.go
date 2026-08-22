@@ -37,11 +37,13 @@ const (
 	// command that hits them; a Run that refuses carries it too.
 	ExitRefused = 77
 
-	// ExitInterrupted — a Run stopped by an interrupt, having drained
-	// (ADR-0015). Unreachable until the Run exists (milestone 5).
+	// ExitInterrupted — a Run stopped by an interrupt, having drained: the
+	// Step in flight finished, no further Step started, and the Run closed
+	// its own entry `failed` (§6, ADR-0015, issue #145).
 	ExitInterrupted = 130
 
 	// ExitTerminated — a Run stopped by a termination signal, drained the
-	// same way. Unreachable until the Run exists (milestone 5).
+	// same way and `failed` the same way. The two codes differ by which
+	// signal arrived and by nothing else (§12).
 	ExitTerminated = 143
 )

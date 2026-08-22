@@ -7,11 +7,13 @@ import (
 )
 
 // TestExitCodes_AreTheClosedSetOfSeven pins the numbers §12 fixes against the
-// names internal/cli gives them. Three of the seven — 75, 130 and 143 — are
-// unreachable until the Store and the Run exist, so no golden case can carry
-// them and this is the only place a typo in one would surface before the
-// milestone that reaches it (issue #102). The wanted numbers come from §12's
-// closed set rather than from the constants themselves.
+// names internal/cli gives them. The wanted numbers come from §12's closed set
+// rather than from the constants themselves (issue #102).
+//
+// Every one of the seven is now reachable. 75 and 77 are driven by the corpus;
+// 130 and 143 are driven by [run_signal_test.go](run_signal_test.go), which
+// hands a Run a signal from inside its first Step and holds both the code and
+// the outcome it maps onto — `failed`, and no other member of the triple.
 func TestExitCodes_AreTheClosedSetOfSeven(t *testing.T) {
 	closedSet := []struct {
 		outcome string

@@ -114,9 +114,11 @@ second carries no `hyper.yaml` at all.
 flags this command does not have and will not grow: retention is read-time and
 lives in the Repository declaration alone, because a flag would let one
 invocation remove more than the repository ever agreed to (ADR-0001), and there
-is no `--dry-run` anywhere in the tool (§9, ADR-0015). None of them carries a
-repository, because none of them needs one — the fault is decided from the
-argument list alone and before any root is resolved.
+is no `--dry-run` on this command: §9 gives that flag to `run` and to no other,
+a `compact --dry-run` having nothing it could mean — the branch is append-only
+and `git log` on it is its own account of what was removed (§9, ADR-0015). None
+of them carries a repository, because none of them needs one — the fault is
+decided from the argument list alone and before any root is resolved.
 
 ## What is not here
 

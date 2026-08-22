@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/capability"
@@ -25,7 +26,8 @@ import (
 // at all (issue #134). The seventh and the eighth landed with `run`, which is
 // the claim made good: User and Hostname were added below and no signature in
 // the tree moved. The ninth landed with the `shell` Capability and moved none
-// either (issue #142).
+// either (issue #142), and the tenth landed with the signals a Run drains on
+// (issue #145).
 //
 // It is one trade and worth naming. A command handed the whole value says *I
 // may read the process* where its signature used to say *I read the clock and
@@ -159,4 +161,35 @@ type Process struct {
 	// the Capability that starts a child through it is stated rather than
 	// twice. Child below is the value the binary wires into it (issue #142).
 	Exec capability.Exec
+
+	// Notify is the process's signals, watched: it is handed the signals to
+	// watch and answers the channel they arrive on and the function that
+	// stops the watch (§6, ADR-0015, issue #145).
+	//
+	// It is the tenth read and it is threaded for the reason the other nine
+	// are: a Run stopped by an interrupt writes a Journal entry and a
+	// terminal line, and a case that could not deliver one could assert
+	// neither. What it stands for is the whole of `os/signal` — nothing
+	// behind the dispatch imports that package — so a case drives the same
+	// drain the terminal does, with the delivery its own.
+	//
+	// **Stopping the watch is what makes a second interrupt kill the
+	// process.** Go's signal package replaces the default disposition while
+	// a channel is registered and restores it when the last one goes, so the
+	// Run that has already drained on the first signal releases the handler
+	// and the next one lands on the kernel's own answer — which is §6's open
+	// entry, and the reason there is no second drain to write (§7).
+	//
+	// It may be nil, and a Run under a nil Notify is one nobody can
+	// interrupt: nothing is installed, nothing is caught, and the Run
+	// performs to its end. That is what every command but `run` is handed,
+	// there being no Run under them to stop.
+	Notify Notify
 }
+
+// Notify is how the signals are watched: the signals to watch for, and the
+// channel and the release the watch is held by. It is a named type for Dial's
+// and Exec's reason — one signature, spelled where the thing that uses it is
+// stated rather than twice — and it is `os/signal`'s own shape, so the binary
+// wires that package in one expression and nothing else in the tree imports it.
+type Notify func(signals ...os.Signal) (arriving <-chan os.Signal, stop func())

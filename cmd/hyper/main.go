@@ -1,16 +1,16 @@
 // Command hyper is the CLI surface over hyper's core (§9). This file is the
 // whole of what the binary adds to the library behind it: it reads the process
-// — the arguments, the nine reads cli.Process names, the facts Go's build
+// — the arguments, the ten reads cli.Process names, the facts Go's build
 // stamped — and hands them to cli.Main, which decides which command runs.
 //
 // No command name appears here, and no dispatch does. This file has no golden
 // coverage, which is the argument gate.go makes for the gate and cli.Main
 // makes for the dispatch behind it (issues #102 and #107).
 //
-// Every one of the nine is handed over uncalled, so a read no command makes is a
+// Every one of the ten is handed over uncalled, so a read no command makes is a
 // read that never happens. os.Getwd is the one that shows why: `version` and `completions` stand outside §9's tree of sixteen and
 // resolve no repository, so a working directory that cannot be read must not
-// stop them (§9, ADR-0020). The other six follow the same rule for reasons
+// stop them (§9, ADR-0020). The others follow the same rule for reasons
 // process.go states one at a time, and nothing anywhere else in the tree
 // reaches for any of them (§7, issue #125, issue #134, issue #142).
 package main
@@ -18,6 +18,7 @@ package main
 import (
 	"crypto/tls"
 	"os"
+	"os/signal"
 	"os/user"
 	"time"
 
@@ -30,10 +31,10 @@ func main() {
 	os.Exit(cli.Main(os.Args[1:], os.Stdout, os.Stderr, process(), version.Current()))
 }
 
-// process is the real nine: the environment read one variable at a time and
+// process is the real ten: the environment read one variable at a time and
 // read whole, the working directory, the user and the machine's name, the
-// clock, the Run id mint, the dialer and the process launcher. It is the one place in
-// the tree where the standard library's readings of the process are named, and
+// clock, the Run id mint, the dialer, the process launcher and the signals. It
+// is the one place in the tree where the standard library's readings of the process are named, and
 // it is a function rather than a literal inside main() so that the binary's own
 // cases drive exactly the value main() does rather than a second assembly of it
 // (issue #134).
@@ -83,7 +84,28 @@ func process() cli.Process {
 		// named there rather than here because the corpus drives the same
 		// value this line wires (§5, §6).
 		Exec: cli.Child,
+		// The signals, watched. This is the one place in the tree that
+		// imports os/signal, and what it hands over is the whole of that
+		// package's contract: a channel the signals arrive on, and the
+		// stop that puts the default disposition back — which is what
+		// makes the **second** interrupt kill the process after the
+		// first has drained (§6, ADR-0015).
+		Notify: watchSignals,
 	}
+}
+
+// watchSignals is cli.Notify against the real process: signal.Notify onto a
+// buffered channel, and signal.Stop as the release.
+//
+// The buffer is one, which is what os/signal requires of a caller that is not
+// always at the receive: the delivery is non-blocking, so a signal arriving
+// before the watch reads is held rather than dropped. One is enough because the
+// watch reads exactly one — the second interrupt is the kernel's answer and not
+// this channel's (internal/cli/signals.go).
+func watchSignals(signals ...os.Signal) (<-chan os.Signal, func()) {
+	arriving := make(chan os.Signal, 1)
+	signal.Notify(arriving, signals...)
+	return arriving, func() { signal.Stop(arriving) }
 }
 
 // currentUser is who is running hyper, as cli.Process.User: the passwd

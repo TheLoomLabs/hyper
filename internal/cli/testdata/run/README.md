@@ -227,6 +227,9 @@ drives.
 | `no-status-is-ever-retried` | a host that answers `503` and then `200`, under an Operation declaring `retry: {attempts: 3}`: the `503` is recorded and the second answer is never asked for. The Step file carries **no** `pattern` block, one attempt and no retry declared being the same silence (§7) |
 | `a-deadline-is-not-retried` | the other exclusion: a host that hangs, under the same Operation. The deadline halts the Step at `1` and no second attempt is made — a connect timeout is outside ADR-0018's class, and the Operation's own deadline is `hyper` stopping |
 | `four-paginated-members-under-a-limit-of-four` | an Expansion of four under `concurrency: 4`, each member walking three pages: twelve Observations and `pages: 12`. What the limit reached and what it did not is [`../../run_pattern_test.go`](../../run_pattern_test.go)'s |
+| `a-rehearsal-performs-the-reads-it-reaches`, `-json` | `--dry-run` over a Procedure of two `read` Steps: every read it reaches is performed, both Observations are recorded as ordinary versions carrying **no** marker of their own, the entry carries `dry_run: true`, the terminal line reads `completed · dry-run · exit 0`, and the `outcome` row carries the marker on the wire |
+| `a-rehearsal-refuses-the-sink-it-was-not-given` | the sink gate carries no `--dry-run` exemption: a rehearsal reaching two Steps declaring `secret:` output with no `--secret-out` Refuses `secret-sink-absent` at `77` — the marker is on the line and on the entry, and a rehearsal that Refuses is not a rehearsal that completes (§9, issue #137) |
+| `an-open-entry-is-left-open` | the branch is seeded with **another** Run's entry holding no account at all — no `outcome.json` it wrote, no `closed-by/` anybody wrote. This Run reads that branch, completes at `0`, and leaves the entry exactly as open as it found it: nothing in this milestone reaps one, closes one, or infers anything from an absent account |
 
 ## How a case reaches a binary, and what it costs
 
@@ -370,6 +373,29 @@ a pagination Pattern's token lands in a **projected field** and therefore in
 arriving in order.
 
 ## What no golden here proves
+
+**That a signal arrived while a Step was in flight.** A case directory is an
+argv and a set of inputs, and *the interrupt landed while Step 1 was on the
+wire* is a fact about **when** — the same thing the concurrency cases below
+cannot state. So the delivery is driven instead:
+[`../../run_signal_test.go`](../../run_signal_test.go) drives the two-Step cases
+here with the tenth process read supplied by the case, hands the signal over
+from inside Step 1's own call, and waits for the watch to release before
+returning — so the Step in flight is genuinely in flight and the Run's next
+boundary is guaranteed to see the drain. What it holds is §6's sentence entire:
+the drained Step *ran* and its Record is on the branch, the Steps after it are
+*never reached* and wrote no file, the entry is closed by its **own**
+`outcome.json`, and the exit code is `130` for an interrupt and `143` for a
+termination. It drives the one-Step case too, where there is nothing left to
+withhold: the Run is `failed` at `130` all the same — §6 puts an interrupt in
+`failed` beside an error and a deadline, so a Run somebody stopped may not
+answer `0` however much of it finished.
+
+**What a second interrupt leaves.** It kills the process outright, so there is
+no code path to drive and nothing for `hyper` to write — what it leaves is
+whatever the branch already held. The same file reads the branch from inside
+Step 1's call, which is exactly the state a kill at that instant would freeze:
+`run.json`, and no account beside it. That absence **is** the representation.
 
 **That a `shell` Step's own dispatch is the `http` one.** There is one call site
 and one limit — `dispatch(bound.detail.ConcurrencyLimit, …)` — reached by both

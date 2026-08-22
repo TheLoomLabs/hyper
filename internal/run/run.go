@@ -39,6 +39,7 @@
 package run
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -77,6 +78,21 @@ type Request struct {
 	Trigger store.Trigger
 	// DryRun says this Run is a rehearsal. It is carried into the entry on
 	// every Run, false included (§7, ADR-0001).
+	//
+	// **Nothing else here reads it, and in this milestone nothing could.** A
+	// rehearsal performs the reads it reaches and stops rather than
+	// simulating an effect, and every Step this binary performs is a `read`
+	// — an effectful one declines before the Store is located at all
+	// (NotBuilt). So a rehearsal here performs every Step, completes and
+	// exits `0`, and the Step it would have stopped at arrives with the
+	// Steps that can have one.
+	//
+	// The one place the marker is read back is already built: an entry a
+	// rehearsal wrote is evidence that a rehearsal happened and evidence of
+	// nothing else, so a Step's identity digest filters it out (step.go).
+	// Getting that wrong is what the exception to the absence rule is bought
+	// against — a rehearsal counted as evidence would permanently refuse
+	// every run-once Step in the Procedure it rehearsed (§7, §8, ADR-0001).
 	DryRun bool
 	// Version is the binary's, and it is Provenance's `hyper_version`. It is
 	// always a release string: the pin gate refuses any binary whose version
@@ -128,6 +144,23 @@ type Request struct {
 	// child against a script a fixture checked in (§5, issues #133, #142).
 	Dial capability.Dial
 	Exec capability.Exec
+	// Interrupted says the first interrupt has arrived, and it is the whole
+	// of what this package knows about signals: which signals are watched
+	// for, what they exit with and when a second one kills the process are
+	// the surface's, one package up (§6, §9, ADR-0015, issue #145).
+	//
+	// It is a function for the reason every other process read here is one
+	// — the engine reaches no process fact of its own — and it answers
+	// rather than blocks, because the one question a Run asks about a
+	// signal is *has one arrived by now*: it is asked where the next Step
+	// would start and nowhere else, so a Step in flight is never asked to
+	// stop and never told to (Perform).
+	//
+	// It may be nil, which is a Run nobody can interrupt: the MCP surface
+	// reaches Perform through its own dispatch and has no terminal behind
+	// it, and a `hyper` compiled into a test binary has no handler
+	// installed.
+	Interrupted func() bool
 	// Narrator is where progress goes as it happens. It may be nil, which is
 	// a Run nobody is watching.
 	Narrator Narrator
@@ -374,6 +407,18 @@ func Perform(request Request) Answer {
 	inFlight.credentials = held
 
 	for position, step := range steps {
+		// The drain, read where the next Step would start (§6,
+		// ADR-0015). The Step in flight finishes because nothing here
+		// asks it to stop; no further Step starts because this is the
+		// line that would have started it; and the Run closes its
+		// **own** entry `failed`, which is what keeps a stopped Run a
+		// recorded one rather than an open entry somebody else has to
+		// account for (§7).
+		if request.drained() {
+			answer.Steps = append(answer.Steps, neverReached(loaded, steps, position)...)
+			return inFlight.closed(failed(answer, ErrInterrupted))
+		}
+
 		narrator.Reached(position+1, len(steps), named(step))
 
 		performed, declined, err := inFlight.perform(position+1, step)
@@ -400,11 +445,52 @@ func Perform(request Request) Answer {
 		return inFlight.closed(refused(answer, declined))
 	}
 
+	// The drain again, for the interrupt that arrived while the **last**
+	// Step was finishing. There is no Step left for it to withhold, so
+	// nothing above catches it — and the Run is `failed` all the same: §6
+	// puts an interrupt in `failed` beside an error and a deadline, and a
+	// Run somebody stopped may not answer `0` and let a wrapper read it as
+	// a Run that was never stopped at all.
+	//
+	// Every Step ran, so there is no *never reached* to append and no Step
+	// file missing from the entry. What the record carries is the outcome
+	// and the exit code, and that is the whole of the difference.
+	if request.drained() {
+		return inFlight.closed(failed(answer, ErrInterrupted))
+	}
+
 	return inFlight.closed(answer)
 }
 
+// ErrInterrupted is what stopped a Run that drained: the Run's own Fault, and
+// what the surface reads to know that the code §12 fixes for this stop is the
+// signal's rather than the outcome's (§6, §12, ADR-0015).
+//
+// It names no signal. Which one arrived decides `130` from `143` and that is
+// §12's mapping, made where the signal was caught; what this package holds is
+// that the Run was stopped rather than resisted — the two are both `failed`,
+// and a fault a reader can act on is the whole of what a `failed` Run says
+// beyond its outcome (§9).
+var ErrInterrupted = errors.New("interrupted: no further Step was started, and this Run closed its own entry")
+
+// drained answers whether the first interrupt has arrived, and false for a Run
+// nobody can interrupt.
+//
+// It is a method on the Request rather than a function over its member so that
+// the read's signature is spelled once, where the member is declared — the rule
+// internal/cli states for the three performers it names types for. And it is
+// one nil check rather than one at each of the two places the drain is read,
+// on watching's own rule: a guard spelled at every site is one where the day
+// comes that a site forgets.
+func (r Request) drained() bool {
+	return r.Interrupted != nil && r.Interrupted()
+}
+
 // neverReached is the Steps the Run ended before, one entry each, from the
-// position after the one that ended it (§6, §12).
+// position it stopped at (§6, §12). A halt and a Refusal pass the position
+// after the Step that ended the Run; a drain passes the position of the Step it
+// did not start, which on an interrupt that arrived before Step 1 is every Step
+// the Run holds.
 //
 // **It is the one Disposition of the seven that writes no file at all**, and
 // within a closed entry that absence is its whole representation: a forty-Step
@@ -413,9 +499,9 @@ func Perform(request Request) Answer {
 // a `step` row on the wire — the Step has a cell — and both render `–` for
 // `RECORDS`, no set existing rather than a set with nothing in it (§8).
 //
-// It reaches every way a Run can end past Step 1, a halt and a Refusal alike:
-// the value says *the Run ended before the Step* and neither of the two is more
-// ended than the other. A Refusal **before** Step 1 leaves none of them, and
+// It reaches every way a Run can end past Step 1 — a halt, a Refusal and a
+// drain alike: the value says *the Run ended before the Step* and none of the
+// three is more ended than the others. A Refusal **before** Step 1 leaves none of them, and
 // that is §7's own sentence rather than an exception carved here — such an
 // entry is `run.json` and `outcome.json` and nothing else, and the surface
 // renders no Step table over a Run where no Step was reached (§7, ADR-0061).

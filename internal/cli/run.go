@@ -62,11 +62,13 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		return ExitUsage
 	}
 
+	// `--dry-run` comes off next, and it is here rather than in parseArgs
+	// for `--secret-out`'s reason: §9 gives it to `run` and to no other
+	// command, so `hyper check --dry-run` stays the unknown flag it is.
+	dryRun, rest := splitDryRun(rest)
+
 	// No --limit: a Run reports what it just did rather than ranging over a
-	// namespace, so there is no result set for a cap to cut (§9). `--dry-run`
-	// is the other flag §9 gives this command and no other, and it is issue
-	// #145's — until then it is an unknown flag, which is the honest answer
-	// for a marker nothing reads.
+	// namespace, so there is no result set for a cap to cut (§9).
 	parsed, code := parseArgs(runCommand, rest, takesNoLimit, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
@@ -146,19 +148,26 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		return code
 	}
 
-	// The rehearsal marker, and it is `false` until issue #145 lands
-	// `--dry-run`. It is a value rather than a literal at the two places it
-	// reaches because those two must never disagree: the entry carries it
-	// and the terminal row carries it, and §7's one exception to the
-	// absence rule is written always, `false` included, precisely because a
-	// reader that gets it wrong cannot recover (§7, §8, ADR-0001).
-	dryRun := false
+	// The watch for the two signals, installed here and not earlier: what
+	// reads it is the engine, and a handler standing over the lock and the
+	// sync would catch an interrupt nothing would then act on — leaving a
+	// Ctrl-C during a fetch with no effect at all, which is worse than the
+	// kernel's own answer. It comes down on the way out whichever way the
+	// Run ended (signals.go).
+	watch, release := watchForTheFirstInterrupt(process.Notify)
+	defer release()
 
 	answer := run.Perform(run.Request{
 		Repository: loaded,
 		RepoRoot:   repoRoot,
 		Store:      held,
 		Procedure:  name,
+		// The rehearsal marker reaches two places and they must never
+		// disagree: the entry carries it and the terminal row below
+		// carries it, and §7's one exception to the absence rule is
+		// written always, `false` included, precisely because a reader
+		// that takes its absence for `false` cannot recover (§7, §8,
+		// ADR-0001).
 		DryRun:     dryRun,
 		SecretSink: sink,
 		Trigger:    readTrigger(process.LookupEnv, process.User, process.Hostname),
@@ -169,7 +178,12 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		Environ:    process.Environ,
 		Dial:       process.Dial,
 		Exec:       process.Exec,
-		Narrator:   narration{stderr: stderr},
+		// The drain, as the engine asks it: *has an interrupt arrived
+		// by now*. Which signals are watched, what each exits with and
+		// when a second one kills the process are all this side's
+		// (§6, §9, ADR-0015).
+		Interrupted: watch.interrupted,
+		Narrator:    narration{stderr: stderr},
 	})
 
 	// The engine's own answer to the same question, which the call above has
@@ -189,10 +203,14 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, answer.Fault)
 	}
 
+	// What the signal, if one arrived, exits with. It is read here rather
+	// than inside exitFor so that the mapping from an outcome to a code
+	// stays a function of facts and not of a live watch (§12, ADR-0026).
+	signalled, caught := watch.exit()
 	terminal := outcomeRow{
 		Type:    "outcome",
 		Outcome: string(answer.Outcome),
-		Code:    exitFor(answer),
+		Code:    exitFor(answer, signalled, caught),
 		DryRun:  dryRun,
 	}
 	if answer.Identified {
@@ -236,15 +254,28 @@ func declineNotBuilt(stderr io.Writer, declined []string) int {
 // that syncs sends them (§7, ADR-0061, ADR-0076). Everything else a Run failed
 // on is 1.
 //
-// The two signals' codes, 130 and 143, are decided where the signal is caught
-// rather than derived from an outcome, and are not this milestone's.
-func exitFor(answer run.Answer) int {
+// **The two signals' codes, 130 and 143, are decided where the signal was
+// caught** and never derived from an outcome, which is why they arrive here as
+// a parameter: a Run that drained is `failed` like any other stop, and what
+// tells it from the world resisting is which signal arrived (§12, ADR-0015).
+// signalled is that code and caught says one arrived at all — the pair rather
+// than a code alone, because a `0` read as *no signal* would put `failed · exit
+// 0` on the terminal line.
+//
+// The engine's own sentinel is read beside it rather than the code alone. Both
+// operands are needed: the watch says a signal reached this process and the
+// sentinel says the Run stopped because of it, and a Run the world resisted
+// while somebody happened to hit Ctrl-C is `1`, which is what stopped it.
+func exitFor(answer run.Answer, signalled int, caught bool) int {
 	switch answer.Outcome {
 	case store.OutcomeCompleted:
 		return ExitClean
 	case store.OutcomeRefused:
 		return ExitRefused
 	case store.OutcomeFailed:
+		if caught && errors.Is(answer.Fault, run.ErrInterrupted) {
+			return signalled
+		}
 		if errors.Is(answer.Fault, store.ErrPushExhausted) {
 			return ExitStoreLost
 		}
@@ -271,6 +302,38 @@ func refusedFlags(args []string) string {
 		}
 	}
 	return ""
+}
+
+// splitDryRun takes `--dry-run` off the argument list and answers whether the
+// invocation named it, beside what is left for parseArgs.
+//
+// **The flag is `run`'s and no other command's** (§9). It is spelled here
+// rather than in parseArgs for exactly `--secret-out`'s reason: a parser that
+// knew about it is one every other command's signature would have to admit, and
+// `hyper compact --dry-run` would stop being the unknown flag it is. A `records
+// --dry-run` or a `check --dry-run` would have to mean something, and neither
+// does (ADR-0015).
+//
+// It carries no value, so `--dry-run=true` is not taken here and reaches
+// parseArgs as the unknown flag it is: a marker is named or it is not, and a
+// spelling that looks like it takes a value is a caller expecting one to be
+// read. Naming it twice is naming it, the way a boolean flag always is.
+//
+// `--` ends the flags, so a positional spelled like one is still reachable —
+// which is what keeps a Procedure named `--dry-run` runnable, however
+// ill-advised the name.
+func splitDryRun(args []string) (dryRun bool, rest []string) {
+	for i, argument := range args {
+		switch {
+		case argument == "--":
+			return dryRun, append(rest, args[i:]...)
+		case argument == "--dry-run":
+			dryRun = true
+		default:
+			rest = append(rest, argument)
+		}
+	}
+	return dryRun, rest
 }
 
 // splitSecretOut takes `--secret-out <path>` off the argument list and answers
