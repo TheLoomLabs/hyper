@@ -1,0 +1,5 @@
+#!/bin/sh
+printf '%s\n' "$1" >> tally
+while IFS= read -r line; do
+	printf 'deployed %s\n' "$line"
+done < tally

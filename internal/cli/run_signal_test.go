@@ -334,6 +334,37 @@ func TestSignals_AShellStepInFlightFinishes(t *testing.T) {
 		present(`"outcome": "failed"`))
 }
 
+// TestSignals_AnEffectfulShellStepInFlightFinishes is the same claim where the
+// child is changing the machine rather than reading it (§6, issue #156).
+//
+// The drain is what makes an effectful `shell` Step's stop readable at all: the
+// child is in a process group of its own, so the terminal's interrupt does not
+// reach it, and `hyper` waits for the command it started rather than leaving a
+// half-finished effect behind an *attempted, outcome unknown* nobody can act on.
+// The Step is *ran*, its Asset is on the branch, the Step after it never starts,
+// and the Run closes its own entry `failed` at `130`.
+func TestSignals_AnEffectfulShellStepInFlightFinishes(t *testing.T) {
+	exit, page, branch := stopped(t, "two-shell-mutate-steps-land-two-assets", os.Interrupt, atTheFirstChild)
+
+	if exit != cli.ExitInterrupted {
+		t.Errorf("exit = %d, want %d", exit, cli.ExitInterrupted)
+	}
+	if !strings.Contains(oneSpaced(page), "1 deploy mutate ran 1") {
+		t.Errorf("the effectful `shell` Step in flight did not finish:\n%s", page)
+	}
+	if !strings.Contains(oneSpaced(page), "2 tag mutate never-reached –") {
+		t.Errorf("the Step after the drain does not render *never reached*:\n%s", page)
+	}
+	if !strings.Contains(page, "failed · exit 130 · run ") {
+		t.Errorf("the terminal line does not name the stop:\n%s", page)
+	}
+	// The Asset the drained Step landed is on the branch under the argv that
+	// made it, and the Step after it wrote nothing at all.
+	assertBranch(t, branch, present("steps/0001.json"), absent("steps/0002.json"),
+		present(`%5B%22deploy%22%2C%22r41%22%5D`), absent(`%5B%22tag%22%2C%22r41%22%5D`),
+		present(`"record_type": "asset"`), present(`"outcome": "failed"`), absent("closed-by"))
+}
+
 // TestSignals_AnEntryHoldsNoAccountUntilItsRunWritesOne is what the **second**
 // interrupt leaves, asserted at the one moment it can be: mid-Run (§6, §7,
 // ADR-0003).

@@ -1,0 +1,16 @@
+kind: procedure
+procedure: deploy-then-tag
+targets: [local]
+steps:
+  - id: deploy
+    definition: host-ops
+    operation: mutate
+    target: local
+    args:
+      command: [deploy, r41]
+  - id: tag
+    definition: host-ops
+    operation: mutate
+    target: local
+    args:
+      command: [tag, r41]

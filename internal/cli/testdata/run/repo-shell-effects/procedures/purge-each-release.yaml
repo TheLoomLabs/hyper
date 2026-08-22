@@ -1,0 +1,15 @@
+kind: procedure
+procedure: purge-each-release
+targets: [local]
+steps:
+  - id: purge
+    definition: host-ops
+    operation: destroy
+    target: local
+    over:
+      values:
+        - /srv/app/releases/r41
+        - /srv/app/releases/r42
+        - /srv/app/releases/r43
+    args:
+      command: [rm, -rf, {item: $}]

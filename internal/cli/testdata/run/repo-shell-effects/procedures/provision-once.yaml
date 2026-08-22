@@ -1,0 +1,10 @@
+kind: procedure
+procedure: provision-once
+targets: [local]
+steps:
+  - id: provision
+    definition: host-ops
+    operation: mutate_once
+    target: local
+    args:
+      command: [provision, r41]

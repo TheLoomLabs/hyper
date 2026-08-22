@@ -1,0 +1,23 @@
+{
+  "definition": "host-ops",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T08:12:03.114Z",
+  "id": "retire",
+  "identities": {
+    "digest": "sha256:beeeee0f2fcb0495f4e7484bdf714e8228a5fc06d9fd10837cf4609bae315e0a",
+    "members": [
+      "/srv/app/releases/r41"
+    ]
+  },
+  "kind": "destroy",
+  "operation": "destroy_once",
+  "provenance": {
+    "definition_revision": "cc4c283f13b6e30054af56822b673153ddfe4f05",
+    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4"
+  },
+  "provider": "shell",
+  "schema_version": 1,
+  "started_at": "2026-04-02T08:12:03.114Z",
+  "step": 1,
+  "target": "local"
+}

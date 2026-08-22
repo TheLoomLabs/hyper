@@ -1,0 +1,8 @@
+#!/bin/sh
+case "$2" in
+	*/r41)
+		printf 'rm: %s: the Store already holds a Tombstone for this path\n' "$2" >&2
+		exit 3
+		;;
+esac
+printf 'removed %s\n' "$2"

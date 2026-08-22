@@ -96,3 +96,55 @@ func stepFilesIn(t *testing.T, dir string) map[string]map[string]any {
 	}
 	return files
 }
+
+// **A `shell` Step's `answered` is never written empty, and the `command` in it
+// is what keeps it from being** (§7, §12, issue #156).
+//
+// The key's presence is the fact that something other than the ordinary answer
+// decided this Step, and under this Capability the case where that matters most
+// is the one with the least in it: a child that could not be started at all has
+// no exit code, no stdout and no stderr, so `command` is the whole of the block.
+// Were it left to the identity set beside it the block would encode to
+// `answered: {}`, which the encoding suppresses outright — and the fact would
+// vanish exactly where it is least ordinary, on a `destroy` besides, which
+// projects nothing and declares no identity anywhere in the entry.
+//
+// It is held over the corpus rather than case by case for the reason above: a
+// golden says what one case wrote, and what this asserts is that no case can
+// write the empty one.
+func TestAnswered_NoShellStepAnywhereWritesItEmpty(t *testing.T) {
+	commands, neverStarted := 0, 0
+
+	walkTestdata(t, "store.golden", func(dir string) {
+		for path, step := range stepFilesIn(t, dir) {
+			answered, carried := step["answered"].(map[string]any)
+			if !carried {
+				continue
+			}
+			if len(answered) == 0 {
+				t.Errorf("%s carries an empty answered; a block with nothing in it is suppressed by the encoding and says nothing at all", path)
+				continue
+			}
+			command, named := answered["command"].(string)
+			if !named {
+				continue
+			}
+			if command == "" {
+				t.Errorf("%s names an empty command; the argv as run is what a shell answer is written from (§12)", path)
+			}
+			commands++
+			if _, exited := answered["exit_code"]; !exited {
+				neverStarted++
+			}
+		}
+	})
+
+	if commands == 0 {
+		t.Error("no branch golden in the corpus holds a shell answer; the rule was held over nothing")
+	}
+	// The shape the rule is bought for: `command` alone, with the three
+	// members a child that never started leaves absent together.
+	if neverStarted == 0 {
+		t.Error("no branch golden in the corpus holds a shell answer for a child that never started; the case the key exists for is driven by nothing")
+	}
+}

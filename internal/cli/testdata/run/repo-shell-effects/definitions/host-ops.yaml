@@ -1,0 +1,6 @@
+kind: definition
+definition: host-ops
+provider: shell
+kinds: [mutate]
+destroy: [destroy, destroy_once]
+targets: [local]

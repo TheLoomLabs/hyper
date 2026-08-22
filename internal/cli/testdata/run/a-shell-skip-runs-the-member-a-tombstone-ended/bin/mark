@@ -1,0 +1,8 @@
+#!/bin/sh
+case "$1" in
+	*/r41)
+		printf 'mark: %s: this member stands and no call should have gone out\n' "$1" >&2
+		exit 3
+		;;
+esac
+printf 'marked %s\n' "$1"

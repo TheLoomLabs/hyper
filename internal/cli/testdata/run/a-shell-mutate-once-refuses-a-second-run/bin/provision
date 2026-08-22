@@ -1,0 +1,2 @@
+#!/bin/sh
+printf 'provisioned %s\n' "$1"

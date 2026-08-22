@@ -252,6 +252,20 @@ names one in a **`repo-from`** file instead, and the ones here are:
   written to be refused: the shape it holds is `destroy-unscoped` at `check`,
   which is the whole of what its case asserts.
 
+- [`repo-shell-effects/`](repo-shell-effects) — the `shell` Capability's
+  effectful half (issue #156): the built-in Provider bound by one Definition
+  claiming `mutate` under `kinds:` and both `destroy` Operations under
+  `destroy:`, a `local` granting `shell` and opting into `opaque-destroy:`, and
+  six Procedures — a `mutate` Step, two `mutate` Steps so that a drain has a Step
+  to withhold, a `mutate` over a `values:` list of three, a `destroy` over one of
+  three, a `mutate_once` Step, and a `destroy_once` Step over a `values:` list.
+  It is a repository of its own rather than Procedures added to `repo-shell` for
+  `repo-two-reads`' reason, and the argv is the Procedure's while the binary is
+  the case's, exactly as it is there. The two cases that halt a `destroy` and
+  shorten one drive [`repo-opaque-destroy`](repo-opaque-destroy)'s
+  `purge-releases` instead, with a `bin/rm` of their own: §6's own worked example
+  is where a repeatable `destroy` over authored paths already lives.
+
 The rest carry a repository of their own, each written for the one edge it
 drives.
 
@@ -427,6 +441,41 @@ which freezes the branch mid-Run and drives the next effectful Run against it,
 and `a-reap-that-was-wrong-is-contested`, which overlaps two effectful Runs on
 two clones of one repository and reads the contest off the remote they both
 pushed to.
+
+### The `shell` Capability's effectful half (issue #156)
+
+An effectful `shell` Operation completes on **`0`** and halts on everything
+else, and the `404` has no counterpart here: an exit code is the command's own
+vocabulary, so no value completes a `destroy` that would not complete a
+`mutate`. The trap the `404` exists to avoid is closed by the `over:` selector
+instead, which is the second case below.
+
+Nothing about the Capability moves in these — the process group, the deadline,
+the repository root, the empty stdin and the credential-stripped environment are
+[`repo-shell`](repo-shell)'s cases' and unchanged. What is new is the Kind
+semantics on top.
+
+| Case | What it is about |
+| --- | --- |
+| `a-shell-mutate-lands-an-asset` | the effectful spine under this Capability: a `mutate` runs a command, one version lands with `record_type: asset` named by the argv that made it, the Step is *ran* and the Run completes at `0` |
+| `a-shell-mutate-that-exited-non-zero` | the halt: `1` is not `0`, so the Step is ***ran*** at `0 of 1`, carries **no `error_code`** — nothing declined — and its `answered` holds the command and the exit code, which is §7's own worked example |
+| `a-shell-mutate-whose-child-never-started` | the argv names a binary the case's `bin/` does not hold: the object is `command` alone, so the Step is ***attempted, world untouched*** with no identity set and `–` in `RECORDS`, and its `answered` is the command with **no `exit_code` beside it**. It is a request that never left under a different Capability and carries the same Disposition (ADR-0062) |
+| `a-shell-destroy-halted-at-the-second-of-two` | `rm -rf` over two paths where the second exits `1`: the first Tombstone is committed, the Step is *ran* at `1 of 2`, and the Run halts at `1`. **No exit code completes a `destroy`** — there is no `404` to be told *already gone* by, and what the `answered` names is the member that ended the Step rather than the one that succeeded |
+| `a-shell-destroy-drops-what-it-already-ended` | the other half of that sentence, and the mechanism that stands in for the `404`: the same Procedure over a branch already holding a Tombstone for the first path. It is dropped at Expansion, `expanded_to` holds the second alone, and **no command goes out for it** — the case's `bin/rm` exits `3` on that path, so a call that went out would halt the Run |
+| `a-shell-mutate-once-refuses-a-second-run` | run-once under this Capability: a seeded entry records the `mutate_once` Step as *ran*, so the Run Refuses `run-once-recorded` at `77` with no command out |
+| `a-shell-destroy-once-refuses-a-second-run` | the same on the other effectful Kind, over a `destroy_once` Step whose Expansion never resolves |
+| `a-shell-skip-runs-the-member-a-tombstone-ended` | `skip-if-recorded` decided per Record where the identity is `$.command`: two members, one whose series stands and one whose head is a **Tombstone**. The first skips and the second runs, the identity set holds both, and the case's `bin/mark` exits `3` on the standing one so that *no call went out* is an assertion. Its sibling [`a-shell-step-skips-the-command-it-recorded`](a-shell-step-skips-the-command-it-recorded) drives the head that stands |
+| `a-shell-mutate-answering-in-json-is-recorded-as-text` | ADR-0052 on an effectful Kind: the command prints an object and what lands in the Asset is the string it printed, braces and all. `$.stdout.status` is not a path — parsing a command's output would be `hyper` describing what it cannot describe |
+| `a-destroy-expansion-of-shell-steps-is-serial` | the same on the Kind where it is worth the most, and it cannot be shown through stdout — a `destroy` projects nothing. So the **outcome** is the evidence: each member's `rm` reads back the path the member before it removed and exits `1` unless it is the one the authored order says, so three Tombstones and exit `0` are only reachable one member at a time and in that order |
+| `an-expansion-of-shell-mutates-is-serial` | serial dispatch on an effectful Kind, shown rather than described: three members each appending to a file the next one reads, so the three stdouts accumulate in Expansion order. An effectful Step does not consult `concurrency:` at all (ADR-0045) |
+| `two-shell-mutate-steps-land-two-assets` | two `mutate` Steps and one Asset each. Driven once here and once by [`../../run_signal_test.go`](../../run_signal_test.go), where the first interrupt lands on the first child: that Step finishes and is *ran*, the Step after it never starts, and the Run is `failed` at `130` — the child being in a process group of its own is what makes the drain true |
+
+What no case here can drive is the **deadline**, for the reason stated below:
+the built-in Provider declares one hour on every Operation and no repository may
+edit it. That an effectful `shell` Step which reached one is *attempted, outcome
+unknown* is [`../../../run/effect_test.go`](../../../run/effect_test.go)'s, and
+the group kill it sends is
+[`../../child_test.go`](../../child_test.go)'s.
 
 ## How a case reaches a binary, and what it costs
 
@@ -649,7 +698,10 @@ does* is true by construction rather than by a case.
 [`an-expansion-of-shell-steps-is-serial`](an-expansion-of-shell-steps-is-serial)
 shows the built-in's own end of it: it declares no `concurrency:`, so its
 Expansion is serial, and the accumulating stdout is what serial looks like from
-the branch.
+the branch. Its effectful counterpart
+[`an-expansion-of-shell-mutates-is-serial`](an-expansion-of-shell-mutates-is-serial)
+shows the arm that consults no limit at all, a Kind other than `read` dispatching
+one member at a time whatever a Manifest declared (ADR-0045).
 
 **How much of an Expansion ran at once.** A limit, a dispatch order and *two
 Steps never overlap* are all facts about **when** calls happened, and a branch

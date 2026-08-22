@@ -1,0 +1,114 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae06b02/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T08:12:03.114Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae06b02/run.json (471 bytes)
+{
+  "dry_run": false,
+  "procedure": "retire-once",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "99b77379e5aba6621a3d6c50505b1dc8e1d5b88a",
+    "repo_revision": "0068d7c040147dc36822c72d1bf2e80ad7f9265b"
+  },
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae06b02",
+  "schema_version": 1,
+  "started_at": "2026-04-02T08:12:03.114Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae06b02/steps/0001.json (647 bytes)
+{
+  "definition": "host-ops",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T08:12:03.114Z",
+  "id": "retire",
+  "identities": {
+    "digest": "sha256:beeeee0f2fcb0495f4e7484bdf714e8228a5fc06d9fd10837cf4609bae315e0a",
+    "members": [
+      "/srv/app/releases/r41"
+    ]
+  },
+  "kind": "destroy",
+  "operation": "destroy_once",
+  "provenance": {
+    "definition_revision": "cc4c283f13b6e30054af56822b673153ddfe4f05",
+    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4"
+  },
+  "provider": "shell",
+  "schema_version": 1,
+  "started_at": "2026-04-02T08:12:03.114Z",
+  "step": 1,
+  "target": "local"
+}
+=== journal/2026/04/02/01991f50-b118-7c93-8d41-6b2f7ae06a09/outcome.json (426 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "error_code": "run-once-recorded",
+      "field": "steps[0]",
+      "file": "procedures/retire-once.yaml",
+      "line": 5,
+      "message": "retire binds destroy_once, which is run-once, and run 01991ea6-b118-7c93-8d41-6b2f7ae06b02 records it as ran",
+      "step": 1,
+      "step_id": "retire"
+    }
+  ],
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f50-b118-7c93-8d41-6b2f7ae06a09/run.json (471 bytes)
+{
+  "dry_run": false,
+  "procedure": "retire-once",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "6a3e7a5d20931331bf6d846c37752d6cb9749a77",
+    "repo_revision": "18c4435a94a86c0905479a29d147213bb634deb8"
+  },
+  "run_id": "01991f50-b118-7c93-8d41-6b2f7ae06a09",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f50-b118-7c93-8d41-6b2f7ae06a09/steps/0001.json (486 bytes)
+{
+  "definition": "host-ops",
+  "disposition": "refused",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "retire",
+  "kind": "destroy",
+  "operation": "destroy_once",
+  "provenance": {
+    "definition_revision": "6c988fab0796413b5b8ed0aae80595b793d8874b",
+    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4"
+  },
+  "provider": "shell",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}

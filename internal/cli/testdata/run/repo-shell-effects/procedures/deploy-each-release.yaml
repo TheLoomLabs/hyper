@@ -1,0 +1,12 @@
+kind: procedure
+procedure: deploy-each-release
+targets: [local]
+steps:
+  - id: deploy
+    definition: host-ops
+    operation: mutate
+    target: local
+    over:
+      values: [r41, r42, r43]
+    args:
+      command: [tally, {item: $}]

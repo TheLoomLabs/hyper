@@ -34,6 +34,13 @@ import (
 // **not** what *attempted, outcome unknown* carries: that value means no answer
 // came back at all.
 //
+// **Under `shell` the same rule is read against a command's own vocabulary: it
+// completes on `0` and halts on everything else, on both effectful Kinds.**
+// There is no `404` for a command to answer with, so the one threshold that
+// moves with the Kind under `http` does not move at all here, and a child that
+// could not be started is the no-answer case under a different Capability
+// (§6, issue #156, judgedCommand below).
+//
 // **The two `attempted` Dispositions are distinct on one axis, and it is
 // whether anything is in doubt.** A deadline reached is ambiguous — the call
 // went out and no answer came back — so the Step is *attempted, outcome
@@ -49,7 +56,10 @@ import (
 // a `503` was untoward, which on a `read` it does not (§7, ADR-0010). It covers
 // the three cases §6 makes of an answer that was not the ordinary one — the
 // halt, the `404` that completes a `destroy`, and the request that never left —
-// and no others: a deadline carries none, there being no answer to name.
+// and no others: a deadline carries none, there being no answer to name. Under
+// `shell` it carries that Capability's own members and covers **two** of the
+// three, there being no `404` to complete anything: the nonzero exit that halted
+// the Step, and the child that never started.
 //
 // **On a `destroy` it is the whole of what tells a Tombstone written on `404`
 // from one written on `204`.** The Record says the thing is gone and nothing
@@ -88,16 +98,18 @@ type effectFault struct {
 
 func (f effectFault) Error() string { return f.message }
 
-// answeredOtherwise is a call that came back and did not complete the Step: the
-// status outside `2xx`, and the Disposition *ran* — the call went out, the
-// answer came back, and what stopped the Step is what that answer said.
+// answeredOtherwise is a call that came back and did not complete the Step —
+// the status outside `2xx`, the exit code other than `0` — at the Disposition
+// *ran*: the call went out, the answer came back, and what stopped the Step is
+// what that answer said.
 func answeredOtherwise(answered store.Answered, message string, args ...any) error {
 	return effectFault{disposition: store.DispositionRan, answered: answered, message: fmt.Sprintf(message, args...)}
 }
 
 // neverLeft is a request that provably never left: no response arrived at all,
-// so the Step is *attempted, world untouched* and its `answered` names the host
-// it reached for with no status beside it (§7).
+// so the Step is *attempted, world untouched* and its `answered` names what the
+// call reached for with no answer beside it — the host under `http`, the command
+// under `shell` (§7).
 func neverLeft(answered store.Answered, message string, args ...any) error {
 	return effectFault{disposition: store.DispositionAttemptedWorldUntouched, answered: answered, message: fmt.Sprintf(message, args...)}
 }
@@ -271,15 +283,15 @@ func (b binding) haltedByDeadline(message string, args ...any) error {
 // is the `answered` the Step file carries: the call did not give the ordinary
 // answer, and the Step went on all the same (§7).
 //
-// **The `shell` half is not here.** An effectful `shell` Operation completes on
-// `0` alone and its `answered` carries the command and the exit code, there
-// being no `404` for a command to answer with and no exit code meaning *already
-// absent* in any vocabulary `hyper` knows. That is the Kind semantics on top of
-// a Capability that needs nothing, and it is issue #156's — so an effectful
-// `shell` Step still records what came back, as it did before this ticket.
+// **The `shell` half is judgedCommand below**, on the same rule read against
+// the vocabulary a command answers in: `0` alone, on both effectful Kinds
+// (issue #156).
 func (b binding) judged(authored sequenced, response capability.Object) (store.Answered, error) {
-	if !b.effectful() || b.operation.IsShell {
+	if !b.effectful() {
 		return nil, nil
+	}
+	if b.operation.IsShell {
+		return b.judgedCommand(authored, response)
 	}
 
 	host, _ := memberOf[string](response, capability.MemberHost)
@@ -301,6 +313,64 @@ func (b binding) judged(authored sequenced, response capability.Object) (store.A
 		named(authored), host, status, b.operation.Kind, b.completesOn())
 }
 
+// judgedCommand is the `shell` half of the same judgement, read against the
+// vocabulary a command answers in: an effectful Operation completes on **`0`**
+// and halts on everything else (§6, ADR-0050).
+//
+// **There is no `404` here, and its absence is a decision rather than a gap.** A
+// status code is a protocol's shared vocabulary and `404` means *not there* in
+// every API that speaks it, which is why a `destroy` completes on one. An exit
+// code is the **command's own** vocabulary and means whatever that command
+// decided; nothing in any artefact says which value stands for *already absent*,
+// and the Provider author who would declare it is `hyper`, which knows nothing
+// whatever about the command. So a `destroy` completes on `0` alone, and the
+// trap the `404` exists to avoid is closed by the `over:` selector instead: a
+// `values:` member the Store already holds a Tombstone for is dropped from the
+// Expansion before the command goes out, so the Step does not re-reach what it
+// already ended (§5, §6, expand.go).
+//
+// **A child that could not be started at all is *attempted, world untouched*.**
+// The object is `command` and nothing else — three members absent together,
+// which is the one shape §12 reserves for an argv that never became a process —
+// and it carries the same Disposition as a request that never left one
+// Capability over: a child that never started touched nothing, and which
+// Capability the request used is not a ground for `hyper` to hold two values for
+// one state (§12, ADR-0062, capability.Perform).
+//
+// **`command` is written into every answer this makes**, which is what keeps the
+// key from ever being written empty: a failed exec would otherwise leave
+// `answered: {}`, which the encoding suppresses outright, and the fact that
+// something other than the ordinary answer decided this Step would vanish
+// exactly where it is least ordinary. It is also the only place the fact
+// survives on a `destroy`, which projects nothing and declares no identity, so
+// there is no projected `command` anywhere in the entry (§7, ADR-0037).
+//
+// Nothing here completes a Step on an answer that was not the ordinary one, so
+// it answers no `store.Answered` beside a nil fault — the `404` arm one function
+// up has no counterpart under this Capability.
+func (b binding) judgedCommand(authored sequenced, response capability.Object) (store.Answered, error) {
+	// The argv as run, which capability.Perform writes into the object
+	// before it starts anything — so it is there on every path that reaches
+	// here, the exec that failed included, and no answer below is the empty
+	// block the encoding suppresses. That the object carries it where it
+	// carries nothing else is
+	// capability.TestCommandPerform_ACommandThatCouldNotBeStarted's, which
+	// is where the invariant this reads is held (§12).
+	command, _ := memberOf[string](response, capability.MemberCommand)
+	code, arrived := memberOf[int](response, capability.MemberExitCode)
+	if !arrived {
+		return nil, neverLeft(store.ShellAnswer{Command: command},
+			"step %s: %s could not be started, so no child ran and the world is untouched",
+			named(authored), command)
+	}
+	if code == 0 {
+		return nil, nil
+	}
+	return nil, answeredOtherwise(store.ShellAnswer{Command: command, ExitCode: store.Arrived(code)},
+		"step %s: %s exited %d, and a %s Step completes on %s — an exit code is the command's own vocabulary and means whatever that command decided, so hyper reads no other value as its effect having happened",
+		named(authored), command, code, b.operation.Kind, b.completesOn())
+}
+
 // completesOn is what this Step's Kind accepts, said the way a reader of the
 // halt needs it: the threshold itself, so the sentence a halted `destroy`
 // renders is true of a `destroy` (§6).
@@ -310,16 +380,26 @@ func (b binding) judged(authored sequenced, response capability.Object) (store.A
 // that moves. A message naming the Kind and then stating the other Kind's
 // threshold is the one thing a reader cannot recover from: they would read that
 // their `404` should have halted too.
+//
+// **Under `shell` it is `0` on both Kinds**, and the Capability is read before
+// the Kind for that reason: the threshold that moves with the Kind is the
+// `404`, which is a status code and has no counterpart in a command's own
+// vocabulary (§6, judgedCommand above).
 func (b binding) completesOn() string {
-	if b.tombstones() {
+	switch {
+	case b.operation.IsShell:
+		return "0 alone"
+	case b.tombstones():
 		return "2xx and on 404 besides"
+	default:
+		return "2xx alone"
 	}
-	return "2xx alone"
 }
 
 // memberOf reads one member of a response object at the type §12 states it at,
-// and answers whether it was there to read: `host` is a string and `status` an
-// integer, both written by internal/capability and by nothing else.
+// and answers whether it was there to read: `host` and `command` are strings and
+// `status` and `exit_code` integers, all four written by internal/capability and
+// by nothing else.
 //
 // **The absence is the answer**, and on `status` it is the whole of *no response
 // arrived*: a status of `0` read out of a member the object does not carry is
@@ -328,8 +408,8 @@ func (b binding) completesOn() string {
 // value hyper cannot read being one it does not have.
 //
 // It is here rather than beside capability.Object.Lookup because what it adds
-// is a **type**, and which type each of these two members has is §12's fact
-// about the two members this file reads — not a widening of the response
+// is a **type**, and which type each of them has is §12's fact about the members
+// this file reads — not a widening of the response
 // object's own interface, which answers *what does this member hold* and is
 // read by a projection that resolves paths rather than names (ADR-0040).
 func memberOf[T any](response capability.Object, name string) (T, bool) {

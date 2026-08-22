@@ -1,0 +1,10 @@
+kind: procedure
+procedure: deploy-release
+targets: [local]
+steps:
+  - id: deploy
+    definition: host-ops
+    operation: mutate
+    target: local
+    args:
+      command: [deploy, r41]

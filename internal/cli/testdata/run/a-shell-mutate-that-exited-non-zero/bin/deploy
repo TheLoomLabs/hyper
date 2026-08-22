@@ -1,0 +1,3 @@
+#!/bin/sh
+printf 'deploy: %s: no release under that name\n' "$1" >&2
+exit 1

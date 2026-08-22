@@ -1,0 +1,148 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f50-b118-7c93-8d41-6b2f7ae06a04/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f50-b118-7c93-8d41-6b2f7ae06a04/run.json (479 bytes)
+{
+  "dry_run": false,
+  "procedure": "deploy-each-release",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "29402ccaca22be07a3aac48f219e9267691c8201",
+    "repo_revision": "18c4435a94a86c0905479a29d147213bb634deb8"
+  },
+  "run_id": "01991f50-b118-7c93-8d41-6b2f7ae06a04",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f50-b118-7c93-8d41-6b2f7ae06a04/steps/0001.json (877 bytes)
+{
+  "definition": "host-ops",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "deploy",
+  "identities": {
+    "digest": "sha256:583b0d5c120ad03f4a3f2d3bcbcfff249dceab2bef7aad81261e22498585b417",
+    "members": [
+      "[\"tally\",\"r41\"]",
+      "[\"tally\",\"r42\"]",
+      "[\"tally\",\"r43\"]"
+    ]
+  },
+  "kind": "mutate",
+  "operation": "mutate",
+  "provenance": {
+    "definition_revision": "6c988fab0796413b5b8ed0aae80595b793d8874b",
+    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4"
+  },
+  "provider": "shell",
+  "schema_version": 1,
+  "selector": {
+    "declared": {
+      "values": [
+        "r41",
+        "r42",
+        "r43"
+      ]
+    },
+    "expanded_to": [
+      "r41",
+      "r42",
+      "r43"
+    ]
+  },
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/host-ops/%5B%22tally%22%2C%22r41%22%5D/01991f50-b118-7c93-8d41-6b2f7ae06a04-0001.json (712 bytes)
+{
+  "definition": "host-ops",
+  "fields": {
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "deployed r41\n"
+  },
+  "name": "[\"tally\",\"r41\"]",
+  "operation": "mutate",
+  "provenance": {
+    "definition_revision": "6c988fab0796413b5b8ed0aae80595b793d8874b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4",
+    "procedure_revision": "29402ccaca22be07a3aac48f219e9267691c8201",
+    "repo_revision": "18c4435a94a86c0905479a29d147213bb634deb8"
+  },
+  "record_type": "asset",
+  "run_id": "01991f50-b118-7c93-8d41-6b2f7ae06a04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/host-ops/%5B%22tally%22%2C%22r42%22%5D/01991f50-b118-7c93-8d41-6b2f7ae06a04-0001.json (726 bytes)
+{
+  "definition": "host-ops",
+  "fields": {
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "deployed r41\ndeployed r42\n"
+  },
+  "name": "[\"tally\",\"r42\"]",
+  "operation": "mutate",
+  "provenance": {
+    "definition_revision": "6c988fab0796413b5b8ed0aae80595b793d8874b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4",
+    "procedure_revision": "29402ccaca22be07a3aac48f219e9267691c8201",
+    "repo_revision": "18c4435a94a86c0905479a29d147213bb634deb8"
+  },
+  "record_type": "asset",
+  "run_id": "01991f50-b118-7c93-8d41-6b2f7ae06a04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/host-ops/%5B%22tally%22%2C%22r43%22%5D/01991f50-b118-7c93-8d41-6b2f7ae06a04-0001.json (740 bytes)
+{
+  "definition": "host-ops",
+  "fields": {
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "deployed r41\ndeployed r42\ndeployed r43\n"
+  },
+  "name": "[\"tally\",\"r43\"]",
+  "operation": "mutate",
+  "provenance": {
+    "definition_revision": "6c988fab0796413b5b8ed0aae80595b793d8874b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4",
+    "procedure_revision": "29402ccaca22be07a3aac48f219e9267691c8201",
+    "repo_revision": "18c4435a94a86c0905479a29d147213bb634deb8"
+  },
+  "record_type": "asset",
+  "run_id": "01991f50-b118-7c93-8d41-6b2f7ae06a04",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

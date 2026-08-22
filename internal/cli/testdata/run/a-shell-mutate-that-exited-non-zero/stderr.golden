@@ -1,0 +1,3 @@
+run 01991f50-b118-7c93-8d41-6b2f7ae06a02
+step 1/1 deploy
+hyper run: step deploy: ["deploy","r41"] exited 1, and a mutate Step completes on 0 alone — an exit code is the command's own vocabulary and means whatever that command decided, so hyper reads no other value as its effect having happened

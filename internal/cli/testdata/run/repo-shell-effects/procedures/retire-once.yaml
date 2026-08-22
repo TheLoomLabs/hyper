@@ -1,0 +1,12 @@
+kind: procedure
+procedure: retire-once
+targets: [local]
+steps:
+  - id: retire
+    definition: host-ops
+    operation: destroy_once
+    target: local
+    over:
+      values: [/srv/app/releases/r41]
+    args:
+      command: [rm, -rf, {item: $}]

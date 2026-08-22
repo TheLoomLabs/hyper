@@ -1,0 +1,23 @@
+#!/bin/sh
+# The path the member before this one removed, read back off the file they
+# share: nothing on the first, and each member's own path thereafter.
+before=""
+if [ -f removed ]; then
+	while IFS= read -r line; do
+		before="$line"
+	done < removed
+fi
+
+case "$2" in
+	*/r41) expected="" ;;
+	*/r42) expected="/srv/app/releases/r41" ;;
+	*/r43) expected="/srv/app/releases/r42" ;;
+	*) expected="the argv named a path this fixture does not know" ;;
+esac
+
+if [ "$before" != "$expected" ]; then
+	printf 'rm: %s ran after %s, and this Expansion is serial in the authored order\n' "$2" "${before:-nothing}" >&2
+	exit 1
+fi
+
+printf '%s\n' "$2" >> removed

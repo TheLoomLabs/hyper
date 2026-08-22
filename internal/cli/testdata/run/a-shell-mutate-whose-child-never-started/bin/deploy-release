@@ -1,0 +1,2 @@
+#!/bin/sh
+printf 'this is not the binary the argv names\n'
