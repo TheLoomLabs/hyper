@@ -196,6 +196,25 @@ selector is `opaque-destroy-unscoped`: it is invoked once (§3), has no Expansio
 under and declares no identity, so it would reach the world and leave nothing in the record at all
 (§5, ADR-0053).
 
+## A graph that closes on itself
+
+A Procedure may invoke another, and the graph those invocations make is acyclic. A Procedure that
+invokes one already invoking it — itself directly, or through a chain of any length — is
+`procedure-cycle`.
+
+It is refused here rather than at the Run for the reason §6 states the rule in: the invocation graph
+is static, so a cycle is a fact about the text and is knowable offline, with no credential resolved
+and no Store located (§6, ADR-0002). That is also what buys §6 its *no depth limit* — a walk over an
+acyclic graph terminates, and nothing needs a ceiling to stop it.
+
+The row cites the **invocation entry that closes the loop** — the `procedure:` line an author edits
+to break it — and never the Procedure the walk happened to enter at, whose own invocation may be
+perfectly good. A Procedure invoked from two places without a cycle is not refused — a diamond is
+not a loop, and a Procedure two others share is what invocation is for.
+
+The alternative this refuses outright is truncation. A Run that dropped the recursive invocation and
+performed the rest would be a Run performing a Procedure nobody wrote (§6).
+
 ## A skip that can only skip
 
 A `skip-if-recorded` Step expanding over `assets:` is `skip-if-recorded-unreachable`. An effectful

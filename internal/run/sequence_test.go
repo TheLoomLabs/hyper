@@ -131,8 +131,9 @@ func TestFlatten_IsNotWholeWhereItCouldNotDescend(t *testing.T) {
 // property it is there for: the walk answers rather than recursing forever, and
 // it says which Procedure closed the loop.
 //
-// §4 states no code for a cycle and no static check reports one, so the name is
-// the whole of what a Run has to go on — and Perform stops on it rather than
+// `check` refuses a cycle before Step 1 — `procedure-cycle`, cited at the
+// invocation entry that closes the loop (§4, issue #146) — so what the name is
+// for is Perform's own precondition past that gate: it stops rather than
 // performing a Procedure with the recursive invocation quietly dropped.
 func TestFlatten_NamesACycleRatherThanTruncatingIt(t *testing.T) {
 	walked := flatten(sequenceFixture(t), "cyclic")

@@ -72,7 +72,7 @@ func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (s
 	//
 	// It lives in internal/verify rather than here because this command is
 	// not its only caller: a Run re-runs it in full at Run start, which is
-	// how all thirty-one of §4's static codes reach a Run (§6, ADR-0061,
+	// how all thirty-two of §4's static codes reach a Run (§6, ADR-0061,
 	// issue #137). What is left here is what is this command's — which
 	// problems it reports, in what order, and what it says where there are
 	// none.

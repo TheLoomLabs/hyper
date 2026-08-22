@@ -8,6 +8,12 @@
 // depth — which is what sets this apart from procedure.go's per-file
 // checks and is why it lives in its own file with its own entry points,
 // BuildProcedureGraph and CheckProcedureGraph.
+//
+// A fourth rule is here because it is about the graph rather than about
+// anything read through it: procedure-cycle, an invocation graph that closes
+// on itself (issue #146). The three above tolerate a cycle — a name already
+// being walked contributes nothing further — which is right for them and
+// silent, and §6 states the graph is acyclic rather than hoping it is.
 package artefact
 
 import (
@@ -35,6 +41,16 @@ const CodeCadenceRunOnce = "cadence-run-once"
 // cadence-run-once on a secret: clash edits a repeatability: that is
 // correct.
 const CodeCadenceSecretOutput = "cadence-secret-output"
+
+// CodeProcedureCycle is the code an invocation graph that closes on itself
+// earns: a Procedure invoking one it is already inside of, directly or
+// through a chain of any length. §6 states the graph is static and that a
+// cycle is rejected before the first Step, and this is the walk that can
+// state it — every procedures/ file at once, and the chain in hand as it
+// recurses. It is cited at the invocation entry that closes the loop rather
+// than at the Procedure the walk entered at, that entry being the line an
+// author edits to break it (§4, §6, ADR-0002, issue #146).
+const CodeProcedureCycle = "procedure-cycle"
 
 // ProcedureRoot pairs one procedures/ file's own relative path with its
 // already-parsed root — what BuildProcedureGraph reads the transitive
@@ -223,13 +239,71 @@ func walkProcedure(name string, graph ProcedureGraph, memo map[string]procedureR
 	return r
 }
 
-// CheckProcedureGraph walks graph and reports the two rules that need every
-// procedures/ file at once (§4, §5, issue #96): an invoked Procedure's own
-// transitive envelope reaching outside its caller's declared targets: —
-// the composition half of envelope-exceeded, cited at the invocation that
-// makes the composition, procedure.go's own file-local checks having
-// already covered a Step directly in a file reaching past its own
-// Procedure's declared envelope — and, on a Procedure declaring a Cadence,
+// checkProcedureCycles reports every invocation entry that closes a cycle.
+//
+// It is its own depth-first walk rather than a report bolted onto
+// walkProcedure, and for a reason that outlives this issue: walkProcedure is
+// memoized and answers one question per name, so it visits a Procedure once
+// per repository pass and cannot be relied on to have arrived through the
+// caller a cycle closes at. This walk carries `visiting` as a **stack** — the
+// chain it is inside of right now — and `walked` as everything already
+// explored, so each edge of the graph is examined exactly once: a back edge
+// into the chain is the cycle and is reported there, and an edge into a
+// Procedure already explored is a diamond and is not.
+//
+// A name absent from graph contributes nothing, on walkProcedure's own rule:
+// an invocation naming nothing is procedure.go's artefact-absent, and a name
+// that resolves to no file closes no loop.
+func checkProcedureCycles(graph ProcedureGraph) []problem.Problem {
+	var problems []problem.Problem
+	walked := map[string]bool{}
+	visiting := map[string]bool{}
+
+	var walk func(name string)
+	walk = func(name string) {
+		info, ok := graph[name]
+		if !ok {
+			return
+		}
+		visiting[name] = true
+		for _, inv := range info.invocations {
+			if visiting[inv.procedureName] {
+				problems = append(problems, problem.Problem{
+					File: info.file, Line: inv.line, Column: inv.column, Field: inv.field,
+					ErrorCode: CodeProcedureCycle,
+					Message:   fmt.Sprintf("procedure: %s already reaches %s, so this invocation closes a cycle — the invocation graph is static and no Run performs one", inv.procedureName, name),
+				})
+				continue
+			}
+			if walked[inv.procedureName] {
+				continue
+			}
+			walk(inv.procedureName)
+		}
+		delete(visiting, name)
+		walked[name] = true
+	}
+
+	for _, name := range sortedProcedureNames(graph) {
+		if !walked[name] {
+			walk(name)
+		}
+	}
+	return problems
+}
+
+// CheckProcedureGraph walks graph and reports the rules that need every
+// procedures/ file at once (§4, §5, issues #96, #146): the graph closing on
+// itself — a Procedure invoking one it is already inside of, which is
+// procedure-cycle and is collected first, being the one fault about the shape
+// of the graph rather than about anything reachable through it (what order a
+// surface renders it in is problem.Sort's, over the file and line every row
+// carries); an invoked
+// Procedure's own transitive envelope reaching outside its caller's declared
+// targets: — the composition half of envelope-exceeded, cited at the
+// invocation that makes the composition, procedure.go's own file-local
+// checks having already covered a Step directly in a file reaching past its
+// own Procedure's declared envelope — and, on a Procedure declaring a Cadence,
 // a reachable run-once Step (cadence-run-once) or a reachable Step whose
 // Operation declares secret: output (cadence-secret-output), each cited at
 // the cadence: line of the Procedure declaring the recurrence rather than
@@ -237,7 +311,7 @@ func walkProcedure(name string, graph ProcedureGraph, memo map[string]procedureR
 // author can act on: narrow the Cadence away, or edit the Step.
 func CheckProcedureGraph(graph ProcedureGraph) []problem.Problem {
 	memo := map[string]procedureReach{}
-	var problems []problem.Problem
+	problems := checkProcedureCycles(graph)
 
 	for _, name := range sortedProcedureNames(graph) {
 		info := graph[name]

@@ -1,0 +1,12 @@
+kind: procedure
+procedure: loop
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]
+  - id: call-itself
+    procedure: loop

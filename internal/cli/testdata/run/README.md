@@ -128,6 +128,11 @@ names one in a **`repo-from`** file instead, and the ones here are:
   Refuses Refuses every Run of every Procedure beside it, so a broken Procedure
   living in a shared repository would leave every case sharing it asserting one
   Refusal under ten different names.
+- [`repo-cyclic/`](repo-cyclic) — `repo-watch-status` whose one Procedure
+  invokes **itself** after its Step (issue #146). It is a repository of its own
+  for the reason above: a cyclic invocation graph is `procedure-cycle` at
+  `check`, and `check` re-runs in full at Run start, so it would Refuse every
+  Run of every Procedure beside it.
 
 The rest carry a repository of their own, each written for the one edge it
 drives.
@@ -181,6 +186,7 @@ drives.
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
 | `check-refuses-the-run`, `-json` | `check` re-run in full: five codes across the five artefact kinds, one `refusal` row each, in `check`'s own order |
+| `a-cyclic-procedure-refuses-the-run` | the invocation graph that closes on itself: `procedure-cycle` at the Run-start `check`, `77`, and the Refusal on the entry. A cycle is `check`'s to refuse — the engine's own arm for one is a precondition no Run reaches (§4, §6, issue #146) |
 | `a-working-tree-edited-since-check-passed` | the same gate driven the way an operator meets it — one `uncommitted/` line narrows `local`'s `kinds:`, and the Run refuses with the codes the edit earns |
 | `a-credential-the-environment-does-not-hold` | one absent slot, `credential-absent`, citing the `env:` line of the declaration whose slot the environment did not fill |
 | `every-absent-credential-at-once`, `-json` | three absent slots across two Targets in **one** Refusal, and the two slots `paid` carries that no Step of this Run could send are not among them |

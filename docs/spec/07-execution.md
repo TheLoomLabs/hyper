@@ -51,7 +51,8 @@ A Procedure invoking another does not start a second Run. The invoked Procedure'
 the one Run, recorded under a path — `deploy.provision.create-vm` — and a halt inside a nested
 Procedure is a halt of the whole. One Run has one outcome, one Journal entry, and one exit code
 however deep the invocation goes. The invocation graph is static, so a cycle is rejected before the
-first Step and no depth limit exists (ADR-0002).
+first Step — by `check`, which reports it as `procedure-cycle` at the invocation entry that closes
+the loop (§4) — and no depth limit exists (ADR-0002).
 
 ## No inputs
 

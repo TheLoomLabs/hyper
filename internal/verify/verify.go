@@ -5,7 +5,7 @@
 //
 // It is a package of its own because it has two callers and one of them is not
 // a command. `hyper check` is the surface §9 gives it; a Run re-runs it **in
-// full with nothing skipped** at Run start, which is how all thirty-one of §4's
+// full with nothing skipped** at Run start, which is how all thirty-two of §4's
 // static codes reach a Run and why most of the closed `error_code` set declines
 // before Step 1 (§6, ADR-0061). Two callers spelling that pass for themselves
 // is two readings of §4, and the day comes that a Run admits a repository

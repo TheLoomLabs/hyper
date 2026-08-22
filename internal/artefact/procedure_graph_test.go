@@ -399,10 +399,48 @@ func TestCheckProcedureGraph_CadenceOverNoSecretOutputDrawsNoCadenceSecretOutput
 	mustNoCode(t, got, CodeCadenceSecretOutput)
 }
 
-// TestCheckProcedureGraph_InvocationCycleDoesNotHang proves the walk
-// guards against a Procedure invoking itself, directly or through a cycle,
-// rather than recursing forever — a defensive property this issue does not
-// name a code for, but that every genuine "to any depth" walk needs.
+// --- procedure-cycle: an invocation graph that closes on itself ---
+
+// TestCheckProcedureGraph_ProcedureInvokingItselfIsProcedureCycle is the
+// smallest cycle there is: a file whose own `steps:` invoke the Procedure
+// that file declares. §6 says a cycle is rejected **before the first Step**,
+// and this is the walk that can say so — it reads every procedures/ file at
+// once and already knows which Procedures it is inside of (issue #146).
+const selfInvoking = `kind: procedure
+procedure: loop
+targets: [local]
+steps:
+  - id: call-itself
+    procedure: loop
+`
+
+func TestCheckProcedureGraph_ProcedureInvokingItselfIsProcedureCycle(t *testing.T) {
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/loop.yaml", selfInvoking),
+	}, shellProviders(), uptimeDefinitions())
+
+	got := CheckProcedureGraph(graph)
+	p := mustCode(t, got, CodeProcedureCycle)
+	if p.File != "procedures/loop.yaml" {
+		t.Errorf("File = %q, want procedures/loop.yaml", p.File)
+	}
+	// The invocation entry itself — `    procedure: loop` on the sixth
+	// line, its value at the sixteenth column — which is the line an
+	// author edits to break the loop.
+	if p.Line != 6 || p.Column != 16 {
+		t.Errorf("cited %d:%d, want 6:16 — the invocation entry that closes the loop", p.Line, p.Column)
+	}
+	if p.Field != "steps[0].procedure" {
+		t.Errorf("Field = %q, want steps[0].procedure", p.Field)
+	}
+}
+
+// TestCheckProcedureGraph_CycleThroughTwoIsCitedWhereItCloses is the same
+// fault one hop longer, and it is where the citation rule earns its keep: the
+// walk enters at `cycle-a` because that is the name it reaches first, and the
+// entry that closes the loop is in `cycle-b`. A row against the Procedure the
+// walk happened to enter at would send an author to a file whose invocation
+// is fine.
 const cycleA = `kind: procedure
 procedure: cycle-a
 targets: [local]
@@ -419,15 +457,112 @@ steps:
     procedure: cycle-a
 `
 
-func TestCheckProcedureGraph_InvocationCycleDoesNotHang(t *testing.T) {
+func TestCheckProcedureGraph_CycleThroughTwoIsCitedWhereItCloses(t *testing.T) {
 	graph := BuildProcedureGraph([]ProcedureRoot{
 		procedureRoot(t, "procedures/cycle-a.yaml", cycleA),
 		procedureRoot(t, "procedures/cycle-b.yaml", cycleB),
 	}, shellProviders(), uptimeDefinitions())
 
-	// A hang here fails the test on go test's own default timeout — the
-	// property under test is termination, not any particular row.
-	CheckProcedureGraph(graph)
+	// A hang here fails the test on go test's own default timeout: the walk
+	// terminating is the property every "to any depth" rule below needs,
+	// and the row is what this issue adds to it.
+	got := CheckProcedureGraph(graph)
+	p := mustCode(t, got, CodeProcedureCycle)
+	if p.File != "procedures/cycle-b.yaml" {
+		t.Errorf("File = %q, want procedures/cycle-b.yaml — the invocation that closes the loop, not the one the walk entered at", p.File)
+	}
+	if p.Line != 6 || p.Column != 16 {
+		t.Errorf("cited %d:%d, want 6:16", p.Line, p.Column)
+	}
+}
+
+// TestCheckProcedureGraph_CycleThroughThreeIsCitedWhereItCloses is the
+// chain one hop longer again, which is what says the walk is transitive
+// rather than a test of the two names in hand.
+const chainA = `kind: procedure
+procedure: chain-a
+targets: [local]
+steps:
+  - id: call-b
+    procedure: chain-b
+`
+
+const chainB = `kind: procedure
+procedure: chain-b
+targets: [local]
+steps:
+  - id: call-c
+    procedure: chain-c
+`
+
+const chainC = `kind: procedure
+procedure: chain-c
+targets: [local]
+steps:
+  - id: call-a
+    procedure: chain-a
+`
+
+func TestCheckProcedureGraph_CycleThroughThreeIsCitedWhereItCloses(t *testing.T) {
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/chain-a.yaml", chainA),
+		procedureRoot(t, "procedures/chain-b.yaml", chainB),
+		procedureRoot(t, "procedures/chain-c.yaml", chainC),
+	}, shellProviders(), uptimeDefinitions())
+
+	got := CheckProcedureGraph(graph)
+	p := mustCode(t, got, CodeProcedureCycle)
+	if p.File != "procedures/chain-c.yaml" {
+		t.Errorf("File = %q, want procedures/chain-c.yaml — the third hop, which is where the loop closes", p.File)
+	}
+	if len(got) != 1 {
+		t.Errorf("CheckProcedureGraph() = %+v, want one row — a cycle is one fault however many hops it takes", got)
+	}
+}
+
+// TestCheckProcedureGraph_DiamondIsNotACycle is the case a naive
+// already-seen test refuses and this one must not: `top` invokes `left` and
+// `leaf`, and `left` invokes `leaf` too. The walk meets `leaf` twice and the
+// graph is acyclic, which is a composition an author is entitled to write.
+const diamondTop = `kind: procedure
+procedure: top
+targets: [local]
+steps:
+  - id: call-left
+    procedure: left
+  - id: call-leaf
+    procedure: leaf
+`
+
+const diamondLeft = `kind: procedure
+procedure: left
+targets: [local]
+steps:
+  - id: call-leaf
+    procedure: leaf
+`
+
+const diamondLeaf = `kind: procedure
+procedure: leaf
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]
+`
+
+func TestCheckProcedureGraph_DiamondIsNotACycle(t *testing.T) {
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/top.yaml", diamondTop),
+		procedureRoot(t, "procedures/left.yaml", diamondLeft),
+		procedureRoot(t, "procedures/leaf.yaml", diamondLeaf),
+	}, shellProviders(), uptimeDefinitions())
+
+	got := CheckProcedureGraph(graph)
+	mustNoCode(t, got, CodeProcedureCycle)
 }
 
 func TestCheckProcedureGraph_NoInvocationsAndNoCadenceIsClean(t *testing.T) {

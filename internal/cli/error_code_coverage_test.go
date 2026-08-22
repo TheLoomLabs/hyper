@@ -16,11 +16,15 @@ import (
 const checkCorpus = "testdata/check"
 
 // milestoneOneErrorCodes is the closed set issue #87 fixes for this
-// milestone: thirty-six error_code members, and no others, reach `hyper
+// milestone: thirty-seven error_code members, and no others, reach `hyper
 // check` (docs/build/milestones.md's milestone 1, "Which codes land, and
 // which do not"). It is:
 //
-//   - §4's thirty-one static codes, in full.
+//   - §4's thirty-two static codes, in full. The last of them,
+//     procedure-cycle, is a member this milestone was written without: §6
+//     said a cyclic invocation graph was rejected before the first Step and
+//     §12 held no code for one, so nothing rejected it until issue #141 made
+//     the state reachable and issue #146 named the check (§4, §12).
 //   - The offline halves of three codes §4 and §6 share — bound-exceeded (an
 //     authored values: list longer than the Bound), predicate-type-mismatch
 //     (the authored operand faults), and record-identity-collision (its §3
@@ -73,10 +77,11 @@ var milestoneOneErrorCodes = []string{
 	"record-identity-collision",
 	"cadence-run-once",
 	"cadence-secret-output",
+	"procedure-cycle",
 }
 
 // TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture walks every golden
-// file in the check corpus and confirms each of the thirty-six error_code
+// file in the check corpus and confirms each of the thirty-seven error_code
 // members this milestone contributes appears in at least one of them — the
 // human table's ERROR_CODE column or the --json stream's "error_code" field,
 // either rendering being fine since both come from one renderer (ADR-0026).
@@ -118,7 +123,7 @@ func TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
 // over: which members of the closed set have a fixture, and which do not.
 const runCorpus = "testdata/run"
 
-// codesReachingARun is what §4's thirty-one codes reaching a Run is proved by:
+// codesReachingARun is what §4's thirty-two codes reaching a Run is proved by:
 // a representative spread rather than the whole set, and at least one code from
 // each of the five artefact kinds (issue #137).
 //
@@ -128,8 +133,8 @@ const runCorpus = "testdata/run"
 // under testdata/check — the list above this one — and what a Run adds is the
 // *path*: `check` is re-run in full with nothing skipped, so a repository that
 // `check` refuses is a repository a Run refuses (§6, ADR-0061). A corpus
-// re-driving all thirty-one through `run` would assert internal/verify runs
-// thirty-one times over, which is one claim and not thirty-one.
+// re-driving all thirty-two through `run` would assert internal/verify runs
+// thirty-two times over, which is one claim and not thirty-two.
 //
 // What a spread does have to cover is the **shape** of the path, and that is
 // what the five artefact kinds are for: the walk reaches every location, and a

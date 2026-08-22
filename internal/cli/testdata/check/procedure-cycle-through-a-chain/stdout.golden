@@ -1,0 +1,2 @@
+FILE                   LINE  FIELD               ERROR_CODE       MESSAGE
+procedures/third.yaml  12    steps[1].procedure  procedure-cycle  procedure: first already reaches third, so this invocation closes a cycle — the invocation graph is static and no Run performs one

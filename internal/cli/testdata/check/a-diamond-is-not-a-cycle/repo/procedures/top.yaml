@@ -1,0 +1,8 @@
+kind: procedure
+procedure: top
+targets: [local]
+steps:
+  - id: call-left
+    procedure: left
+  - id: call-leaf
+    procedure: leaf

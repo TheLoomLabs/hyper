@@ -38,7 +38,7 @@ import (
 //
 // They are spelled here because this is where the checks that carry them are.
 // internal/store reports the schema condition and does not name a code, and
-// §4's thirty-one arrive already carrying theirs.
+// §4's thirty-two arrive already carrying theirs.
 const (
 	// CodeCredentialAbsent is a credential a Target declaration names and
 	// the environment does not hold.
@@ -159,7 +159,7 @@ func schemaRefusal(unreadable store.Unreadable) Refusal {
 
 // staticRefusals is `check` re-run in full with nothing skipped, as a Refusal.
 //
-// This is how **all thirty-one of §4's static codes reach a Run**, which is
+// This is how **all thirty-two of §4's static codes reach a Run**, which is
 // most of the closed `error_code` set rather than a corner of it (ADR-0061).
 // Nothing is implemented for them here: milestone 1 built every one, and what
 // this adds is the path — a Run against a working tree edited since `check`

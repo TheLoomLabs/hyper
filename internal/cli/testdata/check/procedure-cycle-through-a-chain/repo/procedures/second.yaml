@@ -1,0 +1,6 @@
+kind: procedure
+procedure: second
+targets: [local]
+steps:
+  - id: call-third
+    procedure: third

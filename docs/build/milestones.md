@@ -62,7 +62,7 @@ Split these before ticketing, or the slicing happens on a degraded window.
 
 - **Milestone 1** carries §3 (63 KB) and §4 (25 KB) and most of §12. Split three
   ways: the YAML subset and the loader (the reading rule, names, resolution); the
-  five artefact schemas and the request; then the rules — §4's thirty-one static
+  five artefact schemas and the request; then the rules — §4's thirty-two static
   codes. The first two are prefactoring for the third.
 - **Milestone 8** reads §8, the largest section in the spec at 113 KB. Split by
   rendering: the Comparison's three tables, the Step table, the Refusal and the

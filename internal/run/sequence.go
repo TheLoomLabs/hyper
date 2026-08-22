@@ -22,12 +22,15 @@ import (
 // invocation.
 //
 // **There is no depth limit**, because the invocation graph is static and a
-// cycle is rejected before the first Step (§6, ADR-0002). The walk names the
-// cycle rather than truncating it: §4 has no code for one — §12's fifty do not
-// include it and no static check reports it — so the honest answer for a
-// Procedure that invokes itself is that no Run can perform it, said out loud.
-// Silently dropping the recursive invocation would be a Run performing a
-// Procedure nobody wrote.
+// cycle is rejected before the first Step (§6, ADR-0002). What rejects it is
+// `check` — `procedure-cycle`, cited at the invocation entry that closes the
+// loop (§4, issue #146) — and `check` re-runs in full at Run start, so a
+// cyclic repository Refuses at `77` before this walk's answer is read for
+// anything. The walk names the cycle all the same, because the alternative is
+// not silence but truncation: dropping the recursive invocation and running
+// the rest is a Run performing a Procedure nobody wrote, and the name is what
+// run.go's own precondition reports for a caller that reached the engine some
+// other way.
 
 // sequenced is one Step of a Run's flattened sequence: the Step as authored,
 // and the facts about *where it was authored* that only a flattened sequence
@@ -108,10 +111,11 @@ type sequence struct {
 	// taken before `check` has re-run (lock.go).
 	Whole bool
 	// Cycle is the Procedure an invocation named that the walk was already
-	// inside of, and "" where the graph is acyclic. It is the one of the two
-	// that nothing else reports: an invocation naming nothing is
-	// `artefact-absent` at the gate §6 puts before Step 1, and a cycle is a
-	// fault §4 states no code for.
+	// inside of, and "" where the graph is acyclic. Both are `check`'s to
+	// refuse at the gate §6 puts before Step 1 — an invocation naming
+	// nothing is `artefact-absent` and a cycle is `procedure-cycle` — so
+	// what this member is for is the precondition run.go states past that
+	// gate rather than the Refusal itself.
 	Cycle string
 }
 

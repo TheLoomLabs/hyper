@@ -317,16 +317,6 @@ func Perform(request Request) Answer {
 	// invoking another does not start a second Run** (§6, sequence.go).
 	walked := flatten(loaded, request.Procedure)
 	steps := walked.Steps
-	if walked.Cycle != "" {
-		// A Procedure that invokes one it is already inside of. §6 says
-		// a cycle is rejected before the first Step, and §4 states no
-		// code to reject it under — so it stops here, as a fault rather
-		// than a Refusal: a Refusal is `hyper` declining and has a check
-		// to name, and there is no check (§12, ADR-0002).
-		return failedBeforeTheRun(fmt.Errorf(
-			"the invocation graph of %s reaches %s, which is already invoking it — a cycle, and no Run performs one",
-			request.Procedure, walked.Cycle))
-	}
 
 	// What this binary does not implement, restated here as this call's own
 	// precondition. The caller has already asked — NotBuilt is what decides
@@ -403,6 +393,20 @@ func Perform(request Request) Answer {
 	}
 	if len(declined) > 0 {
 		return inFlight.closed(refused(answer, declined))
+	}
+	// The sequence is whole, restated here as this call's own precondition.
+	// A Procedure that invokes one it is already inside of is
+	// `procedure-cycle` at the gate above — `check` re-runs in full and
+	// reports it at the invocation entry that closes the loop (§4, §6,
+	// ADR-0002) — so no Run reaches this line with a cycle in hand. It
+	// stands on the same footing as the resolution faults the Steps below
+	// report: unreachable, and named for the check that reports it rather
+	// than deleted, because the alternative here is not silence but a Run
+	// performing a Procedure nobody wrote (sequence.go).
+	if walked.Cycle != "" {
+		return inFlight.closed(failed(answer, fmt.Errorf(
+			"the invocation graph of %s reaches %s, which is already invoking it — a cycle, and no Run performs one; hyper check reports it",
+			request.Procedure, walked.Cycle)))
 	}
 	inFlight.credentials = held
 

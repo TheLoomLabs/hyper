@@ -671,7 +671,7 @@ func runRows(answer run.Answer) []render.Row {
 //
 // `declared` and `observed` are not here. §7 states them for a check that
 // compared two values, and no check that reaches a Run in this milestone does:
-// §4's thirty-one report a fault at a position, and the three Run-start gates
+// §4's thirty-two report a fault at a position, and the three Run-start gates
 // report an absence, and so do the Expansion's four checks (issue #139). They
 // arrive with `bound-exceeded`, the one member of the closed set that compares a
 // declared count against an observed one, and that is milestone 6's.
