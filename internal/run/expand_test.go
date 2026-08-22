@@ -232,3 +232,85 @@ func TestCodeBoundExceeded_IsOneCodeAtBothSites(t *testing.T) {
 			CodeBoundExceeded, artefact.CodeBoundExceeded)
 	}
 }
+
+// **A `destroy` declares no identity, and its literal resolves one all the
+// same** (§3, §7, ADR-0033, ADR-0037, issue #151).
+//
+// Which name a member's Record will be held under is what decides whether the
+// two identity comparands can run before the first call, and a `destroy`
+// carries no `record:` block for one to be read out of. What a `values:` member
+// resolves instead is the literal an author wrote — a name known before the
+// call like any other, and therefore compared like one, with nothing touched.
+//
+// **And it stops there**, which is the row below that answers nothing: an
+// `assets:` member's name came out of the Store, so it opens no series and
+// cannot be spelled wrong, and the comparand it would meet answers the other
+// spelling wherever the branch already holds both — a wall no edit could clear
+// (ADR-0033, ADR-0075).
+//
+// It is a unit test for this file's own reason: the answer is a pure function
+// of an Operation's Kind, its `identity:` and the selector the member came out
+// of, where the corpus would need one repository per Manifest to say the same
+// five things.
+
+// identityCase is one Operation's `identity:` met by one member of an
+// Expansion: what the Manifest declared, which of §12's forms resolved the
+// member, what it resolved to, and the name the member's Record is held under
+// before the call — "" where there is none until the answer comes back.
+type identityCase struct {
+	kind, identity, form, member, holds string
+}
+
+func TestIdentityBeforeTheCall_ResolvesWhatIsKnownWithoutAResponse(t *testing.T) {
+	// The inputs the Expansion resolved, which is what a template hole
+	// fills from. A `destroy` reads none of them: it fills no hole, having
+	// no `identity:` to write one in.
+	filler, read := schema.ReadScalar(schema.String, "preview-42.example.com")
+	if !read {
+		t.Fatal("the fixture's own input does not read as a string")
+	}
+	inputs := map[string]schema.Scalar{"name": filler}
+
+	for named, c := range map[string]identityCase{
+		// The literal **is** the Record name, with no branch on whether
+		// a series is already there (ADR-0033).
+		"a destroy over a values: literal": {
+			"destroy", "", "values", "/srv/app/releases/r41", "/srv/app/releases/r41",
+		},
+		// And over a series it resolves nothing: that name is the
+		// Store's own and opens nothing, so what a comparand could find
+		// there is a collision the branch already holds.
+		"a destroy over an assets: selector": {
+			"destroy", "", "assets", "preview-42.example.com", "",
+		},
+		// A destroy carrying no selector has no member to name, which
+		// is §5's *no series to write a Tombstone under*.
+		"a destroy carrying no selector": {
+			"destroy", "", "", "", "",
+		},
+		// The ordinary pre-call identity: a hole filled from the inputs
+		// the Expansion just resolved.
+		"a mutate whose identity: is a template hole": {
+			"mutate", "{name}", "values", "preview-42.example.com", "preview-42.example.com",
+		},
+		// A `$`-rooted path names a value that exists only once the call
+		// has gone out, so nothing resolves here and what reaches a
+		// collision is §6's halt (ADR-0072).
+		"a mutate whose identity: reads from the response": {
+			"mutate", "$.body.result.name", "assets", "preview-42.example.com", "",
+		},
+	} {
+		t.Run(named, func(t *testing.T) {
+			bound := binding{operation: artefact.OperationInfo{Kind: c.kind, Identity: c.identity}}
+			resolving := member{Name: c.member, Item: store.String(c.member)}
+
+			held, err := identityBeforeTheCall(bound, selector{Form: c.form}, resolving, inputs, sequenced{})
+			if err != nil {
+				t.Fatalf("identityBeforeTheCall: %v", err)
+			}
+			if held != c.holds {
+				t.Errorf("resolved %q, want %q", held, c.holds)
+			}
+		})
+	}
+}

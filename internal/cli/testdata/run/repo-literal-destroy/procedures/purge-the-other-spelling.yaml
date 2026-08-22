@@ -1,0 +1,14 @@
+kind: procedure
+procedure: purge-the-other-spelling
+targets: [cloudflare-prod]
+steps:
+  - id: purge
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: 1
+    over:
+      values: [Preview-42.example.com]
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $}

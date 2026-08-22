@@ -86,6 +86,22 @@ names one in a **`repo-from`** file instead, and the ones here are:
   `answers:` list is walked in Expansion order and *the fourth member is the one
   that was answered `500`* is a fact the case states rather than a race it
   hopes for (§6).
+- [`repo-literal-destroy/`](repo-literal-destroy) — the `destroy` by literal
+  identifier (issue #151): `repo-destroy`'s Manifest, Definition and Target
+  unchanged, over four Procedures whose selectors are `values:` lists rather
+  than predicates — a `destroy` over two literals, the same over three, a
+  `mutate` over one, and a `destroy` over a literal spelled `Preview-42` against
+  a standing `preview-42`. It is a repository of its own for `repo-bounded`'s
+  reason above, and its cases differ from each other in the **branch they were
+  seeded with** rather than in the artefact: one Procedure over an empty Store
+  opens two series, and over a Store holding a Tombstone it reaches one member
+  fewer.
+- [`repo-opaque-destroy/`](repo-opaque-destroy) — §6's own worked example
+  (issue #151): the built-in `shell` Provider's `destroy`, a Definition claiming
+  it under `destroy:`, a Target that grants `shell` and opts into
+  `opaque-destroy:`, and the `purge-releases` Procedure §6 prints — an `over:`
+  `values:` list of two paths, `args: {command: [rm, -rf, {item: $}]}`, and no
+  `bound:` anywhere, one being `bound-illegal` on such a Step (§4, ADR-0053).
 - [`repo-untracked/`](repo-untracked) — `repo-watch-status` with no
   `definitions/` in it, so the case that adds one through `uncommitted/` is
   running against an artefact git has never seen.
@@ -241,6 +257,12 @@ drives.
 | `a-re-run-reaches-what-the-halt-left` | ADR-0011's *the next Run reads exactly that*, driven over the branch the case above left: the three Tombstoned series stand for nothing, the Expansion resolves the two survivors in the same relative order the halted Run reached them in, and the Run completes at `0`. That the order is the Record `name` by code point rather than the percent-encoded path is `an-expansion-over-observations`', over the one function both selector forms sort in (ADR-0044) |
 | `a-destroy-then-a-create-reads-alive-again` | a Tombstone is terminal for the Asset's life and not for the series: `destroy` then `mutate` over one identity, three versions, and a Head that reads alive again |
 | `a-destroy-past-its-bound` | the Bound counted against a `destroy`'s Expansion: five seeded Assets under a `bound: 2`, `bound-exceeded` at `77`, and no call out — the case serves the host, so what stopped it is the Bound |
+| `a-destroy-by-literal-opens-the-series-it-ends` | ADR-0033 end to end (issue #151): a `destroy` over a `values:` list naming two resources the Store holds nothing for, and two Tombstones each opening the series it ends. Neither carries a `fields` key at all — there was no previous Head to copy forward, and the absence means *`hyper` destroyed this and never observed what it was*. That it needs no second marker is [`../../run_literal_destroy_test.go`](../../run_literal_destroy_test.go)'s |
+| `a-literal-that-matches-a-standing-series` | the same Procedure over a branch that already holds one of the two: no branch on whether a series was there, so one Tombstone opens a series and the other is an ordinary further version carrying the previous Head's `fields`, both under one Run and one Step. The two are held against each other member by member in the same driver |
+| `a-values-member-the-store-already-ended-is-dropped` | *the Store shortens a `destroy`'s list and never lengthens it* (§5): three literals, the middle one already Tombstoned, and `expanded_to` holds the first and the third — three authored, two expanded to, one already gone, readable off the entry beside `declared` and in the authored order the survivors keep |
+| `a-mutate-reaches-the-member-a-destroy-drops` | the other half of the same sentence, over the same seeded branch: a `mutate` over the Tombstoned literal is a call the artefact *is* asking for, so it is reached and the version it writes puts the Head above the Tombstone, alive again |
+| `a-literal-that-folds-onto-a-standing-series` | the price ADR-0033 names, caught where it can be: a member authored `Preview-42.example.com` against a standing `preview-42.example.com` survives the head lookup — the two names are not equal — and the Store comparand Refuses `record-identity-collision` at the Expansion, naming both spellings verbatim, with nothing touched and no call out |
+| `an-opaque-destroy-runs-over-a-values-list` | §6's own worked example run: `rm -rf` over two authored paths, one Tombstone each named by the path a human wrote down, `expanded_to` in Expansion order, and no Bound anywhere claiming to have guarded it |
 | `four-runs-of-one-step` | driven once here and four times by [`../../run_expansion_test.go`](../../run_expansion_test.go) |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
@@ -559,6 +581,20 @@ knows came before any byte left — the dialler answering nothing, and
 [`../../../capability/sent_test.go`](../../../capability/sent_test.go) holds
 both sides of it, a non-zero exit and a `503` included.
 
+**That a Tombstone opening a series is not a shape of its own, and that an
+ordinary version carrying no `fields` is not one.** Both are claims about a key
+that is **absent**, which is what a golden asserts least well: a key nobody
+wrote looks exactly like a key that may not be there.
+[`../../run_literal_destroy_test.go`](../../run_literal_destroy_test.go) reads
+them off the branches two cases left. It holds the Tombstone that opened a
+series against the one written over a standing Asset in the same Run and Step,
+member by member, and fails on any third member differing — so *no second
+marker* is a property of the pair rather than of one file. Then it decodes the
+fieldless Tombstone beside the fieldless Observation that
+`a-command-that-could-not-be-started` writes, and reads what the Store answers
+when asked what each one is: it is the written marker and never the missing key
+that identifies a Tombstone (§7, ADR-0033, ADR-0084).
+
 **Which rhythm a Run pushes at.** A read-only Run batches to its end and an
 effectful one pushes at every Step boundary, and both leave the remote holding
 the same commits — so no branch golden can tell them apart. What tells them
@@ -586,8 +622,12 @@ not look for a case that cannot exist.
 - **A `values:` member the Store dropped** is present in `declared` and absent
   from `expanded_to`, and the drop is a `destroy`'s: §5 drops a member whose
   head is a Tombstone on a `destroy` Step and reaches one on a `mutate`. A
-  `read` drops nothing, so what the cases here show is the two lists standing
-  side by side, and milestone 6 is where they differ.
+  `read` drops nothing, so most of the cases here show the two lists standing
+  side by side and issue #151 is where they differ —
+  [`a-values-member-the-store-already-ended-is-dropped`](a-values-member-the-store-already-ended-is-dropped)
+  against
+  [`a-mutate-reaches-the-member-a-destroy-drops`](a-mutate-reaches-the-member-a-destroy-drops),
+  one seeded branch and two Kinds.
 - **A Tombstone stands for nothing under either form**, and only an `assets:`
   selector can meet one: a Definition observes or effects and never both
   (ADR-0032), so an Observation series never holds a Tombstone and a fixture

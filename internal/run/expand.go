@@ -9,7 +9,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/schema"
 	"github.com/TheLoomLabs/hyper/internal/store"
@@ -39,6 +38,11 @@ import (
 // (§5, §7, ADR-0072, issue #149). What an effectful Expansion still adds is
 // `skip-if-recorded`'s per-member test, which is a different moment and a later
 // ticket's.
+//
+// **The Store shortens a `destroy`'s list and never lengthens it**, and that is
+// the only thing resolved here that anything removes: a `values:` member whose
+// head is a Tombstone is dropped before the count the Bound is read against is
+// taken (§5, ADR-0033, literalMembers below).
 
 // CodePredicateTypeMismatch is §6's half of the code §4 already fires where the
 // fault is authored: an operator handed a **stored** value it cannot compare.
@@ -283,7 +287,11 @@ func (r run) expand(bound binding, authored sequenced, position int) (expansion,
 		// call, which is a set of one (§6).
 		held.Members = []member{{}}
 	case "values":
-		held.Members = literalMembers(held.Selector)
+		members, err := r.literalMembers(bound, held.Selector, authored)
+		if err != nil {
+			return expansion{}, nil, err
+		}
+		held.Members = members
 	default:
 		members, declined, err := r.seriesMembers(held.Selector, authored, cited)
 		if err != nil {
@@ -315,7 +323,7 @@ func (r run) expand(bound binding, authored sequenced, position int) (expansion,
 			found.Arguments = append(found.Arguments, *declined)
 			continue
 		}
-		identity, err := identityBeforeTheCall(bound.operation, read.Inputs, authored)
+		identity, err := identityBeforeTheCall(bound, held.Selector, resolving, read.Inputs, authored)
 		if err != nil {
 			return expansion{}, nil, err
 		}
@@ -335,24 +343,93 @@ func (r run) expand(bound binding, authored sequenced, position int) (expansion,
 }
 
 // literalMembers is a `values:` list resolved: its members in authored order,
-// top-first, each one the whole of what `{item: $}` names.
+// top-first, each one the whole of what `{item: $}` names — less the ones the
+// Store already holds a Tombstone for.
 //
-// **Nothing is dropped here on a `read`.** The Tombstone rule reads on a
-// `values:` list too, and there it is a `destroy`'s: a member whose head is a
-// Tombstone is dropped from the Expansion and a `mutate` reaches such a member
-// instead (§5). Both are milestone 6's, and what the entry already carries for
-// them is the arithmetic — `declared` beside `expanded_to`, a member present in
-// the first and absent from the second being one the Store already held a
-// Tombstone for.
-func literalMembers(over selector) []member {
+// **The Tombstone rule reads on a `values:` list too, and there it is a
+// `destroy`'s**: a member whose head is a Tombstone is dropped and a member
+// naming no series at all is reached. What that states is that `hyper` drops
+// what it knows is gone and reaches what it has no record of, a member it never
+// touched being in the second class — so a `values:` list left standing in a
+// Procedure that runs on a Cadence is self-limiting rather than a Run that
+// fails on a call the artefact never asked it to repeat (§5, ADR-0033).
+//
+// **A `mutate` reaches such a member instead**, and the same sentence is the
+// reason: a create over a Tombstoned series is a call the artefact *is* asking
+// for. Dropping it here would leave destroy-then-recreate reachable from a Step
+// with no selector and from nowhere else (§5, ADR-0011). A `read` drops nothing
+// either, expanding over a literal list the way it always did.
+//
+// **The Store shortens the list and never lengthens it**, which is what lets
+// `check` count the **authored** length against the Bound offline: the count
+// this Expansion is read against can only be the shorter one, so a list that
+// passes offline cannot fail here for having grown (§4, §5, expand above).
+//
+// **What was dropped stays visible.** The selector is held as authored beside
+// what it resolved to, which gives the entry an arithmetic no predicate can
+// offer: a member present in `declared` and absent from `expanded_to` is one
+// the Store already held a Tombstone for — *three authored, two expanded to,
+// one already gone*, readable off the entry with no checkout (§7, ADR-0033).
+//
+// That arithmetic has **one** cause, and the skip below is not a second one: a
+// `values:` member that is not a bare scalar is `schema-mismatch` at `check`,
+// which a Run re-runs in full before Step 1, so no Run reaches here carrying
+// one. It is skipped rather than read as a member all the same — a fault this
+// file cannot reach is still one it must not silently reinterpret (§4,
+// ADR-0064).
+//
+// The survivors keep the authored sequence. A `values:` list is the one
+// selector form whose order a reader can predict from the page in front of
+// them, and shortening it moves nobody up past anybody (§6, ADR-0044).
+func (r run) literalMembers(bound binding, over selector, authored sequenced) ([]member, error) {
 	members := make([]member, 0, len(over.Values))
 	for _, value := range over.Values {
 		if value.Kind != yaml.ScalarNode {
 			continue
 		}
+		gone, err := r.dropped(bound, authored.identity(value.Value))
+		if err != nil {
+			return nil, err
+		}
+		if gone {
+			continue
+		}
 		members = append(members, member{Name: value.Value, Item: store.String(value.Value)})
 	}
-	return members
+	return members, nil
+}
+
+// dropped says this member does not survive the Expansion, which takes both of
+// §5's halves and is why it answers the drop rather than the Store's fact: a
+// member the Store holds a Tombstone for is dropped from a `destroy` and
+// **reached** by a `mutate`, so *what the Store knows* is only half of what
+// decides it.
+//
+// **The Kind is the first half and it is read first.** A `mutate` over a
+// Tombstoned series is a call the artefact is asking for and a `read` drops
+// nothing at all, so neither Kind reaches the branch here — which is the
+// sentence literalMembers above argues, enacted where it costs a member its
+// place (§5, ADR-0011).
+//
+// **The lookup is exact and is never folded.** A member authored `Foo` against
+// a standing `foo` is not that series and survives this — the two names are not
+// equal — and what reaches it instead is the Store comparand below, which
+// Refuses `record-identity-collision` before the call rather than opening a
+// colliding series with the call already gone out (§6, §7, ADR-0033).
+//
+// It reads the head of one series per member rather than enumerating the
+// branch. A `values:` list is authored, so it is short by construction and its
+// members are named up front, and the question asked of each is *does this one
+// series read dead* — which is a listing of one directory (§7, store.Head).
+func (r run) dropped(bound binding, id store.Identity) (bool, error) {
+	if !bound.tombstones() {
+		return false, nil
+	}
+	head, standing, err := r.request.Store.Head(id)
+	if err != nil || !standing {
+		return false, err
+	}
+	return head.Tombstone, nil
 }
 
 // seriesMembers is an `assets:` or `observations:` selector resolved: the Step's
@@ -509,14 +586,43 @@ func counted(observed int, over selector) string {
 }
 
 // identityBeforeTheCall is the name this member's Record will be held under
-// where the Operation's `identity:` resolves without a response, and "" where
-// it reads from one.
+// where it is known without a response, and "" where it reads from one.
 //
 // Which of the two a Manifest declares is what decides whether an identity
 // collision Refuses at Expansion or halts the Run: a template hole fills from
 // the resolved inputs before the call, and a `$`-rooted path names a value that
 // exists only once the call has gone out (§3, §6, ADR-0072, issue #144).
-func identityBeforeTheCall(operation artefact.OperationInfo, inputs map[string]schema.Scalar, authored sequenced) (string, error) {
+//
+// **A `destroy` declares no identity, and its literal resolves one all the
+// same.** It carries no `record:` at all, and the series its Tombstone goes
+// into is the one the Expansion acted on — which where the selector is a
+// `values:` list is a name an **author** wrote. That is the one Record name in
+// the system with an author for its origin rather than a Manifest-declared
+// field of a response, so it is the one that can be spelled wrong; it is known
+// before the call like any other, and it is compared like one, which is what
+// keeps `Foo` against a standing `foo` a Refusal rather than a colliding series
+// opened with the call already gone out (§3, §7, ADR-0033, ADR-0037).
+//
+// **It stops at the literal, and that is a limit rather than an omission.** An
+// `assets:` member's name came out of the Store, so it cannot be spelled wrong
+// and it opens nothing — and the comparand it would meet answers the *other*
+// spelling wherever the branch already holds both, a state the write cannot
+// prevent and no edit can clear (store.Collision, ADR-0075). Refusing there
+// would leave a series destroyable by neither selector form and correctable by
+// nobody, which is the wall ADR-0033 declined to build rather than the
+// guardrail §6 asked for.
+//
+// A `destroy` carrying no selector resolves nothing here either, its one member
+// having no name — which is §5's *no series to write a Tombstone under*,
+// standing where `check` leaves it (§5, ADR-0053).
+func identityBeforeTheCall(bound binding, over selector, resolving member, inputs map[string]schema.Scalar, authored sequenced) (string, error) {
+	if bound.tombstones() {
+		if over.Form != "values" {
+			return "", nil
+		}
+		return resolving.Name, nil
+	}
+	operation := bound.operation
 	if operation.Identity == "" || strings.HasPrefix(operation.Identity, "$") {
 		return "", nil
 	}
@@ -551,6 +657,21 @@ func identityBeforeTheCall(operation artefact.OperationInfo, inputs map[string]s
 // byte-equal to a standing series is the ordinary further version and nothing
 // at all. It reaches a Step carrying no `over:` as well — vacuous against
 // itself, and not against the Store.
+//
+// **It reaches a `destroy`'s `values:` literal**, which is the one Record name
+// in the system an author wrote rather than a Manifest projected, and therefore
+// the one that can be spelled wrong. `Foo` against a standing `foo` survives
+// the head lookup that shortens the list — the two names are not equal — and
+// would otherwise open a colliding series with the call already gone out (§7,
+// ADR-0033). It reaches no other of that Kind's members, for the reason
+// identityBeforeTheCall above states.
+//
+// **A member that is its own identity is named twice and the sentence is left
+// alone.** On a `destroy` the member and the name it resolved are one string,
+// so the message reads `Foo resolves to Foo`; a second phrasing for that case
+// would be a second sentence to keep true of every form, where what a reader
+// needs from this one is both spellings verbatim and the series they collide
+// with (§7).
 //
 // Both are silent where the Operation reads its `identity:` from the response:
 // there is nowhere earlier than the answer to decide it, and what happens then

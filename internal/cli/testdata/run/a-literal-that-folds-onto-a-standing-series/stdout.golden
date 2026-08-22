@@ -1,0 +1,7 @@
+STEP  ID     KIND     DISPOSITION  RECORDS
+1     purge  destroy  refused      –
+
+FILE                                      LINE  FIELD          ERROR_CODE                 MESSAGE
+procedures/purge-the-other-spelling.yaml  11    steps[0].over  record-identity-collision  Preview-42.example.com resolves to Preview-42.example.com, and the Store already holds preview-42.example.com under cloudflare-prod/preview-dns — the two are one Record identity
+
+refused · exit 77 · run 01991f10-b118-7c93-8d41-6b2f7ae05e05

@@ -1,0 +1,16 @@
+kind: procedure
+procedure: republish-by-name
+targets: [cloudflare-prod]
+steps:
+  - id: republish
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    bound: 1
+    over:
+      values: [preview-42.example.com]
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: {item: $}
+      type: A
+      content: 203.0.113.10

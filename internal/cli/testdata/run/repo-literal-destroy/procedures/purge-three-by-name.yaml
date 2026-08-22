@@ -1,0 +1,14 @@
+kind: procedure
+procedure: purge-three-by-name
+targets: [cloudflare-prod]
+steps:
+  - id: purge
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: 3
+    over:
+      values: [preview-41.example.com, preview-42.example.com, preview-43.example.com]
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $}
