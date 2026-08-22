@@ -18,6 +18,14 @@ import (
 // side, over the value the engine answers rather than over a page. A cell form
 // is decided by two members of one small value, and the way to see that the
 // dash and the zero are different answers is to put them in one table.
+//
+// One row is `skip-if-recorded`'s and is here rather than in the corpus because
+// its content is a **size** (§8, ADR-0056, issue #152): a Step that skipped five
+// hundred renders `500` and not the dash, and a case seeding five hundred Assets
+// to say so would be a corpus nobody runs. The mixed Step's `n` is not here —
+// the row it answers is a *ran* Step's with a set, indistinguishable from the
+// first case below — and what says the engine never writes `n of m` on one is
+// [testdata/run/a-values-list-skips-two-and-calls-for-one], whose page reads `3`.
 
 // TestStepRow_TheThreeCellForms walks §8's cell forms and the row members each
 // one writes.
@@ -55,6 +63,17 @@ func TestStepRow_TheThreeCellForms(t *testing.T) {
 			step:    run.Step{Disposition: store.DispositionRan, Records: 0, Concluded: true, Expanded: 1},
 			cell:    "0 of 1",
 			members: `"records":0,"expanded":1`,
+		},
+		"a Step whose every member skipped": {
+			// *skipped as already recorded* carries a set — the
+			// head versions the skip test read — so a Step that
+			// made no call renders a **count** and not the dash,
+			// and it may be larger than a neighbouring Step's that
+			// did. A Step that skipped five hundred Assets did not
+			// do nothing (§8, ADR-0056).
+			step:    run.Step{Disposition: store.DispositionSkippedAsAlreadyRecorded, Records: 500, Concluded: true},
+			cell:    "500",
+			members: `"records":500`,
 		},
 		"no set exists at all": {
 			// *refused* concluded about nothing, by construction

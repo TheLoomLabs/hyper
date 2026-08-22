@@ -1,0 +1,7 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"result\":{\"id\":\"c9e0f1a2b3c4d5e6f708192a3b4c5d6e\",\"name\":\"cdn.preview-42.example.com\",\"created_on\":\"2026-04-02T09:41:14.221Z\"}}"
+}

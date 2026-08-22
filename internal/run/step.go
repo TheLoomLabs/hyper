@@ -183,6 +183,12 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// them and on an effectful Step is every one up to and including the
 	// fault. What it is read for is the arithmetic below the loop.
 	attempted := 0
+	// How many members `skip-if-recorded` found already standing and made
+	// no call for. It is read for the Disposition alone: a Step whose
+	// **every** member skipped is *skipped as already recorded* and a Step
+	// any call went out from is *ran*, which is the whole of what this
+	// number decides (§6, §12, ADR-0056, repeat.go).
+	skipped := 0
 	// The calls, made in Expansion order and bounded by how much of this
 	// Step's Expansion may be in flight at once: the Operation's declared
 	// `concurrency:` limit on a `read` — which arrives effective, so a
@@ -211,10 +217,43 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// half-projected response puts in doubt is the claim that its Records
 	// are all of them, and that claim lives in the identity set rather than
 	// in any Record (§6, ADR-0011, reading.go).
+	//
+	// **`skip-if-recorded` decides at each member's turn, in front of that
+	// member's call.** The Operation declaring it is a `mutate`, so the walk
+	// below is serial and *this member's turn* is a moment: the heads the
+	// test reads are the branch as the members before it left it (§6,
+	// repeat.go).
 	for turn := range dispatch(bound.dispatched(), expanded.Members, func(resolving member) (answer, error) {
+		recorded, err := r.recorded(bound, authored, resolving)
+		if err != nil {
+			return answer{}, err
+		}
+		if recorded != "" {
+			return answer{skipped: recorded}, nil
+		}
 		return r.call(bound, authored, resolving)
 	}) {
 		attempted++
+		// A fault the skip test raised in front of this member's call
+		// halts the **Run** rather than the Step: no call was made, so
+		// there is no answer for a Disposition to describe, and it
+		// leaves by the door heldBy above leaves by (repeat.go).
+		if lost := haltedBeforeTheCall(turn.Fault); lost != nil {
+			return Step{}, nil, lost
+		}
+		// **A member that skipped concluded about its Record and made
+		// no call.** So its identity is in the set — the skip test read
+		// a head version, which is a conclusion about that identity
+		// (§7, ADR-0030) — and it is in neither the Records held for
+		// the Steps after it nor the account of the Patterns, a member
+		// that called nothing having acted on nothing and done nothing
+		// for an account to hold (§6, ADR-0056, condition.go).
+		if name := turn.Concluded.skipped; name != "" {
+			skipped++
+			reachedIdentities++
+			names = append(names, name)
+			continue
+		}
 		acted.add(turn.Concluded.account)
 		if completed == nil {
 			completed = turn.Concluded.answered
@@ -316,16 +355,42 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// untouched* (§6, issue #148).
 	//
 	// ***attempted, world untouched* is a fact about the Step and not about
-	// its last call.** A Step that concluded about anything at all touched
-	// the world, whatever stopped the member after it, so it is *ran*
-	// carrying what it concluded — which is what keeps *world untouched*
-	// literally true of every Step that carries it, and what makes it the
-	// one failure that is not Repeatability evidence (§7, ADR-0062).
+	// its last call.** A Step that **acted on** anything at all touched the
+	// world, whatever stopped the member after it, so it is *ran* carrying
+	// what it concluded — which is what keeps *world untouched* literally
+	// true of every Step that carries it, and what makes it the one failure
+	// that is not Repeatability evidence (§7, ADR-0062).
+	//
+	// What it reads is what the calls concluded and **never the identity
+	// set beside it**, and under `skip-if-recorded` those are two different
+	// things: a member that skipped concluded about its Record without a
+	// call, so a Step that skipped one member and whose next request
+	// provably never left reached the world nowhere and carries this value
+	// (§6, ADR-0056, repeat.go). The set is the arithmetic §7 renders and
+	// this is the question §6 asks — *did any call this Step made reach the
+	// world* — which is the same question one paragraph down decides the
+	// two skip Dispositions by.
 	reached.Disposition = dispositionAfter(halted)
-	if reached.Disposition == store.DispositionAttemptedWorldUntouched && len(concluded) > 0 {
+	if reached.Disposition == store.DispositionAttemptedWorldUntouched && len(records) > 0 {
 		reached.Disposition = store.DispositionRan
 	}
-	// The identity set, carried by four of §12's seven Dispositions and by
+	// ***skipped as already recorded* is the Step no call went out from**,
+	// and *ran* is every Step one did — which claims no count and never
+	// did, a `read` Step expanding over five hundred carrying the same
+	// value. A **mixed** Step is therefore *ran*, and which of the two it
+	// carries decides nothing about a later Run: the test reads the Store's
+	// head version and never the Journal, so unlike run-once it consumes no
+	// Disposition (§6, §12, ADR-0056, repeat.go).
+	//
+	// The count is read against the Expansion rather than against the walk
+	// so that *every member* means every member the selector resolved to. A
+	// Step whose Expansion resolved to nothing skipped nothing and is *ran*
+	// with its set written empty, which is the Step §8's `0` is for and not
+	// this one (§7, §8).
+	if skipped > 0 && skipped == len(expanded.Members) {
+		reached.Disposition = store.DispositionSkippedAsAlreadyRecorded
+	}
+	// The identity set, carried by three of §12's seven Dispositions and by
 	// *attempted, world untouched* never: nothing was concluded about
 	// anything by construction, and a set written empty there would render
 	// the safest state in the tool as a *ran* Step that concluded about
@@ -590,6 +655,17 @@ type answer struct {
 	// answer that halted gave back travels on the fault instead, there
 	// being no member to carry it back on (§7, effect.go).
 	answered store.Answered
+	// skipped is the Record name `skip-if-recorded` found still standing,
+	// and "" where this member's call went out — which on every Operation
+	// that does not declare the value is every member (§6, repeat.go).
+	//
+	// It is the name rather than a flag because the name is what the answer
+	// **is**: the member concluded about that identity and about nothing
+	// else, and the set the Step carries is built out of it exactly as it is
+	// built out of a projection's (§7, ADR-0030). A member that skipped
+	// carries no Records, no account and no answer, none of the three having
+	// a call to have come from.
+	skipped string
 }
 
 // call makes one member's calls and projects the answers.

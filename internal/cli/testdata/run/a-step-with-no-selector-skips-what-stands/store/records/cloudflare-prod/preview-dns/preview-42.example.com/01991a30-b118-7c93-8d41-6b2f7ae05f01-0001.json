@@ -1,0 +1,23 @@
+{
+  "definition": "preview-dns",
+  "fields": {
+    "created_on": "2026-03-11T14:03:42.744Z",
+    "id": "372e67954025e0ba6aaa6d586b9e0b59",
+    "name": "preview-42.example.com"
+  },
+  "name": "preview-42.example.com",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "5c0a5ec7e3e1d2f9f6f7a1b0c3d4e5f6a7b8c9d0",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:2b2f0c9a4f5d6e7a8b9c0d1e2f30415263748596a7b8c9d0e1f2a3b4c5d6e7f80",
+    "procedure_revision": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d",
+    "repo_revision": "9f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c"
+  },
+  "record_type": "asset",
+  "run_id": "01991a30-b118-7c93-8d41-6b2f7ae05f01",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2026-03-11T14:03:42.744Z"
+}

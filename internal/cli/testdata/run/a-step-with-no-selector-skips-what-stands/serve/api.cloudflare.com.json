@@ -1,0 +1,7 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"result\":{\"id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"name\":\"preview-42.example.com\",\"created_on\":\"2026-04-02T09:41:14.221Z\"}}"
+}

@@ -76,15 +76,7 @@ func TestExpansion_TheIdentitySetIsWrittenWhereItMoved(t *testing.T) {
 		}
 
 		file := stepFileOf(t, c, invocation, run+1)
-		if file.Identities.Digest != store.IdentityDigest(expected.members) {
-			t.Errorf("run %d carries digest %s over %v", run+1, file.Identities.Digest, expected.members)
-		}
-		switch {
-		case expected.moved && !equalNames(file.Identities.Members, expected.members):
-			t.Errorf("run %d writes members %v, want %v in full — the digest moved", run+1, file.Identities.Members, expected.members)
-		case !expected.moved && file.Identities.Members != nil:
-			t.Errorf("run %d writes members %v; the set did not move, so the digest stands alone", run+1, file.Identities.Members)
-		}
+		identitySetWritten(t, run+1, file.Identities, expected.members, expected.moved)
 		// The set is sorted wherever it is written, which is what makes
 		// the digest a fact about the set rather than about the order a
 		// response happened to arrive in — where `expanded_to` beside it
@@ -92,6 +84,29 @@ func TestExpansion_TheIdentitySetIsWrittenWhereItMoved(t *testing.T) {
 		if names := file.Selector.ExpandedTo; run < 2 && !equalNames(names, []string{"status.hyper.dev", "cert.hyper.dev"}) {
 			t.Errorf("run %d expanded to %v, want the authored order", run+1, names)
 		}
+	}
+}
+
+// identitySetWritten holds one Run's identity set against the members it should
+// have concluded about: the digest always, and the members in full **only where
+// the digest moved** — an entry whose digest did not move carries none at all,
+// which is the whole of what makes an unchanged listing of five hundred Records
+// cost one line (§7, ADR-0030, ADR-0055).
+//
+// It is one helper for both drivers because it is one claim: the Expansion that
+// narrows and the population that fills in move the set for opposite reasons and
+// the arithmetic an entry is read by is the same either way.
+func identitySetWritten(t *testing.T, run int, held store.Identities, members []string, moved bool) {
+	t.Helper()
+
+	if digest := store.IdentityDigest(members); held.Digest != digest {
+		t.Errorf("run %d carries digest %s, want %s over %v", run, held.Digest, digest, members)
+	}
+	switch {
+	case moved && !equalNames(held.Members, members):
+		t.Errorf("run %d writes members %v, want %v in full — the digest moved", run, held.Members, members)
+	case !moved && held.Members != nil:
+		t.Errorf("run %d writes members %v; the set did not move, so the digest stands alone", run, held.Members)
 	}
 }
 

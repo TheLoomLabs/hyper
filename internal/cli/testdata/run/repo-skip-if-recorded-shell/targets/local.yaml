@@ -1,0 +1,5 @@
+kind: target-declaration
+target: local
+class: local
+kinds: [mutate]
+capabilities: [shell]

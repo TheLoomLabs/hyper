@@ -193,6 +193,26 @@ names one in a **`repo-from`** file instead, and the ones here are:
   for the reason above: a cyclic invocation graph is `procedure-cycle` at
   `check`, and `check` re-runs in full at Run start, so it would Refuse every
   Run of every Procedure beside it.
+- [`repo-skip-if-recorded/`](repo-skip-if-recorded) — Repeatability that reads
+  something (issue #152): §4's own `create_dns_record` with
+  `repeatability: skip-if-recorded` in its place and `identity: "{name}"`, a
+  Definition claiming `mutate`, a credentialled Target, and three Procedures —
+  §4's `publish` Step carrying no selector, its `publish-aliases` Step over a
+  `values:` list of three, and the two of them in one Procedure. It is a
+  repository of its own for `repo-bounded`'s reason above, and its cases differ
+  from each other in the **branch they were seeded with** rather than in the
+  artefact, as `repo-literal-destroy`'s do. Every case but one serves
+  `api.cloudflare.com`, so what stopped a call is the skip and never a refused
+  connection; the exception serves a host it never dials, which is how the
+  request that provably never left is driven.
+- [`repo-skip-if-recorded-shell/`](repo-skip-if-recorded-shell) — the other form
+  the same value's test resolves its identity through (issue #152): the built-in
+  `shell` Provider's `mutate_skip_if_recorded`, whose `identity:` is
+  `$.command` — a fact about the call rather than about the answer, so it is
+  known before one goes out. One Definition, a `local` granting `shell`, and one
+  Procedure over a `values:` list of two paths. It is a repository of its own
+  rather than a Procedure added to `repo-shell` for `repo-two-reads`' reason.
+
 - [`repo-unscoped-destroy/`](repo-unscoped-destroy) — `repo-destroy`'s Manifest,
   Definition and Target unchanged, over one Procedure whose `destroy` Step
   carries its mandatory `bound:` and **no `over:` at all** (issue #157). It is a
@@ -269,6 +289,15 @@ drives.
 | `a-mutate-reaches-the-member-a-destroy-drops` | the other half of the same sentence, over the same seeded branch: a `mutate` over the Tombstoned literal is a call the artefact *is* asking for, so it is reached and the version it writes puts the Head above the Tombstone, alive again |
 | `a-literal-that-folds-onto-a-standing-series` | the price ADR-0033 names, caught where it can be: a member authored `Preview-42.example.com` against a standing `preview-42.example.com` survives the head lookup — the two names are not equal — and the Store comparand Refuses `record-identity-collision` at the Expansion, naming both spellings verbatim, with nothing touched and no call out |
 | `an-opaque-destroy-runs-over-a-values-list` | §6's own worked example run: `rm -rf` over two authored paths, one Tombstone each named by the path a human wrote down, `expanded_to` in Expansion order, and no Bound anywhere claiming to have guarded it |
+| `a-step-with-no-selector-skips-what-stands` | `skip-if-recorded` end to end (issue #152): a Step carrying no `over:` runs the test over the one series it would write, its head stands, and the Step is ***skipped as already recorded*** at `RECORDS 1`, exit `0`. **No call goes out** — the case serves an answer carrying a different `id`, so a call that went out would have minted a second version the branch does not hold |
+| `a-tombstoned-member-is-created-again` | the same Step over a series whose head is a **Tombstone**: it runs, the series standing for nothing, and the version it writes puts the Head above the Tombstone. Create, destroy, and create again is three Runs that each do what they say (ADR-0011) |
+| `a-values-list-skips-two-and-calls-for-one` | the test decided per Record: three members, two standing and one naming no series at all. Two skip, one calls, the Step is ***ran***, `expanded_to` holds all three in the authored order, and the identity set holds all three — nothing is dropped for standing |
+| `every-member-already-recorded` | the same Procedure over a branch holding all three: every member skips, the Step is ***skipped as already recorded*** at `RECORDS 3`, and its identity **digest is byte-identical** to the case above's — the two Dispositions being one set at two granularities (ADR-0056). No version is minted anywhere |
+| `a-run-whose-every-step-skipped` | two `skip-if-recorded` Steps over four standing series: both *skipped as already recorded*, `completed`, exit `0`. Nothing in the outcome or the exit code distinguishes it from a Run that did all the work |
+| `the-skip-test-does-not-read-the-journal` | a branch whose Journal records this very Step as *ran* over this very Record, and whose `records/` holds nothing. The Step **runs**: the test reads the Store's head version and never the Journal, so unlike run-once it consumes no Disposition (§6) |
+| `a-skip-then-a-request-that-never-left` | the value the skip must not defeat: the first member skips, the second member's request **provably never left**, and no call this Step made reached the world — so it is ***attempted, world untouched*** with no identity set and `–` in `RECORDS`, at exit `1`. A Step that concluded about something without calling has still touched nothing, which is what keeps *world untouched* literally true (ADR-0062) |
+| `a-shell-step-skips-the-command-it-recorded` | the `$.command` arm: the built-in `mutate_skip_if_recorded` over two authored paths, each Record named by the argv that made it. Driven once here and twice by [`../../run_skip_if_recorded_test.go`](../../run_skip_if_recorded_test.go), where the second Run skips both — the name the skip test reads and the name the projection writes being one string |
+| `three-runs-of-one-values-list` | driven once here and three times by [`../../run_skip_if_recorded_test.go`](../../run_skip_if_recorded_test.go) |
 | `four-runs-of-one-step` | driven once here and four times by [`../../run_expansion_test.go`](../../run_expansion_test.go) |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |

@@ -36,8 +36,9 @@ import (
 // a convenience: an Expansion has a count before the Step's first call goes out,
 // and a guardrail declining after one would be a halt rather than a Refusal
 // (§5, §7, ADR-0072, issue #149). What an effectful Expansion still adds is
-// `skip-if-recorded`'s per-member test, which is a different moment and a later
-// ticket's.
+// `skip-if-recorded`'s per-member test, which is a different moment and both
+// are right: this one decides before the Step's first call and that one at each
+// member's turn, in front of that member's own (§6, repeat.go, issue #152).
 //
 // **The Store shortens a `destroy`'s list and never lengthens it**, and that is
 // the only thing resolved here that anything removes: a `values:` member whose

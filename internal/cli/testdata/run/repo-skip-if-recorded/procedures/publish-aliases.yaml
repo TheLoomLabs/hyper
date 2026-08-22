@@ -1,0 +1,19 @@
+kind: procedure
+procedure: publish-aliases
+targets: [cloudflare-prod]
+steps:
+  - id: publish-aliases
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    over:
+      values:
+        - docs.preview-42.example.com
+        - api.preview-42.example.com
+        - cdn.preview-42.example.com
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: {item: $}
+      type: CNAME
+      content: preview-42.example.com
+    bound: 3

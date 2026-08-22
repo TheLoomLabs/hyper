@@ -1,0 +1,14 @@
+kind: procedure
+procedure: provision-paths
+targets: [local]
+steps:
+  - id: provision
+    definition: host-effects
+    operation: mutate_skip_if_recorded
+    target: local
+    over:
+      values:
+        - /srv/app/releases/r41
+        - /srv/app/releases/r42
+    args:
+      command: [mark, {item: $}]
