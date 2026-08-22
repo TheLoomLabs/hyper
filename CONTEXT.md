@@ -228,6 +228,17 @@ its process may be gone, and `hyper` never guesses which. An entry may be closed
 later one, and holding both is a Contested entry.
 _Avoid_: Log, Audit trail, Run state, Checkpoint
 
+**Reap**:
+An effectful Run closing every open Journal entry it finds, inside the push that sends its own entry. It
+closes **every** one and not a subset: a rule that reaped some would need a criterion, and the only
+candidates are age and liveness, both of them guesses `hyper` declines. There is no reaper process, no
+daemon and no heartbeat — an abandoned entry is noticed by the next Run that looks — and a read-only Run
+reaps nothing, holding the shared lock and having no way to tell a live Run's entry from an abandoned
+one. It stays append-only: one path, named for the Run making the claim, inside the dead Run's entry and
+editing nothing that Run wrote. It resumes nothing and recovers nothing; what it records is that a Run
+inferred death at an instant, and where the inference was wrong the entry is a Contested entry.
+_Avoid_: Sweep, Cleanup, Timeout, Recovery, Janitor
+
 **Contested entry**:
 A Journal entry holding two accounts of how a Run ended: its own Run's, and a later Run's inference that
 it had died. It is what a Run that was reaped while still alive leaves behind, and both accounts stand —
