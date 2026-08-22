@@ -1,0 +1,8 @@
+kind: target-declaration
+target: cloudflare-prod
+class: cloudflare
+kinds: [mutate, destroy]
+capabilities: [http]
+hosts: [api.cloudflare.com]
+auth:
+  token: {env: CLOUDFLARE_API_TOKEN}

@@ -33,7 +33,9 @@ import (
 // It is a set rather than one identity because §6 runs the check **once** over
 // the identities an Expansion resolved rather than at each member's turn, and
 // asking per member would be one enumeration of the branch per member — no
-// index exists here or under `.git/hyper/` (§7), so the read is the cost.
+// index exists here or under `.git/hyper/` (§7), so the read is the cost. A
+// caller that cannot name its identities up front asks Standing below for the
+// same one enumeration and decides them one at a time against it.
 //
 // The answer is keyed by the identity handed rather than ordered, the order the
 // members are decided in being the caller's: an Expansion has one (§6,
@@ -42,37 +44,94 @@ import (
 // in identity order is the answer, so two reads of one branch report one
 // identity.
 func (s *Store) Collisions(ids []Identity) (map[Identity]Identity, error) {
-	records, err := s.Records()
+	standing, err := s.Standing()
 	if err != nil {
 		return nil, err
 	}
 
-	// Every series that folds onto one key, in identity order — which is
-	// Records' own order, and which is what makes the answer below the
-	// first in identity order rather than the first the map happened to
-	// hold. A key holds more than one only where the Store already holds a
-	// collision, which is the state ADR-0075 says the write cannot prevent.
-	held := make(map[Identity][]Identity, len(records))
-	for _, series := range records {
-		key := Folded(series.Identity)
-		held[key] = append(held[key], series.Identity)
-	}
-
 	collided := map[Identity]Identity{}
 	for _, id := range ids {
-		for _, standing := range held[Folded(id)] {
-			// An identity the Store holds exactly is not a
-			// collision: that is the series itself, and a further
-			// version of it is an ordinary write. Where the branch
-			// holds both spellings the other one is still the
-			// answer, the two being one identity under the fold.
-			if standing != id {
-				collided[id] = standing
-				break
-			}
+		if held, collides := standing.Collision(id); collides {
+			collided[id] = held
 		}
 	}
 	return collided, nil
+}
+
+// Standing is the branch's Record series folded onto their keys: the comparand
+// itself, read once and asked afterwards.
+//
+// It exists because the two callers of the fold ask at different moments. An
+// Expansion resolves its identities before the Step's first call and asks
+// Collisions above over all of them at once; a Step whose `identity:` reads
+// from a response has no such list — the names arrive one call at a time — and
+// what it needs is the branch **as it stood before its own first version went
+// down**, asked per identity as the Expansion is walked. One value read once
+// answers both, where an enumeration per identity would both cost a read of the
+// branch per member and read a branch this Step is already writing to (§6, §7).
+//
+// It is a snapshot and knows nothing of what is written after it. That is the
+// whole of what it is for.
+type Standing struct {
+	// held is every series that folds onto one key, in identity order —
+	// which is Records' own order, and which is what makes Collision's
+	// answer the first in identity order rather than the first the map
+	// happened to hold. A key holds more than one only where the Store
+	// already holds a collision, which is the state ADR-0075 says the write
+	// cannot prevent.
+	held map[Identity][]Identity
+}
+
+// Standing reads the comparand: every Record series on the branch, folded.
+func (s *Store) Standing() (Standing, error) {
+	records, err := s.Records()
+	if err != nil {
+		return Standing{}, err
+	}
+
+	series := make([]Identity, len(records))
+	for i, held := range records {
+		series[i] = held.Identity
+	}
+	return Held(series), nil
+}
+
+// Held is the comparand over a stated set of series: Standing's own constructor,
+// exported because a comparand is a value and a caller that already knows which
+// series stand has no branch to read. internal/run's tests are where that
+// caller is today — a collision decided over two named identities is a fact
+// about the fold and not about a Store.
+//
+// The order it is handed is the order Collision answers in where more than one
+// series folds onto one key — a state that takes a Store already holding a
+// collision — so a caller that hands identity order gets identity order back.
+func Held(series []Identity) Standing {
+	held := make(map[Identity][]Identity, len(series))
+	for _, id := range series {
+		key := Folded(id)
+		held[key] = append(held[key], id)
+	}
+	return Standing{held: held}
+}
+
+// Collision answers the identity the branch already holds that is one with this
+// one under the fold, and whether it holds any.
+//
+// An identity the Store holds exactly is not a collision: that is the series
+// itself, and a further version of it is an ordinary write. Where the branch
+// holds both spellings the other one is still the answer, the two being one
+// identity under the fold.
+//
+// The zero Standing collides with nothing, which is the comparand a Step that
+// never needed one carries: an Operation whose `identity:` resolves before the
+// call has had both comparands run over it at the Expansion already (§6).
+func (s Standing) Collision(id Identity) (Identity, bool) {
+	for _, standing := range s.held[Folded(id)] {
+		if standing != id {
+			return standing, true
+		}
+	}
+	return Identity{}, false
 }
 
 // Folded is an identity under the fold: the three components each folded, and

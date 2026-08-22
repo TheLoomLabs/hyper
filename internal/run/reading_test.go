@@ -158,7 +158,7 @@ func TestIdentityHolders_WhateverHeldTheIdentityFirstKeepsIt(t *testing.T) {
 	standing := identity("Crate")
 	holders := identityHolders{
 		first:    map[store.Identity]projectedIdentityBy{},
-		standing: map[store.Identity]store.Identity{identity("crate"): standing},
+		standing: store.Held([]store.Identity{standing}),
 	}
 
 	// The Store comparand: nothing here supplies an order, the standing

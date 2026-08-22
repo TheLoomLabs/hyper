@@ -69,6 +69,18 @@ func (a *arrivals) enter(name string) {
 	a.mutex.Unlock()
 }
 
+// drained takes the whole of a walk, which is what a `read` Step does with one:
+// every member attempted, and the two facts about each of them read back in
+// Expansion order (§6, step.go).
+func drained[T any](limit int, members []member, call func(member) (T, error)) ([]T, []error) {
+	concluded := make([]T, len(members))
+	faults := make([]error, len(members))
+	for taken := range dispatch(limit, members, call) {
+		concluded[taken.At], faults[taken.At] = taken.Concluded, taken.Fault
+	}
+	return concluded, faults
+}
+
 // expansionOf is n members named for their position, which is what the dispatch
 // order is read off.
 func expansionOf(n int) []member {
@@ -84,7 +96,7 @@ func expansionOf(n int) []member {
 // and no fifth ever joining them.
 func TestDispatch_TheLimitBoundsWhatIsInFlight(t *testing.T) {
 	watch := newArrivals(4, 2*time.Second)
-	dispatch(4, expansionOf(8), func(m member) (conclusion, error) {
+	drained(4, expansionOf(8), func(m member) (conclusion, error) {
 		watch.enter(m.Name)
 		return conclusion{name: m.Name}, nil
 	})
@@ -101,7 +113,7 @@ func TestDispatch_ADeclaringManifestIsTheOnlyThingThatBuysConcurrency(t *testing
 	// The width is two, so a second member arriving while the first is
 	// still inside would be seen. None does, and each call pays the hold.
 	watch := newArrivals(2, 20*time.Millisecond)
-	dispatch(1, expansionOf(3), func(m member) (conclusion, error) {
+	drained(1, expansionOf(3), func(m member) (conclusion, error) {
 		watch.enter(m.Name)
 		return conclusion{name: m.Name}, nil
 	})
@@ -117,7 +129,7 @@ func TestDispatch_ADeclaringManifestIsTheOnlyThingThatBuysConcurrency(t *testing
 // first ten of five hundred.
 func TestDispatch_MembersAreDispatchedInExpansionOrder(t *testing.T) {
 	watch := newArrivals(4, 2*time.Second)
-	dispatch(4, expansionOf(8), func(m member) (conclusion, error) {
+	drained(4, expansionOf(8), func(m member) (conclusion, error) {
 		watch.enter(m.Name)
 		return conclusion{name: m.Name}, nil
 	})
@@ -144,7 +156,7 @@ func TestDispatch_TheAnswersComeBackInExpansionOrder(t *testing.T) {
 	}
 	close(answered[len(expansion)])
 
-	concluded, faults := dispatch(len(expansion), expansion, func(m member) (conclusion, error) {
+	concluded, faults := drained(len(expansion), expansion, func(m member) (conclusion, error) {
 		var position int
 		fmt.Sscanf(m.Name, "member-%02d", &position)
 		<-answered[position+1]
@@ -169,7 +181,7 @@ func TestDispatch_EveryMemberIsAttempted(t *testing.T) {
 	var mutex sync.Mutex
 	var attempted []string
 
-	concluded, faults := dispatch(2, expansion, func(m member) (conclusion, error) {
+	concluded, faults := drained(2, expansion, func(m member) (conclusion, error) {
 		mutex.Lock()
 		attempted = append(attempted, m.Name)
 		mutex.Unlock()
@@ -201,12 +213,69 @@ func TestDispatch_EveryMemberIsAttempted(t *testing.T) {
 // silence does.
 func TestDispatch_ALimitBelowOneDispatchesOneAtATime(t *testing.T) {
 	watch := newArrivals(2, 20*time.Millisecond)
-	dispatch(0, expansionOf(2), func(m member) (conclusion, error) {
+	drained(0, expansionOf(2), func(m member) (conclusion, error) {
 		watch.enter(m.Name)
 		return conclusion{name: m.Name}, nil
 	})
 
 	if watch.peak != 1 {
 		t.Errorf("%d members stood in flight together under a limit of 0", watch.peak)
+	}
+}
+
+// TestDispatch_AWalkTheCallerStopsStartsNoMoreMembers is the effectful
+// Expansion's stop: a caller that takes no further member calls no further
+// member, which is what makes *three of five, then halt* a determinate fact
+// rather than a race (§6, step.go).
+func TestDispatch_AWalkTheCallerStopsStartsNoMoreMembers(t *testing.T) {
+	var mutex sync.Mutex
+	var called []string
+
+	for taken := range dispatch(1, expansionOf(5), func(m member) (conclusion, error) {
+		mutex.Lock()
+		called = append(called, m.Name)
+		mutex.Unlock()
+		if m.Name == "member-03" {
+			return conclusion{}, fmt.Errorf("the world resisted")
+		}
+		return conclusion{name: m.Name}, nil
+	}) {
+		if taken.Fault != nil {
+			break
+		}
+	}
+
+	want := []string{"member-00", "member-01", "member-02", "member-03"}
+	if !slices.Equal(called, want) {
+		t.Errorf("the walk called %v, want %v — the fifth member is never reached", called, want)
+	}
+}
+
+// TestDispatch_UnderALimitOfOneTheNextMemberWaitsForTheLast is what a serial
+// effectful Expansion rests on: the slot is held until the member it belongs to
+// has been **taken**, so a version written at the caller's turn is on the branch
+// before the next call goes out (§7, step.go).
+func TestDispatch_UnderALimitOfOneTheNextMemberWaitsForTheLast(t *testing.T) {
+	var mutex sync.Mutex
+	var acted []string
+
+	for taken := range dispatch(1, expansionOf(3), func(m member) (conclusion, error) {
+		mutex.Lock()
+		acted = append(acted, "call "+m.Name)
+		mutex.Unlock()
+		return conclusion{name: m.Name}, nil
+	}) {
+		mutex.Lock()
+		acted = append(acted, "write "+taken.Concluded.name)
+		mutex.Unlock()
+	}
+
+	want := []string{
+		"call member-00", "write member-00",
+		"call member-01", "write member-01",
+		"call member-02", "write member-02",
+	}
+	if !slices.Equal(acted, want) {
+		t.Errorf("the walk did %v, want %v — a member is called only once the last has been taken", acted, want)
 	}
 }

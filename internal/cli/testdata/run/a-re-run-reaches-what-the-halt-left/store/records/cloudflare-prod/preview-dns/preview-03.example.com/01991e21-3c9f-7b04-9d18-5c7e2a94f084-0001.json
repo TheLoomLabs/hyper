@@ -1,0 +1,24 @@
+{
+  "definition": "preview-dns",
+  "fields": {
+    "created_on": "2026-03-13T14:03:42.744Z",
+    "id": "372e67954025e0ba6aaa6d586b9e0b53",
+    "name": "preview-03.example.com"
+  },
+  "name": "preview-03.example.com",
+  "operation": "delete_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:628a8a0a38287e60c4bc693177d39d3b8c3426b52973d653d4f600e44336bf22",
+    "procedure_revision": "8244ab8d4dfbf3060a36d6de43c699d2281710dd",
+    "repo_revision": "f8c0fcbb4f013084beb8d0d1e297c23ec67bc9fa"
+  },
+  "record_type": "asset",
+  "run_id": "01991e21-3c9f-7b04-9d18-5c7e2a94f084",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "tombstone": true,
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

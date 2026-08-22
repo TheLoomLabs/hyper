@@ -3,6 +3,7 @@ package run
 import (
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/store"
@@ -17,11 +18,16 @@ import (
 // and an effectful Step decides whether what came back means its effect
 // happened.
 //
-// **It completes on `2xx` and halts on everything else, `3xx` included.** A
-// call the server did not accept did not do what the Step said, and `hyper`
-// does not read the shape of an error body to decide whether its own effect
-// happened; the redirect halts because `hyper` follows none, a redirect target
-// being reach arriving from data (ADR-0029, capability.client). **A Step halted
+// **It completes on `2xx` and halts on everything else, `3xx` included, a
+// `destroy` completing on `404` besides.** A call the server did not accept did
+// not do what the Step said, and `hyper` does not read the shape of an error
+// body to decide whether its own effect happened; the redirect halts because
+// `hyper` follows none, a redirect target being reach arriving from data
+// (ADR-0029, capability.client). The `404` completes a `destroy` because a
+// `destroy` told there is nothing there **has reached the state it exists to
+// reach**, and because the alternative halts that Step identically on every
+// re-run, leaving an Asset that can never be Tombstoned and the Steps after it
+// *never reached* for good (§6, issue #150). **A Step halted
 // by a status carries no `error_code`** — nothing declined, and a failure has
 // none — and its Disposition is *ran* whether the status was `400` or `500`.
 // The residual doubt about whether a `500` left something behind is real and is
@@ -41,8 +47,16 @@ import (
 // status is the answer and belongs in the Record wherever its Manifest
 // projected it, and a Journal copy would add only a claim that `hyper` thought
 // a `503` was untoward, which on a `read` it does not (§7, ADR-0010). It covers
-// the halt and the request that never left, and no others: a deadline carries
-// none, there being no answer to name.
+// the three cases §6 makes of an answer that was not the ordinary one — the
+// halt, the `404` that completes a `destroy`, and the request that never left —
+// and no others: a deadline carries none, there being no answer to name.
+//
+// **On a `destroy` it is the whole of what tells a Tombstone written on `404`
+// from one written on `204`.** The Record says the thing is gone and nothing
+// there says how `hyper` learned it, which is the line ADR-0010 draws: what
+// `hyper` is accountable for is that the thing is gone, and recording *already
+// gone* as a fact about the Asset would be the reconciliation it declined to
+// build (§7).
 //
 // **Retry is unaffected in both directions.** No status is ever retried — a
 // status is an answer and never an error (ADR-0050) — and the three no-answer
@@ -111,13 +125,29 @@ func dispositionAfter(fault error) store.Disposition {
 	return store.DispositionRan
 }
 
-// answeredBy is what the Step file holds under `answered`, and nil for every
-// way a Step ends that did not answer otherwise.
+// whatAnswered is what the Step file holds under `answered`: what the fault the
+// Run carries gave back, and — where nothing halted — what the **first member
+// in Expansion order** that completed on something other than the ordinary
+// answer was told.
 //
-// It is read off **the fault the Run carries** and not off whichever member
-// happened to answer one, so the file names what halted the Run — which is
-// failedPath's own sentence one file over (§6, §7, reading.go).
-func answeredBy(fault error) store.Answered {
+// The two arms are one key because §7 makes them one sentence: its presence is
+// the fact that something other than the ordinary answer decided this Step, and
+// which of §6's three cases it was is read from the Disposition beside it.
+//
+// **A Step that halted answers with the halt**, read off the fault the Run
+// carries rather than off whichever member happened to answer one — so the file
+// names what ended the Step, whatever an earlier member of its Expansion was
+// told. That is failedPath's own sentence one file over (§6, §7, reading.go).
+//
+// It answers with the halt **even where the halt names none**, which is the
+// deadline: no answer came back, and a `404` an earlier member was told would
+// read against the *attempted, outcome unknown* beside it as an answer this
+// Step ended on. §7's key says which of §6's three cases decided the Step, and
+// the Disposition is what tells them apart — so the two must not disagree.
+func whatAnswered(fault error, completed store.Answered) store.Answered {
+	if fault == nil {
+		return completed
+	}
 	var effect effectFault
 	if errors.As(fault, &effect) {
 		return effect.answered
@@ -145,15 +175,46 @@ func (b binding) effectful() bool {
 // in the identity set, which is the case the whole mechanism exists for
 // (ADR-0030).
 //
-// A `destroy` reaches here and answers the same Asset, which is true of the
-// version it writes and not yet of the marker on it: a Tombstone is an ordinary
-// version of the Asset's own series carrying `tombstone: true` and the previous
-// Head's fields copied forward, and that is issue #150's.
+// A `destroy` answers the same Asset: a Tombstone's `record_type` is `asset`
+// because `hyper`'s effect reached the thing, and the marker beside it is what
+// says the effect was the end of it (tombstones below).
 func (b binding) recordType() store.RecordType {
 	if b.effectful() {
 		return store.RecordAsset
 	}
 	return store.RecordObservation
+}
+
+// tombstones says a version this Step writes is the destruction: this Step's
+// Operation declares `destroy`, and every version it writes is a Tombstone
+// (§7, ADR-0037).
+//
+// There is no second condition. A `destroy` writes on confirmed destruction
+// only — what does not confirm writes nothing at all, so there is no
+// half-Tombstone for a state to be read off — and confirmation is judged one
+// file's function away (judged below).
+func (b binding) tombstones() bool {
+	return store.Kind(b.operation.Kind) == store.KindDestroy
+}
+
+// destroyed is what one member of a `destroy`'s Expansion concluded: the Asset's
+// **own** identity, and no projected content at all.
+//
+// The series is the one the Expansion acted on and never a projection of the
+// destroying Operation's response, which need not carry one: a `destroy`
+// projects nothing and declares no identity (§3, §7, ADR-0037). So the name is
+// the member's — the Record `name` an `assets:` selector resolved, and the
+// literal itself where the selector is a `values:` list — and there is nothing
+// to read out of what came back.
+//
+// The `fields` a Tombstone carries are not here either. They are the previous
+// Head's, copied forward for the Asset's last known state, and they are read at
+// the write rather than at the call: what a Tombstone says the Asset was is
+// what the Store held about it and not what the destroying call answered, which
+// is the one place in the Store `operation` and `fields` describe different
+// calls (§7, step.go).
+func destroyed(resolving member) []conclusion {
+	return []conclusion{{name: resolving.Name}}
 }
 
 // dispatched is how many members of this Step's Expansion may be in flight at
@@ -206,11 +267,9 @@ func (b binding) haltedByDeadline(message string, args ...any) error {
 // leaves is the object with the host and no status — the same object a single
 // refused connection leaves, judged the same way (ADR-0018, pattern.go).
 //
-// **A `destroy`'s `404` is not here.** A `destroy` told there is nothing there
-// has reached the state it exists to reach, so it completes on `404` besides —
-// and the alternative halts that Step identically on every re-run, leaving an
-// Asset that can never be Tombstoned. That, and the Tombstone the completion
-// writes, are issue #150's.
+// **A `destroy`'s `404` completes it**, and what it answers instead of a fault
+// is the `answered` the Step file carries: the call did not give the ordinary
+// answer, and the Step went on all the same (§7).
 //
 // **The `shell` half is not here.** An effectful `shell` Operation completes on
 // `0` alone and its `answered` carries the command and the exit code, there
@@ -218,24 +277,44 @@ func (b binding) haltedByDeadline(message string, args ...any) error {
 // absent* in any vocabulary `hyper` knows. That is the Kind semantics on top of
 // a Capability that needs nothing, and it is issue #156's — so an effectful
 // `shell` Step still records what came back, as it did before this ticket.
-func (b binding) judged(authored sequenced, response capability.Object) error {
+func (b binding) judged(authored sequenced, response capability.Object) (store.Answered, error) {
 	if !b.effectful() || b.operation.IsShell {
-		return nil
+		return nil, nil
 	}
 
 	host, _ := memberOf[string](response, capability.MemberHost)
 	status, arrived := memberOf[int](response, capability.MemberStatus)
 	if !arrived {
-		return neverLeft(store.HTTPAnswer{Host: host},
+		return nil, neverLeft(store.HTTPAnswer{Host: host},
 			"step %s: no response arrived from %s, so the request never left and the world is untouched",
 			named(authored), host)
 	}
+	answer := store.HTTPAnswer{Host: host, Status: store.Arrived(status)}
 	if status/100 == 2 {
-		return nil
+		return nil, nil
 	}
-	return answeredOtherwise(store.HTTPAnswer{Host: host, Status: store.Arrived(status)},
-		"step %s: %s answered %d, and a %s Step completes on 2xx alone — hyper follows no redirect and does not read the shape of an error body to decide whether its own effect happened",
-		named(authored), host, status, b.operation.Kind)
+	if status == http.StatusNotFound && b.tombstones() {
+		return answer, nil
+	}
+	return nil, answeredOtherwise(answer,
+		"step %s: %s answered %d, and a %s Step completes on %s — hyper follows no redirect and does not read the shape of an error body to decide whether its own effect happened",
+		named(authored), host, status, b.operation.Kind, b.completesOn())
+}
+
+// completesOn is what this Step's Kind accepts, said the way a reader of the
+// halt needs it: the threshold itself, so the sentence a halted `destroy`
+// renders is true of a `destroy` (§6).
+//
+// It is here rather than written into the message because the message is one
+// sentence for both effectful Kinds and the threshold is the only word in it
+// that moves. A message naming the Kind and then stating the other Kind's
+// threshold is the one thing a reader cannot recover from: they would read that
+// their `404` should have halted too.
+func (b binding) completesOn() string {
+	if b.tombstones() {
+		return "2xx and on 404 besides"
+	}
+	return "2xx alone"
 }
 
 // memberOf reads one member of a response object at the type §12 states it at,

@@ -237,6 +237,61 @@ func TestSignals_AnInterruptDuringTheLastStepStillStops(t *testing.T) {
 		present(`"outcome": "failed"`), absent("closed-by"))
 }
 
+// TestSignals_TheFirstInterruptDrainsASerialDestroy is the same sentence where
+// it is worth the most: the Step in flight is a `destroy`, so what draining
+// costs is a bounded wait and what it buys is a stop that is recorded in full
+// rather than an ambiguity (§6, ADR-0015, issue #150).
+//
+// The signal lands on the destroy Step's first connection. That Step finishes
+// and is *ran*, its Tombstone is on the branch, the `mutate` Step after it never
+// starts and writes no file, and the Run closes its **own** entry `failed` at
+// `130`.
+func TestSignals_TheFirstInterruptDrainsASerialDestroy(t *testing.T) {
+	exit, page, branch := stopped(t, "a-destroy-then-a-create-reads-alive-again", os.Interrupt, atTheFirstConnection)
+
+	if exit != cli.ExitInterrupted {
+		t.Errorf("exit = %d, want %d — a Run stopped by an interrupt, having drained", exit, cli.ExitInterrupted)
+	}
+	if !strings.Contains(oneSpaced(page), "1 retire destroy ran 1") {
+		t.Errorf("the destroy in flight does not render *ran* with the Asset it confirmed:\n%s", page)
+	}
+	if !strings.Contains(oneSpaced(page), "2 publish mutate never-reached –") {
+		t.Errorf("the Step after the drain does not render *never reached*:\n%s", page)
+	}
+	if !strings.Contains(page, "failed · exit 130 · run ") {
+		t.Errorf("the terminal line does not name the stop:\n%s", page)
+	}
+	assertBranch(t, branch, present("steps/0001.json"), absent("steps/0002.json"),
+		present(`"tombstone": true`), present(`"outcome": "failed"`), absent("closed-by"))
+}
+
+// TestSignals_ADrainedDestroyFinishesItsWholeExpansion is what *the Step in
+// flight finishes* means where that Step has five members: the interrupt lands
+// on the **first** member's connection, and the four after it are called all
+// the same.
+//
+// A drain is read where the next Step would start and nowhere else (§6, run.go),
+// so an Expansion is not a place a Run stops half-way — which is what keeps
+// *three of five* the account of a world that resisted rather than of a
+// terminal somebody pressed Ctrl-C at.
+func TestSignals_ADrainedDestroyFinishesItsWholeExpansion(t *testing.T) {
+	exit, page, branch := stopped(t, "a-destroy-expansion-is-serial", os.Interrupt, atTheFirstConnection)
+
+	if exit != cli.ExitInterrupted {
+		t.Errorf("exit = %d, want %d", exit, cli.ExitInterrupted)
+	}
+	if !strings.Contains(oneSpaced(page), "1 retire destroy ran 5") {
+		t.Errorf("the destroy in flight did not finish its Expansion:\n%s", page)
+	}
+	// Five Tombstones, one per member — and the count is read off the page
+	// above rather than off the branch, `RECORDS` being the size of the
+	// identity set (§8, ADR-0030).
+	if !strings.Contains(branch, `"tombstone": true`) {
+		t.Errorf("the drained destroy left no Tombstone on the branch")
+	}
+	assertBranch(t, branch, present("steps/0001.json"), present(`"outcome": "failed"`), absent("closed-by"))
+}
+
 // TestSignals_ATerminationSignalDrainsTheSameWay is the second of §12's two
 // codes, and the only thing that differs is the number: a termination signal is
 // handled exactly as an interrupt is and exits `143`.

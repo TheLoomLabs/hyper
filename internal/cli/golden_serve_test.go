@@ -101,9 +101,14 @@ type servedResponse struct {
 	// It is deterministic because the thing it serves is: all three
 	// Patterns are serial by construction, so a member is one request at a
 	// time from the moment it is dispatched until its last page (§3, §6).
-	// A case driving several members through one host would be depending on
-	// something nothing fixes, and none does — a member that pages has a
-	// host of its own.
+	//
+	// A case driving several members of a **`read`** Expansion through one
+	// host would be depending on something nothing fixes, and none does — a
+	// member that pages has a host of its own. An **effectful** Expansion is
+	// serial whatever any Manifest declares (§6, ADR-0045), so several of
+	// its members through one host walk this list in Expansion order, which
+	// is what lets a `destroy` case say *the fourth member is the one that
+	// was answered `500`* (issue #150).
 	//
 	// An answer carries a status, headers and a body and no more: `hangs`
 	// and the echoes below are the host's and not one answer's.

@@ -66,10 +66,11 @@ type binding struct {
 // wrote its file, and a halted Run leaves what it did (§6, ADR-0011). A zero
 // Step is a Step that reached none.
 //
-// **A member whose call faulted drains rather than halting there.** Every
-// member is attempted, every Observation that succeeded is recorded, and the
-// Run then halts with the rest of the results already on disk. drain.go states
-// why that is not a preference (§6).
+// **What a member's fault does to the members beside it follows the Kind.** A
+// `read` Expansion drains — every member attempted, every Observation that
+// succeeded recorded, and the Run then halting with the rest already on disk —
+// and an effectful Expansion stops at the first error, everything it confirmed
+// already committed. drain.go states why neither is a preference (§6).
 func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) {
 	bound, err := resolve(r.request.Repository, authored)
 	if err != nil {
@@ -132,38 +133,26 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 		return reached, declined, r.write(file)
 	}
 
-	// The calls, dispatched in Expansion order and bounded by how much of
-	// this Step's Expansion may be in flight at once: the Operation's
-	// declared `concurrency:` limit on a `read` — which arrives effective,
-	// so a Manifest that declared nothing runs its Expansion one member at
-	// a time — and **one** on an effectful Step, whatever that limit says
-	// (§6, ADR-0045, drain.go, effect.go).
-	//
-	// **Every member is attempted**, whatever any other member's call did,
-	// and what stopped one is read back below in Expansion order.
-	answers, faults := dispatch(bound.dispatched(), expanded.Members, func(resolving member) (answer, error) {
-		return r.call(bound, authored, resolving)
-	})
+	// The Store comparand for the identities that can only resolve once the
+	// answers are in, read **once** and before the Step's first call goes
+	// out — so a member of this Run's own Expansion is the sibling
+	// comparand beside it rather than a series that was already standing
+	// (§6, reading.go). It is read this early rather than after the calls
+	// because an effectful Expansion writes between one call and the next,
+	// and a comparand read at the second member's turn would be read
+	// against a branch the first member's version is already on. An
+	// Operation whose `identity:` resolves before the call reads nothing
+	// here: the Expansion has already run both comparands over those
+	// identities and Refused, with nothing touched.
+	holders, err := r.heldBy(bound)
+	if err != nil {
+		return Step{}, nil, err
+	}
 
-	// The versions the calls moved, written in Expansion order. A version
-	// is written only where the bytes moved: an Operation returning what
-	// the head version already holds mints nothing, and the canonical
-	// encoding is what makes that an exact test (§7, ADR-0030).
-	//
-	// **A member that faulted is skipped and stops nothing.** What it wrote
-	// is nothing — there is no Observation to record — and the Run halts on
-	// it once the rest of the Expansion has been written down, which is the
-	// drain (§6, drain.go). The fault the Run carries is the **first in
-	// Expansion order** and not the first to arrive, which is what keeps
-	// *which fault* out of the completion order's reach as well.
-	//
-	// **A member `hyper` could not read the answer back from is the one
-	// exception**, and it is not a widening of the drain. The response
-	// arrived and part of it projected, so what projected is written and
-	// the tenth member that did not is what the Run halts on: what a
-	// half-projected response puts in doubt is the claim that its Records
-	// are all of them, and that claim lives in the identity set rather than
-	// in any Record (§6, ADR-0011, reading.go).
+	// What this Step concluded about, and the versions its conclusions
+	// moved. A version is written only where the bytes moved: an Operation
+	// returning what the head version already holds mints nothing, and the
+	// canonical encoding is what makes that an exact test (§7, ADR-0030).
 	names := make([]string, 0, len(expanded.Members))
 	// `hyper`'s own account of the work, summed over the Expansion: a
 	// Pattern's attempts, its pages and its poll iterations, supplied by no
@@ -177,17 +166,6 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// version they would have written moved the bytes. A Record going
 	// unchanged is not a Record going missing (§6, ADR-0030, condition.go).
 	records := make([]store.Mapping, 0, len(expanded.Members))
-	// The Store comparand for the identities that could only resolve once
-	// the calls had gone out, read **once** and before the first version of
-	// this Step goes down — so a member of this Run's own Expansion is the
-	// sibling comparand beside it rather than a series that was already
-	// standing (§6, reading.go). An Operation whose `identity:` resolves
-	// before the call reads nothing here: the Expansion has already run both
-	// comparands over those identities and Refused, with nothing touched.
-	holders, err := r.heldBy(bound, answers, authored)
-	if err != nil {
-		return Step{}, nil, err
-	}
 	// How many Record identities the Step **reached**, concluded about or
 	// not: what `n of m` is read against, and what the arithmetic between it
 	// and the set says are unaccounted for (§7, §8). It counts one per
@@ -195,20 +173,60 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// whose identity collides is one reached that will not be concluded
 	// about.
 	reachedIdentities := 0
+	// What a call gave back where it completed the Step without giving the
+	// ordinary answer, which in this milestone is a `destroy`'s `404` and
+	// nothing else. It is the **first** in Expansion order, and it reaches
+	// the Step file only where nothing halted (§7, effect.go).
+	var completed store.Answered
 	var halted error
-	for at, member := range answers {
-		acted.add(member.account)
-		if fault := faults[at]; fault != nil {
+	// How many members the walk took, which on a `read` is every one of
+	// them and on an effectful Step is every one up to and including the
+	// fault. What it is read for is the arithmetic below the loop.
+	attempted := 0
+	// The calls, made in Expansion order and bounded by how much of this
+	// Step's Expansion may be in flight at once: the Operation's declared
+	// `concurrency:` limit on a `read` — which arrives effective, so a
+	// Manifest that declared nothing runs its Expansion one member at a
+	// time — and **one** on an effectful Step, whatever that limit says
+	// (§6, ADR-0045, drain.go, effect.go).
+	//
+	// **On a `read`, every member is attempted.** A member that faulted is
+	// skipped and stops nothing: what it wrote is nothing, and the Run
+	// halts on it once the rest of the Expansion has been written down,
+	// which is the drain. The fault the Run carries is therefore the
+	// **first in Expansion order** and not the first to arrive, which is
+	// what keeps *which fault* out of the completion order's reach (§6,
+	// drain.go).
+	//
+	// **An effectful Expansion stops at the first error**, everything it
+	// confirmed already committed — one member at a time, each version down
+	// before the next call goes out, so *three of five, then halt* is a
+	// determinate fact a reviewer reads off `expanded_to` rather than a
+	// race (§6, §7).
+	//
+	// **A member `hyper` could not read the answer back from writes what it
+	// projected**, and it is not a widening of either rule. The response
+	// arrived and part of it projected, so what projected is written and
+	// the tenth member that did not is what the Run halts on: what a
+	// half-projected response puts in doubt is the claim that its Records
+	// are all of them, and that claim lives in the identity set rather than
+	// in any Record (§6, ADR-0011, reading.go).
+	for turn := range dispatch(bound.dispatched(), expanded.Members, func(resolving member) (answer, error) {
+		return r.call(bound, authored, resolving)
+	}) {
+		attempted++
+		acted.add(turn.Concluded.account)
+		if completed == nil {
+			completed = turn.Concluded.answered
+		}
+		if turn.Fault != nil {
 			if halted == nil {
-				halted = fault
+				halted = turn.Fault
 			}
 			// The one it could not conclude about: the identity it
 			// could not read, the collection it could not find, or
 			// the answer that never came.
 			reachedIdentities++
-			if !wroteWhatProjected(fault) {
-				continue
-			}
 		}
 		// One member is one Record on an Operation of `one` cardinality
 		// and one per member of the collection it walked on an Operation
@@ -217,56 +235,58 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 		// affects nowhere: what a paginated call reaches is the same
 		// collection an unpaginated one would have, arriving a page at a
 		// time (§3, pattern.go).
-		for _, concluded := range member.records {
-			reachedIdentities++
-			identity := authored.identity(concluded.name)
-			// **An identity that resolved and collides halts the
-			// same way**, and the member it collided on is not
-			// written: it has no identity of its own to be written
-			// under, and a further version of the series it collided
-			// with would put its content on the head with the
-			// earlier member's beneath it (§6, reading.go).
-			if collision := holders.take(identity, projectedBy(expanded.Members[at].Name, concluded.at)); collision != nil {
-				if halted == nil {
-					halted = fmt.Errorf("step %s: %w", named(authored), collision)
+		//
+		// A member that faulted holds them only where `hyper` read part
+		// of an answer that arrived; a member whose call never answered
+		// holds none, and the loop is empty rather than skipped.
+		if turn.Fault == nil || wroteWhatProjected(turn.Fault) {
+			for _, concluded := range turn.Concluded.records {
+				reachedIdentities++
+				identity := authored.identity(concluded.name)
+				// **An identity that resolved and collides
+				// halts the same way**, and the member it
+				// collided on is not written: it has no
+				// identity of its own to be written under, and
+				// a further version of the series it collided
+				// with would put its content on the head with
+				// the earlier member's beneath it (§6,
+				// reading.go).
+				if collision := holders.take(identity, projectedBy(expanded.Members[turn.At].Name, concluded.at)); collision != nil {
+					if halted == nil {
+						halted = fmt.Errorf("step %s: %w", named(authored), collision)
+					}
+					continue
 				}
-				continue
-			}
-			names = append(names, concluded.name)
-			records = append(records, concluded.fields)
+				names = append(names, concluded.name)
+				records = append(records, concluded.fields)
 
-			version := store.RecordVersion{
-				Metadata: store.Metadata{
-					Identity:   identity,
-					RecordType: bound.recordType(),
-					Run:        r.id,
-					Step:       position,
-					Operation:  authored.Operation,
-					// The invocation chain, where this Step was
-					// reached through one. A Record version
-					// written by a nested Step carries that
-					// Step's `path` as the Step's own file
-					// does (§7, issue #141).
-					Path:       authored.Path,
-					WrittenAt:  r.request.Now(),
-					Provenance: store.Provenance{Run: r.provenance, Step: provenance},
-				},
-				Fields: concluded.fields,
-			}
-			moved, err := mints(r.request.Store, version)
-			if err != nil {
-				return Step{}, nil, err
-			}
-			if moved {
-				if err := r.request.Store.Append([]store.Write{{
-					Path:    store.RecordPath(identity, r.id, position),
-					Content: version.Encode(),
-				}}, fmt.Sprintf("Record %s/%s/%s at run %s step %d", identity.Target, identity.Definition, identity.Name, r.id, position)); err != nil {
+				if err := r.minted(bound, authored, position, provenance, identity, concluded); err != nil {
 					return Step{}, nil, err
 				}
 			}
 		}
+		// **The stop, and it is the whole of what an effectful
+		// Expansion does differently.** Taking no further member starts
+		// none, so the members after this one are never called — and
+		// what this one confirmed is already on the branch, its version
+		// having gone down above (§6, drain.go).
+		//
+		// It follows **the halt** and not the call: an identity that
+		// resolved and collides ends the Run as surely as a `500` does,
+		// so an Expansion of three whose second member collides is *1
+		// of 3* rather than an Expansion that carried on past it (§6,
+		// reading.go). On an effectful Step nothing earlier can have
+		// set it, this line having stopped the walk if anything had.
+		if halted != nil && bound.effectful() {
+			break
+		}
 	}
+	// The members the stop never reached. Each is one Record identity the
+	// Expansion resolved (ADR-0070) and one the Step did not conclude
+	// about, so the arithmetic §8 renders is *expanded to five, concluded
+	// about three, two unaccounted for* — and which two those are is
+	// `expanded_to`'s and nowhere else (§7, §8).
+	reachedIdentities += len(expanded.Members) - attempted
 
 	// The identity set, and the digest it is written against: the last Run
 	// of this Procedure in which this Step carried one, which is never
@@ -337,9 +357,11 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	file.Pattern = acted.written(reached.Disposition)
 	// What an effectful call gave back where it did not give the ordinary
 	// answer: the host and the status. Its presence is the fact that
-	// something other than the ordinary answer decided this Step, and it is
-	// written on effectful Steps and **never on a `read`** (§7, effect.go).
-	file.Answered = answeredBy(halted)
+	// something other than the ordinary answer decided this Step — the
+	// halt, the `404` that completed a `destroy`, or the request that never
+	// left — and it is written on effectful Steps and **never on a `read`**
+	// (§7, effect.go).
+	file.Answered = whatAnswered(halted, completed)
 	// The path that failed to project, where that is what halted the Run.
 	// The set beside it is then partial and this path is what says so — the
 	// digest says nothing about partiality either way — and it is held here
@@ -354,6 +376,90 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 		return Step{}, nil, err
 	}
 	return reached, nil, halted
+}
+
+// minted writes one Record version, where the bytes moved.
+//
+// **A version is written only where the bytes moved.** An Operation returning
+// what the head version already holds mints nothing and its Record is in the
+// identity set all the same, the canonical encoding being what makes *the bytes
+// moved* an exact test rather than an approximate one (§7, ADR-0030, mints).
+//
+// **It is committed as the call that produced it confirms** — one commit per
+// confirmed write, and no batching (§7, ADR-0006). On a serial effectful
+// Expansion that is the whole of why a Step halted at the fourth of five leaves
+// three Tombstones on the branch: each went down before the next call went out.
+//
+// **What a `destroy` writes is a Tombstone**, which is an ordinary version of
+// the Asset's own series carrying `tombstone: true`, the previous Head's
+// `fields` copied forward, and the `operation`, `run_id` and `step` every
+// version carries anyway (§7, ADR-0033). Its `written_at` is when destruction
+// was confirmed, which is the instant read here.
+func (r run) minted(bound binding, authored sequenced, position int, provenance store.StepProvenance, identity store.Identity, concluded conclusion) error {
+	fields := concluded.fields
+	if bound.tombstones() {
+		// The Asset's last known state, read off the Store rather than
+		// off what came back: a `destroy` projects nothing, and the
+		// fields were projected by some earlier Operation while the
+		// `operation` beside them names the one that destroyed it —
+		// which is the one place in the Store those two keys describe
+		// different calls (§7).
+		carried, err := lastKnown(r.request.Store, identity)
+		if err != nil {
+			return err
+		}
+		fields = carried
+	}
+
+	version := store.RecordVersion{
+		Metadata: store.Metadata{
+			Identity:   identity,
+			RecordType: bound.recordType(),
+			Run:        r.id,
+			Step:       position,
+			Operation:  authored.Operation,
+			// The invocation chain, where this Step was reached
+			// through one. A Record version written by a nested
+			// Step carries that Step's `path` as the Step's own
+			// file does (§7, issue #141).
+			Path:       authored.Path,
+			WrittenAt:  r.request.Now(),
+			Provenance: store.Provenance{Run: r.provenance, Step: provenance},
+			Tombstone:  bound.tombstones(),
+		},
+		Fields: fields,
+	}
+	moved, err := mints(r.request.Store, version)
+	if err != nil {
+		return err
+	}
+	if !moved {
+		return nil
+	}
+	return r.request.Store.Append([]store.Write{{
+		Path:    store.RecordPath(identity, r.id, position),
+		Content: version.Encode(),
+	}}, fmt.Sprintf("Record %s/%s/%s at run %s step %d", identity.Target, identity.Definition, identity.Name, r.id, position))
+}
+
+// lastKnown is the Head version's `fields` for one series, and nothing at all
+// where the Store holds no series under that identity.
+//
+// It is what a Tombstone copies forward for the Asset's last known state (§7).
+// The absence is not a fault: a `destroy` by literal identifier reaches a member
+// naming no series at all — that being what the form exists for — and the
+// Tombstone opens one under it carrying no `fields`, which means *hyper
+// destroyed this and never observed what it was* (ADR-0033).
+func lastKnown(held *store.Store, id store.Identity) (store.Mapping, error) {
+	head, standing, err := held.Head(id)
+	if err != nil || !standing {
+		return nil, err
+	}
+	previous, err := held.Read(head)
+	if err != nil {
+		return nil, err
+	}
+	return previous.Fields, nil
 }
 
 // decided evaluates the Step's `when:` and answers whether it holds.
@@ -478,6 +584,12 @@ type conclusion struct {
 type answer struct {
 	records []conclusion
 	account account
+	// answered is what a call gave back where it **completed** the Step
+	// without giving the ordinary answer, and nil everywhere else — which
+	// in this milestone is a `destroy`'s `404` and nothing besides. What an
+	// answer that halted gave back travels on the fault instead, there
+	// being no member to carry it back on (§7, effect.go).
+	answered store.Answered
 }
 
 // call makes one member's calls and projects the answers.
@@ -511,7 +623,11 @@ type answer struct {
 // identity, the projection, the version — reads a response object and never a
 // socket or a process.
 func (r run) call(bound binding, authored sequenced, resolving member) (answer, error) {
-	if bound.operation.Identity == "" {
+	// **A `destroy` declares none, and needs none.** It projects nothing,
+	// and the series its Tombstone goes into is the one the Expansion acted
+	// on rather than anything read out of what came back (§3, §7, ADR-0037,
+	// effect.go). Every other Kind must say which Record a call is holding.
+	if bound.operation.Identity == "" && !bound.tombstones() {
 		return answer{}, fmt.Errorf("step %s binds %s %s, whose record: declares no identity, so hyper cannot say which Record a call would be holding — hyper check reports it",
 			named(authored), bound.manifest.Name, authored.Operation)
 	}
@@ -534,6 +650,10 @@ func (r run) call(bound binding, authored sequenced, resolving member) (answer, 
 	// the Pattern's own sake would be a second chance for *the collection
 	// was empty* and *nothing was projected* to disagree.
 	var projected []conclusion
+	// What this member's call completed on where it was not the ordinary
+	// answer: the first such page's, a Pattern's calls being one member's
+	// walk and the key naming what decided the Step (§7).
+	var answered store.Answered
 	acted, halted := readPatterns(declaration).perform(ctx, r.started, send,
 		func(response capability.Object) (int, error) {
 			// **What an effectful Step makes of the answer, before
@@ -544,8 +664,12 @@ func (r run) call(bound binding, authored sequenced, resolving member) (answer, 
 			// has already decided says its effect did not happen
 			// (§6, effect.go). A `read` is judged by nothing and
 			// falls straight through.
-			if fault := bound.judged(authored, response); fault != nil {
+			completed, fault := bound.judged(authored, response)
+			if fault != nil {
 				return 0, fault
+			}
+			if completed != nil && answered == nil {
+				answered = completed
 			}
 			// The Records already read out of this member's walk,
 			// which is where this page's collection carries on
@@ -556,7 +680,7 @@ func (r run) call(bound binding, authored sequenced, resolving member) (answer, 
 			projected = append(projected, held...)
 			return len(held), err
 		})
-	return answer{records: projected, account: acted}, halted
+	return answer{records: projected, account: acted, answered: answered}, halted
 }
 
 // concluded is what one response became: the Records it projected, and the halt
@@ -584,6 +708,14 @@ func (r run) call(bound binding, authored sequenced, resolving member) (answer, 
 // already is how many Records this member's walk has read before this response,
 // which is what the positions below count on from.
 func (r run) concluded(bound binding, authored sequenced, reading projection.Projection, resolving member, response capability.Object, already int) ([]conclusion, error) {
+	// **A `destroy` reads nothing out of the answer.** What it concluded is
+	// the Asset the Expansion acted on and no projected content at all, so
+	// there is no path here that could fail to resolve — a `destroy` carries
+	// no `record:` block for one to be written in (§3, §7, ADR-0037,
+	// effect.go).
+	if bound.tombstones() {
+		return destroyed(resolving), nil
+	}
 	if reading.Over == "" {
 		name, resolved := identityOf(bound.operation, resolving.Inputs, response)
 		if !resolved {

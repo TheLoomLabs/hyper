@@ -1,6 +1,9 @@
 package run
 
-import "sync"
+import (
+	"iter"
+	"sync"
+)
 
 // Concurrency, and the drain: how much of a `read` Step's Expansion runs at
 // once, and what a member that faulted does to the members beside it (§6,
@@ -40,57 +43,96 @@ import "sync"
 // Observations were recorded depend on the one thing nothing may derive from.
 //
 // **An effectful Expansion stops at the first error instead**, everything it
-// confirmed already committed and pushed, and it can: it is serial, so *which
-// three of the five* is a determinate fact rather than a race. That arm is
-// issue #150's, and until it lands an effectful Expansion drains like the
-// `read` above — which changes what a multi-member effectful Step attempts and
-// nothing about what any of them records.
-
-// dispatch calls every member of an Expansion and answers what each of them
-// concluded, in **Expansion order** and never in the order they answered.
+// confirmed already committed — and pushed at the Step boundary the Run's own
+// rhythm fixes, a write being committed as the call that produced it confirms
+// and pushed after every effectful Step (§7, ADR-0006, run.go). It can stop
+// because it is serial: *which three of the five* is a determinate fact rather
+// than a race.
 //
-// The limit is how many may be in flight at once. Slots are taken in the loop
-// rather than inside each call, which is what makes the Expansion order the
-// **dispatch** order: member three does not start until a slot is free, and the
-// first slots freed go to the members after it in the order the Expansion
-// resolved them in — so the first ten of five hundred under a limit of ten are
-// the first ten of that order and not the first ten a scheduler happened to
-// reach.
+// Both rules are stated here and **taken** one file over. What dispatch decides
+// is how many members run at once and in what order they are handed back; a
+// caller that stops taking them starts no more of them, so *drain* and *stop*
+// are one sequence read two ways rather than two code paths (§6, step.go).
+
+// dispatch calls every member of an Expansion and hands each one back in
+// **Expansion order**, never in the order they answered.
+//
+// The limit is how many may be in flight at once, and a **slot is held until
+// the member it belongs to has been taken**. That is the one sentence the two
+// rhythms are read off. Under a limit of one it means the next member is called
+// only once the caller has finished with the last, so an effectful Step's
+// version is committed before its next call goes out (§7); under a higher limit
+// it means the first ten of five hundred are the first ten of the Expansion
+// order and not the first ten a scheduler happened to reach.
+//
+// A caller that stops taking members starts no more of them: the loop that
+// takes the slots is the loop that yields, so *stopping at the first error* is
+// the caller breaking and nothing here. Every member already in flight is
+// waited for before the sequence ends, so a Run never carries on with a call of
+// its own still outstanding.
 //
 // It is generic in what a member's call answers because what that is belongs to
 // the caller: this file decides how many members run at once and in what order
 // they are read back, and a Step's own answer — the Records it projected and
 // the account of the Patterns that reached them — is step.go's (issue #143).
 //
-// **Every member is attempted**, whatever any other member's call did. The
-// answers are two slices indexed by member rather than a first fault and a
-// short list: what a member concluded and what stopped it are facts about that
-// member, and the caller reads them back in Expansion order — which is what
-// keeps *which Observations were recorded* and *which fault the Run carries*
-// out of the completion order's reach.
-//
 // A limit below one runs the Expansion one member at a time. `concurrency: 0`
-// is a number no Step could dispatch under — the slots would be a channel with
-// no room in it and the first member would wait for a receiver that starts only
-// once it has been sent — and nothing here judges it: what governs is 1, the
-// way it does for the Manifest that declared nothing. Whether a Manifest may
-// write it at all is §4's, where the authoring rules are.
-func dispatch[T any](limit int, members []member, call func(member) (T, error)) ([]T, []error) {
-	concluded := make([]T, len(members))
-	faults := make([]error, len(members))
+// is a number no Step could dispatch under and nothing here judges it: what
+// governs is 1, the way it does for the Manifest that declared nothing. Whether
+// a Manifest may write it at all is §4's, where the authoring rules are.
+func dispatch[T any](limit int, members []member, call func(member) (T, error)) iter.Seq[taken[T]] {
+	return func(yield func(taken[T]) bool) {
+		answered := make([]chan taken[T], len(members))
+		for at := range answered {
+			// One slot each, so a call that answered never waits
+			// for its member's turn to come round: what the limit
+			// bounds is how many calls are in flight and not how
+			// many answers may be held.
+			answered[at] = make(chan taken[T], 1)
+		}
 
-	inFlight := make(chan struct{}, max(limit, 1))
-	var running sync.WaitGroup
-	for position, resolving := range members {
-		inFlight <- struct{}{}
-		running.Add(1)
-		go func() {
-			defer running.Done()
-			defer func() { <-inFlight }()
-			concluded[position], faults[position] = call(resolving)
-		}()
+		// Every call started is waited for, whether or not its answer
+		// was ever taken — a Run that returned with one outstanding
+		// would be a Run whose next Step overlapped this one's last
+		// call (ADR-0002).
+		var running sync.WaitGroup
+		defer running.Wait()
+
+		inFlight, started, room := 0, 0, max(limit, 1)
+		for at := range members {
+			for started < len(members) && inFlight < room {
+				position, resolving := started, members[started]
+				running.Add(1)
+				go func() {
+					defer running.Done()
+					concluded, fault := call(resolving)
+					answered[position] <- taken[T]{At: position, Concluded: concluded, Fault: fault}
+				}()
+				inFlight, started = inFlight+1, started+1
+			}
+
+			held := <-answered[at]
+			inFlight--
+			if !yield(held) {
+				return
+			}
+		}
 	}
-	running.Wait()
+}
 
-	return concluded, faults
+// taken is one member of an Expansion as the walk hands it back: which member
+// it was, what its call concluded, and what stopped it.
+//
+// The three travel together because a caller reading them apart is a caller
+// that can read one member's fault against another's answer — which is exactly
+// the mistake Expansion order exists to make impossible.
+type taken[T any] struct {
+	// At is the member's position in the Expansion, from 0, which is what
+	// names it in `expanded_to` and what a collision reports it by.
+	At int
+	// Concluded is what the call answered, and the zero value where it
+	// faulted before answering anything.
+	Concluded T
+	// Fault is what stopped this member, and nil where nothing did.
+	Fault error
 }

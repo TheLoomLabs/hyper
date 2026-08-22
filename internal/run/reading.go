@@ -101,20 +101,22 @@ func failedPath(fault error) string {
 // The sibling comparand is Expansion order across an Expansion — which on a
 // `read` is read off the drain rather than off a completion order — and the
 // collection's own order across one `series` response. Both are one walk here,
-// the drain reading the members back in Expansion order and each member's
+// the walk reading the members back in Expansion order and each member's
 // Records in the order the collection stated them (step.go, drain.go).
 //
 // The Store comparand supplies no order at all: the standing series was written
 // by an earlier Run and nothing in the Store is removable. It is read **once**,
-// before the first version of this Step goes down, so a member of this Run's
-// own Expansion is the sibling comparand rather than a series that was already
-// standing.
+// before the Step's first call goes out, so a member of this Run's own
+// Expansion is the sibling comparand rather than a series that was already
+// standing — which is a rule the serial effectful walk needs read exactly that
+// early, its versions going down between one call and the next (§6, §7,
+// step.go).
 //
 // **It is not expand.go's two comparands under another name**, and the shape is
 // retyped rather than shared because the two answer different questions. The
 // Expansion's pass runs over a resolved set and reports **every** decline it
 // finds, a Refusal's array being the checks that declined together (§7,
-// ADR-0061); this one decides one identity at a time as the drain reaches it and
+// ADR-0061); this one decides one identity at a time as the walk reaches it and
 // the **first** fault is what the Run carries, a halt being one fault and not a
 // list. What they share is store.Folded, which is where the fold that decides a
 // collision does live once (§7).
@@ -124,10 +126,10 @@ type identityHolders struct {
 	// one under the fold is the collision, and `Foo` beside `foo` is its
 	// whole content (§7, store.Folded).
 	first map[store.Identity]projectedIdentityBy
-	// standing is what the Store already held, keyed by the identity as it
-	// resolved — Collisions' own key, and empty for the members that
-	// collide with none.
-	standing map[store.Identity]store.Identity
+	// standing is the branch as it stood before this Step wrote anything,
+	// and the zero value — colliding with nothing — for the Steps that never
+	// needed it.
+	standing store.Standing
 }
 
 // projectedIdentityBy is one identity that resolved, and what projected it. The
@@ -138,22 +140,26 @@ type projectedIdentityBy struct {
 	by   string
 }
 
-// heldBy reads the Store comparand once for the identities a Step's calls
-// projected, and answers the pair the drain walks.
+// heldBy reads the Store comparand once for a Step whose identities resolve
+// from a response, and answers the pair the walk asks of each of them.
 //
 // It reads nothing where the Operation's `identity:` resolves before the call:
 // the Expansion has already run both comparands over those identities and
-// Refused, with nothing touched (§6, expand.go). That is projectedAfterTheCall's
+// Refused, with nothing touched (§6, expand.go). That is projectsAfterTheCall's
 // answer below, and it is the whole of what decides whether the branch is
 // enumerated at all.
-func (r run) heldBy(bound binding, answers []answer, authored sequenced) (identityHolders, error) {
+//
+// Where it does read, it reads whether or not the Step goes on to project a
+// single Record, and that cost is stated rather than avoided: the comparand has
+// to be the branch as it stood before this Step's first version went down, and
+// nothing before the calls knows how many identities they will carry back (§6,
+// step.go).
+func (r run) heldBy(bound binding) (identityHolders, error) {
 	held := identityHolders{first: map[store.Identity]projectedIdentityBy{}}
-
-	projected := projectedAfterTheCall(bound, answers, authored)
-	if len(projected) == 0 {
+	if !projectsAfterTheCall(bound) {
 		return held, nil
 	}
-	standing, err := r.request.Store.Collisions(projected)
+	standing, err := r.request.Store.Standing()
 	if err != nil {
 		return identityHolders{}, err
 	}
@@ -174,7 +180,7 @@ func (h *identityHolders) take(id store.Identity, by string) error {
 		return collided("%s resolved the identity %s, and %s already resolved %s — the two are one Record identity",
 			by, id.Name, earlier.by, earlier.name)
 	}
-	if standing, holds := h.standing[id]; holds {
+	if standing, holds := h.standing.Collision(id); holds {
 		return collided("%s resolved the identity %s, and the Store already holds %s under %s/%s — the two are one Record identity",
 			by, id.Name, standing.Name, standing.Target, standing.Definition)
 	}
@@ -211,38 +217,28 @@ func projectedBy(member string, at int) string {
 	return fmt.Sprintf("record %d of %s", at, named)
 }
 
-// projectedAfterTheCall is the identities a Step's calls projected, in
-// Expansion order, and **nothing at all** for the one shape the Expansion
-// already held.
+// projectsAfterTheCall says whether this Step's Record identities can only be
+// known once its answers have come back, which is the whole of what decides
+// whether the branch is enumerated for a comparand at all.
 //
-// That shape is an Operation of `one` cardinality whose `identity:` resolves
-// before the call: one member, one Record, and both comparands already run over
-// that name with nothing touched (§6, expand.go). Asking a second time would be
-// one enumeration of the branch per Step for an answer already given.
+// The one shape it excludes is an Operation of `one` cardinality whose
+// `identity:` resolves before the call: one member, one Record, and both
+// comparands already run over that name with nothing touched (§6, expand.go).
+// Asking a second time would be one enumeration of the branch per Step for an
+// answer already given. A `destroy` is that shape at its limit — it declares no
+// `identity:` at all, the Tombstone going down under the identity the Expansion
+// acted on (§7, ADR-0037).
 //
-// **An Operation of `series` cardinality reaches here whichever way its
-// `identity:` resolves**, and that is not a hedge. The Expansion's pass holds
-// one identity per **member** (ADR-0070), and a `series` Operation puts many
-// Records under one member — so a `series` Operation whose `identity:` is a
-// template hole projects every Record of one response under the one name that
-// hole filled to, which is several versions of one series and a collision no
-// pre-call pass could have seen. §6 says a `series` Operation reads its
-// identities from a response by construction; §4 does not refuse the Manifest
-// that does otherwise, and a fault no check produced is one this must not read
-// past (ADR-0064).
-//
-// It reads every answer, faulted or not: a member that half-projected holds the
-// Records it did read, and each of them is an identity a version will be
-// written under.
-func projectedAfterTheCall(bound binding, answers []answer, authored sequenced) []store.Identity {
-	if !bound.operation.HasSeries && !strings.HasPrefix(bound.operation.Identity, "$") {
-		return nil
-	}
-	var projected []store.Identity
-	for _, held := range answers {
-		for _, concluded := range held.records {
-			projected = append(projected, authored.identity(concluded.name))
-		}
-	}
-	return projected
+// **An Operation of `series` cardinality is here whichever way its `identity:`
+// resolves**, and that is not a hedge. The Expansion's pass holds one identity
+// per **member** (ADR-0070), and a `series` Operation puts many Records under
+// one member — so a `series` Operation whose `identity:` is a template hole
+// projects every Record of one response under the one name that hole filled to,
+// which is several versions of one series and a collision no pre-call pass
+// could have seen. §6 says a `series` Operation reads its identities from a
+// response by construction; §4 does not refuse the Manifest that does
+// otherwise, and a fault no check produced is one this must not read past
+// (ADR-0064).
+func projectsAfterTheCall(bound binding) bool {
+	return bound.operation.HasSeries || strings.HasPrefix(bound.operation.Identity, "$")
 }

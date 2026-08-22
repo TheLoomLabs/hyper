@@ -22,17 +22,20 @@ import (
 // and records like a `read` Step, and what an effect *means* is effect.go's
 // (§6).
 //
-// **What that leaves a `destroy` inside this milestone is stated rather than
-// discovered.** #148 lands the spine and the `mutate` semantics on it; a
-// `destroy` reaching the same path completes on `2xx` alone rather than on
-// `404` besides, writes an Asset where a Tombstone belongs, and dispatches
-// under the Operation's `concurrency:` limit where it must be serial. All three
-// are issue #150's, and each is named at the line that will change: effect.go's
-// judgement, its recordType, and drain.go's limit. The decline was deleted
-// rather than narrowed to `destroy` because narrowing is what the ticket calls
-// reclassifying — a reviewer of that diff should see a gate removed, not a
-// behaviour changed — and because the Kinds land on one branch before the
-// milestone ships.
+// **The three Kinds are all here.** #148 landed the spine and the `mutate`
+// semantics on it, and #150 the `destroy`: it completes on `404` besides,
+// writes a Tombstone where an Asset would go, dispatches strictly serially
+// whatever any Manifest declares, and stops its Expansion at the first error
+// rather than draining it. All four live where the Kind is read — effect.go's
+// judgement, its recordType and its tombstones, and the walk step.go takes
+// over what drain.go hands back. The decline this file used to carry was
+// deleted rather than narrowed to `destroy`, because narrowing is what the
+// ticket called reclassifying: a reviewer of that diff should see a gate
+// removed, not a behaviour changed.
+//
+// What is still `read`-shaped is the `shell` Capability's effectful half, which
+// completes on `0` alone and carries the command and the exit code under
+// `answered`, and that is issue #156's (effect.go).
 
 // kindOf is the Kind the Step's Operation declares, and "" where the binding
 // does not resolve far enough to say.

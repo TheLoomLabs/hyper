@@ -1,0 +1,6 @@
+{
+  "answers": [
+    {"status": 204},
+    {"status": 200, "headers": {"Content-Type": "application/json"}, "body": "{\"result\":{\"id\":\"9d1f4c2a83b74e05a6c0f21d7e8b3346\",\"name\":\"preview-42.example.com\",\"created_on\":\"2026-08-22T11:04:02.118Z\"}}"}
+  ]
+}

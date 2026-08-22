@@ -196,3 +196,52 @@ func TestCollision_ReadsTheIdentityFromTheFile(t *testing.T) {
 		t.Errorf("the collision is %+v (%v), want the stored identity whole, %+v", collides, found, stored)
 	}
 }
+
+// TestStanding_IsASnapshotOfTheBranchItWasReadFrom is the property a serial
+// effectful Expansion rests on (§6, §7, issue #150).
+//
+// Its versions go down between one call and the next, so the comparand a Step
+// holds has to be the branch as it stood **before its own first write** — a
+// comparand that moved with the branch would report the Step's own second
+// member colliding with what its first member wrote, which is the sibling
+// comparand's answer arriving under the wrong name.
+func TestStanding_IsASnapshotOfTheBranchItWasReadFrom(t *testing.T) {
+	_, held := seededStore(t)
+
+	before, err := held.Standing()
+	if err != nil {
+		t.Fatalf("Standing: %v", err)
+	}
+
+	written := store.Identity{Target: theSeries.Target, Definition: theSeries.Definition, Name: "Preview-42.Example.com"}
+	version := aVersion(t, written, theEntryRunID, 1, theInstant)
+	if err := held.Append([]store.Write{{Path: pathOf(version), Content: version.Encode()}}, "a version this Step wrote"); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+
+	arriving := store.Identity{Target: theSeries.Target, Definition: theSeries.Definition, Name: "preview-42.example.com"}
+	if collides, found := before.Collision(arriving); found {
+		t.Errorf("the comparand moved with the branch: %q collides with %q, which was written after it was read", arriving.Name, collides.Name)
+	}
+
+	// And a comparand read afterwards does hold it, which is what says the
+	// snapshot above is a snapshot rather than a reader that finds nothing.
+	after, err := held.Standing()
+	if err != nil {
+		t.Fatalf("Standing: %v", err)
+	}
+	if collides, found := after.Collision(arriving); !found || collides != written {
+		t.Errorf("Collision = %+v, %v; want %+v — a comparand read after the write holds it", collides, found, written)
+	}
+}
+
+// TestHeld_CollidesWithNothingWhereNothingStands is the zero comparand, which is
+// what a Step whose identities resolved before its first call carries: both
+// comparands have already run over those identities at the Expansion, and this
+// one is asked nothing (§6).
+func TestHeld_CollidesWithNothingWhereNothingStands(t *testing.T) {
+	var none store.Standing
+	if collides, found := none.Collision(theSeries); found {
+		t.Errorf("the zero comparand answers %+v; it holds no series at all", collides)
+	}
+}

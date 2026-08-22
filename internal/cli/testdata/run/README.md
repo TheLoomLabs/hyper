@@ -67,6 +67,25 @@ names one in a **`repo-from`** file instead, and the ones here are:
   `bound:` beside an `assets:` selector. It is a repository of its own rather
   than a Procedure added to `repo-effectful` because adding one there would
   move the `repo_revision` in every golden that names it.
+- [`repo-destroy/`](repo-destroy) — the `destroy` Kind (issue #150): the same
+  `cloudflare-dns` shape with a `delete_dns_record` beside the `create` — a
+  `destroy` of no `record:` block at all, projecting nothing and declaring no
+  identity (ADR-0037) — a Definition claiming the Operation under `destroy:`, a
+  Target accepting both effectful Kinds, and three Procedures: one `destroy`
+  Step over an `assets:` selector under `bound: 5`, the same Step followed by a
+  `mutate` that writes above the Tombstone, and the same selector under a
+  `bound: 2` the Expansion is past. It is a repository of its own for
+  `repo-bounded`'s reason above.
+
+  Every Step in it carries a `bound:`, which is not this corpus's choice: a
+  `destroy` Step with none is `bound-missing` at `check`, and `check` re-runs in
+  full at Run start (§4, §5, §6).
+
+  Its cases serve **one** host between all the members of one Expansion, which
+  nothing else here does — a serial Expansion is one request at a time, so an
+  `answers:` list is walked in Expansion order and *the fourth member is the one
+  that was answered `500`* is a fact the case states rather than a race it
+  hopes for (§6).
 - [`repo-untracked/`](repo-untracked) — `repo-watch-status` with no
   `definitions/` in it, so the case that adds one through `uncommitted/` is
   running against an artefact git has never seen.
@@ -215,6 +234,13 @@ drives.
 | `the-sibling-collision-is-named-first` | both comparands available at once — the sibling is named, being reproducible from the artefact alone with no Store in hand |
 | `a-step-with-no-selector-meets-the-store` | the Store comparand reaching a Step carrying no `over:`: vacuous against itself, and not against the branch |
 | `an-expansion-past-its-bound`, `-json` | the Bound's run-time half (issue #149): three seeded Assets under a `bound: 2`, `bound-exceeded` at `77`, and the Refusal carrying `declared` against `observed` — on `outcome.json` and on the `refusal` row, and on no other code anywhere. **No call goes out**, and the case serves `api.cloudflare.com` so that it is the Bound and not a refused connection that stopped it: had a call gone out it would have been answered, and the branch would hold a version it does not |
+| `a-destroy-step-tombstones-an-asset` | the `destroy` end to end (issue #150): one seeded Asset, an `assets:` selector, a `204`, and a Tombstone carrying `tombstone: true` and the previous Head's `fields` copied forward under the Operation that destroyed it — *ran*, `RECORDS 1`, exit `0`, and **no** `answered`, the call having given the ordinary answer |
+| `a-destroy-answered-a-404-is-still-gone` | the same case answered `404`: the `destroy` **completes**, and its Tombstone is **byte-identical** to the one above — same Run id, same clock, same bytes. What tells the two apart is the Step file's `answered` and nothing else, which is [`../../run_destroy_test.go`](../../run_destroy_test.go)'s |
+| `a-destroy-expansion-is-serial` | five seeded Assets and five Tombstones under an Operation that may not declare a `concurrency:` at all. Its page says only that five landed; that **one** connection stood at a time is [`../../run_destroy_test.go`](../../run_destroy_test.go)'s |
+| `a-destroy-halted-at-the-fourth-of-five`, `-json` | the halt the whole shape exists for: the fourth member is answered `500`, so three Tombstones are on the branch, two Assets stand, the Step is ***ran*** at `3 of 5` naming no member, `expanded_to` holds all five in Expansion order, the identity set beside it holds the three sorted, and the Run is `failed` at `1`. That the **fifth member is never called** is the drivers' |
+| `a-re-run-reaches-what-the-halt-left` | ADR-0011's *the next Run reads exactly that*, driven over the branch the case above left: the three Tombstoned series stand for nothing, the Expansion resolves the two survivors in the same relative order the halted Run reached them in, and the Run completes at `0`. That the order is the Record `name` by code point rather than the percent-encoded path is `an-expansion-over-observations`', over the one function both selector forms sort in (ADR-0044) |
+| `a-destroy-then-a-create-reads-alive-again` | a Tombstone is terminal for the Asset's life and not for the series: `destroy` then `mutate` over one identity, three versions, and a Head that reads alive again |
+| `a-destroy-past-its-bound` | the Bound counted against a `destroy`'s Expansion: five seeded Assets under a `bound: 2`, `bound-exceeded` at `77`, and no call out — the case serves the host, so what stopped it is the Bound |
 | `four-runs-of-one-step` | driven once here and four times by [`../../run_expansion_test.go`](../../run_expansion_test.go) |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
