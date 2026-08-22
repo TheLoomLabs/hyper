@@ -107,3 +107,18 @@ func (r run) refusal(code, message string, cited citation) Refusal {
 		Target:    cited.target,
 	}
 }
+
+// compared is a check declining having compared two values: refusal above, with
+// the pair beside it — `declared`, what the artefact authored, against
+// `observed`, what the Run found (§7).
+//
+// It is a second constructor rather than two more parameters on refusal because
+// **no other check writes either member**. §7 states them for a check that
+// compared two values and nothing is invented to fill a member that does not
+// apply, so the one site that holds two values reaches for a shape that carries
+// them and every other site has no way to fill them by accident.
+func (r run) compared(code, message string, cited citation, declared, observed store.Value) Refusal {
+	found := r.refusal(code, message, cited)
+	found.Declared, found.Observed = declared, observed
+	return found
+}

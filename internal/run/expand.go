@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -32,9 +33,12 @@ import (
 // segment §12 builds from it to reach a file (ADR-0044). The sort is total and
 // needs no tie-break, one Expansion being one Target and one Definition.
 //
-// What is here is the `read` half. An effectful Expansion adds the Bound's
-// run-time half and `skip-if-recorded`'s per-member test, and both are
-// milestone 6's; the shape they land in is the empty bucket checks names below.
+// **The Bound is counted here**, which is the position §6 fixes for it and not
+// a convenience: an Expansion has a count before the Step's first call goes out,
+// and a guardrail declining after one would be a halt rather than a Refusal
+// (§5, §7, ADR-0072, issue #149). What an effectful Expansion still adds is
+// `skip-if-recorded`'s per-member test, which is a different moment and a later
+// ticket's.
 
 // CodePredicateTypeMismatch is §6's half of the code §4 already fires where the
 // fault is authored: an operator handed a **stored** value it cannot compare.
@@ -51,6 +55,18 @@ const CodePredicateTypeMismatch = "predicate-type-mismatch"
 // identity, and a resolved identity colliding with a series the Store already
 // holds (§6, §7, §12, ADR-0070, ADR-0075).
 const CodeRecordIdentityCollision = "record-identity-collision"
+
+// CodeBoundExceeded is §6's half of the code §4 already fires where the count
+// is authored: an Expansion resolving to more Records than the Step's declared
+// Bound.
+//
+// It is one code because it is one check — what names a Refusal is the check
+// that declined, never the moment it ran — and it is spelled here rather than
+// imported from internal/artefact for CodePredicateTypeMismatch's reason above:
+// §4's constant names a length a reader counts off the page and this one a count
+// no file holds, and the string is the contract the two sites reach
+// independently, as §4's and §6's own texts do (§4, §5, §6).
+const CodeBoundExceeded = "bound-exceeded"
 
 // selector is a Step's `over:` as it was authored: which of §12's three forms
 // it is, and what that form carries.
@@ -211,11 +227,8 @@ type checks struct {
 	// Predicate is `predicate-type-mismatch`: an operator handed a stored
 	// value it cannot compare (ADR-0035).
 	Predicate []Refusal
-	// Bound is `bound-exceeded`, and it is **always empty in this binary**:
-	// a Bound guards an effectful Step and a `read` carries none (§4, §5).
-	// It stands here so that the order the checks decide in is written down
-	// once, in the milestone that can state it, rather than inserted into a
-	// sequence later.
+	// Bound is `bound-exceeded`: the count the Expansion resolved to, read
+	// against the maximum the Step's author declared (§5, §6).
 	Bound []Refusal
 	// Arguments is §6's half of `schema-mismatch`: an `args:` value
 	// arriving from a reference that will not read as the type its input
@@ -278,6 +291,12 @@ func (r run) expand(bound binding, authored sequenced, position int) (expansion,
 		}
 		held.Members, found.Predicate = members, declined
 	}
+
+	// The count the Bound is read against. It is filled here and **ordered
+	// by declined above**, which is the file's rule for every bucket: a set
+	// no predicate could resolve is not a set with a count, and the answer
+	// that says so is reached before this bucket is.
+	found.Bound = r.exceededBound(held, authored, cited)
 	if declined := found.declined(); len(declined) > 0 {
 		return held, declined, nil
 	}
@@ -411,6 +430,82 @@ func (r run) seriesMembers(over selector, authored sequenced, cited citation) ([
 	// property of a listing it is reading.
 	slices.SortFunc(members, func(a, b member) int { return cmp.Compare(a.Name, b.Name) })
 	return members, declined, nil
+}
+
+// exceededBound is the Bound at the Expansion: what the selector resolved to,
+// counted against the maximum the Step's author declared (§5, §6, §7).
+//
+// **It counts Records and does not weigh what happened to each one.** The
+// failure it exists for is the runaway selector — the predicate that widened
+// overnight, the list that grew — and it says nothing about how severe a single
+// correctly-Bounded call is, which is a fact the gutter and `FLAGS` carry and
+// no count could (§5).
+//
+// **It is the run-time half of the check `check` already performs offline**,
+// where the count is authored and therefore readable off the file: an `over:`
+// `values:` list longer than the Bound is refused before anything runs, the
+// Store only ever shortening such a list (§4, §5). One check at two moments is
+// one code, and the two differ only in what each cites — the authored length
+// there, the Bound here, each being what the reader in front of it can edit.
+//
+// **A Step declaring no `bound:` counts nothing**, and a `read` Step is that
+// Step by construction: a `bound:` written on one is `unknown-key` at `check`,
+// which a Run re-runs in full before Step 1, so the node this reads stands on
+// an effectful Step alone (§4, §6, ADR-0064).
+func (r run) exceededBound(held expansion, authored sequenced, cited citation) []Refusal {
+	declared, bounded := declaredBound(authored.Bound)
+	observed := len(held.Members)
+	if !bounded || observed <= declared {
+		return nil
+	}
+	return []Refusal{r.compared(CodeBoundExceeded,
+		fmt.Sprintf("expansion resolved %s on %s", counted(observed, held.Selector), authored.Target),
+		cited.at(authored.Bound.Line, "bound"),
+		store.Int(int64(declared)), store.Int(int64(observed)))}
+}
+
+// declaredBound is the Bound the Step authored, and whether it authored one.
+//
+// It reads the node's characters as an integer, which is `check`'s own reading
+// of that key (§4). A `bound:` that will not read as one is a repository a Run
+// Refused before Step 1, so the false answer here means *this Step declares no
+// Bound* and never *this Bound could not be read*: a fault this file cannot
+// reach is still one it must not silently reinterpret (ADR-0064).
+//
+// A **negative** Bound reads as one and is not this file's to judge. §4 holds
+// `bound:` to an integer and refuses one only where it may not stand at all, so
+// `bound: -1` reaches here and Refuses every Expansion, which is the direction a
+// Bound errs in: a guardrail nobody meant declines rather than admits.
+func declaredBound(node *yaml.Node) (int, bool) {
+	if node == nil || node.Kind != yaml.ScalarNode {
+		return 0, false
+	}
+	declared, err := strconv.Atoi(node.Value)
+	if err != nil {
+		return 0, false
+	}
+	return declared, true
+}
+
+// counted is what the Refusal's message says the Expansion resolved: the count,
+// and the word for what was counted beside it.
+//
+// The word is the **selector's own form** — `23 assets`, which is §7's own
+// phrasing — so what a reader is told they have too many of is the thing the
+// artefact in front of them named. A Step carrying no `over:` named nothing, so
+// `record` stands there instead: it resolves no selector and holds a set of one
+// (§6), and the count is read off that set like any other rather than written
+// down here, a message that can only be right by construction being one nobody
+// notices going wrong.
+func counted(observed int, over selector) string {
+	switch {
+	case over.Form != "":
+		return fmt.Sprintf("%d %s", observed, over.Form)
+	case observed == 1:
+		return "1 record"
+	default:
+		return fmt.Sprintf("%d records", observed)
+	}
 }
 
 // identityBeforeTheCall is the name this member's Record will be held under

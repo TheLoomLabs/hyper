@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -183,9 +184,32 @@ func Int(i int64) Number {
 //
 // This is not §8's row stream. That wire is compact, keyed in the renderer's
 // order and hashed by nobody; it lives in internal/render and neither encoding
-// reaches for the other.
+// builds the other. A single **value** does cross, through Unframed below, and
+// that is the whole of the traffic between them.
 func Encode(v Value) []byte {
 	return append(v.write(nil, 0), '\n')
+}
+
+// Unframed is a value handed to a surface that writes JSON of its own: the
+// canonical bytes above with the file's trailing LF off, and nothing else
+// changed. It is named for what it drops rather than for where it goes, and it
+// is not Compaction — that is the act one file over, which removes versions
+// from the branch.
+//
+// It is the one door between the two encodings, and what it exists to stop is a
+// second reading of a value rather than a second encoder. The two *shapes* are
+// and remain different — §8's row is compact and keyed in the renderer's order,
+// §7's file is indented and hashed — but a value is not a shape: a Refusal's
+// `declared` is one number in the entry and the same number on the row, and a
+// surface deriving its own would be a second answer to *what is this value*,
+// which is how a row and the entry it was read from come to state different
+// things (§7, §8, ADR-0026).
+//
+// Every value that crosses today is a scalar and occupies one line. A container
+// would cross as the canonical indented form, which §8's stream compacts on its
+// way out — so no caller has to know which of the two it was handed.
+func Unframed(v Value) []byte {
+	return bytes.TrimSuffix(Encode(v), []byte("\n"))
 }
 
 // IdentityDigest is the digest of a set of names: sha256: over the canonical

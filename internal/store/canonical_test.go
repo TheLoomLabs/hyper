@@ -622,3 +622,29 @@ func TestNumberText(t *testing.T) {
 		}
 	}
 }
+
+func TestUnframed_IsTheCanonicalValueWithTheFilesTrailingLFOff(t *testing.T) {
+	// The one door between §7's encoding and §8's: what crosses is a value,
+	// so what a row states about it and what the entry states about it are
+	// one reading. A `declared` of 5 is `5` on both.
+	for name, c := range map[string]struct {
+		value store.Value
+		want  string
+	}{
+		"a count":                  {store.Int(5), "5"},
+		"a count of nought":        {store.Int(0), "0"},
+		"a string":                 {store.String("preview-42"), `"preview-42"`},
+		"a mapping stays indented": {store.Mapping{"name": store.String("a")}, "{\n  \"name\": \"a\"\n}"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := string(store.Unframed(c.value)); got != c.want {
+				t.Errorf("Unframed = %q, want %q", got, c.want)
+			}
+			// It drops the frame and nothing else: the file's own
+			// bytes are these plus the trailing LF.
+			if got, want := string(store.Encode(c.value)), c.want+"\n"; got != want {
+				t.Errorf("Encode = %q, want %q", got, want)
+			}
+		})
+	}
+}

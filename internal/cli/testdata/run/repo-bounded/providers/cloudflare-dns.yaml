@@ -1,0 +1,30 @@
+kind: provider
+provider: cloudflare-dns
+schema-version: 1
+class: cloudflare
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  create_dns_record:
+    kind: mutate
+    repeatability: repeatable
+    deadline: 1s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /client/v4/zones/{zone_id}/dns_records
+      body: {name: "{name}", type: "{type}", content: "{content}"}
+    input:
+      type: object
+      properties:
+        zone_id: {type: string}
+        name: {type: string}
+        type: {type: string, enum: [A, AAAA, CNAME]}
+        content: {type: string}
+    record:
+      identity: "{name}"
+      fields:
+        id: $.body.result.id
+        name: $.body.result.name
+        created_on: $.body.result.created_on

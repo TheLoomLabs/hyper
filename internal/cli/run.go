@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -644,12 +645,17 @@ func runRows(answer run.Answer) []render.Row {
 // counterpart does not — the entry holds them on the Step's own file wherever
 // one exists, and a Refusal before Step 1 writes none.
 //
-// `declared` and `observed` are not here. §7 states them for a check that
-// compared two values, and no check that reaches a Run in this milestone does:
-// §4's thirty-two report a fault at a position, and the three Run-start gates
-// report an absence, and so do the Expansion's four checks (issue #139). They
-// arrive with `bound-exceeded`, the one member of the closed set that compares a
-// declared count against an observed one, and that is milestone 6's.
+// `declared` and `observed` are what a check that compared two values wrote,
+// and `bound-exceeded` is the one member of the closed set that does: the Bound
+// its author declared against the count its Expansion resolved to (§5, §7,
+// issue #149). Every other code writes neither, on the absence rule — nothing
+// is invented to fill a member that does not apply — so the two are absent from
+// most rows this stream ever carries.
+//
+// They ride as the canonical bytes the entry holds for them rather than as a
+// second reading of the same fact: what `outcome.json` writes for a `declared`
+// of 5 is `5`, and one renderer over one value is what keeps the wire and the
+// file from disagreeing about a number (§7, §8, ADR-0026).
 //
 // `resolved` is not here either, and the reason has moved rather than gone. A
 // Run does now evaluate a relative predicate — `older_than: 14d` at an
@@ -660,16 +666,18 @@ func runRows(answer run.Answer) []render.Row {
 // page holds an operand for a gloss to map. It arrives with the excerpt that
 // renders one (milestone 8).
 type refusalRow struct {
-	Type      string `json:"type"`
-	ErrorCode string `json:"error_code"`
-	Step      *int   `json:"step,omitempty"`
-	StepID    string `json:"step_id,omitempty"`
-	Operation string `json:"operation,omitempty"`
-	Target    string `json:"target,omitempty"`
-	File      string `json:"file,omitempty"`
-	Line      int    `json:"line,omitempty"`
-	Field     string `json:"field,omitempty"`
-	Message   string `json:"message,omitempty"`
+	Type      string          `json:"type"`
+	ErrorCode string          `json:"error_code"`
+	Step      *int            `json:"step,omitempty"`
+	StepID    string          `json:"step_id,omitempty"`
+	Operation string          `json:"operation,omitempty"`
+	Target    string          `json:"target,omitempty"`
+	Declared  json.RawMessage `json:"declared,omitempty"`
+	Observed  json.RawMessage `json:"observed,omitempty"`
+	File      string          `json:"file,omitempty"`
+	Line      int             `json:"line,omitempty"`
+	Field     string          `json:"field,omitempty"`
+	Message   string          `json:"message,omitempty"`
 }
 
 // refusalRowOf is one member of the Refusal's array as a row. Every member the
@@ -684,6 +692,8 @@ func refusalRowOf(refusal run.Refusal) refusalRow {
 		StepID:    refusal.StepID,
 		Operation: refusal.Operation,
 		Target:    refusal.Target,
+		Declared:  wireValue(refusal.Declared),
+		Observed:  wireValue(refusal.Observed),
 		File:      refusal.File,
 		Line:      refusal.Line,
 		Field:     refusal.Field,
@@ -694,6 +704,21 @@ func refusalRowOf(refusal run.Refusal) refusalRow {
 		row.Step = &step
 	}
 	return row
+}
+
+// wireValue is a Store value on §8's wire, and nothing at all where the check
+// wrote none — which is the absence rule arriving here as an omitted key rather
+// than as a `null`.
+//
+// The bytes are the Store's own (store.Unframed), which is the one door between
+// §7's encoding and this one: what a row states about a value and what the
+// entry states about it are then one reading rather than two that have to agree
+// (ADR-0026).
+func wireValue(held store.Value) json.RawMessage {
+	if held == nil {
+		return nil
+	}
+	return json.RawMessage(store.Unframed(held))
 }
 
 // Cells is the row's line in the problem table `check` already renders, which

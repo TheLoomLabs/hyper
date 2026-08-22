@@ -60,6 +60,13 @@ names one in a **`repo-from`** file instead, and the ones here are:
   moved to the corpus of the thing it is now an example of, and issue #148
   renamed what was left to what its artefacts now demonstrate rather than
   leaving it under a name that had stopped being true.
+- [`repo-bounded/`](repo-bounded) — the Bound at Expansion (issue #149): the
+  same `cloudflare-dns` shape cut to what a count needs — one `mutate`
+  Operation whose `identity:` is a template hole, a Definition claiming
+  `mutate`, a credentialled Target, and one Procedure whose Step carries a
+  `bound:` beside an `assets:` selector. It is a repository of its own rather
+  than a Procedure added to `repo-effectful` because adding one there would
+  move the `repo_revision` in every golden that names it.
 - [`repo-untracked/`](repo-untracked) — `repo-watch-status` with no
   `definitions/` in it, so the case that adds one through `uncommitted/` is
   running against an artefact git has never seen.
@@ -207,6 +214,7 @@ drives.
 | `an-identity-the-store-already-holds` | the second comparand: an identity that folds onto a standing series, refused with the same code |
 | `the-sibling-collision-is-named-first` | both comparands available at once — the sibling is named, being reproducible from the artefact alone with no Store in hand |
 | `a-step-with-no-selector-meets-the-store` | the Store comparand reaching a Step carrying no `over:`: vacuous against itself, and not against the branch |
+| `an-expansion-past-its-bound`, `-json` | the Bound's run-time half (issue #149): three seeded Assets under a `bound: 2`, `bound-exceeded` at `77`, and the Refusal carrying `declared` against `observed` — on `outcome.json` and on the `refusal` row, and on no other code anywhere. **No call goes out**, and the case serves `api.cloudflare.com` so that it is the Bound and not a refused connection that stopped it: had a call gone out it would have been answered, and the branch would hold a version it does not |
 | `four-runs-of-one-step` | driven once here and four times by [`../../run_expansion_test.go`](../../run_expansion_test.go) |
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
@@ -304,6 +312,14 @@ The Step table is omitted rather than rendered empty, on §8's own reading: an
 empty table asserts *we looked at the Steps*, which is false. `stderr.golden`
 is where that shows twice over — a refusing case narrates `run <id>` and no
 `step` line at all, because no Step was reached.
+
+That is the page of a Refusal that declined **before Step 1**, which is most of
+the closed set. A Refusal at a Step's own Expansion — the identity comparands,
+a predicate that cannot compare, a Bound the count is past — reached a Step, so
+its page carries the Step table with that Step *refused* and the problem table
+beneath it, and its `stderr.golden` carries the `step` line. The sentence the
+absence would have to carry is not needed there: the table says what became of
+every Step.
 
 ## How the two credential cases see the wire
 
@@ -428,6 +444,19 @@ every branch golden under `testdata/`, decodes every Step file it finds, and
 fails on a `read` Step carrying the key — and on a corpus holding no `read` Step
 file, or no effectful one carrying it, either of which would be the rule passing
 over nothing (§7, ADR-0010, issue #148).
+
+**That `declared` and `observed` are written by `bound-exceeded` and by nothing
+else.** The same shape of claim, one key over: §7 states the pair for a check
+that compared two values and nothing is invented to fill a member that does not
+apply, so what has to hold is a property of *every* Refusal the corpus ever
+writes.
+[`../../error_code_coverage_test.go`](../../error_code_coverage_test.go) walks
+every branch golden and every `--json` stdout under `testdata/`, decodes each
+`outcome.json` through the Store's own reader, and fails three ways — a code
+that is not `bound-exceeded` carrying either member, `bound-exceeded` carrying
+neither, and a member written without its pair — plus once more where no
+Refusal in the corpus compares anything at all, which would be the rule passing
+over nothing (§7, issue #149).
 
 ## What no golden here proves
 

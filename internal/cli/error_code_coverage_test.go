@@ -2,10 +2,14 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"testing"
+
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
 // checkCorpus is the check command's own slice of testdata/ — its cases, and no
@@ -28,10 +32,9 @@ const checkCorpus = "testdata/check"
 //   - The offline halves of three codes §4 and §6 share — bound-exceeded (an
 //     authored values: list longer than the Bound), predicate-type-mismatch
 //     (the authored operand faults), and record-identity-collision (its §3
-//     load site and its §4 wiring site). Two of those three grew their
-//     run-time halves at Expansion with issue #139, driven under
-//     testdata/run/; bound-exceeded's is milestone 6's, a Bound guarding an
-//     effectful Step alone.
+//     load site and its §4 wiring site). All three now have their run-time
+//     halves at Expansion too, driven under testdata/run/: two of them with
+//     issue #139, and bound-exceeded's with issue #149.
 //   - §10's two Cadence walk codes — cadence-run-once and
 //     cadence-secret-output — both stated by §4 and riding
 //     envelope-exceeded's transitive walk.
@@ -143,6 +146,13 @@ const runCorpus = "testdata/run"
 // The three that are not §4's ride here beside them because they reach a Run
 // the same way and through the same rendering: the Store schema test's, the
 // credential pass's and the sink gate's (§6, §9, §12).
+//
+// bound-exceeded is the fourth that is not §4's, and it is here on a different
+// footing from all of them: it is not a code arriving through the re-run of
+// `check` but §6's own, an Expansion's count being a number no file holds
+// (§5, §6, issue #149). Its offline half has a fixture under testdata/check/
+// and a member in the list above; what this one holds is that the run-time
+// half is driven too, and that both spell one code.
 var codesReachingARun = []string{
 	"unknown-key",
 	"credential-slot-malformed",
@@ -154,6 +164,7 @@ var codesReachingARun = []string{
 	"store-schema-unsupported",
 	"credential-absent",
 	"secret-sink-absent",
+	"bound-exceeded",
 }
 
 // artefactKindsCitedByARefusal is the five reviewed artefacts by where each one
@@ -239,4 +250,115 @@ func goldensUnder(t *testing.T, corpus string) []byte {
 		}
 	}
 	return haystack
+}
+
+// comparingCode is the one member of the closed `error_code` set that compares
+// two values, and therefore the only one that ever writes `declared` and
+// `observed`: an Expansion's count against the Bound the Step's author declared
+// (§5, §7, issue #149).
+//
+// It is spelled here rather than imported from the package that fires it, on
+// this file's own footing: what every assertion below reads is what the
+// checked-in goldens say, and a constant imported from the code under test
+// would move with it.
+const comparingCode = "bound-exceeded"
+
+// TestRefusal_OnlyTheComparingCodeWritesDeclaredAndObserved holds §7's absence
+// rule over the two members a Refusal carries only where a check compared two
+// values: nothing is invented to fill a member that does not apply, so a check
+// that compared nothing writes neither — and the check that did writes both.
+//
+// It reads the corpus's checked-in branch goldens rather than the code, on the
+// milestone-1 test's own footing: what is asserted is what the Journal actually
+// holds across every Run the corpus drives, which is the claim a reader of an
+// entry relies on. The `--json` stream is held to the same rule beside it, the
+// two surfaces being one list of rows rendered twice (ADR-0026).
+func TestRefusal_OnlyTheComparingCodeWritesDeclaredAndObserved(t *testing.T) {
+	compared := 0
+	for _, c := range goldenCases(t) {
+		for _, member := range refusalMembersOf(t, filepath.Join(c.dir, "store.golden")) {
+			held := member.Declared != nil || member.Observed != nil
+			switch {
+			case held && member.ErrorCode != comparingCode:
+				t.Errorf("%s: %s writes declared/observed and compared no two values", c.name, member.ErrorCode)
+			case held && (member.Declared == nil || member.Observed == nil):
+				t.Errorf("%s: %s writes one of declared and observed; a comparison has two operands", c.name, member.ErrorCode)
+			case !held && member.ErrorCode == comparingCode:
+				t.Errorf("%s: %s writes neither declared nor observed; it is the check that compares two", c.name, member.ErrorCode)
+			case held:
+				compared++
+			}
+		}
+		for _, row := range refusalRowsOf(t, filepath.Join(c.dir, "stdout.golden")) {
+			code, _ := row["error_code"].(string)
+			_, declared := row["declared"]
+			_, observed := row["observed"]
+			switch {
+			case (declared || observed) && code != comparingCode:
+				t.Errorf("%s: the %s row carries declared/observed and compared no two values", c.name, code)
+			case (declared || observed) && !(declared && observed):
+				t.Errorf("%s: the %s row carries one of declared and observed; a comparison has two operands", c.name, code)
+			case !declared && !observed && code == comparingCode:
+				t.Errorf("%s: the %s row carries neither declared nor observed; it is the check that compares two", c.name, code)
+			}
+		}
+	}
+	if compared == 0 {
+		t.Errorf("no Refusal in the corpus compares two values; %s has no fixture and this test asserts nothing", comparingCode)
+	}
+}
+
+// refusalMembersOf is every Refusal member held on an `outcome.json` in one
+// case's branch golden, read through the format's own parser and decoded
+// through the Store's own reader — so what is asserted above is what a consumer
+// of the entry gets rather than what a text search finds. A case with no branch
+// golden contributes none.
+func refusalMembersOf(t *testing.T, golden string) []store.RefusalMember {
+	t.Helper()
+
+	rendered := readFile(t, golden)
+	if rendered == absentBranch {
+		// A Run that found no branch wrote no entry, so there is no
+		// `outcome.json` to read — which is a case contributing
+		// nothing rather than a golden this parser cannot read.
+		return nil
+	}
+
+	var held []store.RefusalMember
+	for _, file := range parseRendering(t, rendered) {
+		if !strings.HasSuffix(file.path, "/outcome.json") {
+			continue
+		}
+		outcome, err := store.DecodeOutcomeFile([]byte(file.bytes))
+		if err != nil {
+			t.Fatalf("%s holds a %s this binary cannot read: %v", golden, file.path, err)
+		}
+		held = append(held, outcome.Refusal...)
+	}
+	return held
+}
+
+// refusalRowsOf is every `refusal` row on one case's stdout, and none at all
+// where that stdout is a page rather than a stream — a page carries no line
+// opening `{"type":"refusal"`, `type` being the row's first key by contract
+// (§8, internal/render).
+//
+// It decodes into a bare mapping rather than into cli's own row type, which is
+// unexported and would in any case be the shape under test answering a question
+// about itself: what is asserted is which **keys** the checked-in wire carries.
+func refusalRowsOf(t *testing.T, golden string) []map[string]any {
+	t.Helper()
+
+	var rows []map[string]any
+	for _, line := range strings.Split(readFile(t, golden), "\n") {
+		if !strings.HasPrefix(line, `{"type":"refusal"`) {
+			continue
+		}
+		var row map[string]any
+		if err := json.Unmarshal([]byte(line), &row); err != nil {
+			t.Fatalf("%s holds a refusal row that is not an object: %v", golden, err)
+		}
+		rows = append(rows, row)
+	}
+	return rows
 }
