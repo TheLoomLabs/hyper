@@ -28,7 +28,7 @@ import (
 // everything the command reads from the process arrives as an argument, so the
 // whole of it is exercisable without a subprocess.
 func RunProviders(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("providers", args, defaultListLimit, lookupenv, stderr)
+	parsed, code := parseArgs("providers", args, parameters{limit: defaultListLimit}, lookupenv, stderr)
 	if code != 0 {
 		return code
 	}

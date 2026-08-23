@@ -36,7 +36,7 @@ import (
 // It takes no --limit: it names a Manifest rather than ranging over a
 // namespace, so there is no result set for a cap to cut (§9).
 func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("provider", args, takesNoLimit, lookupenv, stderr)
+	parsed, code := parseArgs("provider", args, parameters{limit: takesNoLimit}, lookupenv, stderr)
 	if code != 0 {
 		return code
 	}

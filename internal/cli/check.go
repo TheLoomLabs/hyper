@@ -26,7 +26,7 @@ import (
 // pin. All four are passed in rather than read from the process directly, so
 // the whole command is exercisable without a subprocess.
 func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("check", args, takesNoLimit, lookupenv, stderr)
+	parsed, code := parseArgs("check", args, parameters{limit: takesNoLimit}, lookupenv, stderr)
 	if code != 0 {
 		return code
 	}

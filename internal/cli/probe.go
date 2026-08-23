@@ -64,7 +64,7 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 		return ExitUsage
 	}
 
-	parsed, code := parseArgs("probe", rest, takesNoLimit, process.LookupEnv, stderr)
+	parsed, code := parseArgs("probe", rest, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
 	}

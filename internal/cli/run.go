@@ -70,7 +70,7 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 
 	// No --limit: a Run reports what it just did rather than ranging over a
 	// namespace, so there is no result set for a cap to cut (§9).
-	parsed, code := parseArgs(runCommand, rest, takesNoLimit, process.LookupEnv, stderr)
+	parsed, code := parseArgs(runCommand, rest, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
 	}

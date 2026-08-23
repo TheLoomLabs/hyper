@@ -30,7 +30,7 @@ import (
 // never read, and nothing on this surface has ever held a secret (§3, §9,
 // ADR-0007).
 func RunTargets(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("targets", args, defaultListLimit, lookupenv, stderr)
+	parsed, code := parseArgs("targets", args, parameters{limit: defaultListLimit}, lookupenv, stderr)
 	if code != 0 {
 		return code
 	}

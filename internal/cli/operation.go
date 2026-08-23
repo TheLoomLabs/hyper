@@ -37,7 +37,7 @@ import (
 // the first has resolved — so a bad Provider is reported and the Operation
 // lookup is never attempted.
 func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("operation", args, takesNoLimit, lookupenv, stderr)
+	parsed, code := parseArgs("operation", args, parameters{limit: takesNoLimit}, lookupenv, stderr)
 	if code != 0 {
 		return code
 	}

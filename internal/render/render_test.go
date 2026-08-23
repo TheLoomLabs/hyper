@@ -97,16 +97,6 @@ func TestWriteJSON_LeavesHTMLPunctuationAsItWasWritten(t *testing.T) {
 	}
 }
 
-func TestNewResultRow_CarriesTheTruncationMarkerItWasGiven(t *testing.T) {
-	var buf bytes.Buffer
-	if err := render.WriteJSON(&buf, nil, render.NewResultRow(true)); err != nil {
-		t.Fatal(err)
-	}
-	if got, want := buf.String(), `{"type":"result","truncated":true}`+"\n"; got != want {
-		t.Errorf("WriteJSON() = %q, want %q", got, want)
-	}
-}
-
 func TestWriteTable_WritesTheHeaderAndOneAlignedLinePerRow(t *testing.T) {
 	var buf bytes.Buffer
 	rows := []render.Row{newStubRow("uptime", 2), newStubRow("cloudflare-dns", 11)}
@@ -187,4 +177,195 @@ func lines(t *testing.T, stream string) []string {
 		t.Fatalf("the stream does not end in a newline: %q", stream)
 	}
 	return strings.Split(strings.TrimSuffix(stream, "\n"), "\n")
+}
+
+// The truncation marker is the terminal row's third shape (§9, §12, issue
+// #162). `false` and `true` are the two the row has carried since the stream
+// landed, and the object beside them is what the Inspection commands write:
+// they range over the record's two axes and each of them has parameters that
+// narrow the one a limit cut, so the marker names the axis, the counts, and the
+// parameters that would make the next call a narrower question.
+//
+// The three are asserted here as one table rather than one case each, because
+// what the member is is *one of three shapes* and the way to see that is to put
+// them side by side.
+func TestResultRow_TheThreeShapesOfTheTruncationMember(t *testing.T) {
+	for name, c := range map[string]struct {
+		row  render.ResultRow
+		line string
+	}{
+		"a result nothing cut": {
+			row:  render.NewResultRow(false),
+			line: `{"type":"result","truncated":false}`,
+		},
+		"a result a limit cut, on a namespace with no axis to name": {
+			row:  render.NewResultRow(true),
+			line: `{"type":"result","truncated":true}`,
+		},
+		"a result a limit cut on an axis": {
+			row: render.NewTruncatedResultRow(render.TruncationMarker{
+				Axis:     render.AxisTime,
+				Returned: 200,
+				Dropped:  2840,
+				Hint:     "narrow with --since, or --between on changes",
+			}),
+			line: `{"type":"result","truncated":{"axis":"time","returned":200,"dropped":2840,"hint":"narrow with --since, or --between on changes"}}`,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			if err := render.WriteJSON(&buf, nil, c.row); err != nil {
+				t.Fatal(err)
+			}
+			if got, want := buf.String(), c.line+"\n"; got != want {
+				t.Errorf("WriteJSON() = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestTruncationMarker_CarriesTheIdentityAxisByItsOwnName is §12's other
+// member, which is the whole of what the closed pair has to say about spelling:
+// `identity` is §7's word for the (Target, Definition, name) triple, and the
+// wire carries that word and not `name`.
+func TestTruncationMarker_CarriesTheIdentityAxisByItsOwnName(t *testing.T) {
+	var buf bytes.Buffer
+	marker := render.TruncationMarker{
+		Axis:     render.AxisIdentity,
+		Returned: 50,
+		Dropped:  3950,
+		Hint:     "narrow with --target, --definition or --name",
+	}
+
+	if err := render.WriteJSON(&buf, nil, render.NewTruncatedResultRow(marker)); err != nil {
+		t.Fatal(err)
+	}
+
+	want := `{"type":"result","truncated":{"axis":"identity","returned":50,"dropped":3950,"hint":"narrow with --target, --definition or --name"}}` + "\n"
+	if got := buf.String(); got != want {
+		t.Errorf("WriteJSON() = %q, want %q", got, want)
+	}
+}
+
+// TestTruncationMarker_AMarkerThatIsNotOneStopsTheStream is what holds the
+// marker's four members to what a marker means, and it is the closed pair's
+// enforcement among them: a --limit is a positive integer, so a cut returned at
+// least one row and dropped at least one, and §12 fixes two axes and no third.
+// Every one of these would be a truncated result that reads as complete, or a
+// remedy naming nothing — which is the pair of things §9 says this surface may
+// never hand back.
+//
+// It stops the stream where it stands, which is WriteJSON's stated behaviour
+// for a row that will not encode. The terminal row is the last row, so what
+// reaches the consumer is a stream with no terminal row at all: the wire's own
+// signal that it was cut off, and a louder report than the marker would be.
+func TestTruncationMarker_AMarkerThatIsNotOneStopsTheStream(t *testing.T) {
+	whole := render.TruncationMarker{
+		Axis:     render.AxisIdentity,
+		Returned: 50,
+		Dropped:  3950,
+		Hint:     "narrow with --target, --definition or --name",
+	}
+	for name, c := range map[string]struct {
+		marker render.TruncationMarker
+		says   string
+	}{
+		"an axis outside §12's pair": {
+			marker: func() render.TruncationMarker {
+				m := whole
+				m.Axis = render.TruncationAxis("ordinal")
+				return m
+			}(),
+			says: "ordinal",
+		},
+		"no axis at all": {
+			marker: func() render.TruncationMarker {
+				m := whole
+				m.Axis = ""
+				return m
+			}(),
+			says: "axis",
+		},
+		"a cut that returned nothing": {
+			marker: func() render.TruncationMarker {
+				m := whole
+				m.Returned = 0
+				return m
+			}(),
+			says: "returned",
+		},
+		"a cut that dropped nothing": {
+			marker: func() render.TruncationMarker {
+				m := whole
+				m.Dropped = 0
+				return m
+			}(),
+			says: "dropped",
+		},
+		"a remedy naming nothing": {
+			marker: func() render.TruncationMarker {
+				m := whole
+				m.Hint = ""
+				return m
+			}(),
+			says: "hint",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+
+			err := render.WriteJSON(&buf, nil, render.NewTruncatedResultRow(c.marker))
+			if err == nil {
+				t.Fatalf("WriteJSON() wrote %q and answered no error", buf.String())
+			}
+			if got := err.Error(); !strings.Contains(got, c.says) {
+				t.Errorf("WriteJSON() error = %q, want it to name %q — the member it refused", got, c.says)
+			}
+		})
+	}
+}
+
+// TestTruncationMarker_WritesEveryMemberEvenWhereOneIsSmall holds the marker
+// off the ordinary absence rule (§7). A member a row does not carry is absent
+// from the object, and a marker carries all four always: the counts are numbers
+// a reader subtracts and compares, and one omitted at its smallest value would
+// be read as *unknown* where the fact is *one*.
+func TestTruncationMarker_WritesEveryMemberEvenWhereOneIsSmall(t *testing.T) {
+	var buf bytes.Buffer
+	marker := render.TruncationMarker{Axis: render.AxisTime, Returned: 1, Dropped: 1, Hint: "narrow with --since"}
+
+	if err := render.WriteJSON(&buf, nil, render.NewTruncatedResultRow(marker)); err != nil {
+		t.Fatal(err)
+	}
+
+	want := `{"type":"result","truncated":{"axis":"time","returned":1,"dropped":1,"hint":"narrow with --since"}}` + "\n"
+	if got := buf.String(); got != want {
+		t.Errorf("WriteJSON() = %q, want %q", got, want)
+	}
+}
+
+// TestTruncatedResultRow_HasNoLineOnThePage is the terminal row's own rule
+// holding for the shape that carries the most: the marker's human counterpart
+// is a line its command writes on stderr, and a page that grew a row here would
+// be putting narration on stdout, where only the answer goes (§9).
+func TestTruncatedResultRow_HasNoLineOnThePage(t *testing.T) {
+	row := render.NewTruncatedResultRow(render.TruncationMarker{Axis: render.AxisIdentity, Returned: 1, Dropped: 2, Hint: "narrow with --name"})
+	if cells := row.Cells(); len(cells) != 0 {
+		t.Errorf("Cells() = %q, want none", cells)
+	}
+}
+
+// TestResultRow_ATruncationNobodySetIsTheBareFalse is the member's zero value,
+// and it is the shape the boolean this replaced has always defaulted to. The
+// terminal row is the wire's framing, so an unset one may write `false` — the
+// stream carried everything — and may never write `null`, which is a terminal
+// row saying nothing about whether the answer is whole.
+func TestResultRow_ATruncationNobodySetIsTheBareFalse(t *testing.T) {
+	var buf bytes.Buffer
+	if err := render.WriteJSON(&buf, nil, render.ResultRow{Type: "result"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := buf.String(), `{"type":"result","truncated":false}`+"\n"; got != want {
+		t.Errorf("WriteJSON() = %q, want %q", got, want)
+	}
 }

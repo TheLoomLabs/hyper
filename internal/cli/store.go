@@ -33,7 +33,7 @@ func RunStore(args []string, stdout, stderr io.Writer, process Process, wd, bina
 	// there is no verb yet: `hyper store init --force` answers `hyper store:
 	// unknown flag --force`, the flags being read before the argument that
 	// would say which verb the fault belongs to.
-	parsed, code := parseArgs("store", args, takesNoLimit, process.LookupEnv, stderr)
+	parsed, code := parseArgs("store", args, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
 	}

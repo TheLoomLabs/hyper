@@ -14,6 +14,7 @@ package render
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -58,17 +59,155 @@ type Row interface {
 // stream a consumer must not trust.
 //
 // truncated is the marker of a result a limit cut short, and it is the whole of
-// what this row carries: it is written always, false included, a result row
-// with no marker having nothing left to say.
+// what this row carries: it is written always, the bare false included, a
+// result row with no marker having nothing left to say.
 type ResultRow struct {
-	Type      string `json:"type"`
-	Truncated bool   `json:"truncated"`
+	Type      string     `json:"type"`
+	Truncated Truncation `json:"truncated"`
+}
+
+// A Truncation is what `truncated` carries, and §9 fixes three shapes of it:
+// the bare false, the bare true, and the marker object (issue #162).
+//
+// Which shape a command writes is a fact about what it ranges over rather than
+// a choice. A namespace listing — `providers`, `targets` — writes the bare
+// boolean, because neither namespace has a narrowing parameter and an axis
+// there would name nothing a caller could act on. The Inspection commands range
+// over the record's two axes and every one of them has parameters that narrow
+// the one a limit cut, so they write the marker (§9, §12, ADR-0065).
+//
+// Its members are unexported and its two doors are the constructors below, so
+// the three shapes are all there are: a member free to hold anything at all is
+// a member whose --json contract is whatever its last caller passed. Its **zero
+// value is the bare false**, which is what the boolean this replaced has always
+// defaulted to — a terminal row that reached the wire unset writes `false` and
+// never `null`, an absent marker being the one thing this member may not say.
+type Truncation struct {
+	// bare is the boolean shape, and it is the whole of what goes out
+	// where there is no marker: a namespace listing has no axis to name,
+	// so the boolean is the entire answer there.
+	bare bool
+	// marker is the object shape, and where it stands it is the whole
+	// answer — the boolean beside it is not set, a marker being already a
+	// result something cut and the pair being one fact in two
+	// representations that can disagree (§8, ADR-0059). It is a pointer
+	// because *no marker* is a state this value must be able to hold.
+	marker *TruncationMarker
+}
+
+// MarshalJSON writes whichever of the three shapes this is: the marker where
+// there is one, and the bare boolean where there is not.
+func (t Truncation) MarshalJSON() ([]byte, error) {
+	if t.marker != nil {
+		return json.Marshal(*t.marker)
+	}
+	return json.Marshal(t.bare)
+}
+
+// TruncationAxis is §12's closed pair: the record's two axes, one of which
+// every Inspection command orders on and a limit therefore cuts (ADR-0065).
+//
+// `identity` is §7's word for the (Target, Definition, name) triple, and it is
+// preferred to `name` because the name is the last column of the key and rarely
+// the cut that helps. `time` is Runs or the versions of one Record, ordered
+// newest-first.
+//
+// It is a named string with two constants, which is the shape §12's other
+// closed sets already have here (store.Outcome's triple), and the pair is
+// closed where the marker is written rather than by the type: a conversion can
+// spell a third name and nothing that spells one reaches the wire.
+type TruncationAxis string
+
+const (
+	// AxisIdentity is Records, ordered by (Target, Definition, name).
+	// --target, --definition and --name narrow it.
+	AxisIdentity TruncationAxis = "identity"
+	// AxisTime is Runs or versions, ordered newest-first. --since narrows
+	// it, and --between does on `changes`.
+	AxisTime TruncationAxis = "time"
+)
+
+// TruncationMarker is the shape §9 fixes for a result an Inspection command's
+// limit cut: which axis was cut, what came back, what did not, and what would
+// make the next call a narrower question. There is no cursor behind this stream
+// and no way to ask for the next N — the remedy for a truncated result is a
+// narrower question, and the marker is what names the parameters that ask one
+// (§9, ADR-0065).
+//
+// All four members are written always: they are counts a reader subtracts and
+// compares, and the ordinary absence rule (§7) would leave a consumer reading a
+// missing key as *unknown* where the fact is *none*.
+//
+// Hint is the command's own words, for truncationLine's reason one package
+// over: the parameters that narrow an axis differ by which command was called —
+// `--between` is `changes`'s and nobody else's — and naming a flag the caller's
+// command does not take would point the remedy at an argument they would go
+// looking for in their own command line.
+type TruncationMarker struct {
+	Axis     TruncationAxis `json:"axis"`
+	Returned int            `json:"returned"`
+	Dropped  int            `json:"dropped"`
+	Hint     string         `json:"hint"`
+}
+
+// MarshalJSON writes the marker, and refuses one that is not one: a marker
+// stands only where a limit cut a result, so every one of its members has a
+// value it cannot honestly take.
+//
+// The axis is §12's pair and nothing else — a third name would name a cut with
+// no parameter behind it, which is the one thing the axis is on the wire to
+// prevent. A `--limit` is a positive integer (readLimit, one package over), so
+// a cut returned at least one row and dropped at least one, and a marker
+// carrying either count at zero is a truncated result that reads as complete —
+// the one thing §9 says this surface may never do. A hint naming nothing is the
+// same failure at the remedy: §12 states the axis is what makes the hint *more
+// than manners*, and an empty one hands back a narrower question with no
+// parameter in it, on a surface with no cursor to page with.
+//
+// It refuses rather than repairing. The counts and the words are the command's,
+// and nothing here can know what it cut; a marker falling back to a default
+// axis would send the next call at a parameter that narrows something else.
+//
+// **This is a value held at write time, which the row rule above declines to do
+// for a row's key order, and the difference is where the row stands.** A stream
+// that stopped mid-flight to report a badly declared row would cut the wire off
+// to report a smaller fault than the cut. The terminal row is the last row: the
+// rows already written are already out, nothing is lost but the framing, and a
+// stream ending without a terminal row is the stream's own defined signal that
+// it was cut off (ResultRow above). Refusing here reports the fault in the one
+// notation this surface guarantees a consumer reads, where writing the marker
+// anyway would hand back a complete-looking answer naming an axis that is not
+// one. The key-order rule stands as it is stated; nothing here is written
+// against a row's declaration.
+func (m TruncationMarker) MarshalJSON() ([]byte, error) {
+	switch {
+	case m.Axis != AxisIdentity && m.Axis != AxisTime:
+		return nil, fmt.Errorf("truncation axis %q is neither %q nor %q", string(m.Axis), AxisIdentity, AxisTime)
+	case m.Returned < 1:
+		return nil, fmt.Errorf("a truncation marker returned %d rows: a limit cuts a result it returned some of", m.Returned)
+	case m.Dropped < 1:
+		return nil, fmt.Errorf("a truncation marker dropped %d rows: a result nothing cut carries no marker", m.Dropped)
+	case m.Hint == "":
+		return nil, errors.New("a truncation marker carries no hint: the axis names the cut, and the hint names what narrows it")
+	}
+	// The alias sheds this method and nothing else, so the members, their
+	// order and their tags are the type's own and the encoding below is the
+	// ordinary one.
+	type members TruncationMarker
+	return json.Marshal(members(m))
 }
 
 // NewResultRow is the terminal row for a stream that carried everything it
-// found, or that a limit cut short.
+// found, or that a limit cut short on a namespace with no axis to name.
 func NewResultRow(truncated bool) ResultRow {
-	return ResultRow{Type: "result", Truncated: truncated}
+	return ResultRow{Type: "result", Truncated: Truncation{bare: truncated}}
+}
+
+// NewTruncatedResultRow is the terminal row for a result a limit cut on one of
+// the record's two axes: the marker in place of the bare true, on a command
+// whose parameters can narrow what it cut.
+func NewTruncatedResultRow(marker TruncationMarker) ResultRow {
+	return ResultRow{Type: "result", Truncated: Truncation{marker: &marker}}
 }
 
 // Cells is empty: the terminal row is the wire's framing and has no line on the

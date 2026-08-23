@@ -42,7 +42,7 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// omission: retention is read-time and lives in one reviewed artefact,
 	// and a flag behind it would let one invocation remove more than the
 	// repository ever agreed to (§7, ADR-0001, ADR-0014).
-	parsed, code := parseArgs("compact", args, takesNoLimit, process.LookupEnv, stderr)
+	parsed, code := parseArgs("compact", args, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
 	}

@@ -53,7 +53,7 @@ import (
 // having neither an order nor a cap, so a review that dropped lines would be
 // rendering something other than what is about to be approved (§8, §9).
 func RunReview(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("review", args, takesNoLimit, lookupenv, stderr)
+	parsed, code := parseArgs("review", args, parameters{limit: takesNoLimit}, lookupenv, stderr)
 	if code != 0 {
 		return code
 	}
