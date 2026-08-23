@@ -21,8 +21,9 @@ import (
 // rendering rule out of the coincidence.
 //
 // The three change names — `widened`, `narrowed`, `changed` — are absent
-// rather than stubbed. All three read a baseline and no range opens in this
-// milestone, so there is nothing for them to be a direction between (§12).
+// rather than stubbed. All three read a marked line, and the change column that
+// marks one lands with them (issue #168); the range they would be a direction
+// across is open (issue #164) and nothing indexes it yet (§12).
 const (
 	flagDestroy    = "destroy"
 	flagOpaque     = "opaque"

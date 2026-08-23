@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
@@ -12,6 +14,7 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
 // RunReview implements `hyper review <artefact>` — §8's Definition review of
@@ -28,10 +31,12 @@ import (
 // other four artefacts' rosters are their own and land with them.
 //
 // It is `check` and `provider` in every other respect: the same globals, the
-// same gate before the load, the same stream discipline, and the same reach —
-// no credential resolves, no network is touched, no Store branch opens and no
-// git object is read, so it answers on a fresh clone of a repository that has
-// never run (§9).
+// same gate before the load, and the same stream discipline. What it reaches
+// past the artefact is the range: the Store branch this clone holds, and the
+// one git object the range opens at (§8, issue #164). Neither is a fetch —
+// nothing here syncs, and every object read runs with lazy fetching off — so no
+// credential resolves and no network is touched, and a review still answers on
+// a fresh clone of a repository that has never run (§9, ADR-0071).
 //
 // What is its own is the positional, which takes two forms and where neither is
 // optional. A positional containing `/`, or ending in `.yaml`, is a
@@ -52,8 +57,8 @@ import (
 // It takes no --limit: nothing on this screen is a result set, an artefact
 // having neither an order nor a cap, so a review that dropped lines would be
 // rendering something other than what is about to be approved (§8, §9).
-func RunReview(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("review", args, parameters{limit: takesNoLimit}, lookupenv, stderr)
+func RunReview(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
+	parsed, code := parseArgs("review", args, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
 	}
@@ -67,7 +72,7 @@ func RunReview(args []string, stdout, stderr io.Writer, lookupenv func(string) (
 	}
 	named := parsed.positional[0]
 
-	repoRoot, code := resolveRepoRoot("review", parsed.repoDir, lookupenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("review", parsed.repoDir, process.LookupEnv, wd, stderr)
 	if code != 0 {
 		return code
 	}
@@ -119,8 +124,10 @@ func RunReview(args []string, stdout, stderr io.Writer, lookupenv func(string) (
 	// lines it renders, exactly as `check`'s closes over the count its clean
 	// line names, and reads the annotations off the rows like every other
 	// page in this package.
-	absent, sentence := rankedAbsence(reviewed)
-	rows := append([]render.Row{newArtefactRow(reviewed, absent)}, gutterRows(reviewed.markers)...)
+	now := process.Now()
+	opened := readRange(reviewed, repoRoot, now)
+	absent, sentence := rankedAbsence(reviewed, opened)
+	rows := append([]render.Row{newArtefactRow(reviewed, opened, absent, now)}, gutterRows(reviewed.markers)...)
 	rows = append(rows, authorityRows(reviewed.authority)...)
 	rows = append(rows, flagRows(reviewed.flags)...)
 	page := func(w io.Writer, rows []render.Row) error {
@@ -477,27 +484,34 @@ func ambiguousArtefactName(named string, matched []resolvedArtefact) string {
 // instance of matches nothing, and a `rate` key merely missing where the gloss
 // rendered would be the omission this screen forbids everywhere else (ADR-0026).
 //
-// `last_run` is not here, and its absence is one absence and not two: the range
-// and *last ran* read the same Journal entry under the same filter, so the
-// header states it once on the range's line and this line carries only what the
-// artefact's own bytes supply. There is no Store in this milestone to hold one
-// either way (§8, §10).
+// `last_run` is the last entry the header rendered an age from, and it is on
+// the row exactly where that age rendered. Where the absence is the Journal's
+// it is absent, one lookup supplying both readings: the header states it once
+// on the range's line, and rendering *no baseline — X has not run* above and
+// *last ran: never* below would be one fact twice. `not-in-clone` is the
+// exception, and it is stated rather than left to fall out of the rule — the
+// lookup succeeded there, the entry is present and dated and right, and what
+// failed is downstream of it (§8, §10, ADR-0071).
 //
 // baseline and baseline_absent are the two halves of one member: a review with
 // a range carries the revision it opened at, and one with none carries which of
 // §12's four names it is, a key merely missing collapsing four different facts
-// into one reading. Only the second is declared here. No range opens in this
-// milestone — there is no Store to ask — so `baseline` has nothing to carry,
-// and a member declared against nothing is the stub the absence pipeline below
-// refuses for the same reason: it arrives with the supply that fills it.
+// into one reading. Exactly one of the two is written on any row.
+//
+// Nothing here is abbreviated. The page shortens a revision because a revision
+// is a fact to recognise; the wire carries none to be recognised, and a
+// shortened value is one a consumer has to go somewhere else to complete (§8,
+// ADR-0047).
 type artefactRow struct {
-	Type           string   `json:"type"`
-	Kind           string   `json:"kind"`
-	Path           string   `json:"path,omitempty"`
-	BaselineAbsent string   `json:"baseline_absent,omitempty"`
-	Cadence        string   `json:"cadence,omitempty"`
-	Phrase         string   `json:"phrase,omitempty"`
-	Rate           *float64 `json:"rate,omitempty"`
+	Type           string      `json:"type"`
+	Kind           string      `json:"kind"`
+	Path           string      `json:"path,omitempty"`
+	Baseline       string      `json:"baseline,omitempty"`
+	BaselineAbsent string      `json:"baseline_absent,omitempty"`
+	Cadence        string      `json:"cadence,omitempty"`
+	Phrase         string      `json:"phrase,omitempty"`
+	Rate           *float64    `json:"rate,omitempty"`
+	LastRun        *lastRunRow `json:"last_run,omitempty"`
 
 	// rateText is the rate in the notation the page renders it in — the
 	// `≈` where it was rounded, and the unit fixed at runs per month (§10).
@@ -507,6 +521,28 @@ type artefactRow struct {
 	// renders and the number the row carries are one rounding and cannot
 	// disagree.
 	rateText string
+	// lastRanText is the age the gloss line renders beside the rate, and ""
+	// where no entry supplied one. It is off the wire for rateText's reason
+	// and on the row for the same one: the instant the row carries and the
+	// age the page renders come out of one subtraction against one clock.
+	lastRanText string
+	// revisionText is the range as the page renders it, the revision
+	// abbreviated — a fact to recognise, which is what ADR-0047 abbreviates
+	// and what the wire's whole value beside it does not. It is "" wherever
+	// the row carries an absence in the range's place.
+	revisionText string
+}
+
+// lastRunRow is the Journal entry the header read, as the wire carries it: the
+// Run, whole, and the instant that entry ended.
+//
+// It carries the instant and not the age the page renders. An age is a
+// subtraction against the reader's clock and is stale the moment it is written,
+// where the instant is what the entry itself holds — and a consumer that wants
+// an age has a clock the page's reader does not (§7, §8).
+type lastRunRow struct {
+	Run   string `json:"run"`
+	Ended string `json:"ended"`
 }
 
 // newArtefactRow is the header as one row: the kind, the path where there is a
@@ -518,20 +554,95 @@ type artefactRow struct {
 // projects a Cadence into a workflow. Until it does, a review renders such an
 // artefact like any other and says nothing about it — the gloss is a reading of
 // the grammar, and what is not in the grammar has no reading (§10, ADR-0064).
-func newArtefactRow(reviewed reviewedArtefact, absent string) artefactRow {
+// The range and the entry it was read off arrive together, because they are one
+// lookup: the revision goes on the range's line and the age beside the gloss,
+// which is one Journal entry rendered twice rather than two entries once each
+// (§8, §10).
+func newArtefactRow(reviewed reviewedArtefact, opened reviewRange, absent string, now time.Time) artefactRow {
 	row := artefactRow{
 		Type:           "artefact",
 		Kind:           reviewed.kind.wire,
 		Path:           reviewed.path,
 		BaselineAbsent: absent,
 	}
+	if absent == "" {
+		row.Baseline = opened.blob
+		row.revisionText = abbreviatedRevision(opened.blob) + " → working tree"
+	}
 	if gloss, readable := cadence.Read(reviewed.cadence); readable {
 		row.Cadence = gloss.Expression
 		row.Phrase = gloss.Phrase
 		row.Rate = &gloss.Rate
 		row.rateText = gloss.RateText
+		// *last ran* is a member of the gloss and renders where the
+		// gloss does. §8 gives the header *the artefact's kind, its
+		// path, the range the review is read across, and — **on a
+		// Procedure declaring a Cadence** — the gloss §10 states and
+		// the last Journal entry beside it*, and gives the row *the
+		// kind, the path, the baseline revision, and on a Procedure
+		// declaring a Cadence the expression, the phrase, the rate as a
+		// number, and **the last entry the header rendered an age
+		// from***. So the member is one fact in two notations and the
+		// wire follows the page: an artefact with no Cadence beneath it
+		// has no line to hang an age on, and there is no entry the
+		// header rendered an age from for the row to carry.
+		//
+		// The rule that reads `last_run` *absent on the first three
+		// absences and present on `not-in-clone`* is about which
+		// absence suppresses it and not about which artefacts have one:
+		// what it turns on is the supply, and a Journal entry nobody
+		// rendered an age from is not one (§8, §10, ADR-0068).
+		//
+		// An entry holding no account of its end supplies a range and
+		// no age. Its run.json carries the revision like any other
+		// entry's, and *last ran* is a rendering of when the Run
+		// **ended** — an open entry has no such instant, and inventing
+		// one from its start would be this header asserting that a Run
+		// still in flight is over (§7).
+		if ended, closed := opened.entry.Ended(); opened.supplied && closed {
+			row.LastRun = &lastRunRow{Run: opened.entry.Run.String(), Ended: store.InstantText(ended)}
+			row.lastRanText = "last ran " + ageText(ended, now)
+		}
 	}
 	return row
+}
+
+// abbreviatedRevision is a revision as this page renders one: the leading digits, and
+// the whole value where it is already shorter than that.
+//
+// A revision is a fact to *recognise* — the eye matching the range's endpoint
+// against the one a flag names — so it renders abbreviated here, as it does in
+// the Comparison's header and down a `runs` column (ADR-0047). What is not
+// abbreviated anywhere is the wire, and what is not abbreviated on this page is
+// the revision `not-in-clone` renders: there is nothing on that line to
+// recognise it against, and what a reader does with it is go and fetch the
+// object.
+func abbreviatedRevision(revision string) string {
+	if len(revision) <= reviewRevisionDigits {
+		return revision
+	}
+	return revision[:reviewRevisionDigits]
+}
+
+// ageText is how long ago an instant was, in the notation §10's gloss renders
+// it in — *41 days ago*.
+//
+// It is whole days, floored, because that is the grain the declaration beside
+// it is read at: a Cadence's rate is runs per month, and a staleness read
+// against it is answered in days rather than in hours nobody declared
+// (ADR-0066). An entry less than a day old says so rather than rendering `0
+// days ago`, which reads as a renderer that broke, and an entry ahead of the
+// clock — two machines, two clocks (§7) — reads the same way rather than
+// rendering a negative.
+func ageText(then, now time.Time) string {
+	switch days := int(now.Sub(then) / (24 * time.Hour)); {
+	case days < 1:
+		return "less than a day ago"
+	case days == 1:
+		return "1 day ago"
+	default:
+		return strconv.Itoa(days) + " days ago"
+	}
 }
 
 // Cells is empty: the header is a block of one fact per line rather than a line
@@ -542,9 +653,14 @@ func (r artefactRow) Cells() []string { return nil }
 // absenceStage is one stage of §8's absent-baseline pipeline: the name §12
 // closes the set at, and what the header's sentence says where this stage is
 // the answer. A stage answers "" where it did not fire.
+//
+// A stage reads the artefact and the range together because the four absences
+// are about two subjects: the first is a fact about the artefact — it has no
+// file — and the other three are facts about the lookup that went looking for
+// its revision.
 type absenceStage struct {
 	name  string
-	fires func(reviewedArtefact) string
+	fires func(reviewedArtefact, reviewRange) string
 }
 
 // absencePipeline is §8's four absences ranked — and it is written as the
@@ -552,25 +668,92 @@ type absenceStage struct {
 // is how a reader checks a rendering against it: each stage is reachable only
 // where the one before it did not fire (§8, §12).
 //
-// Two of the four are live here and two are not written at all. `built-in`
-// fires on the one artefact with no file in the repository, and its absence is
-// permanent — its bytes move only when the binary does. `no-store` fires on
-// every other artefact and is the true answer, no repository having a Store
-// before `store init` exists. `not-run` and `not-in-clone` are unreachable —
-// there is no Journal to ask and no revision to fail to find — so they are
-// absent from this list rather than stubbed in it, and the milestone that reads
-// a Journal adds them between and after the two below rather than re-deriving
-// the ranking.
+// The stages read: no file at all, then nothing to ask, then asked and empty,
+// then answered and the bytes absent. `built-in` fires on the one artefact with
+// no file in the repository, and its absence is permanent — its bytes move only
+// when the binary does, which is why it ranks first: rendering *no Store* there
+// promises a range that repairing the Store will never produce. `no-store`
+// fires where the branch could not be asked at all. `not-run` fires where it
+// answered and holds nothing that anchors this file. `not-in-clone` fires where
+// a Run answered, it is the right Run, it named a revision — and the object is
+// not here to read (ADR-0071).
+//
+// The fourth is about the clone and the other three are about the Journal,
+// which is what makes it the last stage and also the only one whose absence
+// does not travel to the gloss beside it.
 var absencePipeline = []absenceStage{
-	{"built-in", func(reviewed reviewedArtefact) string {
+	{"built-in", func(reviewed reviewedArtefact, _ reviewRange) string {
 		if reviewed.path != "" {
 			return ""
 		}
 		return reviewed.name + " ships in the binary"
 	}},
-	{"no-store", func(reviewedArtefact) string {
+	{"no-store", func(_ reviewedArtefact, opened reviewRange) string {
+		if opened.stored {
+			return ""
+		}
 		return "no Store"
 	}},
+	{"not-run", func(reviewed reviewedArtefact, opened reviewRange) string {
+		if opened.supplied {
+			return ""
+		}
+		return actThatWouldSupply(reviewed)
+	}},
+	{"not-in-clone", func(_ reviewedArtefact, opened reviewRange) string {
+		if opened.blob != "" {
+			return ""
+		}
+		return opened.named + " is not in this clone"
+	}},
+}
+
+// actThatWouldSupply is `not-run`'s sentence: the act that would supply a
+// range, which differs by kind where the wire name does not (§8, §12).
+//
+// The name is one over a fact that grew rather than five over five kinds — it
+// never meant *the Procedure did not run*, it meant *there is no Run to anchor
+// on* — and the connotation strains on the four artefacts nothing runs. It is
+// paid here rather than on the wire: a consumer filtering on the name wants one
+// stable string, and a reader told *`staging` has not run* learns neither what
+// happened nor what to do.
+//
+// A **Repository declaration** is the fifth form and takes no name, which is
+// the rule holding rather than an exception to it. It is read by every Run
+// there is (§11), so the act that would supply it is any Run at all — and it
+// declares no name for a sentence to carry, `hyper.yaml` being the one artefact
+// a path is the only way to reach (§4). §8 names four kinds and this is the
+// fifth, resolved here rather than left to a fallthrough: a kind reaching this
+// sentence without an arm of its own is what the enumeration exists to make
+// impossible.
+//
+// It is a fifth spelling of §12's `kind:` and deliberately not a member of
+// artefactKind. That type carries the three spellings of what the artefact
+// **is** — the word heading its marker column, the noun a message calls it by,
+// and the key it declares its own name under — and this is a sentence about a
+// Journal that holds nothing, which is not a name for a kind. It could not be
+// one value either: two of the five put the artefact's name at the front, two
+// at the back and the fifth carries none, which is three shapes rather than
+// five strings.
+func actThatWouldSupply(reviewed reviewedArtefact) string {
+	switch reviewed.kind.wire {
+	case artefact.KindProcedure:
+		return reviewed.name + " has not run"
+	case artefact.KindTargetDeclaration:
+		return "nothing has bound " + reviewed.name
+	case artefact.KindDefinition:
+		return "nothing has named " + reviewed.name
+	case artefact.KindProvider:
+		return "nothing has loaded " + reviewed.name
+	case artefact.KindRepositoryDeclaration:
+		return "nothing has run"
+	}
+	// Unreachable from a resolved artefact, every one of them carrying one
+	// of §12's five (artefactKinds). It answers rather than returning
+	// nothing, because "" is a stage saying it did not fire and would let
+	// the pipeline rank an absence past the one that is true — and this is
+	// the one sentence that holds whatever the artefact turned out to be.
+	return "nothing has run"
 }
 
 // rankedAbsence is the one absence the header states and the wire carries: the
@@ -579,14 +762,13 @@ var absencePipeline = []absenceStage{
 // absences before reading them, which is the ranking `FLAGS` is the one surface
 // permitted to do (§8, ADR-0026).
 //
-// It answers nothing where no stage fired, which is unreachable today: the last
-// stage above is the true answer for every artefact that reaches it. It is
-// written as an answer rather than as a fallthrough because the milestone that
-// opens a range asks this only where none opened, and a pipeline that could not
-// say *nothing is absent* would have to be re-derived there.
-func rankedAbsence(reviewed reviewedArtefact) (name, sentence string) {
+// It answers nothing where no stage fired, and that is the ordinary case rather
+// than a fallthrough: an artefact with a file, a Store that answered, a Run
+// that read it and an object this clone holds is a review with a range, and
+// what the header renders in the sentence's place is the range itself.
+func rankedAbsence(reviewed reviewedArtefact, opened reviewRange) (name, sentence string) {
 	for _, stage := range absencePipeline {
-		if text := stage.fires(reviewed); text != "" {
+		if text := stage.fires(reviewed, opened); text != "" {
 			return stage.name, "no baseline — " + text
 		}
 	}
@@ -619,11 +801,18 @@ const (
 	reviewCaptionGap = "   "
 	// reviewSourceGap is what stands between the bar and the artefact's own
 	// line. It is one character wide because the change column is not drawn
-	// at all in this milestone — no range opens, so that column has no
+	// yet: a range opens (issue #164) and nothing marks a line with it until
+	// the gutter's change column lands (issue #168), so that column has no
 	// content and no width, and the source sits two characters left of where
-	// a ranged review would put it: the column and the space that would
-	// separate it from the source (§8).
+	// a marked review will put it — the column and the space that would
+	// separate it from the source. A blank column one character wide is the
+	// one thing this screen may not draw (§8).
 	reviewSourceGap = " "
+	// reviewRevisionDigits is how much of a revision this page renders: the
+	// leading digits git itself abbreviates one to, which is what makes the
+	// range's endpoint a fact the eye recognises rather than a value it
+	// transcribes (ADR-0047).
+	reviewRevisionDigits = 7
 	// reviewPathColumn is where the header's first line states the range, or
 	// the absence standing in its place. A header is one row, so nothing on
 	// the screen supplies a width to align it against; it is fixed so that
@@ -642,12 +831,11 @@ const (
 // --json` emits the annotations and never the source, the consumer already
 // having the file (§8).
 //
-// The gutter is two columns and here the second one is not drawn at all. There
-// is no Store in this milestone and so no range ever opens, which means the
-// change column has no content **and no width**, and the source sits two
-// characters left of where a ranged review would put it — the absence being the
-// state §8 names rather than a column pending its first mark. A blank column
-// one character wide is the one thing this screen may not do.
+// The gutter is two columns and here the second one is not drawn at all. A
+// range opens (issue #164) and nothing marks a line with it until the change
+// column lands (issue #168), so that column has no content **and no width**,
+// and the source sits two characters left of where a marked review will put it.
+// A blank column one character wide is the one thing this screen may not do.
 func writeReviewPage(w io.Writer, rows []render.Row, page reviewPage) error {
 	if len(rows) == 0 {
 		return nil
@@ -762,17 +950,27 @@ func (r artefactRow) markerHeading() string { return kindByWire(r.Kind).word }
 // An artefact with no Cadence beneath it renders a one-line header: the gloss's
 // absence takes the line rather than leaving one blank.
 func headerFacts(header artefactRow, sentence string) []string {
-	first := inColumn(header.Path, reviewPathColumn) + sentence
+	// The range where one opened, and the absence in the range's own
+	// position where none did. Exactly one of the two is ever set, which is
+	// the row's own rule read back off it (artefactRow).
+	stated := header.revisionText + sentence
+	first := inColumn(header.Path, reviewPathColumn) + stated
 	if header.Path == "" {
-		first = sentence
+		first = stated
 	}
 	if header.Phrase == "" {
 		return []string{first}
 	}
 	// How the parts are arranged is the surface's, and what they are is
 	// not (§10). On a header they share one line, separated by `·`, the
-	// expression already being on the `cadence:` line below.
-	return []string{first, header.Phrase + " · " + header.rateText}
+	// expression already being on the `cadence:` line below — and the last
+	// Journal entry's age joins them where one supplied it, which is the
+	// same entry the range on the line above opened at.
+	gloss := header.Phrase + " · " + header.rateText
+	if header.lastRanText != "" {
+		gloss += " · " + header.lastRanText
+	}
+	return []string{first, gloss}
 }
 
 // gutter is one line's left-hand side: the indent, the marker cell padded to

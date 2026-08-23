@@ -396,8 +396,9 @@ func opaqueToken(opaque bool) string {
 // carries the line, and the marker column's rendered text where that cell has
 // content. A line with content in either column gets a row and a line with
 // neither gets none — which is why nothing here is emitted for the change
-// column: no range opens in this milestone, so that column has no content and
-// no width (§8).
+// column: a range opens (issue #164) and nothing marks a line with it until the
+// change column lands (issue #168), so that column has no content and no width
+// (§8).
 //
 // The marker goes out as the string the page renders with its alignment padding
 // collapsed to single spaces, rather than decomposed into the fields it

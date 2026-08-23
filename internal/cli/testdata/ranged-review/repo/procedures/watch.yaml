@@ -1,0 +1,14 @@
+kind: procedure
+procedure: watch
+targets: [staging]
+cadence: "0 3 * * 1"
+steps:
+  - id: beat
+    definition: heartbeat
+    operation: check_http
+    target: staging
+    args:
+      host: status.hyper.dev
+
+  - id: descend
+    procedure: probe

@@ -38,6 +38,25 @@ var redirecting = []string{
 	"GIT_NAMESPACE",
 }
 
+// NoLazyFetch is git's own switch for lazy fetching, set: with it in a
+// subprocess's environment an object read on a partial clone answers *missing*
+// instead of going to the promisor remote for it.
+//
+// It is here rather than in either caller for this file's own reason. Both
+// packages that start a git subprocess read objects, ADR-0071 requires every
+// such read to run with lazy fetching off, and the line that decision draws —
+// between *an object read that silently becomes a fetch* and *a branch sync
+// `hyper` chose* — is a rule about git and not about either package's subject.
+// A switch spelled in one copy and not the other would leave one package's
+// reads reaching the network and the other's not, silently, which is exactly
+// what the list above exists to prevent.
+//
+// It is **appended** to an inherited environment rather than substituted into
+// it. os/exec keeps the final value of a repeated name, so an entry written
+// last wins over whatever the caller's environment happened to carry — which is
+// the same rule internal/store's commit identity and dates already rest on.
+const NoLazyFetch = "GIT_NO_LAZY_FETCH=1"
+
 // Inheritable is an environment with those dropped and nothing else touched.
 //
 // The rest is inherited rather than replaced, and that is the one place this

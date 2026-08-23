@@ -1,0 +1,18 @@
+{
+  "definition": "heartbeat",
+  "disposition": "ran",
+  "ended_at": "2026-06-26T03:00:24.000Z",
+  "id": "again",
+  "kind": "read",
+  "operation": "check_http",
+  "path": "probe.again",
+  "provenance": {
+    "definition_revision": "295fea3b5d37d11f4007541e1721ebcc5fd40030",
+    "manifest_digest": "sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "started_at": "2026-06-26T03:00:12.000Z",
+  "step": 2,
+  "target": "staging"
+}

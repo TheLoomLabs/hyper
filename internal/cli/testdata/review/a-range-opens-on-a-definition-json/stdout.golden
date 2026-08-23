@@ -1,0 +1,5 @@
+{"type":"artefact","kind":"definition","path":"definitions/heartbeat.yaml","baseline":"295fea3b5d37d11f4007541e1721ebcc5fd40030"}
+{"type":"gutter","line":4,"marker":"read"}
+{"type":"gutter","line":5,"marker":"staging"}
+{"type":"authority","definition":"heartbeat","target":"staging","definition_kinds":["read"],"target_kinds":["read"],"effective":["read"],"destroy_operations":[]}
+{"type":"result","truncated":false}

@@ -224,10 +224,28 @@ func (g gitRepository) text(args ...string) (string, error) {
 
 // environment is the process's own, less the variables that would redirect git
 // at another repository — internal/git states that rule and holds it for both
-// packages that start a git subprocess. Nothing is added: this package writes
-// no object and makes no commit, so there is no identity and no date to supply,
-// which are the two things internal/store's own environment exists for.
-func environment() []string { return git.Inheritable(os.Environ()) }
+// packages that start a git subprocess — and with lazy fetching off.
+//
+// No identity and no date is added: this package writes no object and makes no
+// commit, which are the two things internal/store's own environment exists for.
+//
+// **Lazy fetching is off on every subprocess this package starts**, which is
+// how *a review resolves no credential, reaches no network, and invokes
+// nothing* is enforced rather than left to hold by habit (§8, ADR-0071). On a
+// partial clone an ordinary object read is a lazy fetch, so a package whose
+// whole subject is reading the code branch would reach a remote without a line
+// of hyper intending to, and the failure would arrive as latency rather than as
+// an absence anyone named. It is set here, on the environment every read below
+// is run with, rather than at each call: a reader added later inherits the rule
+// instead of having to remember it.
+//
+// The switch itself is internal/git's, for the reason the redirecting list is:
+// both packages that start a git subprocess read objects and both are bound by
+// the same rule, and one spelled in one copy and not the other would leave one
+// of them reaching the network and the other not.
+func environment() []string {
+	return append(git.Inheritable(os.Environ()), git.NoLazyFetch)
+}
 
 // nulSeparated reads a listing git wrote NUL-separated, which is how the one
 // listing here is asked for: a path git would otherwise quote arrives whole,

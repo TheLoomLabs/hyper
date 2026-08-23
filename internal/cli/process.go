@@ -34,7 +34,10 @@ import (
 // nothing else*, and for the two commands that take it — `store` and `compact`
 // — the finer statement is gone. main.go's environmentOnly is what keeps it
 // everywhere it can still be made: a command that reads only the environment
-// takes only a lookup, and six of §9's sixteen still say so by their shape.
+// takes only a lookup, and five of §9's sixteen still say so by their shape.
+// `review` was the sixth until it opened a range and started reading the clock
+// the age beside its gloss is measured against (issue #164), which is the trade
+// working as stated — the signature moved because what the command reads did.
 //
 // Every member is a function rather than a resolved value, and for the reason
 // the working directory already was one: a read a command never makes is a read

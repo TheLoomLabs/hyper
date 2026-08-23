@@ -1,0 +1,5 @@
+kind: definition
+definition: heartbeat
+provider: uptime
+kinds: [read]
+targets: [staging]

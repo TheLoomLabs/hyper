@@ -1,0 +1,24 @@
+  PROCEDURE      │  procedures/watch.yaml                   5639c68 → working tree
+                 │  03:00 UTC every Monday · ≈4.3 runs/month · last ran 41 days ago
+  ───────────────┼─────────────────────────────────────────────────────────────────
+                 │ kind: procedure
+                 │ procedure: watch
+  envelope ✓     │ targets: [staging]
+                 │ cadence: "0 3 * * 1"
+                 │ steps:
+  read  staging  │   - id: beat
+                 │     definition: heartbeat
+                 │     operation: check_http
+                 │     target: staging
+                 │     args:
+                 │       host: status.hyper.dev
+                 │
+        staging  │   - id: descend
+                 │     procedure: probe
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS
+  heartbeat   staging  read              read          r          —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  ENVELOPE  line 3  ok  no step reaches a target outside [staging]

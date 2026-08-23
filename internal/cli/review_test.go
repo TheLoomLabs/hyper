@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
@@ -17,8 +18,19 @@ import (
 func runReview(t *testing.T, root string, args ...string) (stdout, stderr string, exit int) {
 	t.Helper()
 	var out, errs bytes.Buffer
-	exit = cli.RunReview(append([]string{"--repo-dir", root}, args...), &out, &errs, emptyEnvironment, root, "1.4.0")
+	exit = cli.RunReview(append([]string{"--repo-dir", root}, args...), &out, &errs, reviewProcess(emptyEnvironment), root, "1.4.0")
 	return out.String(), errs.String(), exit
+}
+
+// reviewProcess is the process a review is driven with: the environment the
+// case supplies, and the suite's one fixed instant.
+//
+// The clock is the whole of what this command reaches for beyond the
+// environment, and it reaches it for the age the header renders beside the
+// gloss (§8, §10). Every other member is left nil, which is what says a review
+// mints nothing, dials nothing and starts no child.
+func reviewProcess(lookupenv func(string) (string, bool)) cli.Process {
+	return cli.Process{LookupEnv: lookupenv, Now: func() time.Time { return fixedInstant }}
 }
 
 // sourceOf is the source a review rendered, read back off the page: the lines
@@ -431,10 +443,10 @@ func TestRunReview_TheThreeGlobalsBehaveAsTheyDoEverywhereElse(t *testing.T) {
 		return "", false
 	}
 	var named, environed bytes.Buffer
-	if exit := cli.RunReview([]string{"--repo-dir", root, "hyper.yaml"}, &named, &named, emptyEnvironment, root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"--repo-dir", root, "hyper.yaml"}, &named, &named, reviewProcess(emptyEnvironment), root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("--repo-dir exited %d, want a clean review", exit)
 	}
-	if exit := cli.RunReview([]string{"hyper.yaml"}, &environed, &environed, fromEnv, elsewhere, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"hyper.yaml"}, &environed, &environed, reviewProcess(fromEnv), elsewhere, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("HYPER_REPO_DIR exited %d, want a clean review", exit)
 	}
 	if named.String() != environed.String() {
@@ -448,10 +460,10 @@ func TestRunReview_TheThreeGlobalsBehaveAsTheyDoEverywhereElse(t *testing.T) {
 		return "", false
 	}
 	var flagged, environedColour bytes.Buffer
-	if exit := cli.RunReview([]string{"--repo-dir", root, "--no-color", "hyper.yaml"}, &flagged, &flagged, emptyEnvironment, root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"--repo-dir", root, "--no-color", "hyper.yaml"}, &flagged, &flagged, reviewProcess(emptyEnvironment), root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("--no-color exited %d, want a clean review", exit)
 	}
-	if exit := cli.RunReview([]string{"--repo-dir", root, "hyper.yaml"}, &environedColour, &environedColour, noColorSet, root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"--repo-dir", root, "hyper.yaml"}, &environedColour, &environedColour, reviewProcess(noColorSet), root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("NO_COLOR exited %d, want a clean review", exit)
 	}
 	if flagged.String() != named.String() || environedColour.String() != named.String() {
@@ -477,7 +489,7 @@ func TestRunReview_ResolvesNoCredential(t *testing.T) {
 		return "", false
 	}
 	var out bytes.Buffer
-	if exit := cli.RunReview([]string{"--repo-dir", root, "cloudflare-prod"}, &out, &out, watching, root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"--repo-dir", root, "cloudflare-prod"}, &out, &out, reviewProcess(watching), root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want a clean review", exit)
 	}
 
@@ -1213,7 +1225,7 @@ steps:
 		}
 	}
 	if strings.Contains(stdout, "~") {
-		t.Errorf("the page carries a change mark; no range opens in this milestone:\n%s", stdout)
+		t.Errorf("the page carries a change mark; nothing marks a line until the change column lands (issue #168):\n%s", stdout)
 	}
 }
 
@@ -1756,7 +1768,7 @@ func TestRunReview_TheChangeColumnIsAColumnOnAllFiveAndZeroWideOnAllFive(t *test
 			}
 		}
 		if strings.Contains(stdout, "~") {
-			t.Errorf("hyper review %s carries a change mark; no range opens in this milestone:\n%s", named, stdout)
+			t.Errorf("hyper review %s carries a change mark; nothing marks a line until the change column lands (issue #168):\n%s", named, stdout)
 		}
 	}
 }

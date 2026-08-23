@@ -1,0 +1,7 @@
+{"type":"artefact","kind":"procedure","path":"procedures/watch.yaml","baseline":"5639c68a1e0a79e88a92cfd1153dd40d4febd1cf","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3,"last_run":{"run":"01984c9f-3a20-7b41-8c05-2d6e9f31a7b4","ended":"2026-06-26T03:01:44.000Z"}}
+{"type":"gutter","line":3,"marker":"envelope ok"}
+{"type":"gutter","line":6,"marker":"read staging"}
+{"type":"gutter","line":13,"marker":"staging"}
+{"type":"authority","definition":"heartbeat","target":"staging","definition_kinds":["read"],"target_kinds":["read"],"effective":["read"],"destroy_operations":[]}
+{"type":"flag","flag":"envelope","cites_line":3}
+{"type":"result","truncated":false}

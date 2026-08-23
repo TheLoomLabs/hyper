@@ -114,11 +114,13 @@ type repositoryCommand func(args []string, stdout, stderr io.Writer, process Pro
 // It is what is left of clockless once the reads became one value, and it
 // exists for the reason clockless did: a command's signature says what it
 // reads, and #100's property is that what a command reads from the process is
-// visible in what it takes rather than discharged by reading its body. Six of
-// §9's sixteen landed before the Store, and the environment is the whole of
-// what they read — HYPER_REPO_DIR and NO_COLOR — so they take a lookup and say
-// by their shape that they read no clock, mint no id, dial nothing and start no
-// child. `store` and `compact` write, and take the whole value.
+// visible in what it takes rather than discharged by reading its body. Five of
+// §9's sixteen read the environment and nothing else — HYPER_REPO_DIR and
+// NO_COLOR — so they take a lookup and say by their shape that they read no
+// clock, mint no id, dial nothing and start no child. `store` and `compact`
+// write, and take the whole value; `review` grew a clock and left this arm for
+// the table below, which is the property doing its work rather than failing it
+// (issue #164).
 func environmentOnly(run func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int) repositoryCommand {
 	return func(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
 		return run(args, stdout, stderr, process.LookupEnv, wd, binaryVersion)
@@ -132,7 +134,6 @@ func environmentOnly(run func(args []string, stdout, stderr io.Writer, lookupenv
 // `unknown command` below.
 var repositoryCommands = map[string]repositoryCommand{
 	"check":     environmentOnly(RunCheck),
-	"review":    environmentOnly(RunReview),
 	"providers": environmentOnly(RunProviders),
 	"provider":  environmentOnly(RunProvider),
 	"operation": environmentOnly(RunOperation),
@@ -157,6 +158,14 @@ var repositoryCommands = map[string]repositoryCommand{
 	// clock, the mint, the dialer and the launcher — which is what makes it
 	// the command the whole value was assembled for (§6, §9, issue #136).
 	"run": RunRun,
+	// The first of the six that took a lookup alone to outgrow it. A review
+	// opens a range against the last Run that read the artefact (§8), so it
+	// reads the Journal for that entry and the clock for the age it renders
+	// beside the gloss — and it takes the whole value to say so, exactly as
+	// the commands that read the record do. What it still does not do is
+	// sync: it reads whatever branch this clone holds, no credential
+	// resolves and no network is touched (§9, issue #164).
+	"review": RunReview,
 	// The first command a person can type that reads the record back. It
 	// takes the whole value for the clock alone — the Store's handle is
 	// opened at one instant, as `compact`'s is — and it writes nothing:

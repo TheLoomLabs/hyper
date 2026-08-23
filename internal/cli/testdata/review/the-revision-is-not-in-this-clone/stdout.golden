@@ -1,0 +1,24 @@
+  PROCEDURE      │  procedures/watch.yaml                   no baseline — 1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01 is not in this clone
+                 │  03:00 UTC every Monday · ≈4.3 runs/month · last ran 41 days ago
+  ───────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                 │ kind: procedure
+                 │ procedure: watch
+  envelope ✓     │ targets: [staging]
+                 │ cadence: "0 3 * * 1"
+                 │ steps:
+  read  staging  │   - id: beat
+                 │     definition: heartbeat
+                 │     operation: check_http
+                 │     target: staging
+                 │     args:
+                 │       host: status.hyper.dev
+                 │
+        staging  │   - id: descend
+                 │     procedure: probe
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS
+  heartbeat   staging  read              read          r          —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  ENVELOPE  line 3  ok  no step reaches a target outside [staging]

@@ -403,10 +403,11 @@ func TestRunReview_TheWireCarriesOneFlagRowPerRenderedRow(t *testing.T) {
 	}
 }
 
-// TestRunReview_TheThreeChangeNamesAreNotImplemented is what this milestone
-// does not carry. All three read a baseline as well as the marked line, and no
-// range opens here — there is no Store to ask — so there is nothing for a
-// direction to be measured against (§8, §12, ADR-0057).
+// TestRunReview_TheThreeChangeNamesAreNotImplemented is what this ticket does
+// not carry. All three read a **marked** line as well as the baseline, and the
+// change column that marks one lands with them (issue #168) — so a range being
+// open (issue #164) leaves nothing yet for a direction to index (§8, §12,
+// ADR-0057).
 func TestRunReview_TheThreeChangeNamesAreNotImplemented(t *testing.T) {
 	root := rosterRepo(t)
 

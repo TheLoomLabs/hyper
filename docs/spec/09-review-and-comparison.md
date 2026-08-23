@@ -243,7 +243,7 @@ refuses one layer in. The revision is what the reader has to work with, and it r
   no baseline — nothing has bound staging
   no baseline — no Store
   no baseline — shell ships in the binary
-  no baseline — a91f0c2 is not in this clone
+  no baseline — a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1 is not in this clone
 ```
 
 The lead-in is one phrase across all five lines. A built-in's absence is permanent and the other three

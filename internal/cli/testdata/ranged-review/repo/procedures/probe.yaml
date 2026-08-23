@@ -1,0 +1,10 @@
+kind: procedure
+procedure: probe
+targets: [staging]
+steps:
+  - id: again
+    definition: heartbeat
+    operation: check_http
+    target: staging
+    args:
+      host: status.hyper.dev

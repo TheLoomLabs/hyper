@@ -114,6 +114,18 @@ const (
 // GIT_TERMINAL_PROMPT is off. `hyper` never prompts (ADR-0015), and a push that
 // stopped to ask a scheduled runner for a password would hang rather than fail
 // — which is the one failure mode a Cadence cannot recover from.
+//
+// **Lazy fetching is off too**, and the line ADR-0071 draws is what says why it
+// belongs on a package that reaches a remote twice: it is between *an object
+// read that silently becomes a fetch* and *a branch sync `hyper` chose*. Every
+// read below is the first kind — `ls-tree` and `cat-file` over the Journal's
+// own blobs — and on a partial clone each one would go to the network without a
+// line of hyper intending to, which is exactly what makes §8's *a review
+// resolves no credential, reaches no network* false where nobody would notice.
+// The two calls that reach a remote are the second kind: `ls-remote`, `fetch`
+// and `push` are explicit and this switch does not touch them, and the branch
+// they carry is fetched **whole** rather than filtered, so nothing here depends
+// on an object arriving on demand (§7, ADR-0071, ADR-0074).
 func environment(now time.Time) []string {
 	stamp := fmt.Sprintf("%d +0000", now.Unix())
 	return append(git.Inheritable(os.Environ()),
@@ -124,6 +136,7 @@ func environment(now time.Time) []string {
 		"GIT_COMMITTER_EMAIL="+CommitEmail,
 		"GIT_COMMITTER_DATE="+stamp,
 		"GIT_TERMINAL_PROMPT=0",
+		git.NoLazyFetch,
 	)
 }
 
