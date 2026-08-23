@@ -28,12 +28,12 @@ Section numbers are the spec's own: file `NN` carries heading `§NN-1`, so §3 i
 | 0 | Binary and gate | `hyper version`, `completions <shell>`; the version pin gate Refuses on skew | §9 (the tree), §11 (the pin) | — |
 | 1 | Load and `check` | `hyper check` over a repository of five artefacts, rows out, exit 0/1 | §3, §4, §12 (most of it) | 0 |
 | 2 | Discovery | `providers`, `provider <name>`, `operation <p> <o>`, `targets` | §9 (Discovery, The repository) | 1 |
-| 3 | The review | `hyper review <artefact>` — the gutter, the four renderings, the Cadence gloss | §8 (the Definition review), §10 (the gloss) | 1 |
+| 3 | The review | `hyper review <artefact>` — the gutter, the four renderings, the Cadence gloss; no range | §8 (the Definition review, less its range), §10 (the gloss) | 1 |
 | 4 | The Store | `store init`, `compact`; canonical JSON, paths, the Head, the Journal | §7, §9 (Lifecycle) | 1 |
 | 5 | The read Run | `probe`, then `run` over a Procedure of `read` Steps; Observations land in the Store | §5, §6 (the `read` half) | 1, 4 |
 | 6 | The effectful Run | `mutate` and `destroy`: the Bound, Repeatability, Tombstones, Assets | §5, §6 (the rest), §7 (the Asset half) | 5 |
 | 7 | The `shell` Capability | argv exec, the process group, the deadline, the built-in Provider's six Operations | §3 (the command), §6 (execution) | 5 for `read`, 6 for effectful |
-| 8 | Comparison and inspection | `changes`, `records`, `runs`, `show`; the NDJSON row stream | §8 (the rest) | 3, 6 |
+| 8 | Comparison and inspection | `changes`, `records`, `runs`, `show`; the review's range; the NDJSON row stream | §8 (the rest, and the review's range) | 3, 6 |
 | 9 | Cadence and projection | `project` writes the workflow; `cadence-malformed`; the job summary | §10 | 6 |
 | 10 | Distribution | `install <ref>`, digest verification, `origin:` | §11 | 1 |
 | 11 | MCP | the thirteen tools, the return envelope, long Runs | §9 (the MCP half) | 2, 3, 8 |
@@ -52,6 +52,17 @@ that `review` "runs offline against a repository whose Store is unreachable", wh
 is why it sits at 3 rather than waiting on the Store: the differentiating claim is
 demoable before a single HTTP request exists in the codebase.
 
+**One part of the review waits, and it is the part that needs a Store to ask.** A
+range opens at the last Run that read the artefact (§8), so the gutter's change
+column, `FLAGS`' three change names, two of the four absences and the header's
+*last ran* all need a Journal — which is milestone 4's, and Runs to fill it, which
+are 5's and 6's. Milestone 3 therefore delivers the review with no range and every
+absence rendering `no-store`, and **milestone 8 opens the range**, being the first
+milestone with both a Journal and the artefacts-at-a-revision read that the
+Comparison's own code table already needs. That is a split inside §8's Definition
+review rather than a milestone reordering: what 3 delivers is complete and offline
+and stays so.
+
 **Milestone 5 is the tracer bullet.** Artefact → `check` → call → projection →
 Record → Store, every layer, one thin path. Build it against `uptime`, which §3
 renders in full: no credential, one Operation, `class: local`.
@@ -66,7 +77,8 @@ Split these before ticketing, or the slicing happens on a degraded window.
   codes. The first two are prefactoring for the third.
 - **Milestone 8** reads §8, the largest section in the spec at 113 KB. Split by
   rendering: the Comparison's three tables, the Step table, the Refusal and the
-  terminal line, and the row stream.
+  terminal line, the row stream, and the review's range — the last of them the
+  half of the Definition review milestone 3 could not reach.
 
 ## Two dependency notes the table does not show
 
@@ -101,3 +113,10 @@ Written when the wayfinder map
 fifty-four decision tickets closed, none open. The map's destination was a spec, and
 its Out of scope section states that building the tool is the effort that follows
 this one. This file is the hand-off between them.
+
+The review's range moved from milestone 3 to milestone 8 when
+[#161](https://github.com/TheLoomLabs/hyper/issues/161) was written, milestone 3
+having landed without it for want of a Store to ask. The sequence is corrected in
+place rather than annotated: this file is what to build first and not a record of
+what was once thought, and a milestone whose spec issue and whose row disagree is
+the one failure it has.
