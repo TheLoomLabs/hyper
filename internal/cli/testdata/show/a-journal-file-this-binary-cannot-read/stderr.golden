@@ -1,0 +1,2 @@
+refused: store-schema-unsupported
+  "journal/2026/08/06/0199206d-4e15-7c30-9b8a-52d9ea01f7b4/steps/0002.json": a file under this Journal entry would not decode: the file was written at schema version 2 and this hyper reads 1 — install a hyper that reads it

@@ -1,0 +1,24 @@
+{
+  "answered": {
+    "host": "api.hetzner.cloud"
+  },
+  "definition": "hetzner-staging",
+  "disposition": "attempted-world-untouched",
+  "ended_at": "2026-08-06T11:03:34.000Z",
+  "id": "label",
+  "kind": "mutate",
+  "operation": "set_server_labels",
+  "pattern": {
+    "attempts": 3
+  },
+  "provenance": {
+    "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
+    "manifest_digest": "sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1",
+    "origin_digest": "sha256:e40a91c73f5b28d604e1a7c95b038f26d417ea5390c62b81f7d045a3e926c8b7"
+  },
+  "provider": "hetzner",
+  "schema_version": 1,
+  "started_at": "2026-08-06T11:03:31.000Z",
+  "step": 3,
+  "target": "staging"
+}

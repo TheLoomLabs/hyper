@@ -1,0 +1,25 @@
+{
+  "ended_at": "2026-08-06T11:03:19.000Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "declared": 5,
+      "error_code": "bound-exceeded",
+      "field": "steps[2].bound",
+      "file": "procedures/retire-preview-envs.yaml",
+      "line": 34,
+      "message": "expansion resolved 23 assets on staging",
+      "observed": 23,
+      "step": 3,
+      "step_id": "retire"
+    },
+    {
+      "error_code": "credential-absent",
+      "field": "auth.token",
+      "file": "targets/staging.yaml",
+      "line": 12,
+      "message": "the environment does not hold STAGING_TOKEN"
+    }
+  ],
+  "schema_version": 1
+}

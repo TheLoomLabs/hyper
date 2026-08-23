@@ -738,12 +738,18 @@ func TestScan_ReadsTheIdentitySetBackFromAnEntryHoldingOnlyADigest(t *testing.T)
 		t.Error("the comparand carries members; the digest did not move and their absence is what says so")
 	}
 
-	set, err := store.ReadIdentitySet("retire", store.StepsOf(held.Scan("retire")))
+	set, from, err := store.ReadIdentitySet("retire", held.Scan("retire"))
 	if err != nil {
 		t.Fatalf("ReadIdentitySet: %v", err)
 	}
 	if !slices.Equal(set, theExpansion) {
 		t.Errorf("the set reads back as %v, want %v in full from the entry that holds it", set, theExpansion)
+	}
+	// **Which** Run supplied them, which is the fact `show` renders as
+	// *unchanged since* that Run: neither the entry in hand nor the
+	// comparand above, but the one the walk stopped at (§9, issue #163).
+	if from.String() != theMonthBeforeRunID {
+		t.Errorf("the members came back from %s, want the Run that wrote them, %s", from, theMonthBeforeRunID)
 	}
 }
 

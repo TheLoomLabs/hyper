@@ -1,0 +1,39 @@
+ENTRY                0199206d-4e15-7c30-9b8a-52d9ea01f7b4
+PROCEDURE            retire-preview-envs
+CAUSE                manual
+EXECUTOR             local
+ACTOR                igor
+HOST                 thinkpad
+STARTED              2026-08-06T11:03:18.000Z
+OUTCOME              completed
+ENDED                2026-08-06T11:05:49.000Z
+HYPER                1.4.0
+PROCEDURE REVISION   b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe
+REPOSITORY REVISION  88bc402f71d3e6a95c0428be1f7d3a09c5e64b12
+
+contested — Run 0199211f-6a2b-7d41-8e05-3c7b9f04a2d8 recorded this entry failed at 2026-08-06T11:20:00.000Z
+
+STEP 1  probe · read · ran
+DEFINITION           uptime
+OPERATION            check_http
+PROVIDER             uptime
+TARGET               local
+STARTED              2026-08-06T11:03:18.000Z
+ENDED                2026-08-06T11:03:31.000Z
+RECORDS              cert.hyper.dev · status.hyper.dev
+PAGES                3
+DEFINITION REVISION  c3a17b09e4d582f61b7c0a94d3e85f207c6b1d43
+MANIFEST DIGEST      sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1
+
+STEP 2  label · mutate · ran
+DEFINITION           hetzner-staging
+OPERATION            set_server_labels
+PROVIDER             hetzner
+TARGET               staging
+STARTED              2026-08-06T11:03:31.000Z
+ENDED                2026-08-06T11:05:49.000Z
+RECORDS              preview-8815 · preview-8821
+ATTEMPTS             2
+DEFINITION REVISION  4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a
+MANIFEST DIGEST      sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1
+ORIGIN DIGEST        sha256:e40a91c73f5b28d604e1a7c95b038f26d417ea5390c62b81f7d045a3e926c8b7

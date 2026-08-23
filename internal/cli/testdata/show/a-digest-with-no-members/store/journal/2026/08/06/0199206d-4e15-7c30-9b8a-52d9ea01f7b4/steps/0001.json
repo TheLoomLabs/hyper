@@ -1,0 +1,23 @@
+{
+  "definition": "uptime",
+  "disposition": "ran",
+  "ended_at": "2026-08-06T11:03:31.000Z",
+  "id": "probe",
+  "identities": {
+    "digest": "sha256:505b5170ab615a66b628c8324091f6ffbdf38a4ad2d0e42ea2531c5ceb6cf012"
+  },
+  "kind": "read",
+  "operation": "check_http",
+  "pattern": {
+    "pages": 3
+  },
+  "provenance": {
+    "definition_revision": "c3a17b09e4d582f61b7c0a94d3e85f207c6b1d43",
+    "manifest_digest": "sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "started_at": "2026-08-06T11:03:18.000Z",
+  "step": 1,
+  "target": "local"
+}

@@ -1,0 +1,50 @@
+{
+  "answered": {
+    "host": "api.hetzner.cloud",
+    "status": 500
+  },
+  "definition": "hetzner-staging",
+  "disposition": "ran",
+  "ended_at": "2026-08-06T11:03:52.000Z",
+  "id": "purge",
+  "identities": {
+    "digest": "sha256:6f9a96d86ca347c0f269db8116941902adaa62e7d879c1ed6ada26874a093485",
+    "members": [
+      "preview-8802",
+      "preview-8806"
+    ]
+  },
+  "kind": "destroy",
+  "operation": "delete_server",
+  "pattern": {
+    "attempts": 3
+  },
+  "provenance": {
+    "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
+    "manifest_digest": "sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1",
+    "origin_digest": "sha256:e40a91c73f5b28d604e1a7c95b038f26d417ea5390c62b81f7d045a3e926c8b7"
+  },
+  "provider": "hetzner",
+  "schema_version": 1,
+  "selector": {
+    "bound": 8,
+    "declared": {
+      "assets": [
+        {
+          "equals": "preview",
+          "field": "labels.role"
+        }
+      ]
+    },
+    "expanded_to": [
+      "preview-8806",
+      "preview-8802",
+      "preview-8815",
+      "preview-8821",
+      "preview-8830"
+    ]
+  },
+  "started_at": "2026-08-06T11:03:24.000Z",
+  "step": 2,
+  "target": "staging"
+}

@@ -1,0 +1,27 @@
+{
+  "answered": {
+    "command": "rm -rf /var/cache/build",
+    "exit_code": 2
+  },
+  "definition": "housekeeping",
+  "disposition": "ran",
+  "ended_at": "2026-08-06T11:03:20.000Z",
+  "id": "prune",
+  "identities": {
+    "digest": "sha256:be152ba908630d805fb42f4ab3868bb5454ddc477a3336a5e90e7a4287decfd4",
+    "members": [
+      "build-cache"
+    ]
+  },
+  "kind": "destroy",
+  "operation": "run",
+  "provenance": {
+    "definition_revision": "c3a17b09e4d582f61b7c0a94d3e85f207c6b1d43",
+    "manifest_digest": "sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1"
+  },
+  "provider": "shell",
+  "schema_version": 1,
+  "started_at": "2026-08-06T11:03:18.000Z",
+  "step": 1,
+  "target": "local"
+}

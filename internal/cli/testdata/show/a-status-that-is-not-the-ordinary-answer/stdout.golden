@@ -1,0 +1,41 @@
+ENTRY                0199206d-4e15-7c30-9b8a-52d9ea01f7b4
+PROCEDURE            retire-preview-envs
+CAUSE                manual
+EXECUTOR             local
+ACTOR                igor
+HOST                 thinkpad
+STARTED              2026-08-06T11:03:18.000Z
+OUTCOME              failed
+ENDED                2026-08-06T11:03:52.000Z
+HYPER                1.4.0
+PROCEDURE REVISION   b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe
+REPOSITORY REVISION  88bc402f71d3e6a95c0428be1f7d3a09c5e64b12
+
+STEP 1  retire · destroy · ran
+DEFINITION           hetzner-staging
+OPERATION            delete_server
+PROVIDER             hetzner
+TARGET               staging
+STARTED              2026-08-06T11:03:18.000Z
+ENDED                2026-08-06T11:03:24.000Z
+RECORDS              preview-8801
+HOST                 api.hetzner.cloud
+STATUS               404
+DEFINITION REVISION  4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a
+MANIFEST DIGEST      sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1
+ORIGIN DIGEST        sha256:e40a91c73f5b28d604e1a7c95b038f26d417ea5390c62b81f7d045a3e926c8b7
+
+STEP 2  purge · destroy · ran
+DEFINITION           hetzner-staging
+OPERATION            delete_server
+PROVIDER             hetzner
+TARGET               staging
+STARTED              2026-08-06T11:03:24.000Z
+ENDED                2026-08-06T11:03:52.000Z
+RECORDS              preview-8802 · preview-8806
+ATTEMPTS             3
+HOST                 api.hetzner.cloud
+STATUS               500
+DEFINITION REVISION  4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a
+MANIFEST DIGEST      sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1
+ORIGIN DIGEST        sha256:e40a91c73f5b28d604e1a7c95b038f26d417ea5390c62b81f7d045a3e926c8b7

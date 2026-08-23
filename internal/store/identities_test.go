@@ -1,6 +1,7 @@
 package store_test
 
 import (
+	"fmt"
 	"iter"
 	"reflect"
 	"slices"
@@ -25,12 +26,26 @@ func carrying(id string, identities store.Identities) store.StepFile {
 	return store.StepFile{StepCode: store.StepCode{ID: id}, Identities: identities}
 }
 
+// supplier is the id the nth entry of a walk is written under, so that a test
+// can say which Run the members came back from. A walk answers the entry it
+// stopped at, and an entry is named by the Run that wrote it (ADR-0076).
+func supplier(t *testing.T, n int) store.RunID {
+	t.Helper()
+
+	return runID(t, fmt.Sprintf("01991ea6-b118-7c93-8d41-6b2f7ae05c%02d", n))
+}
+
 // backward is a walk over entries, newest first and starting with the entry in
-// hand — the order the Journal's date partitions are scanned in (§7).
-func backward(files ...store.StepFile) iter.Seq2[store.StepFile, error] {
-	return func(yield func(store.StepFile, error) bool) {
-		for _, file := range files {
-			if !yield(file, nil) {
+// hand — the order the Journal's date partitions are scanned in (§7). Each file
+// is put in an entry of its own, numbered from the entry in hand, which is what
+// lets a test name the Run a set was read off.
+func backward(t *testing.T, files ...store.StepFile) iter.Seq2[store.Evidence, error] {
+	t.Helper()
+
+	return func(yield func(store.Evidence, error) bool) {
+		for i, file := range files {
+			entry := store.Entry{RunFile: store.RunFile{Run: supplier(t, i)}}
+			if !yield(store.Evidence{Entry: entry, Step: file}, nil) {
 				return
 			}
 		}
@@ -77,12 +92,17 @@ func TestConcluded_WritesTheSetInFullExactlyWhereTheDigestMoved(t *testing.T) {
 func TestReadIdentitySet_ReadsTheSetOffTheEntryInHandWhereItHoldsOne(t *testing.T) {
 	set := []string{"preview-17.example.com", "preview-42.example.com"}
 
-	got, err := store.ReadIdentitySet("retire", backward(carrying("retire", store.Concluded(set, ""))))
+	got, from, err := store.ReadIdentitySet("retire", backward(t, carrying("retire", store.Concluded(set, ""))))
 	if err != nil {
 		t.Fatalf("ReadIdentitySet = %v, want the set read", err)
 	}
 	if !slices.Equal(got, set) {
 		t.Errorf("set = %q, want %q", got, set)
+	}
+	// The entry in hand supplied them, which is what makes *unchanged since*
+	// a comparison the caller makes rather than a flag this walk sets (§9).
+	if want := supplier(t, 0); from != want {
+		t.Errorf("supplied by %s, want the entry in hand, %s", from, want)
 	}
 }
 
@@ -94,7 +114,7 @@ func TestReadIdentitySet_WalksBackToTheRunThatHoldsTheSetInFull(t *testing.T) {
 	// Two Runs whose digest did not move, and the Run before them where it
 	// last did. Nothing removes the entries in between — Compaction touches
 	// interior Observation versions and never a Journal entry (§7).
-	got, err := store.ReadIdentitySet("retire", backward(
+	got, from, err := store.ReadIdentitySet("retire", backward(t,
 		carrying("retire", unmoved),
 		carrying("retire", unmoved),
 		carrying("retire", full),
@@ -105,6 +125,12 @@ func TestReadIdentitySet_WalksBackToTheRunThatHoldsTheSetInFull(t *testing.T) {
 	if !slices.Equal(got, set) {
 		t.Errorf("set = %q, want %q", got, set)
 	}
+	// The Run the walk stopped at, and never the entry it started from:
+	// `show` names it, and rendering the entry in hand there would present a
+	// set that entry does not hold as though it did (§9, ADR-0026).
+	if want := supplier(t, 2); from != want {
+		t.Errorf("supplied by %s, want the entry holding the members, %s", from, want)
+	}
 }
 
 func TestReadIdentitySet_MatchesTheStepByItsAuthoredID(t *testing.T) {
@@ -113,7 +139,7 @@ func TestReadIdentitySet_MatchesTheStepByItsAuthoredID(t *testing.T) {
 	set := []string{"preview-42.example.com"}
 	full := store.Concluded(set, "")
 
-	got, err := store.ReadIdentitySet("retire", backward(
+	got, _, err := store.ReadIdentitySet("retire", backward(t,
 		carrying("retire", store.Concluded(set, full.Digest)),
 		carrying("announce", store.Concluded([]string{"something-else"}, "")),
 		store.StepFile{StepCode: store.StepCode{ID: "retire"}},
@@ -134,20 +160,21 @@ func TestReadIdentitySet_ReadsNoFurtherThanTheEntryThatHoldsTheSet(t *testing.T)
 	full := store.Concluded(set, "")
 
 	read := 0
-	walk := func(yield func(store.StepFile, error) bool) {
-		for _, file := range []store.StepFile{
+	walk := func(yield func(store.Evidence, error) bool) {
+		for i, file := range []store.StepFile{
 			carrying("retire", store.Concluded(set, full.Digest)),
 			carrying("retire", full),
 			carrying("retire", store.Concluded([]string{"older"}, "")),
 		} {
 			read++
-			if !yield(file, nil) {
+			entry := store.Entry{RunFile: store.RunFile{Run: supplier(t, i)}}
+			if !yield(store.Evidence{Entry: entry, Step: file}, nil) {
 				return
 			}
 		}
 	}
 
-	if _, err := store.ReadIdentitySet("retire", walk); err != nil {
+	if _, _, err := store.ReadIdentitySet("retire", walk); err != nil {
 		t.Fatalf("ReadIdentitySet = %v, want the set read", err)
 	}
 	if read != 2 {
@@ -159,7 +186,7 @@ func TestReadIdentitySet_RefusesAWalkThatNeverReachesASetHeldInFull(t *testing.T
 	set := []string{"preview-42.example.com"}
 	full := store.Concluded(set, "")
 
-	if _, err := store.ReadIdentitySet("retire", backward(carrying("retire", store.Concluded(set, full.Digest)))); err == nil {
+	if _, _, err := store.ReadIdentitySet("retire", backward(t, carrying("retire", store.Concluded(set, full.Digest)))); err == nil {
 		t.Errorf("ReadIdentitySet = no error, want the walk reported as ending short")
 	}
 }
@@ -170,7 +197,7 @@ func TestReadIdentitySet_RefusesEntriesThatContradictOneAnother(t *testing.T) {
 	// this package guessing which of the two files is right.
 	set := []string{"preview-42.example.com"}
 
-	if _, err := store.ReadIdentitySet("retire", backward(
+	if _, _, err := store.ReadIdentitySet("retire", backward(t,
 		carrying("retire", store.Identities{Digest: store.IdentityDigest(set)}),
 		carrying("retire", store.Concluded([]string{"a-different-set"}, "")),
 	)); err == nil {
@@ -179,7 +206,7 @@ func TestReadIdentitySet_RefusesEntriesThatContradictOneAnother(t *testing.T) {
 }
 
 func TestReadIdentitySet_RefusesASetItsOwnDigestDoesNotName(t *testing.T) {
-	if _, err := store.ReadIdentitySet("retire", backward(carrying("retire", store.Identities{
+	if _, _, err := store.ReadIdentitySet("retire", backward(t, carrying("retire", store.Identities{
 		Digest:  store.IdentityDigest([]string{"preview-42.example.com"}),
 		Members: []string{"preview-17.example.com"},
 	}))); err == nil {

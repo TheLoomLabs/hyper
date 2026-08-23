@@ -97,25 +97,41 @@ func Names(names []string) []string {
 }
 
 // ReadIdentitySet answers the set a Step concluded about, from the entry in
-// hand and as many earlier ones as it takes.
+// hand and as many earlier ones as it takes — and **which Run supplied the
+// members**, which is the fact `hyper show` renders as *unchanged since* that
+// Run (§9, issue #163).
 //
-// steps yields Step files newest first, beginning with the entry the set is
-// being read off — the order a backward scan through the Journal's date
-// partitions gives (§7). It yields whatever the scan reaches and this walk
-// selects: a file is a candidate where its authored id is the one asked for and
-// it carries an identity set at all, three of §12's seven Dispositions carrying
-// none and a fourth writing no file. Filtering dry-run entries out is the
-// caller's, that being a fact about the Run and not about the Step (§6, §7,
-// ADR-0001).
+// scan yields Evidence newest first, beginning with the entry the set is being
+// read off — the order a backward scan through the Journal's date partitions
+// gives (§7). It yields whatever the scan reaches and this walk selects: a
+// record is a candidate where its authored id is the one asked for and it
+// carries an identity set at all, three of §12's seven Dispositions carrying
+// none and a fourth writing no file. Which entries a reading keeps — a
+// rehearsal, another Procedure's, another invocation chain's — is the caller's,
+// that being a fact about the Run and not about the Step (§6, §7, ADR-0001,
+// ADR-0055).
+//
+// It walks Evidence rather than Step files because the supplying Run is the
+// **entry's** and no Step file carries one: the id of the Run that wrote a
+// Journal file is in its path (ADR-0076), so a walk over the files alone can
+// answer the members and never where they came from. That is one widened
+// return and not a second walk — the entry the walk stops at is already in
+// hand when the members are.
+//
+// The Run it answers is the entry the members were read off, which on an entry
+// holding its own set is the entry in hand. A caller renders *unchanged since*
+// by comparing it against the entry it asked about, so the two states are one
+// comparison rather than a flag this walk has to be right about.
 //
 // It reads no further than the entry holding the set, so a set read off a
 // recent entry costs one file and one off an old one costs the entries between.
-func ReadIdentitySet(id string, steps iter.Seq2[StepFile, error]) ([]string, error) {
+func ReadIdentitySet(id string, scan iter.Seq2[Evidence, error]) ([]string, RunID, error) {
 	digest := ""
-	for step, err := range steps {
+	for found, err := range scan {
 		if err != nil {
-			return nil, err
+			return nil, RunID{}, err
 		}
+		step := found.Step
 		if step.ID != id || step.Identities.Digest == "" {
 			continue
 		}
@@ -130,19 +146,19 @@ func ReadIdentitySet(id string, steps iter.Seq2[StepFile, error]) ([]string, err
 			// so a different one is two files disagreeing about
 			// which set this Step concluded about — and picking one
 			// of them is this package guessing.
-			return nil, fmt.Errorf("the entry in hand carries %s and an earlier one carries %s: no Run between them wrote the members", digest, set.Digest)
+			return nil, RunID{}, fmt.Errorf("the entry in hand carries %s and an earlier one carries %s: no Run between them wrote the members", digest, set.Digest)
 		}
 		if set.Members == nil {
 			continue
 		}
 		if held := IdentityDigest(set.Members); held != digest {
-			return nil, fmt.Errorf("the entry holding the members carries %s over a set whose digest is %s", digest, held)
+			return nil, RunID{}, fmt.Errorf("the entry holding the members carries %s over a set whose digest is %s", digest, held)
 		}
-		return set.Members, nil
+		return set.Members, found.Entry.Run, nil
 	}
 
 	if digest == "" {
-		return nil, fmt.Errorf("no entry the walk reached carries an identity set for step %q", id)
+		return nil, RunID{}, fmt.Errorf("no entry the walk reached carries an identity set for step %q", id)
 	}
-	return nil, fmt.Errorf("the walk ended before the Run that wrote the members of %s", digest)
+	return nil, RunID{}, fmt.Errorf("the walk ended before the Run that wrote the members of %s", digest)
 }

@@ -1,0 +1,42 @@
+{
+  "answered": {
+    "host": "api.hetzner.cloud",
+    "status": 404
+  },
+  "definition": "hetzner-staging",
+  "disposition": "ran",
+  "ended_at": "2026-08-06T11:03:24.000Z",
+  "id": "retire",
+  "identities": {
+    "digest": "sha256:03146145d6e0c619e953115fcc0250c1bd24cec14165abae3ffe7c972522ac49",
+    "members": [
+      "preview-8801"
+    ]
+  },
+  "kind": "destroy",
+  "operation": "delete_server",
+  "provenance": {
+    "definition_revision": "4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a",
+    "manifest_digest": "sha256:9c1f0b7e3a2d54867f1b0c93ae42d715c806fb39e5a70d24c1938bf5027ea6d1",
+    "origin_digest": "sha256:e40a91c73f5b28d604e1a7c95b038f26d417ea5390c62b81f7d045a3e926c8b7"
+  },
+  "provider": "hetzner",
+  "schema_version": 1,
+  "selector": {
+    "bound": 5,
+    "declared": {
+      "assets": [
+        {
+          "field": "created_at",
+          "older_than": "14d"
+        }
+      ]
+    },
+    "expanded_to": [
+      "preview-8801"
+    ]
+  },
+  "started_at": "2026-08-06T11:03:18.000Z",
+  "step": 1,
+  "target": "staging"
+}

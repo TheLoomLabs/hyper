@@ -157,4 +157,10 @@ var repositoryCommands = map[string]repositoryCommand{
 	// clock, the mint, the dialer and the launcher — which is what makes it
 	// the command the whole value was assembled for (§6, §9, issue #136).
 	"run": RunRun,
+	// The first command a person can type that reads the record back. It
+	// takes the whole value for the clock alone — the Store's handle is
+	// opened at one instant, as `compact`'s is — and it writes nothing:
+	// four of §9's sixteen exist to read the Journal and the Records back,
+	// and this is the first of them (§9, issue #163).
+	"show": RunShow,
 }

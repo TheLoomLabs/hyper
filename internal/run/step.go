@@ -1108,26 +1108,12 @@ func mints(held *store.Store, version store.RecordVersion) (bool, error) {
 // Dispositions carry none and a fourth writes no file, so the comparand is the
 // last Run that carried one rather than the previous Run.
 //
-// Two filters stand between the scan and the answer, and both are this
-// consumer's rather than the walk's — internal/store's Scan matches on the
-// authored id and on nothing else, and states that which entries a reading
-// keeps is its own.
+// The filter between the scan and the answer is store.Evidence.Comparable's
+// and is stated there: a rehearsal, another Procedure's entry and another
+// invocation chain's are each out, and each for a reason that holds as much for
+// the reader that resolves a set back as for this, which is why the rule sits
+// beside the walk rather than at either end of it (§7, ADR-0001, ADR-0055).
 //
-// **A rehearsal is filtered out.** An entry a dry-run wrote is evidence that a
-// rehearsal happened and evidence of nothing else, and every consumer of
-// Journal evidence filters it out (§7, ADR-0001).
-//
-// **So is another Procedure's entry.** An authored id is unique inside one
-// Procedure and says nothing across two, so a `status` Step in `watch-status`
-// and a `status` Step in `watch-many` are two Steps that would otherwise share
-// a digest — and each would then read the other's set as its own, writing no
-// members while the digest never moved. §7's rule is *the last Run in which
-// that Step carried a set*, and a Step belongs to the Procedure that wrote it.
-//
-// **And so is another invocation chain's.** One Run holds the Steps of every
-// Procedure it invokes, so two nested Procedures may each declare a `status`
-// and both be Steps of one Run — told apart by the `path` their files carry
-// beside that id, which is the same filter one Procedure over (§7, issue #141).
 // Where one Procedure is invoked twice the two chains are one path
 // (sequence.go), and the comparand is then the more recent of the two: §7
 // matches a Step by what it was authored as, and those two Steps were authored
@@ -1137,10 +1123,7 @@ func (r run) previousDigest(authored sequenced) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if evidence.Entry.RunFile.DryRun || evidence.Entry.RunFile.Procedure != r.request.Procedure {
-			continue
-		}
-		if evidence.Step.Path != authored.Path {
+		if !evidence.Comparable(r.request.Procedure, authored.Path) {
 			continue
 		}
 		if digest := evidence.Step.Identities.Digest; digest != "" {

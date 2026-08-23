@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -81,11 +80,11 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// (§7, §12, ADR-0061).
 	instant := process.Now()
 	if err := store.Sync(repoRoot, instant); err != nil {
-		return reportStoreFault(stderr, err)
+		return reportReadStoreFault("compact", stderr, err)
 	}
 	held, err := store.Open(repoRoot, instant)
 	if err != nil {
-		return reportStoreFault(stderr, err)
+		return reportReadStoreFault("compact", stderr, err)
 	}
 
 	// A repository that has not stated a policy has not agreed to lose
@@ -108,7 +107,7 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 
 	done, err := held.Compact(policy)
 	if err != nil {
-		return reportStoreFault(stderr, err)
+		return reportReadStoreFault("compact", stderr, err)
 	}
 
 	if code := writeCompaction(stdout, stderr, parsed.json, done, compactedLine(done, policy)); code != 0 {
@@ -150,33 +149,6 @@ func retentionPolicy(loaded repository.Loaded) (store.Retention, bool) {
 		return store.Retention{Declared: declared}, false
 	}
 	return store.Retention{Declared: declared, Age: time.Duration(seconds) * time.Second}, true
-}
-
-// reportStoreFault renders whichever way the record stopped this command, and
-// answers the exit code (§9, §12).
-//
-// The three are told apart by what it would take to clear them. A branch
-// neither side holds Refuses `store-absent` at 77 naming `hyper store init` —
-// the remedy is an act of somebody's, which is exactly what sorts 77 from 75
-// (ADR-0061). A file written above this reader's ceiling Refuses
-// `store-schema-unsupported` at the same code, the remedy there being a
-// different binary (ADR-0028). Everything else is the world resisting at 1: a
-// push exhausted, a remote unreachable, a git object that would not read. Never
-// 75, which is a Run that lost the Store.
-func reportStoreFault(stderr io.Writer, err error) int {
-	var unsupported store.SchemaUnsupported
-	switch {
-	case errors.Is(err, store.ErrAbsent):
-		return refuse(stderr, storeAbsentCode, "no "+store.BranchName+" branch in this repository — hyper store init")
-	case errors.As(err, &unsupported):
-		// The message carries the path the store package named, which is
-		// the file the Refusal cites — §8 states that this code cites a
-		// Store file, and it is the one Refusal whose subject is evidence
-		// rather than an artefact.
-		return refuse(stderr, store.SchemaUnsupportedCode, fmt.Sprintf("%s — install a hyper that reads it", err))
-	}
-	fmt.Fprintf(stderr, "hyper compact: %s\n", err)
-	return ExitProblems
 }
 
 // storeAbsentCode is the error_code a command that needs the Store and does not

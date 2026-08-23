@@ -1,0 +1,5 @@
+{"type":"entry","run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4","procedure":"retire-preview-envs","trigger":{"cause":"manual","executor":"local","actor":"igor","host":"thinkpad"},"started_at":"2026-08-06T11:03:18.000Z","dry_run":false,"outcome":"refused","ended_at":"2026-08-06T11:03:19.000Z"}
+{"type":"refusal","error_code":"bound-exceeded","step":3,"step_id":"retire","declared":5,"observed":23,"file":"procedures/retire-preview-envs.yaml","line":34,"field":"steps[2].bound","message":"expansion resolved 23 assets on staging"}
+{"type":"refusal","error_code":"credential-absent","file":"targets/staging.yaml","line":12,"field":"auth.token","message":"the environment does not hold STAGING_TOKEN"}
+{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe","repo_revision":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"}
+{"type":"result","truncated":false}

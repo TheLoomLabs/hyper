@@ -481,18 +481,10 @@ func unresolvedProcedure(loaded repository.Loaded, name string) string {
 // it rather than in place of either.
 //
 // A read-only Run that tolerated a failure **says so**, on stderr, before its
-// first Step. What it says is the condition and what it did about it and never
-// git's own words: the failure is tolerated, so what an operator needs from the
-// line is *this Run may be reading a stale Store* rather than a diagnosis of
-// the network, and a fetch's error names a remote by URL — which is a fact
-// about the machine and not about the Run. It is narration and not a Refusal:
-// no `error_code`, no row, and stdout carries none of it (§9, §12).
-//
-// ErrAbsent is the one answer it says nothing about, because it is not a
-// failure: the sync ran, reached whatever there was to reach, and found no
-// branch on either side. Open answers the same thing a line later and Refuses
-// `store-absent` in the words that name the remedy, and a *could not be synced*
-// ahead of it would be a Run reporting a fault where there was a fact.
+// first Step, and that half is syncForReading's (inspect.go): a Run that reads
+// and an Inspection command that reads tolerate the same failure for the same
+// reason, and the only thing the two do not share is which of them the line
+// names.
 //
 // An effectful Run keeps §7's rule exactly. Its sync **is** the push of its own
 // open Journal entry — the earliest moment it can know it will be able to
@@ -508,13 +500,12 @@ func unresolvedProcedure(loaded repository.Loaded, name string) string {
 // call: a branch neither side holds is cleared by an act of somebody's, `hyper
 // store init`, and never by waiting (§12, ADR-0061).
 func locateStore(repoRoot string, instant time.Time, mode store.LockMode, stderr io.Writer) (*store.Store, int) {
-	if err := store.Sync(repoRoot, instant); err != nil {
-		if mode == store.Exclusive {
+	if mode == store.Exclusive {
+		if err := store.Sync(repoRoot, instant); err != nil {
 			return nil, reportRunStoreFault(stderr, err)
 		}
-		if !errors.Is(err, store.ErrAbsent) {
-			fmt.Fprintf(stderr, "hyper %s: the Store could not be synced; this Run reads the branch this clone holds\n", runCommand)
-		}
+	} else {
+		syncForReading(runCommand, "this Run", repoRoot, instant, stderr)
 	}
 	held, err := store.Open(repoRoot, instant)
 	if err != nil {
@@ -629,7 +620,7 @@ func runRows(answer run.Answer) []render.Row {
 	// problem per line, which it would stop doing the day this became the one
 	// stream in the tool that nests (§8).
 	for _, refusal := range answer.Refusal {
-		rows = append(rows, refusalRowOf(refusal))
+		rows = append(rows, refusalRowOf(refusal.RefusalMember, refusal.Operation, refusal.Target))
 	}
 	if answer.Identified {
 		rows = append(rows, runProvenanceRow(answer.Provenance))
@@ -644,7 +635,7 @@ func runRows(answer run.Answer) []render.Row {
 		if step.Disposition == store.DispositionNeverReached {
 			continue
 		}
-		rows = append(rows, stepProvenanceRow(step))
+		rows = append(rows, stepProvenanceRow(step.Position, step.Provenance))
 	}
 	return rows
 }
@@ -696,27 +687,36 @@ type refusalRow struct {
 	Message   string          `json:"message,omitempty"`
 }
 
-// refusalRowOf is one member of the Refusal's array as a row. Every member the
-// check did not have is absent rather than written empty, which is §7's absence
-// rule holding on the wire: `store-schema-unsupported` cites a Store file and
-// no line, and a Refusal that reached no Step carries neither `step` nor the
-// binding beside it.
-func refusalRowOf(refusal run.Refusal) refusalRow {
+// refusalRowOf is one member of the Refusal's array as a row, with the binding
+// of the Step it cites.
+//
+// It is the shape the array takes wherever it is rendered — as a Run reports it
+// and as `hyper show` reads it back — so the two are one constructor over the
+// Store's own member and never two that have to agree (ADR-0026). The binding
+// is the pair a row carries that its Store counterpart does not: the entry
+// holds it on the cited Step's own file wherever one exists, and a Refusal that
+// reached no Step has none (§8).
+//
+// Every member the check did not have is absent rather than written empty,
+// which is §7's absence rule holding on the wire: `store-schema-unsupported`
+// cites a Store file and no line, and a Refusal that reached no Step carries
+// neither `step` nor the binding beside it.
+func refusalRowOf(member store.RefusalMember, operation, target string) refusalRow {
 	row := refusalRow{
 		Type:      "refusal",
-		ErrorCode: refusal.ErrorCode,
-		StepID:    refusal.StepID,
-		Operation: refusal.Operation,
-		Target:    refusal.Target,
-		Declared:  wireValue(refusal.Declared),
-		Observed:  wireValue(refusal.Observed),
-		File:      refusal.File,
-		Line:      refusal.Line,
-		Field:     refusal.Field,
-		Message:   refusal.Message,
+		ErrorCode: member.ErrorCode,
+		StepID:    member.StepID,
+		Operation: operation,
+		Target:    target,
+		Declared:  wireValue(member.Declared),
+		Observed:  wireValue(member.Observed),
+		File:      member.File,
+		Line:      member.Line,
+		Field:     member.Field,
+		Message:   member.Message,
 	}
-	if refusal.Step != 0 {
-		step := refusal.Step
+	if member.Step != 0 {
+		step := member.Step
 		row.Step = &step
 	}
 	return row
@@ -1008,14 +1008,18 @@ func runProvenanceRow(p store.RunProvenance) provenanceRow {
 
 // stepProvenanceRow is one Step's scope, and the `step` it carries is what
 // tells the two apart on the wire.
-func stepProvenanceRow(step run.Step) provenanceRow {
-	position := step.Position
+//
+// It takes the position and the Store's own half rather than a Step value,
+// because the two commands that render one hold the Step in two shapes — a Run
+// reports what it just did and `hyper show` reads a Step file back — and the
+// row is the same row (ADR-0026).
+func stepProvenanceRow(position int, p store.StepProvenance) provenanceRow {
 	return provenanceRow{
 		Type:               "provenance",
 		Step:               &position,
-		DefinitionRevision: step.Provenance.DefinitionRevision,
-		ManifestDigest:     step.Provenance.ManifestDigest,
-		OriginDigest:       step.Provenance.OriginDigest,
+		DefinitionRevision: p.DefinitionRevision,
+		ManifestDigest:     p.ManifestDigest,
+		OriginDigest:       p.OriginDigest,
 	}
 }
 

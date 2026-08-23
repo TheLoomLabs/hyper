@@ -320,6 +320,34 @@ type Evidence struct {
 	Step StepFile
 }
 
+// Comparable answers whether this evidence stands as a record of the Step
+// authored under path in procedure — which is the filter **both** readings of a
+// Step's identity set apply, and the reason it is stated here rather than at
+// either of them (§6, §7, ADR-0001, ADR-0055).
+//
+// The walk itself filters nothing: Scan matches on the authored id and on
+// nothing else, and states that which entries a reading keeps is its own. What
+// the two readings keep is the same three facts, and a difference between them
+// would be a Run writing a digest against one set and a reader resolving it
+// against another.
+//
+// **A rehearsal is out.** An entry a dry-run wrote is evidence that a rehearsal
+// happened and evidence of nothing else, and every consumer of Journal evidence
+// filters it out (§7, ADR-0001).
+//
+// **So is another Procedure's entry.** An authored id is unique inside one
+// Procedure and says nothing across two, so a `status` Step in `watch-status`
+// and a `status` Step in `watch-many` are two Steps that would otherwise share
+// a digest — each reading the other's set as its own.
+//
+// **And so is another invocation chain's.** One Run holds the Steps of every
+// Procedure it invokes, so two nested Procedures may each declare a `status`
+// and both be Steps of one Run — told apart by the `path` their files carry
+// beside that id (§7).
+func (e Evidence) Comparable(procedure, path string) bool {
+	return !e.Entry.DryRun && e.Entry.Procedure == procedure && e.Step.Path == path
+}
+
 // Entries answers every Journal entry the branch holds, newest first.
 //
 // The order is each entry's own `started_at`, ties broken by the Run id, which
@@ -484,29 +512,6 @@ func (s *Store) Scan(id string) iter.Seq2[Evidence, error] {
 						return
 					}
 				}
-			}
-		}
-	}
-}
-
-// StepsOf narrows a scan to the Step records alone: the sequence
-// ReadIdentitySet reads, out of the one Scan yields.
-//
-// The join is stated here rather than in each consumer because the walk that
-// reads an identity set back is stated once (§7, ADR-0055), and because
-// dropping the entry is the *last* thing a reading does with it: which entries
-// a consumer keeps is its own, so a rehearsal is filtered out of the scan this
-// wraps and never out of this (§7, ADR-0001).
-//
-// What it does not do is select. Which records carry an identity set at all is
-// ReadIdentitySet's own rule and the reason the comparand is the last Run that
-// carried one rather than the previous Run, so it is stated there and not
-// restated here (ADR-0055).
-func StepsOf(scan iter.Seq2[Evidence, error]) iter.Seq2[StepFile, error] {
-	return func(yield func(StepFile, error) bool) {
-		for found, err := range scan {
-			if !yield(found.Step, err) {
-				return
 			}
 		}
 	}
