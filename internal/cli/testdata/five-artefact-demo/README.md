@@ -42,13 +42,43 @@ can type, no positional and two, and a flag `review` does not have — and so do
 the pin gate firing ahead of a bad name. All of them read this same repository
 and none carries one of its own.
 
+Milestone 8 asks it the sixth — *what moved since this last took part in reaching
+the world* — which is the one question that needs the repository to be a git
+repository with a Journal above it (issue #168). Those cases carry a `git`
+marker, a `store/` seeding one Run of `retire-preview-dns`, and an
+`uncommitted/` whose files overwrite the committed ones **after** the commit: the
+tree that was committed is the baseline the range opens at, and the overwrite is
+the agent's edit a human is about to approve.
+
+```
+review/the-three-change-names-on-a-procedure  → §8's own worked example rendered
+review/a-bound-removed-is-cited-at-its-step   → the deletion anchor, and an absent bound as unbounded
+review/a-definition-widened-and-narrowed      → set inclusion in both directions
+```
+
+**Two of the five anchor on a revision of their own**, and those are git blob ids
+over the file's own bytes, so a case may hold them as checked-in constants:
+
+```
+63e064ae887bcdf2c78a8ede0d647d411da0e56c  procedures/retire-preview-dns.yaml
+faa5bb20bbfc9936fae25486223ae095826dbf4d  definitions/preview-dns.yaml
+```
+
+Editing either file changes the id, and the golden that names it fails saying so
+— the range it opens at is then an object the clone does not hold. Run
+`git hash-object <file>` in this directory for the new one. **The other three
+anchor on a commit**, which no case can hold; those are driven from
+[review_changes_test.go](../../review_changes_test.go), which materialises this
+repository, reads its `HEAD`, seeds the Journal against it and edits the working
+tree in place.
+
 ## Why the repository sits here and not in a case
 
-It is one repository and thirty cases, in six corpora: the four commands'
+It is one repository and forty-nine cases, in seven corpora: the four commands'
 eight above, `check/`'s two clean cases, the two beside `targets`'s own that run
 it again under an environment supplying `CLOUDFLARE_API_TOKEN` — where the
-credential column reads present and nothing else in the answer moves — and
-`review/`'s eighteen.
+credential column reads present and nothing else in the answer moves —
+`probe/`'s fifteen, and `review/`'s twenty-two.
 
 A copy per case is how it began, and a Provider whose Operations moved under one
 command's golden file and not another's is exactly the drift that would have

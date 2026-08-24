@@ -5,6 +5,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/render"
@@ -20,16 +21,21 @@ import (
 // on two members, and a surface reading one from the other would make a
 // rendering rule out of the coincidence.
 //
-// The three change names — `widened`, `narrowed`, `changed` — are absent
-// rather than stubbed. All three read a marked line, and the change column that
-// marks one lands with them (issue #168); the range they would be a direction
-// across is open (issue #164) and nothing indexes it yet (§12).
+// The three change names — `widened`, `narrowed`, `changed` — are directions
+// rather than classes, the class being carried in the row's text. All three
+// read the lines the gutter's change column marks, and they are named here
+// beside the five standing names because one vocabulary goes out on one wire:
+// what separates them is which supply they read, not which surface they reach
+// (§12, issue #168).
 const (
 	flagDestroy    = "destroy"
 	flagOpaque     = "opaque"
 	flagUnbounded  = "unbounded"
 	flagEnvelope   = "envelope"
 	flagUnresolved = "unresolved"
+	flagWidened    = "widened"
+	flagNarrowed   = "narrowed"
+	flagChanged    = "changed"
 )
 
 // The block's own words: what stands above the rows, and what stands where
@@ -88,6 +94,11 @@ type reviewFlag struct {
 	// the envelope's state, and nothing at all for the rest.
 	coordinate string
 	text       string
+	// from and to are the two sides of a change the head line could not
+	// carry whole, in the order they render: the `to` block is what the
+	// arrow marks. They are the page's alone, like the text they stand
+	// under, and empty on every flag whose head said the whole of it (§8).
+	from, to []string
 	// fileLevel is a claim about the whole artefact rather than about the
 	// line it cites, which is what pins it last. `envelope` is the only one
 	// today: its subject line sits where §3's key order puts it, so sorting
@@ -259,6 +270,9 @@ type flagRow struct {
 	// page is written from the rows, so what the block prints and what the
 	// stream carries come out of one composition (ADR-0026).
 	coordinateText, text string
+	// from and to are the two sides a stacked row carries beneath its head,
+	// off the wire for the same reason and on the row for the same one.
+	from, to []string
 }
 
 // Cells is empty: the block is drawn by writeFlagsBlock rather than tabulated,
@@ -267,7 +281,16 @@ func (r flagRow) Cells() []string { return nil }
 
 // flagRows is the index as the rows both surfaces are written from: one per
 // flag, in the order the block renders them.
-func flagRows(flags []reviewFlag) []render.Row {
+//
+// The two rosters arrive apart and sort together. What the gutter's marker
+// column marked is read once with the markers, and what its change column
+// marked is read once with the range; both index the same gutter, and a block
+// that ordered them by which reading found them would be sorting on the
+// renderer rather than on the file (§8, ADR-0054).
+func flagRows(marked, changes []reviewFlag) []render.Row {
+	flags := append(append(make([]reviewFlag, 0, len(marked)+len(changes)), marked...), changes...)
+	sortFlags(flags)
+
 	rows := make([]render.Row, 0, len(flags))
 	for _, flag := range flags {
 		rows = append(rows, flagRow{
@@ -277,6 +300,8 @@ func flagRows(flags []reviewFlag) []render.Row {
 			Step:           flag.step,
 			coordinateText: flag.coordinate,
 			text:           flag.text,
+			from:           flag.from,
+			to:             flag.to,
 		})
 	}
 	return rows
@@ -325,6 +350,7 @@ func writeFlagsBlock(w io.Writer, rows []render.Row) error {
 	widths := flagWidths(flags)
 	for _, flag := range flags {
 		lines = append(lines, reviewIndent+flag.line(widths))
+		lines = append(lines, flag.stacked(widths)...)
 	}
 
 	for _, line := range lines {
@@ -350,7 +376,7 @@ func flagRowsIn(rows []render.Row) []flagRow {
 
 // fields is one row's cells in the order the block renders them: the name
 // upper-cased, the line it cites, the coordinate where it has one, and the
-// row's own text.
+// row's own head text.
 func (r flagRow) fields() []string {
 	return []string{
 		strings.ToUpper(r.Flag),
@@ -369,6 +395,68 @@ func (r flagRow) fields() []string {
 // refuses one column left of here.
 func (r flagRow) line(widths []int) string {
 	return alignedFields(r.fields(), widths)
+}
+
+// stacked is the lines a row carries beneath its head: the two sides of the
+// change, each under the text column, the second marked by the arrow that says
+// which side it is.
+//
+// **It keeps the one-line head every other flag has** and wraps rather than
+// shortening: a phrase is a total function of the five fields with no short
+// form, and a selector is a conjunct per line — so the row runs to as many
+// lines as the two values need and nothing on this screen is sized to the
+// terminal (§8, §10).
+//
+// The arrow stands two columns left of the text, which is what lets a lone
+// gloss say which side it belongs to: a Cadence outside §10's grammar has no
+// reading and contributes no line, and the block beneath a head is then one
+// side rather than two.
+func (r flagRow) stacked(widths []int) []string {
+	if len(r.from) == 0 && len(r.to) == 0 {
+		return nil
+	}
+	column := flagTextColumn(widths)
+	lines := make([]string, 0, len(r.from)+len(r.to))
+	for _, text := range r.from {
+		lines = append(lines, reviewIndent+strings.Repeat(" ", column)+text)
+	}
+	for i, text := range r.to {
+		if i == 0 {
+			lines = append(lines, reviewIndent+strings.Repeat(" ", column-utf8.RuneCountInString(flagSideArrow))+flagSideArrow+text)
+			continue
+		}
+		lines = append(lines, reviewIndent+strings.Repeat(" ", column)+text)
+	}
+	return lines
+}
+
+// flagSideArrow is what marks the second of a stacked row's two sides. It is
+// two columns wide, so the text above it and the text beside it stand in one
+// column and the arrow hangs into the gap the block already puts between two
+// fields (§8).
+//
+// Two columns is two *runes*: the screen is aligned for an eye, and an arrow is
+// one column wide however many bytes it takes — which is the width inColumn is
+// counted in one file over, and for the same reason.
+const flagSideArrow = "→ "
+
+// flagTextColumn is where this rendering's text column begins, counted from the
+// screen's own indent: every field in front of it, each padded to its width and
+// followed by the gap this screen puts between two things on one line.
+//
+// A position no row in this rendering supplies takes no width and is not
+// counted, which is the same rule alignedFields draws the head by — so a
+// stacked line stands under the head's text on a Procedure carrying a `step`
+// coordinate and on a Definition carrying none alike.
+func flagTextColumn(widths []int) int {
+	column := 0
+	for i := 0; i < len(widths)-1; i++ {
+		if widths[i] == 0 {
+			continue
+		}
+		column += widths[i] + len(reviewFieldGap)
+	}
+	return column
 }
 
 // flagWidths is this rendering's field widths, read off the rows the block

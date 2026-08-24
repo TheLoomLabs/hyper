@@ -15,6 +15,7 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/store"
+	"gopkg.in/yaml.v3"
 )
 
 // RunReview implements `hyper review <artefact>` — §8's Definition review of
@@ -126,10 +127,11 @@ func RunReview(args []string, stdout, stderr io.Writer, process Process, wd, bin
 	// page in this package.
 	now := process.Now()
 	opened := readRange(reviewed, repoRoot, now)
+	changes := readChanges(reviewed, opened)
 	absent, sentence := rankedAbsence(reviewed, opened)
-	rows := append([]render.Row{newArtefactRow(reviewed, opened, absent, now)}, gutterRows(reviewed.markers)...)
+	rows := append([]render.Row{newArtefactRow(reviewed, opened, absent, now)}, gutterRows(reviewed.markers, changes.touched)...)
 	rows = append(rows, authorityRows(reviewed.authority)...)
-	rows = append(rows, flagRows(reviewed.flags)...)
+	rows = append(rows, flagRows(reviewed.flags, changes.flags)...)
 	page := func(w io.Writer, rows []render.Row) error {
 		return writeReviewPage(w, rows, reviewPage{
 			sentence:  sentence,
@@ -160,6 +162,12 @@ type reviewedArtefact struct {
 	cadence  string
 	source   []string
 	problems []problem.Problem
+
+	// root is the artefact as `hyper` parsed it, which is what the range
+	// reads its facts off. It is the load's own node and never a second
+	// parse: the lines a flag cites and the values it reads a direction off
+	// come from one reading of one file (ADR-0026).
+	root *yaml.Node
 
 	// markers are the cells this artefact's marker column carries, in line
 	// order and before the composition that aligns them. Five rosters reach
@@ -213,6 +221,7 @@ func newReviewedArtefact(found resolvedArtefact, loaded repository.Loaded) revie
 	return reviewedArtefact{
 		kind:      kind,
 		path:      file,
+		root:      a.Root,
 		name:      artefact.DeclaredName(a.Root, kind.nameKey),
 		cadence:   declared,
 		source:    artefact.SourceLines(a.Bytes),
@@ -799,14 +808,13 @@ const (
 	// aligned against either, and §8 renders `AUTHORITY` and `FLAGS` alike
 	// with it however long their names are.
 	reviewCaptionGap = "   "
-	// reviewSourceGap is what stands between the bar and the artefact's own
-	// line. It is one character wide because the change column is not drawn
-	// yet: a range opens (issue #164) and nothing marks a line with it until
-	// the gutter's change column lands (issue #168), so that column has no
-	// content and no width, and the source sits two characters left of where
-	// a marked review will put it — the column and the space that would
-	// separate it from the source. A blank column one character wide is the
-	// one thing this screen may not draw (§8).
+	// reviewSourceGap is what stands between the bar and the change column,
+	// and between the bar and the artefact's own line on a review with no
+	// range at all. Where no range opens the change column has no content
+	// **and no width**, and the source sits two characters left of where a
+	// ranged review puts it — the column, and the space that separates it
+	// from the source. A blank column one character wide is the one thing
+	// this screen may not draw (§8).
 	reviewSourceGap = " "
 	// reviewRevisionDigits is how much of a revision this page renders: the
 	// leading digits git itself abbreviates one to, which is what makes the
@@ -854,7 +862,7 @@ func writeReviewPage(w io.Writer, rows []render.Row, page reviewPage) error {
 	// what is about to be approved (§8). Nothing else on the screen is sized
 	// to anything either: §9's truncation discipline governs a result set,
 	// and an artefact has neither an order nor a limit.
-	marked := markersByLine(rows)
+	marked, changed := gutterByLine(rows)
 	marker := utf8.RuneCountInString(header.markerHeading())
 	for _, text := range marked {
 		if width := utf8.RuneCountInString(text); width > marker {
@@ -875,8 +883,14 @@ func writeReviewPage(w io.Writer, rows []render.Row, page reviewPage) error {
 	lines = append(lines, reviewIndent+
 		strings.Repeat("─", marker+reviewMarkerPad)+"┼"+
 		strings.Repeat("─", widestOf(facts)+len(reviewFieldGap)))
+	// The change column is drawn wherever a range opened and nowhere else,
+	// and what says a range opened is the header's own baseline: exactly one
+	// of the range and an absence is ever on that row, so the page reads the
+	// column's width off the fact it renders rather than off a second one
+	// (§8, ADR-0026).
+	ranged := header.Baseline != ""
 	for n, line := range page.source {
-		lines = append(lines, gutterLine(gutter(marked[n+1], marker)+reviewSourceGap, line))
+		lines = append(lines, gutterLine(gutter(marked[n+1], marker)+changeColumn(ranged, changed[n+1]), line))
 	}
 
 	for _, line := range lines {
@@ -904,20 +918,38 @@ type reviewPage struct {
 	authority authorityBlock
 }
 
-// markersByLine is the rendering's marker cells keyed by the line each stands
+// gutterByLine is the rendering's two columns keyed by the line each stands
 // beside — the page's own index into the rows it is written from, and the one
 // place the page reads a `gutter` row. Every line number here is the working
 // tree's, counted from one over every line of the file including blank ones,
 // which is the numbering a flag's citation and a `gutter` row's `line` share
 // (§8).
-func markersByLine(rows []render.Row) map[int]string {
-	marked := map[int]string{}
+func gutterByLine(rows []render.Row) (marked map[int]string, changed map[int]bool) {
+	marked, changed = map[int]string{}, map[int]bool{}
 	for _, row := range rows {
 		if g, drawn := row.(gutterRow); drawn {
-			marked[g.Line] = g.markerText
+			marked[g.Line], changed[g.Line] = g.markerText, g.Changed
 		}
 	}
-	return marked
+	return marked, changed
+}
+
+// changeColumn is what stands between the bar and the artefact's own line: the
+// change column and the space separating it from the source, and — on a review
+// with no range — that one space alone.
+//
+// The column is one character wide and carries `~` on every line the range
+// touched: a line whose content differs from the baseline, a line that is new,
+// and the line a deletion anchors to. **One mark and not three** — the gutter
+// marks and does not classify, and a direction is `FLAGS`' text below (§8).
+func changeColumn(ranged, changed bool) string {
+	if !ranged {
+		return reviewSourceGap
+	}
+	if changed {
+		return reviewSourceGap + markerChanged + changeColumnGap
+	}
+	return reviewSourceGap + " " + changeColumnGap
 }
 
 // markerHeading is the word standing at the top of the marker column: the

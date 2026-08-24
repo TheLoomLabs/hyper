@@ -1,10 +1,5 @@
 package revision
 
-import (
-	"fmt"
-	"strings"
-)
-
 // The code branch's objects as a reader that never fetches sees them (§8,
 // ADR-0071, issue #164).
 //
@@ -31,7 +26,20 @@ import (
 // answer to a name that means something else is a blob id like any other.
 func AtPath(commit, path string) string { return commit + ":" + path }
 
-// Held answers the blob id an object name resolves to and whether this clone
+// Object is one git object as this reader answers it: the blob id the name
+// resolved to, and the bytes it holds.
+//
+// The two come back together because one read answers both and a caller wanting
+// one always wants the other: a review names the blob on its header's range
+// line and reads the bytes to mark the lines that moved, and a second call for
+// the second half would be one subprocess spent re-asking a question already
+// answered (§8).
+type Object struct {
+	Blob  string
+	Bytes []byte
+}
+
+// Held answers the object an object name resolves to and whether this clone
 // holds it.
 //
 // It answers false for an object the clone does not hold, for a name that
@@ -47,31 +55,29 @@ func AtPath(commit, path string) string { return commit + ":" + path }
 // The name goes to git NUL-delimited and the answer is read as one record,
 // which is what makes a path holding any byte at all — a space, a newline —
 // answerable rather than a parse this reader gets wrong. One object is asked
-// about per call, so the record is the whole answer.
-func Held(repoRoot, object string) (string, bool, error) {
+// about per call, so the record is the whole answer, and the content is read
+// by the size git states rather than by scanning for a separator: an artefact
+// may hold any byte at all, a newline among them.
+func Held(repoRoot, object string) (Object, bool, error) {
 	if object == "" {
-		return "", false, nil
+		return Object{}, false, nil
 	}
-	answer, err := repository(repoRoot).with([]byte(object+"\x00"), "cat-file", "--batch-check", "-z")
+	answer, err := repository(repoRoot).with([]byte(object+"\x00"), "cat-file", "--batch", "-z")
 	if err != nil {
-		return "", false, err
+		return Object{}, false, err
 	}
 
-	record := strings.TrimSuffix(string(answer), "\n")
-	if strings.HasSuffix(record, " missing") {
-		// git's own word for an object it cannot produce, the name
-		// echoed back ahead of it. It covers every way this call comes
-		// back empty at once — an object the clone does not hold, a
-		// commit it does not hold, a path that commit's tree does not
-		// carry — and none of them is a failure.
-		return "", false, nil
+	record, err := readBatchRecord(answer, object)
+	if err != nil {
+		return Object{}, false, err
 	}
-	fields := strings.Fields(record)
-	if len(fields) != 3 {
-		return "", false, fmt.Errorf("git cat-file wrote %q for %s, which is neither <object> <type> <size> nor a missing object", record, object)
+	if record.missing() || record.kind() != "blob" {
+		// An object git cannot produce, and one that is there and is not
+		// a file: what the caller asked for is a file's bytes, and both
+		// of those are an object it cannot read them from. Neither is a
+		// failure — a Run recorded on a runner names an object a shallow
+		// clone was never given (ADR-0071).
+		return Object{}, false, nil
 	}
-	if fields[1] != "blob" {
-		return "", false, nil
-	}
-	return fields[0], true, nil
+	return Object{Blob: record.object(), Bytes: record.content}, true, nil
 }

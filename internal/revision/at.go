@@ -1,9 +1,7 @@
 package revision
 
 import (
-	"bytes"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -102,10 +100,15 @@ func ArtefactsAt(repoRoot, commit string, wanted func(path string) bool) ([]File
 // set, and a Procedure spanning a dozen artefacts should not cost a dozen
 // processes.
 //
-// The batch protocol is git's own — `<object> SP <type> SP <size> LF`, the
-// content, and one LF — and it is read by the size git states rather than by
-// scanning for a separator, because an artefact may hold any byte at all, a
-// newline among them.
+// The record itself is read next door (batch.go), which is where the protocol
+// git states it in is written down: this reader's own subject is the set, and
+// the caller below asks for one object through the same reading.
+//
+// An object git cannot produce is a failure **here** and an answer one file
+// over, and the difference is what each caller asked for: this reads the
+// artefacts a commit's own tree named, so a missing one is a repository
+// disagreeing with itself, where a review names an object some other machine's
+// Run recorded and *not held* is an ordinary fact about the clone (ADR-0071).
 func (g gitRepository) blobs(objects []string) ([][]byte, error) {
 	if len(objects) == 0 {
 		return nil, nil
@@ -118,20 +121,14 @@ func (g gitRepository) blobs(objects []string) ([][]byte, error) {
 	contents := make([][]byte, 0, len(objects))
 	rest := batch
 	for _, object := range objects {
-		header, body, split := bytes.Cut(rest, []byte("\n"))
-		if !split {
-			return nil, fmt.Errorf("git cat-file answered no header for %s", object)
+		record, err := readBatchRecord(rest, object)
+		if err != nil {
+			return nil, err
 		}
-		fields := strings.Fields(string(header))
-		if len(fields) != 3 {
-			return nil, fmt.Errorf("git cat-file wrote %q for %s, which is not <object> <type> <size>", header, object)
+		if record.missing() {
+			return nil, fmt.Errorf("git cat-file cannot produce %s, which this commit's own tree named", object)
 		}
-		size, err := strconv.Atoi(fields[2])
-		if err != nil || size < 0 || size+1 > len(body) {
-			return nil, fmt.Errorf("git cat-file wrote %q for %s, which is not a size this answer carries", header, object)
-		}
-		contents = append(contents, body[:size])
-		rest = body[size+1:]
+		contents, rest = append(contents, record.content), record.rest
 	}
 	return contents, nil
 }

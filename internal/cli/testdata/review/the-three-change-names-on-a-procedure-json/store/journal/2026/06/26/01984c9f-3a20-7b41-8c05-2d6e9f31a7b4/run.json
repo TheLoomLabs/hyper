@@ -1,0 +1,18 @@
+{
+  "dry_run": false,
+  "procedure": "retire-preview-dns",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "63e064ae887bcdf2c78a8ede0d647d411da0e56c",
+    "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
+  },
+  "run_id": "01984c9f-3a20-7b41-8c05-2d6e9f31a7b4",
+  "schema_version": 1,
+  "started_at": "2026-06-26T03:00:00.000Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "cron",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

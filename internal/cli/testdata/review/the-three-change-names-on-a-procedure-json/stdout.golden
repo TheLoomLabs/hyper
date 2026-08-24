@@ -1,0 +1,18 @@
+{"type":"artefact","kind":"procedure","path":"procedures/retire-preview-dns.yaml","baseline":"63e064ae887bcdf2c78a8ede0d647d411da0e56c","cadence":"*/5 * * * *","phrase":"every 5 minutes","rate":8800,"last_run":{"run":"01984c9f-3a20-7b41-8c05-2d6e9f31a7b4","ended":"2026-06-26T03:01:44.000Z"}}
+{"type":"gutter","line":3,"marker":"envelope ok"}
+{"type":"gutter","line":4,"changed":true}
+{"type":"gutter","line":6,"marker":"mutate! cloudflare-prod"}
+{"type":"gutter","line":16,"marker":"mutate cloudflare-prod"}
+{"type":"gutter","line":30,"changed":true}
+{"type":"gutter","line":32,"marker":"DESTROY cloudflare-prod"}
+{"type":"gutter","line":41,"changed":true}
+{"type":"gutter","line":45,"changed":true}
+{"type":"authority","definition":"preview-dns","target":"cloudflare-prod","definition_kinds":["mutate","destroy"],"target_kinds":["read","mutate","destroy"],"effective":["mutate","destroy"],"destroy_operations":["delete_dns_record"]}
+{"type":"flag","flag":"changed","cites_line":4}
+{"type":"flag","flag":"unbounded","cites_line":6,"step":"publish"}
+{"type":"flag","flag":"narrowed","cites_line":30,"step":"publish-aliases"}
+{"type":"flag","flag":"destroy","cites_line":32,"step":"retire"}
+{"type":"flag","flag":"changed","cites_line":41,"step":"retire"}
+{"type":"flag","flag":"widened","cites_line":45,"step":"retire"}
+{"type":"flag","flag":"envelope","cites_line":3}
+{"type":"result","truncated":false}

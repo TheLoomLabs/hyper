@@ -1,10 +1,10 @@
   DEFINITION  │  definitions/heartbeat.yaml              295fea3 → working tree
   ────────────┼────────────────────────────────────────────────────────────────
-              │ kind: definition
-              │ definition: heartbeat
-              │ provider: uptime
-  read        │ kinds: [read]
-  staging     │ targets: [staging]
+              │   kind: definition
+              │   definition: heartbeat
+              │   provider: uptime
+  read        │   kinds: [read]
+  staging     │   targets: [staging]
 
   AUTHORITY   assembled from definitions/ and targets/
   DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS

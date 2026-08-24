@@ -65,6 +65,11 @@ type reviewRange struct {
 	// blob is the blob the range opens at, and "" where this clone does not
 	// hold the object named.
 	blob string
+	// bytes are that blob's own bytes: the artefact as the supplying Run
+	// read it, which is the whole of the gutter's supply across the range
+	// (ADR-0057). They are read in the same call the blob is, one object
+	// name answering both halves of one question.
+	bytes []byte
 }
 
 // readRange is the range read for one artefact: the Store opened, the Journal
@@ -110,7 +115,7 @@ func readRange(reviewed reviewedArtefact, repoRoot string, now time.Time) review
 		object = revision.AtPath(found.named, reviewed.path)
 	}
 	opened := reviewRange{stored: true, supplied: true, entry: found.entry, named: found.named}
-	blob, inClone, err := revision.Held(repoRoot, object)
+	at, inClone, err := revision.Held(repoRoot, object)
 	if err != nil || !inClone {
 		// A read the clone could not perform and one that answered
 		// *missing* arrive at the same sentence, and that is the closed
@@ -122,7 +127,7 @@ func readRange(reviewed reviewedArtefact, repoRoot string, now time.Time) review
 		// no room for is the third option, declining (§9, §12).
 		return opened
 	}
-	opened.blob = blob
+	opened.blob, opened.bytes = at.Blob, at.Bytes
 	return opened
 }
 

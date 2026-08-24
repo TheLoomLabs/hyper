@@ -31,8 +31,11 @@ func TestHeld_AnsweredForAnObjectTheCloneHolds(t *testing.T) {
 		if !held {
 			t.Errorf("Held(%s) answered not held; the clone just wrote it", named)
 		}
-		if got != blob {
-			t.Errorf("Held(%s) = %s, want the file's blob %s", named, got, blob)
+		if got.Blob != blob {
+			t.Errorf("Held(%s) = %s, want the file's blob %s", named, got.Blob, blob)
+		}
+		if want := "kind: target-declaration\ntarget: staging\n"; string(got.Bytes) != want {
+			t.Errorf("Held(%s) read %q, want the bytes that blob holds %q", named, got.Bytes, want)
 		}
 	}
 }
@@ -55,8 +58,8 @@ func TestHeld_AnObjectTheCloneDoesNotHoldIsAnsweredAndNeverErrored(t *testing.T)
 		if err != nil {
 			t.Errorf("Held(%s) = %v; an object the clone does not hold is answered, never errored", named, err)
 		}
-		if held || got != "" {
-			t.Errorf("Held(%s) = %q, %t; want the absence answered", named, got, held)
+		if held || got.Blob != "" || got.Bytes != nil {
+			t.Errorf("Held(%s) = %+v, %t; want the absence answered", named, got, held)
 		}
 	}
 }
@@ -72,8 +75,8 @@ func TestHeld_AnObjectThatIsNotABlobIsNotHeld(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Held: %v", err)
 	}
-	if held || got != "" {
-		t.Errorf("Held(a commit) = %q, %t; want a commit refused as a blob", got, held)
+	if held || got.Blob != "" || got.Bytes != nil {
+		t.Errorf("Held(a commit) = %+v, %t; want a commit refused as a blob", got, held)
 	}
 }
 
@@ -94,8 +97,8 @@ func TestHeld_APathHoldingAnySpaceOrNewlineIsAnsweredWhole(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Held(%q): %v", name, err)
 		}
-		if !held || got == "" {
-			t.Errorf("Held(%q) = %q, %t; want the file the commit holds at that path", name, got, held)
+		if !held || got.Blob == "" {
+			t.Errorf("Held(%q) = %+v, %t; want the file the commit holds at that path", name, got, held)
 		}
 	}
 }
@@ -104,8 +107,8 @@ func TestHeld_APathHoldingAnySpaceOrNewlineIsAnsweredWhole(t *testing.T) {
 // rather than a name to resolve, and it costs no subprocess to say so.
 func TestHeld_NoNameReadsNothing(t *testing.T) {
 	got, held, err := revision.Held(t.TempDir(), "")
-	if err != nil || held || got != "" {
-		t.Errorf("Held(\"\") = %q, %t, %v; want the absence of a name answered without a repository", got, held, err)
+	if err != nil || held || got.Blob != "" {
+		t.Errorf("Held(\"\") = %+v, %t, %v; want the absence of a name answered without a repository", got, held, err)
 	}
 }
 

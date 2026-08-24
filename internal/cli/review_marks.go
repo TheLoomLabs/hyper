@@ -15,8 +15,8 @@ import (
 //
 // One marker class has two notations and the rest have one. `envelope ✓` on the
 // page is `envelope ok` on the wire — one fact in the two notations, exactly as
-// `~` and `changed: true` will be — and everything else goes out as the page's
-// own string with its alignment padding collapsed (§8).
+// the change column's `~` and `changed: true` are — and everything else goes
+// out as the page's own string with its alignment padding collapsed (§8).
 //
 // `DESTROY` is not a second pair. It is upper-case on both surfaces, §8's own
 // row carrying `"DESTROY staging"`: the upper case is how this vocabulary
@@ -393,12 +393,16 @@ func opaqueToken(opaque bool) string {
 }
 
 // gutterRow is one **rendered line** of the review and not one marked cell: it
-// carries the line, and the marker column's rendered text where that cell has
-// content. A line with content in either column gets a row and a line with
-// neither gets none — which is why nothing here is emitted for the change
-// column: a range opens (issue #164) and nothing marks a line with it until the
-// change column lands (issue #168), so that column has no content and no width
-// (§8).
+// carries the line, the marker column's rendered text where that cell has
+// content, and `changed` where the change column marked the line. A line with
+// content in either column gets a row and a line with neither gets none (§8).
+//
+// `changed` is written `true` rather than as the `~` the column draws, the
+// sigil and the boolean being one fact in the two notations exactly as
+// `envelope ✓` and `"envelope ok"` are. The revision it is relative to is named
+// in the header and in each flag row's text, never once per touched line: the
+// column marks a line and says nothing about what it is relative to, and the
+// range is one fact for the whole screen (§8, issue #168).
 //
 // The marker goes out as the string the page renders with its alignment padding
 // collapsed to single spaces, rather than decomposed into the fields it
@@ -408,9 +412,10 @@ func opaqueToken(opaque bool) string {
 // one cell, where the gloss is several facts with several supplies sharing a
 // line (§8, ADR-0063).
 type gutterRow struct {
-	Type   string `json:"type"`
-	Line   int    `json:"line"`
-	Marker string `json:"marker,omitempty"`
+	Type    string `json:"type"`
+	Line    int    `json:"line"`
+	Marker  string `json:"marker,omitempty"`
+	Changed bool   `json:"changed,omitempty"`
 
 	// markerText is the marker in the notation the page renders it in — the
 	// alignment padding, and the sigils `✓` and `DESTROY` the wire spells in
@@ -426,9 +431,10 @@ type gutterRow struct {
 // (ADR-0026).
 func (r gutterRow) Cells() []string { return nil }
 
-// gutterRows is the marker column as the rows both surfaces are written from:
-// each marker composed once, against the widths this rendering fixes, and
-// carried in the page's notation and the wire's.
+// gutterRows is the gutter as the rows both surfaces are written from: each
+// marker composed once, against the widths this rendering fixes, carried in the
+// page's notation and the wire's, and beside it whether the range touched that
+// line.
 //
 // The widths are read off the whole rendering rather than off one marker: each
 // field is padded to the widest value at that position, then separated by the
@@ -442,23 +448,42 @@ func (r gutterRow) Cells() []string { return nil }
 // two-field rule gives — and a Manifest whose Operations are all opaque draws
 // the field on every one of them.
 //
-// A marker that composed to nothing is not a row. Its line has content in
-// neither column, and a `gutter` row for it would be an anchor with nothing
-// anchored to it (§8).
-func gutterRows(markers []reviewMarker) []render.Row {
+// A marker that composed to nothing and a line the range did not touch are one
+// row between them and that row is not drawn: the line has content in neither
+// column, and a `gutter` row for it would be an anchor with nothing anchored to
+// it (§8).
+func gutterRows(markers []reviewMarker, touched artefact.Touched) []render.Row {
 	widths := markerWidths(markers)
 
-	rows := make([]render.Row, 0, len(markers))
+	// One row per rendered line, which is what makes a marked line the range
+	// also touched one row rather than two: the row is the line, and the two
+	// columns are what it carries (§8).
+	marked := map[int]string{}
+	pages := map[int]string{}
 	for _, m := range markers {
-		wire := m.wire()
-		if wire == "" {
-			continue
+		if wire := m.wire(); wire != "" {
+			marked[m.line], pages[m.line] = wire, m.page(widths)
 		}
+	}
+	lines := make([]int, 0, len(marked)+len(touched.Lines))
+	for line := range marked {
+		lines = append(lines, line)
+	}
+	for line := range touched.Lines {
+		if _, both := marked[line]; !both {
+			lines = append(lines, line)
+		}
+	}
+	slices.Sort(lines)
+
+	rows := make([]render.Row, 0, len(lines))
+	for _, line := range lines {
 		rows = append(rows, gutterRow{
 			Type:       "gutter",
-			Line:       m.line,
-			Marker:     wire,
-			markerText: m.page(widths),
+			Line:       line,
+			Marker:     marked[line],
+			Changed:    touched.Marked(line),
+			markerText: pages[line],
 		})
 	}
 	return rows

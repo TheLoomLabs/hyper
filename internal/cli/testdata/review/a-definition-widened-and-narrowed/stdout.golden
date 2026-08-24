@@ -1,0 +1,16 @@
+  DEFINITION       │  definitions/preview-dns.yaml            faa5bb2 → working tree
+  ─────────────────┼────────────────────────────────────────────────────────────────
+                   │ ~ kind: definition
+                   │   definition: preview-dns
+                   │   provider: cloudflare-dns
+  mutate DESTROY   │ ~ kinds: [mutate, destroy]
+  cloudflare-prod  │   targets: [cloudflare-prod]
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION   TARGET           DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS
+  preview-dns  cloudflare-prod  mutate destroy    read mutate destroy  m d        —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  NARROWED  line 1  destroy  delete_dns_record → – since faa5bb2
+  DESTROY   line 4           destroy claimed
+  WIDENED   line 4  kinds    mutate → destroy · mutate since faa5bb2

@@ -1,0 +1,57 @@
+  PROCEDURE                 │  procedures/retire-preview-dns.yaml      63e064a → working tree
+                            │  03:00 UTC every Monday · ≈4.3 runs/month · last ran 41 days ago
+  ──────────────────────────┼─────────────────────────────────────────────────────────────────
+                            │   kind: procedure
+                            │   procedure: retire-preview-dns
+  envelope ✓                │   targets: [cloudflare-prod]
+                            │   cadence: "0 3 * * 1"
+                            │   steps:
+  mutate!  cloudflare-prod  │     - id: publish
+                            │       definition: preview-dns
+                            │       operation: create_dns_record
+                            │       target: cloudflare-prod
+                            │       args:
+                            │         zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+                            │         name: preview-42.example.com
+                            │         type: A
+                            │         content: 203.0.113.10
+                            │
+  mutate   cloudflare-prod  │     - id: publish-aliases
+                            │       definition: preview-dns
+                            │       operation: create_dns_record
+                            │       target: cloudflare-prod
+                            │       over:
+                            │         values:
+                            │           - docs.preview-42.example.com
+                            │           - api.preview-42.example.com
+                            │           - cdn.preview-42.example.com
+                            │       args:
+                            │         zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+                            │         name: {item: $}
+                            │         type: CNAME
+                            │         content: preview-42.example.com
+                            │       bound: 3
+                            │
+  DESTROY  cloudflare-prod  │ ~   - id: retire
+                            │       definition: preview-dns
+                            │       operation: delete_dns_record
+                            │       target: cloudflare-prod
+                            │       over:
+                            │         assets:
+                            │           - field: name
+                            │             starts_with: preview-
+                            │           - field: created_on
+                            │             older_than: 14d
+                            │       args:
+                            │         zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+                            │         record_id: {item: $.id}
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION   TARGET           DEFINITION KINDS  TARGET KINDS         EFFECTIVE  DESTROY OPS
+  preview-dns  cloudflare-prod  mutate destroy    read mutate destroy  m d        delete_dns_record
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  UNBOUNDED  line 6   step publish  mutate with no declared bound
+  DESTROY    line 32  step retire   delete_dns_record
+  WIDENED    line 32  step retire   bound 5 → – since 63e064a
+  ENVELOPE   line 3   ok            no step reaches a target outside [cloudflare-prod]

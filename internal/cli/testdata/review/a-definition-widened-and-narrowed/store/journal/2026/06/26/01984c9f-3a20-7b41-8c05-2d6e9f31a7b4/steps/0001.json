@@ -1,0 +1,17 @@
+{
+  "definition": "preview-dns",
+  "disposition": "ran",
+  "ended_at": "2026-06-26T03:00:12.000Z",
+  "id": "retire",
+  "kind": "destroy",
+  "operation": "delete_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "manifest_digest": "sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1"
+  },
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "started_at": "2026-06-26T03:00:00.000Z",
+  "step": 1,
+  "target": "cloudflare-prod"
+}

@@ -37,8 +37,18 @@ type rangedRepository struct {
 // time, which is the whole reason these are not goldens.
 func ranged(t *testing.T) rangedRepository {
 	t.Helper()
+	return rangedIn(t, "review/a-journal-seeded-at-run-time")
+}
 
-	c := corpusCase(t, "review/a-journal-seeded-at-run-time", "hyper", "review", "hyper.yaml")
+// rangedIn materialises the case named. It is the constructor rather than
+// ranged itself because a second corpus is driven this way — the change
+// column's, whose repository is the five-artefact demonstration one and whose
+// cases edit the working tree after the commit (issue #168) — and one fixture
+// serving both is what keeps *how a run-time case is built* written once.
+func rangedIn(t *testing.T, name string) rangedRepository {
+	t.Helper()
+
+	c := corpusCase(t, name, "hyper", "review", "hyper.yaml")
 	run := c.invocation(t)
 	return rangedRepository{c: c, run: run, head: run.fixture.text(t, run.fixture.root, "rev-parse", "HEAD")}
 }
