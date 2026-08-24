@@ -970,65 +970,6 @@ func namedStep(path, id string) string {
 	return id
 }
 
-// provenanceRow is which code performed the Run, at one of the two scopes §7
-// splits it across: the Run-wide members, and one row per Step file written.
-//
-// Which scope a row is is read off the row itself and never off a key naming
-// one. A Step's row carries `step` and the Run's does not, which is exactly the
-// split the Store already writes — a member is written at the level where it
-// has one value and omitted from every level where it has none (ADR-0043) — and
-// a discriminator beside it would carry that fact twice.
-//
-// Nothing is abbreviated: every revision and every digest goes out whole (§8,
-// ADR-0047).
-type provenanceRow struct {
-	Type              string `json:"type"`
-	Step              *int   `json:"step,omitempty"`
-	HyperVersion      string `json:"hyper_version,omitempty"`
-	ProcedureRevision string `json:"procedure_revision,omitempty"`
-	RepoRevision      string `json:"repo_revision,omitempty"`
-	RepoDirty         bool   `json:"repo_dirty,omitempty"`
-
-	DefinitionRevision string `json:"definition_revision,omitempty"`
-	ManifestDigest     string `json:"manifest_digest,omitempty"`
-	OriginDigest       string `json:"origin_digest,omitempty"`
-}
-
-// runProvenanceRow is the Run-wide scope: the members that have exactly one
-// value across a Run, however many Definitions its Steps span (ADR-0043).
-func runProvenanceRow(p store.RunProvenance) provenanceRow {
-	return provenanceRow{
-		Type:              "provenance",
-		HyperVersion:      p.HyperVersion,
-		ProcedureRevision: p.ProcedureRevision,
-		RepoRevision:      p.RepoRevision,
-		RepoDirty:         p.RepoDirty,
-	}
-}
-
-// stepProvenanceRow is one Step's scope, and the `step` it carries is what
-// tells the two apart on the wire.
-//
-// It takes the position and the Store's own half rather than a Step value,
-// because the two commands that render one hold the Step in two shapes — a Run
-// reports what it just did and `hyper show` reads a Step file back — and the
-// row is the same row (ADR-0026).
-func stepProvenanceRow(position int, p store.StepProvenance) provenanceRow {
-	return provenanceRow{
-		Type:               "provenance",
-		Step:               &position,
-		DefinitionRevision: p.DefinitionRevision,
-		ManifestDigest:     p.ManifestDigest,
-		OriginDigest:       p.OriginDigest,
-	}
-}
-
-// Cells is empty: Provenance is not on §8's Step table. What renders it to a
-// human is `hyper show`, which reads the entry back (§9); the page a Run writes
-// is the table and the terminal line, and a row with no line is the shape the
-// terminal row already has (ADR-0026).
-func (r provenanceRow) Cells() []string { return nil }
-
 // outcomeRow is the terminal row of a Run's stream, and the only stream in the
 // tool that ends in one: everything that is not a Run ends in `result` (§8,
 // §9).

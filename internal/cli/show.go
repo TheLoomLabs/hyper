@@ -574,11 +574,13 @@ func resolveMembers(held *store.Store, entry store.Entry, step store.StepFile) (
 func stepFileProvenanceRow(step store.StepFile) provenanceRow {
 	position := step.Step
 	return provenanceRow{
-		Type:               "provenance",
-		Step:               &position,
-		DefinitionRevision: step.Provenance.DefinitionRevision,
-		ManifestDigest:     step.Provenance.ManifestDigest,
-		OriginDigest:       step.Provenance.OriginDigest,
+		Type: "provenance",
+		Step: &position,
+		provenanceBlock: provenanceBlock{
+			DefinitionRevision: step.Provenance.DefinitionRevision,
+			ManifestDigest:     step.Provenance.ManifestDigest,
+			OriginDigest:       step.Provenance.OriginDigest,
+		},
 	}
 }
 

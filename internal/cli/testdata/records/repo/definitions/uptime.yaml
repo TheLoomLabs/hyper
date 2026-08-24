@@ -1,0 +1,5 @@
+kind: definition
+definition: uptime
+provider: uptime
+kinds: [read]
+targets: [local, staging]

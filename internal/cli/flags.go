@@ -58,11 +58,24 @@ type commandArgs struct {
 	// kept is what was typed.
 	procedure string
 	target    string
+	// definition and name are the other two columns of a Record's identity,
+	// and they narrow `records` where `--target` narrows its first column.
+	// The three are separate members rather than one identity value because
+	// a caller may name any of them and leave the rest off: a partial
+	// identity is not an identity, and a value that could hold one would be
+	// a value two questions get asked of.
+	definition string
+	name       string
 	// outcome is one of §12's triple, and the empty string where the caller
 	// named none. It is the typed value rather than the text, so a command
 	// filtering on it compares what the record holds against a member of
 	// the closed set and never against a string somebody spelled.
-	outcome    store.Outcome
+	outcome store.Outcome
+	// history says `--history` was given: every version of every Record the
+	// narrowing kept, rather than the Head alone. It is an explicit boolean
+	// and never a mode some other parameter turns on (ADR-0013), which is
+	// why `--since` beside it is a usage error rather than an implication.
+	history    bool
 	positional []string
 }
 
@@ -104,6 +117,16 @@ type parameters struct {
 	procedure bool
 	target    bool
 	outcome   bool
+	// definition and name say the command takes the other two columns of a
+	// Record's identity. §9 gives both to `records` alone — it is the one
+	// surface whose job is finding a version, and the one that ranges over
+	// Record names at all.
+	definition bool
+	name       bool
+	// history says the command takes `--history`. §9 gives it to `records`
+	// and to nothing else: it is the boolean that turns a listing of Heads
+	// into a listing of versions, and no other surface holds a series.
+	history bool
 }
 
 // defaultListLimit is the modest default §9 leaves to the implementation, and
@@ -210,6 +233,24 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 			parsed.target = value
 		case strings.HasPrefix(a, "--target=") && takes.target:
 			parsed.target = strings.TrimPrefix(a, "--target=")
+		case a == "--definition" && takes.definition:
+			value, code := nextValue(command, "--definition", args, &i, stderr)
+			if code != 0 {
+				return parsed, code
+			}
+			parsed.definition = value
+		case strings.HasPrefix(a, "--definition=") && takes.definition:
+			parsed.definition = strings.TrimPrefix(a, "--definition=")
+		case a == "--name" && takes.name:
+			value, code := nextValue(command, "--name", args, &i, stderr)
+			if code != 0 {
+				return parsed, code
+			}
+			parsed.name = value
+		case strings.HasPrefix(a, "--name=") && takes.name:
+			parsed.name = strings.TrimPrefix(a, "--name=")
+		case a == "--history" && takes.history:
+			parsed.history = true
 		case a == "--outcome" && takes.outcome:
 			value, code := nextValue(command, "--outcome", args, &i, stderr)
 			if code != 0 {
@@ -327,6 +368,21 @@ func (c *commandArgs) readSince(command, value string, stderr io.Writer) int {
 	c.since = instant.UTC()
 	c.sinceNamed = true
 	return 0
+}
+
+// withinWindow answers whether an instant falls inside the window --since
+// named, and whether one was named at all is half of the question: a command
+// that took no window keeps everything.
+//
+// **`--since` is a lower bound and includes the instant it names**, so a
+// timestamp copied off a page selects the row it was copied from — which is why
+// every page here renders an instant in the spelling `--since` reads rather
+// than a friendlier date. It is one function because three of §9's four
+// Inspection commands bound a window with this flag and the boundary is the
+// same fact for all of them: three copies of `!instant.Before(since)` are three
+// chances for one of them to become `After`.
+func withinWindow(instant, since time.Time, named bool) bool {
+	return !named || !instant.Before(since)
 }
 
 // resolveRepoRoot applies flags → environment → defaults (ADR-0014):

@@ -165,13 +165,45 @@ func (s *Store) Records() ([]Series, error) {
 // version is named by the file a listing found it at, so a caller cannot ask
 // for one this Store never answered.
 func (s *Store) Read(version Version) (RecordVersion, error) {
-	// `<commit>:<path>` is git's own way of naming one file in one tree,
-	// which is what this handle is pinned to.
-	contents, err := s.repo.readBlobs([]string{s.commit + ":" + version.File})
+	read, err := s.readVersions([]Version{version})
 	if err != nil {
 		return RecordVersion{}, err
 	}
-	return decodeVersion(version.File, contents[0])
+	return read[0], nil
+}
+
+// readVersions opens the versions named and answers them whole, in the order
+// they were named, in one batch read.
+//
+// It is the door behind Read and behind SuppressedFields, which is what keeps
+// *a version's content costs a second open* one fact rather than two: the
+// listing that found these versions read every one of their files already and
+// kept only the metadata (readListing), so anything reaching for `fields` opens
+// them again, and doing that per version would be a subprocess per version.
+//
+// The version is named by the file a listing found it at, so a caller cannot
+// ask for one this Store never answered.
+func (s *Store) readVersions(versions []Version) ([]RecordVersion, error) {
+	blobs := make([]string, len(versions))
+	for i, version := range versions {
+		// `<commit>:<path>` is git's own way of naming one file in one
+		// tree, which is what this handle is pinned to.
+		blobs[i] = s.commit + ":" + version.File
+	}
+	contents, err := s.repo.readBlobs(blobs)
+	if err != nil {
+		return nil, err
+	}
+
+	read := make([]RecordVersion, len(versions))
+	for i, version := range versions {
+		decoded, err := decodeVersion(version.File, contents[i])
+		if err != nil {
+			return nil, err
+		}
+		read[i] = decoded
+	}
+	return read, nil
 }
 
 // readListing decodes every file a listing found, in the order it found them.

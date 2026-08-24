@@ -74,6 +74,20 @@ func writeLabelledValues(w io.Writer, values []labelledValue) error {
 	return tw.Flush()
 }
 
+// yesCell is how a table renders a marker the wire carries as a boolean: the
+// word where it stands, and nothing at all where it does not.
+//
+// A blank is the page's reading of the ordinary absence rule (§7) — the row
+// omits the member and the column shows nothing against it — and the word is
+// what a reader scans a column for. It is one function rather than three lines
+// at each marker so that two tables cannot come to spell one `yes` differently.
+func yesCell(marked bool) string {
+	if marked {
+		return "yes"
+	}
+	return ""
+}
+
 // truncate keeps the first N of a command's own order and says how many it
 // dropped. The first N of a normative order is the answer to a question rather
 // than an arbitrary sample of one, which is what makes a bounded return usable

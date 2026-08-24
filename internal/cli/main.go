@@ -176,4 +176,10 @@ var repositoryCommands = map[string]repositoryCommand{
 	// `show`'s own unresolved-id message points at. It takes the whole
 	// value for the same clock and writes nothing either (§9, issue #165).
 	"runs": RunRuns,
+	// The third of the four, and the one whose job is finding a version.
+	// It reads the record for the versions and the working tree for one
+	// column of them — an Asset whose Definition no longer exists is
+	// Orphaned, and what exists is a fact about the repository rather than
+	// about the branch (§7, §9, issue #166).
+	"records": RunRecords,
 }

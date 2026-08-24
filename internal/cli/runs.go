@@ -226,16 +226,12 @@ type runRow struct {
 // boolean the wire carries. Both are the page's reading of a fact the row holds
 // once.
 func (r runRow) Cells() []string {
-	contested := ""
-	if r.Contested {
-		contested = "yes"
-	}
 	return []string{
 		abbreviatedRun(r.ID),
 		r.Started,
 		r.Trigger,
 		r.Outcome,
-		contested,
+		yesCell(r.Contested),
 		r.Procedure,
 		namesText(r.Targets),
 		r.HyperVersion,
@@ -344,11 +340,9 @@ func (n narrowings) any() bool { return n != narrowings{} }
 // can answer. It is what the Store applies before it opens a Step file, so an
 // entry outside the window costs its own account and nothing more.
 //
-// **`--since` is a lower bound and includes the instant it names**, so a
-// timestamp copied off a `STARTED` cell selects the Run it was copied from.
-// That is why the page renders an instant in the spelling `--since` reads
-// rather than a friendlier date: a value a caller pastes back out of a page is
-// one this command takes.
+// **`--since` is a lower bound and includes the instant it names**
+// (withinWindow), so a timestamp copied off a `STARTED` cell selects the Run it
+// was copied from.
 //
 // **`--procedure` matches byte-exact over UTF-8**, which is the comparison §9
 // fixes for matching a name everywhere.
@@ -358,7 +352,7 @@ func (n narrowings) any() bool { return n != narrowings{} }
 // at all, so nothing in the triple selects it; a contested entry has exactly
 // one, its own Run's, which is the one the entry has (§7, §9).
 func (n narrowings) keeps(entry store.Entry) bool {
-	if n.sinceNamed && entry.StartedAt.Before(n.since) {
+	if !withinWindow(entry.StartedAt, n.since, n.sinceNamed) {
 		return false
 	}
 	if n.procedure != "" && entry.Procedure != n.procedure {
