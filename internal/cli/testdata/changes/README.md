@@ -101,14 +101,14 @@ revision whole, one fact in the two notations.
 - [`since-after-every-run/`](since-after-every-run) — a window nothing happened
   in. It is an answer at `0` and not an error: the name resolved, and fetching
   nothing is not naming nothing (ADR-0060).
-- [`the-specs-own-since-takes-the-run-before-it/`](the-specs-own-since-takes-the-run-before-it)
-  — §8's own printed command over §8's own two Runs, and its header is **not**
-  the block §8 prints beside it. The example's `--since 2026-08-04T09:12:00Z`
-  falls three seconds before its `BASELINE` started; the prose says *take the
-  last Run **before** that instant and fold everything after it*, and the code
-  follows the rule rather than the illustration. The case is checked in so the
-  divergence is asserted rather than sidestepped — `docs/spec/09`'s prose and
-  its worked example disagree, and one of them wants correcting.
+- [`since-names-the-specs-own-window/`](since-names-the-specs-own-window) —
+  §8's own printed command, over §8's own two Runs and one below them so the
+  instant has a Run on either side of it. Its `stdout.golden` is the block §8
+  prints beside that command, byte for byte. §8's example named
+  `2026-08-04T09:12:00Z`, three seconds **before** its own `BASELINE` started,
+  where the prose beside it says *take the last Run **before** that instant*;
+  the timestamp was corrected in place in `docs/spec/09-review-and-comparison.md`
+  and this case is what holds the two together.
 - [`between-names-two-runs/`](between-names-two-runs) — the two Runs named
   directly, baseline first, skipping the Run between them.
 - [`usage-since-and-between/`](usage-since-and-between) — the two together is a

@@ -949,7 +949,7 @@ different baselines, which is the cross-Procedure reading the window rule refuse
 for which Procedure did the damage is served by the per-block line and misled by the sum.
 
 ```
-$ hyper changes --since 2026-08-04T09:12:00Z
+$ hyper changes --since 2026-08-05T00:00:00Z
 
   retire-preview-envs
   BASELINE  01991c3a-7d40…  cron           Tue 4 Aug 09:12  completed  1m48s  procedure rev a91f0c2
@@ -1362,7 +1362,7 @@ $ hyper review procedures/retire-preview-envs.yaml --json
 ```
 
 ```
-$ hyper changes --since 2026-08-04T09:12:00Z --json
+$ hyper changes --since 2026-08-05T00:00:00Z --json
 {"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","outcome":"completed","procedure_revision":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","outcome":"completed","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_ordinal":4,"to_ordinal":5,"confirmed_at":"2026-08-06T11:02:41Z","fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_ordinal":3,"to_ordinal":4,"confirmed_at":"2026-08-06T11:02:52Z","fields":{"region":"fsn1","server_type":"cx22"}}
