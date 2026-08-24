@@ -262,7 +262,7 @@ func journalRows(listed []store.Listed, narrowing narrowings) []render.Row {
 			Type:         "run",
 			ID:           entry.Run.String(),
 			Started:      store.InstantText(entry.StartedAt),
-			Trigger:      triggerText(entry.Trigger),
+			Trigger:      entry.Trigger.Text(),
 			Contested:    entry.Account() == store.AccountContested,
 			Procedure:    entry.Procedure,
 			Targets:      boundTargets(entry.Targets),
@@ -395,25 +395,6 @@ func runsPage(w io.Writer, rows []render.Row, narrowed bool) error {
 		return err
 	}
 	return render.WriteTable(w, runsColumns, rows)
-}
-
-// triggerText is the Trigger as one cell: a clock or a person, which is what §7
-// says a Trigger names and the whole of what this surface renders of it.
-//
-// A `cron` Run renders the cause, because there is nobody to name: the clock
-// that fired is the executor's, and the actor an executor happens to have set
-// on a scheduled occasion is not who caused the Run. Everything else renders
-// the person, with the machine beside them where the entry carries one —
-// `igor@thinkpad` on a laptop and `igor` on a runner, which §8's own header
-// renders from the same two stored facts with nothing invented here (§7, §8).
-func triggerText(trigger store.Trigger) string {
-	if trigger.Cause == store.CauseCron {
-		return string(store.CauseCron)
-	}
-	if trigger.Host == "" {
-		return trigger.Actor
-	}
-	return trigger.Actor + "@" + trigger.Host
 }
 
 // abbreviatedRun is a Run id as this page renders one: the leading digits, and

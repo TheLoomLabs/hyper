@@ -194,6 +194,32 @@ type Trigger struct {
 	JobURL      string
 }
 
+// Text is the Trigger as one line: a clock or a person, which is what §7 says a
+// Trigger names and the whole of what a surface reading one down a column
+// renders of it.
+//
+// A `cron` Run renders the cause, because there is nobody to name: the clock
+// that fired is the executor's, and the actor an executor happens to have set
+// on a scheduled occasion is not who caused the Run. Everything else renders
+// the person, with the machine beside them where the entry carries one —
+// `igor@thinkpad` on a laptop and `igor` on a runner.
+//
+// It is a derivation over the entry's own stored facts and lives here beside
+// Entry.Outcome and Entry.Ended for the same reason they do: §8's Comparison
+// header and §9's `runs` column render one fact, and two compositions of it are
+// two chances to disagree about who caused a Run. What a surface still decides
+// is where the string goes — `show` reads one entry whole and renders the four
+// members an executor writes, its job being the parts.
+func (t Trigger) Text() string {
+	if t.Cause == CauseCron {
+		return string(CauseCron)
+	}
+	if t.Host == "" {
+		return t.Actor
+	}
+	return t.Actor + "@" + t.Host
+}
+
 // write puts the Trigger into its block.
 func (t Trigger) write(m members) {
 	m.text("cause", string(t.Cause))

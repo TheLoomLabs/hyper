@@ -261,18 +261,40 @@ func WriteTable(w io.Writer, header []string, rows []Row) error {
 		return nil
 	}
 
+	return WriteAligned(w, "", append([][]string{header}, lines...))
+}
+
+// WriteAligned writes a block of cells aligned into columns, each line prefixed
+// by indent. It is what WriteTable is once the header is one more line, and it
+// is exported because §8 renders two block-shaped pages that have no column
+// header at all — a Comparison's two-line window, whose `BASELINE` and
+// `SUBJECT` are the rows' own labels rather than a heading over them.
+//
+// It is one path from cells to bytes rather than one per page: what a command
+// still decides is which cells, in which order, under what heading, and the
+// alignment beneath every one of them is the renderer's (ADR-0026).
+//
+// **No line ends in padding.** A cell that is empty at the end of a line is
+// ordinary — a Target that declares no credential is §9's own example — and the
+// alignment it leaves behind is whitespace no reader sees, noise in a diff, and
+// a trailing space in whatever the page is piped into. So the block is written
+// through a buffer and each line ends where its last written cell does. The
+// indent is applied after that trim, so a line with nothing on it is the indent
+// and not the indent plus a column's worth of spaces.
+func WriteAligned(w io.Writer, indent string, lines [][]string) error {
 	var aligned bytes.Buffer
 	tw := tabwriter.NewWriter(&aligned, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, strings.Join(header, "\t"))
 	for _, cells := range lines {
-		fmt.Fprintln(tw, strings.Join(cells, "\t"))
+		if _, err := fmt.Fprintln(tw, strings.Join(cells, "\t")); err != nil {
+			return err
+		}
 	}
 	if err := tw.Flush(); err != nil {
 		return err
 	}
 
 	for _, line := range strings.Split(strings.TrimSuffix(aligned.String(), "\n"), "\n") {
-		if _, err := fmt.Fprintln(w, strings.TrimRight(line, " ")); err != nil {
+		if _, err := fmt.Fprintln(w, indent+strings.TrimRight(line, " ")); err != nil {
 			return err
 		}
 	}

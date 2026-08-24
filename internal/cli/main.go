@@ -176,6 +176,12 @@ var repositoryCommands = map[string]repositoryCommand{
 	// `show`'s own unresolved-id message points at. It takes the whole
 	// value for the same clock and writes nothing either (§9, issue #165).
 	"runs": RunRuns,
+	// The fourth of the four, and the one §1's second claim rests on:
+	// *what changed between one run and the next* is a window over the
+	// Journal, and this is the surface that opens one. It takes the whole
+	// value for the clock the Store's handle is opened at, and writes
+	// nothing (§8, §9, issue #167).
+	"changes": RunChanges,
 	// The third of the four, and the one whose job is finding a version.
 	// It reads the record for the versions and the working tree for one
 	// column of them — an Asset whose Definition no longer exists is

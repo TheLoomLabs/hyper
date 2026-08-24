@@ -71,6 +71,29 @@ type commandArgs struct {
 	// filtering on it compares what the record holds against a member of
 	// the closed set and never against a string somebody spelled.
 	outcome store.Outcome
+	// between is the two Run ids `--between` named, in the order the header
+	// renders them: the baseline first and the subject second. It is a pair
+	// rather than two members because the flag takes two values at once and
+	// naming one of them is naming neither side of a window.
+	between [2]string
+	// betweenNamed says the flag was given, which is a fact `--since`
+	// beside it is a usage error on. The empty pair is not the test: a Run
+	// id is never empty, but the question asked here is whether the caller
+	// named a window this way, and answering it off the values would make
+	// the two ways of naming one window tell each other apart by their
+	// contents.
+	betweenNamed bool
+	// recordKind is one of §7's two Record types, and the empty string
+	// where the caller named none. It is the typed value rather than the
+	// text, so a command narrowing on it compares against a member of the
+	// closed set and never against a string somebody spelled.
+	//
+	// It is spelled out in full though the flag is `--kind`, because a bare
+	// `kind` is taken: a **Kind** is an Operation's declared blast radius,
+	// `read`, `mutate` or `destroy` (CONTEXT.md), and the two are different
+	// closed sets over different things. §9 writes the parameter out as
+	// `record_kind` in its own MCP sketch for the same reason.
+	recordKind store.RecordType
 	// history says `--history` was given: every version of every Record the
 	// narrowing kept, rather than the Head alone. It is an explicit boolean
 	// and never a mode some other parameter turns on (ADR-0013), which is
@@ -127,6 +150,12 @@ type parameters struct {
 	// and to nothing else: it is the boolean that turns a listing of Heads
 	// into a listing of versions, and no other surface holds a series.
 	history bool
+	// between and kind say the command takes `--between <run-id> <run-id>`
+	// and `--kind`. §9 gives both to `changes` alone: `--between` is the
+	// second of the two ways of naming one window, and `--kind` narrows a
+	// Comparison to one of its two Record tables.
+	between bool
+	kind    bool
 }
 
 // defaultListLimit is the modest default §9 leaves to the implementation, and
@@ -251,6 +280,31 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 			parsed.name = strings.TrimPrefix(a, "--name=")
 		case a == "--history" && takes.history:
 			parsed.history = true
+		case a == "--between" && takes.between:
+			if code := parsed.readBetween(command, args, &i, stderr); code != 0 {
+				return parsed, code
+			}
+		case strings.HasPrefix(a, "--between=") && takes.between:
+			// The `=`-joined spelling carries one value and this flag
+			// takes two, so it is refused where it is written rather
+			// than falling through to `unknown flag --between=x`: a
+			// caller who spelled it that way named a window and wants
+			// to be told how to name it, not told the flag does not
+			// exist.
+			fmt.Fprintf(stderr, "hyper %s: --between takes two Run ids, spelled with spaces: --between <run-id> <run-id>\n", command)
+			return parsed, ExitUsage
+		case a == "--kind" && takes.kind:
+			value, code := nextValue(command, "--kind", args, &i, stderr)
+			if code != 0 {
+				return parsed, code
+			}
+			if code := parsed.readRecordKind(command, value, stderr); code != 0 {
+				return parsed, code
+			}
+		case strings.HasPrefix(a, "--kind=") && takes.kind:
+			if code := parsed.readRecordKind(command, strings.TrimPrefix(a, "--kind="), stderr); code != 0 {
+				return parsed, code
+			}
 		case a == "--outcome" && takes.outcome:
 			value, code := nextValue(command, "--outcome", args, &i, stderr)
 			if code != 0 {
@@ -318,6 +372,61 @@ func (c *commandArgs) readOutcome(command, value string, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stderr, "hyper %s: --outcome %s: want %s, %s or %s\n",
 		command, value, store.OutcomeCompleted, store.OutcomeRefused, store.OutcomeFailed)
+	return ExitUsage
+}
+
+// readBetween reads --between's two values: the two Runs a window is named by
+// directly, baseline first and subject second — the order §8's header renders
+// them in, so a caller reads their own command line down the page they get
+// back.
+//
+// It takes two values off the line rather than one, which is what makes it the
+// only flag here that advances the loop's index twice. A pair spelled with one
+// value is a window with one end, and there is no reading of that a command
+// could act on.
+//
+// The values are not resolved here. An id that is not a Run id and an id no
+// entry carries arrive at one message — nothing anywhere resolves a partial one
+// (ADR-0047) — and that message is the command's, written where the namespace
+// it resolves against is in hand (§9, ADR-0060).
+func (c *commandArgs) readBetween(command string, args []string, i *int, stderr io.Writer) int {
+	baseline, code := nextValue(command, "--between", args, i, stderr)
+	if code != 0 {
+		return code
+	}
+	// The second value has a message of its own rather than nextValue's,
+	// because a caller who supplied one has not left the value off: they
+	// named one end of a window, and what they read back has to say that
+	// this flag names two.
+	*i++
+	if *i >= len(args) {
+		fmt.Fprintf(stderr, "hyper %s: --between %s: names one end of a window; it takes two Run ids, --between <run-id> <run-id>\n", command, baseline)
+		return ExitUsage
+	}
+	c.between, c.betweenNamed = [2]string{baseline, args[*i]}, true
+	return 0
+}
+
+// readRecordKind reads --kind's value: one of §7's two Record types, and
+// nothing else.
+//
+// The set is closed where the flag is read rather than where a table is
+// narrowed, which is what makes a third name a usage error instead of an empty
+// answer — readOutcome's own reading of the same rule. `tombstone` is the name
+// this is really for: a Tombstone is a marker inside the Asset table rather
+// than a class of its own (§8), so accepting the word would offer a narrowing
+// that names no table.
+//
+// The comparison is byte-exact, as every name comparison in §9 is, and the
+// message names the flag and both values it wanted, a pair being short enough
+// to state in full.
+func (c *commandArgs) readRecordKind(command, value string, stderr io.Writer) int {
+	switch store.RecordType(value) {
+	case store.RecordAsset, store.RecordObservation:
+		c.recordKind = store.RecordType(value)
+		return 0
+	}
+	fmt.Fprintf(stderr, "hyper %s: --kind %s: want %s or %s\n", command, value, store.RecordAsset, store.RecordObservation)
 	return ExitUsage
 }
 

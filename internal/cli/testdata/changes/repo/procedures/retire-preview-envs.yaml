@@ -1,0 +1,10 @@
+kind: procedure
+procedure: retire-preview-envs
+targets: [staging]
+steps:
+  - id: probe
+    definition: heartbeat
+    operation: check_http
+    target: staging
+    args:
+      host: status.hyper.dev
