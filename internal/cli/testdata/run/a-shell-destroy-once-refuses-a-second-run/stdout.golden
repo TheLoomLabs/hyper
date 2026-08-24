@@ -1,7 +1,20 @@
 STEP  ID      KIND     DISPOSITION  RECORDS
 1     retire  destroy  refused      –
 
-FILE                         LINE  FIELD     ERROR_CODE         MESSAGE
-procedures/retire-once.yaml  5     steps[0]  run-once-recorded  retire binds destroy_once, which is run-once, and run 01991ea6-b118-7c93-8d41-6b2f7ae06b02 records it as ran
+refused: run-once-recorded
+
+  procedures/retire-once.yaml:5
+    4 │ steps:
+    5 │   - id: retire
+      │         ^ retire binds destroy_once, which is run-once, and run 01991ea6-b118-7c93-8d41-6b2f7ae06b02 records it as ran
+      │
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                         LINE  FIELD
+procedures/retire-once.yaml  5     steps[0]
+
+step 1 wrote nothing.
 
 refused · exit 77 · run 01991f50-b118-7c93-8d41-6b2f7ae06a09

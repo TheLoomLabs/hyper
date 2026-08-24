@@ -50,6 +50,13 @@ every timestamp in a golden came out of a seeded file.
   entry under `--expansion`, where the halt point of a serial `destroy` is
   legible by position: two members of five in the identity set, and the sequence
   saying which two.
+
+  Its first Step's selector carries a **relative** predicate, which makes this
+  the one surface other than a Refusal where a Run renders one: the `=` note
+  beneath `SELECTOR` glosses `older_than: 14d` with the instant it resolved to,
+  and the row carries the same pair as `resolved`. That instant is the entry's
+  own `started_at` and never the clock the reader typed at — a gloss is derived
+  arithmetic against the Run that happened, months ago (ADR-0034, issue #169).
 - [`a-projection-failure-names-the-path/`](a-projection-failure-names-the-path) —
   the path that failed to project, beside the partial set the Step wrote. The
   entry holds one Step file and the Run halted there, so the Steps after it
@@ -70,11 +77,28 @@ every timestamp in a golden came out of a seeded file.
   Step reached through a nested Procedure named by its invocation chain.
 - [`a-refused-entry/`](a-refused-entry) — the entry's account includes the
   checks that declined it: one `refusal` row per problem, in the array's order,
-  and never one row carrying an array. The page renders `check`'s problem table
-  beneath the header, which is the deferral `run` and the pin gate both already
-  state — §8's caret excerpt and its `EDIT ONE OF` table are
-  [#169](https://github.com/TheLoomLabs/hyper/issues/169)'s, and it is blocked
-  on this ticket so that it moves both sites at once.
+  and never one row carrying an array. Its repository is [`repo/`](repo), which
+  holds no artefact, so **no caret excerpt renders**: §8 draws one from the
+  working tree, and a file that is not there has no lines to show. The
+  coordinate becomes the `=` notes instead, which is the same shape
+  `store-schema-unsupported` takes for a reason of its own (issue #169).
+- [`a-refusal-read-back-against-the-tree/`](a-refusal-read-back-against-the-tree)
+  — the other half of that: the Procedure **is** in the working tree, so the
+  caret excerpt renders over it and the `EDIT ONE OF` table stands beneath.
+  Its `now` is eighteen days after the Run, and the `=` note still glosses
+  `older_than: 14d` against the Run's own `started_at` — the instant on
+  `run.json` and never the reader's clock (ADR-0034). It reaches across to
+  [`run/repo-relative-bound/`](../run/repo-relative-bound) rather than seeding a
+  fifth artefact set here: the entry it reads back is the one that corpus's own
+  case wrote, and two copies of one Procedure is where the day comes that a line
+  number means one thing in one corpus and another in the other.
+
+  It renders no narrowed selector, and that absence is stated rather than
+  missing. The second remediation is a **speculative re-expansion** performed
+  against the Store as it stood when the Run refused (`internal/run/narrow.go`);
+  it is derived, hypothetical and stored nowhere, and re-performing it months
+  later would answer a different question on a page whose whole purpose is
+  reading back evidence.
 
 ## The four accounts an entry can have
 

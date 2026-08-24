@@ -1,5 +1,6 @@
 {"type":"step","step":1,"id":"named","kind":"read","disposition":"refused"}
 {"type":"refusal","error_code":"record-identity-collision","step":1,"step_id":"named","operation":"check_named","target":"local","file":"procedures/watch-named.yaml","line":10,"field":"steps[0].over","message":"alpha resolves to status.hyper.dev and beta resolves to Status.hyper.dev, which are one Record identity — every member of an Expansion is one identity"}
+{"type":"remediation","file":"procedures/watch-named.yaml","line":10,"field":"steps[0].over"}
 {"type":"provenance","hyper_version":"1.4.0","procedure_revision":"23a0fdac4a8d79bda730d8739a5fbe9a6e17d51e","repo_revision":"5981c76b7fcbecbaea2d2d454171b87a9a2e8cae"}
 {"type":"provenance","step":1,"definition_revision":"0b07152f4cc4f28c380bf53e252373dc3a4d0019","manifest_digest":"sha256:b3480ee4ace0eb9ce88f25294ca7fdb7a1392b90c38f196b2ae414575040881d"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"record-identity-collision","dry_run":false,"run_id":"01991ea6-b118-7c93-8d41-6b2f7ae05c12"}

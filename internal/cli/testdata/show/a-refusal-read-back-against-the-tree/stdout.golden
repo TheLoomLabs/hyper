@@ -1,0 +1,38 @@
+ENTRY                0199206d-4e15-7c30-9b8a-52d9ea01f7b4
+PROCEDURE            retire-stale
+CAUSE                manual
+EXECUTOR             local
+ACTOR                igor
+HOST                 thinkpad
+STARTED              2026-08-06T11:03:18.000Z
+OUTCOME              refused
+ENDED                2026-08-06T11:03:18.000Z
+HYPER                1.4.0
+PROCEDURE REVISION   da2b8d480f71e2b26a2a4ef14d7551bb45eb3cbe
+REPOSITORY REVISION  f71c3bfc540b11dd27cb195eb9483351c6aa539e
+
+STEP 1  retire · destroy · refused
+DEFINITION           preview-dns
+OPERATION            delete_dns_record
+PROVIDER             cloudflare-dns
+TARGET               cloudflare-prod
+STARTED              2026-08-06T11:03:18.000Z
+ENDED                2026-08-06T11:03:18.000Z
+DEFINITION REVISION  faa5bb20bbfc9936fae25486223ae095826dbf4d
+MANIFEST DIGEST      sha256:628a8a0a38287e60c4bc693177d39d3b8c3426b52973d653d4f600e44336bf22
+
+refused: bound-exceeded
+
+  procedures/retire-stale.yaml:13
+   11 │         - field: created_on
+   12 │           older_than: 14d
+   13 │     bound: 2
+      │            ^ expansion resolved 4 assets on cloudflare-prod
+      │
+      = older_than: 14d resolved to 2026-07-23T11:03:18Z
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                          LINE  FIELD           FROM  TO
+procedures/retire-stale.yaml  13    steps[0].bound  2     ≥ 4

@@ -1,0 +1,23 @@
+STEP  ID      KIND     DISPOSITION  RECORDS
+1     retire  destroy  refused      –
+
+refused: bound-exceeded
+
+  procedures/retire-stale.yaml:13
+   11 │         - field: created_on
+   12 │           older_than: 14d
+   13 │     bound: 2
+      │            ^ expansion resolved 4 assets on cloudflare-prod
+      │
+      = older_than: 14d resolved to 2026-07-23T11:03:18Z
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                          LINE  FIELD           FROM  TO
+procedures/retire-stale.yaml  13    steps[0].bound  2     ≥ 4
+procedures/retire-stale.yaml  12    steps[0].over   14d   30d  expands to 1 · 30d is 2026-07-07T11:03:18Z
+
+step 1 wrote nothing.
+
+refused · exit 77 · hyper show 0199206d-4e15-7c30-9b8a-52d9ea01f7b4 --expansion   for all 4

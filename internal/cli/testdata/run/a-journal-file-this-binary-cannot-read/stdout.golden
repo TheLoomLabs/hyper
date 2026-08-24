@@ -1,6 +1,10 @@
 nothing ran. no step was reached.
 
-FILE                                                              LINE  FIELD  ERROR_CODE                MESSAGE
-journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d10/run.json               store-schema-unsupported  the file was written at schema version 2 and this hyper reads 1 — install a hyper that reads it
+refused: store-schema-unsupported
+
+  = the file was written at schema version 2 and this hyper reads 1 — install a hyper that reads it
+  = file: journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d10/run.json
+  = checked at run start, before the first step
+  = a hyper that reads this schema version — nothing in the repository is the fault
 
 refused · exit 77 · run 01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e16

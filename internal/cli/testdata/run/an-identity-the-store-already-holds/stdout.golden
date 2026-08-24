@@ -1,7 +1,20 @@
 STEP  ID     KIND  DISPOSITION  RECORDS
 1     named  read  refused      –
 
-FILE                         LINE  FIELD          ERROR_CODE                 MESSAGE
-procedures/watch-named.yaml  10    steps[0].over  record-identity-collision  alpha resolves to status.hyper.dev, and the Store already holds Status.hyper.dev under local/uptime-check — the two are one Record identity
+refused: record-identity-collision
+
+  procedures/watch-named.yaml:10
+    9 │     over:
+   10 │       observations:
+      │       ^ alpha resolves to status.hyper.dev, and the Store already holds Status.hyper.dev under local/uptime-check — the two are one Record identity
+      │
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                         LINE  FIELD
+procedures/watch-named.yaml  10    steps[0].over
+
+step 1 wrote nothing.
 
 refused · exit 77 · run 01991ea6-b118-7c93-8d41-6b2f7ae05c13

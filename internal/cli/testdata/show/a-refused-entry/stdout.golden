@@ -13,6 +13,22 @@ REPOSITORY REVISION  88bc402f71d3e6a95c0428be1f7d3a09c5e64b12
 
 this entry holds no step file.
 
-FILE                                 LINE  FIELD           ERROR_CODE         MESSAGE
-procedures/retire-preview-envs.yaml  34    steps[2].bound  bound-exceeded     expansion resolved 23 assets on staging
-targets/staging.yaml                 12    auth.token      credential-absent  the environment does not hold STAGING_TOKEN
+refused: bound-exceeded
+
+  = expansion resolved 23 assets on staging
+  = file: procedures/retire-preview-envs.yaml
+  = field: steps[2].bound
+  = checked at expansion, before the first call
+  = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                                 LINE  FIELD           FROM  TO
+procedures/retire-preview-envs.yaml  34    steps[2].bound  5     ≥ 23
+
+refused: credential-absent
+
+  = the environment does not hold STAGING_TOKEN
+  = file: targets/staging.yaml
+  = field: auth.token
+  = checked at run start, before the first step
+  = set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --

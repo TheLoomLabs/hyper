@@ -1,7 +1,21 @@
 STEP  ID      KIND     DISPOSITION  RECORDS
 1     retire  destroy  refused      –
 
-FILE                             LINE  FIELD           ERROR_CODE      MESSAGE
-procedures/retire-a-couple.yaml  9     steps[0].bound  bound-exceeded  expansion resolved 5 assets on cloudflare-prod
+refused: bound-exceeded
 
-refused · exit 77 · run 01991e21-3c9f-7b04-9d18-5c7e2a94f086
+  procedures/retire-a-couple.yaml:9
+    7 │     operation: delete_dns_record
+    8 │     target: cloudflare-prod
+    9 │     bound: 2
+      │            ^ expansion resolved 5 assets on cloudflare-prod
+      │
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                             LINE  FIELD           FROM  TO
+procedures/retire-a-couple.yaml  9     steps[0].bound  2     ≥ 5
+
+step 1 wrote nothing.
+
+refused · exit 77 · hyper show 01991e21-3c9f-7b04-9d18-5c7e2a94f086 --expansion   for all 5

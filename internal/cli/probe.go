@@ -121,7 +121,7 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 
 	host, decline := probeHost(loaded, providerName, operationName, operation, inputs)
 	if decline != nil {
-		return decline.render(stderr)
+		return decline.render(stderr, repoRoot)
 	}
 
 	// One lookup for the two readers below: where an Operation is declared
@@ -390,13 +390,13 @@ type probeDecline struct {
 // three shapes are one dispatch rather than three call sites, so which of them
 // a decline takes is decided where the decline is built and stated nowhere
 // else.
-func (d probeDecline) render(stderr io.Writer) int {
+func (d probeDecline) render(stderr io.Writer, repoRoot string) int {
 	switch {
 	case d.usage != "":
 		fmt.Fprintf(stderr, "hyper probe: %s\n", d.usage)
 		return ExitUsage
 	case d.positioned != nil:
-		return refuseProblems(stderr, []problem.Problem{*d.positioned})
+		return refuseProblems(stderr, repoRoot, []problem.Problem{*d.positioned})
 	default:
 		return refuse(stderr, d.code, d.message)
 	}

@@ -195,6 +195,13 @@ type Narrator interface {
 // second representation of a fact one layer up, which is the rule the Store
 // itself is written under (§7).
 type Answer struct {
+	// Started is the instant the Run began, which is the instant every
+	// relative predicate in it resolved against (ADR-0034). It is here
+	// because §8's Refusal renders the gloss — `older_than: 14d resolved
+	// to …` — and the supply for one is a Run's start and nothing else: a
+	// surface with no Run renders no gloss, and a surface with one derives
+	// it rather than reading a member no file holds.
+	Started time.Time
 	// Run is the Run's id, and Identified says an entry was written under
 	// it. The pair is §8's *where no entry was written the id is absent, and
 	// its absence is the fact*: two paths decline before a Run is identified
@@ -356,7 +363,7 @@ func Perform(request Request) Answer {
 	// names, whether or not a Step reached it — so it is decided offline and
 	// does not turn on which Steps a Run walked (§3, §11, gates.go).
 	inFlight.environment = capability.Inherited(request.Environ(), credentialVariables(loaded))
-	answer := Answer{Run: inFlight.id, Identified: true, Outcome: store.OutcomeCompleted, Provenance: provenance}
+	answer := Answer{Started: started, Run: inFlight.id, Identified: true, Outcome: store.OutcomeCompleted, Provenance: provenance}
 
 	narrator := watching(request.Narrator)
 	narrator.Began(inFlight.id)

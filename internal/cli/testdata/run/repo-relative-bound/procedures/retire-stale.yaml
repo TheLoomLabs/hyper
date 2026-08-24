@@ -1,0 +1,16 @@
+kind: procedure
+procedure: retire-stale
+targets: [cloudflare-prod]
+steps:
+  - id: retire
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    over:
+      assets:
+        - field: created_on
+          older_than: 14d
+    bound: 2
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $.id}

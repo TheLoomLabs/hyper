@@ -1,7 +1,24 @@
 nothing ran. no step was reached.
 
-FILE                           LINE  FIELD     ERROR_CODE          MESSAGE
-procedures/read-sessions.yaml  5     steps[0]  secret-sink-absent  session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>
-procedures/read-sessions.yaml  11    steps[1]  secret-sink-absent  session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>
+refused: secret-sink-absent
+
+  procedures/read-sessions.yaml:5
+    4 │ steps:
+    5 │   - id: status
+      │         ^ session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>
+      │
+      = checked at run start, before the first step
+      = the same invocation again with --secret-out <path>
+
+refused: secret-sink-absent
+
+  procedures/read-sessions.yaml:11
+    9 │     args:
+   10 │       host: status.hyper.dev
+   11 │   - id: cert
+      │         ^ session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>
+      │
+      = checked at run start, before the first step
+      = the same invocation again with --secret-out <path>
 
 refused · exit 77 · run 01991f68-8299-74c8-9fa4-b2d3f948559c

@@ -1,0 +1,7 @@
+{"type":"step","step":1,"id":"retire","kind":"destroy","disposition":"refused"}
+{"type":"refusal","error_code":"bound-exceeded","step":1,"step_id":"retire","operation":"delete_dns_record","target":"cloudflare-prod","declared":2,"observed":4,"file":"procedures/retire-stale.yaml","line":13,"field":"steps[0].bound","message":"expansion resolved 4 assets on cloudflare-prod","resolved":{"14d":"2026-07-23T11:03:18Z"}}
+{"type":"remediation","file":"procedures/retire-stale.yaml","line":13,"field":"steps[0].bound","from":2,"to":4}
+{"type":"remediation","file":"procedures/retire-stale.yaml","line":12,"field":"steps[0].over","hint":"narrow the selector","example_expansion":1,"resolved":{"30d":"2026-07-07T11:03:18Z"}}
+{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"da2b8d480f71e2b26a2a4ef14d7551bb45eb3cbe","repo_revision":"f71c3bfc540b11dd27cb195eb9483351c6aa539e"}
+{"type":"provenance","step":1,"definition_revision":"faa5bb20bbfc9936fae25486223ae095826dbf4d","manifest_digest":"sha256:628a8a0a38287e60c4bc693177d39d3b8c3426b52973d653d4f600e44336bf22"}
+{"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded","dry_run":false,"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b5"}

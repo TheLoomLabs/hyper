@@ -62,6 +62,16 @@ type Refusal struct {
 	// Operation and Target are the binding of the Step this check cites,
 	// and are empty on a Refusal that cites no Step.
 	Operation, Target string
+	// Narrowed is the second remediation §8's `EDIT ONE OF` table renders
+	// beside a Bound, and nil on every check that has no second edit to
+	// offer — which is every one of them but `bound-exceeded`, and that one
+	// only where its selector carries an operand a rung can be proposed for
+	// (§8, narrow.go).
+	//
+	// It rides here rather than in the entry for the reason `resolved` rides
+	// on a row: it is derived, it is a hypothetical, and a Store holding one
+	// would be a Store holding a count no Run ever acted on (§7, ADR-0034).
+	Narrowed *Narrowing
 }
 
 // storedRefusal is the array as `outcome.json` holds it: the Store's own shape,

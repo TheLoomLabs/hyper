@@ -1,7 +1,21 @@
 STEP  ID       KIND    DISPOSITION  RECORDS
 1     refresh  mutate  refused      –
 
-FILE                              LINE  FIELD           ERROR_CODE      MESSAGE
-procedures/refresh-previews.yaml  9     steps[0].bound  bound-exceeded  expansion resolved 3 assets on cloudflare-prod
+refused: bound-exceeded
 
-refused · exit 77 · run 01991f71-2b3c-7d4e-9f50-6b7c8d9e0f11
+  procedures/refresh-previews.yaml:9
+    7 │     operation: create_dns_record
+    8 │     target: cloudflare-prod
+    9 │     bound: 2
+      │            ^ expansion resolved 3 assets on cloudflare-prod
+      │
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                              LINE  FIELD           FROM  TO
+procedures/refresh-previews.yaml  9     steps[0].bound  2     ≥ 3
+
+step 1 wrote nothing.
+
+refused · exit 77 · hyper show 01991f71-2b3c-7d4e-9f50-6b7c8d9e0f11 --expansion   for all 3

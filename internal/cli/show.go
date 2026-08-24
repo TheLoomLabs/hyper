@@ -103,7 +103,7 @@ func RunShow(args []string, stdout, stderr io.Writer, process Process, wd, binar
 		return ExitUsage
 	}
 
-	rows, err := showRows(held, entry, dispositions, expansion)
+	rows, err := showRows(held, entry, dispositions, expansion, repoRoot)
 	if err != nil {
 		return reportReadStoreFault(showCommand, stderr, err)
 	}
@@ -196,16 +196,31 @@ func unresolvedRun(named string) string {
 // its own after the table, which is `run`'s order and not this one's: a Run
 // reports a table of Steps and this reads one entry whole, so the page renders
 // a block per Step and the stream is that page's order (§8, ADR-0026).
-func showRows(held *store.Store, entry store.Entry, dispositions store.Dispositions, expansion bool) ([]render.Row, error) {
+func showRows(held *store.Store, entry store.Entry, dispositions store.Dispositions, expansion bool, repoRoot string) ([]render.Row, error) {
 	rows := make([]render.Row, 0, 2*len(dispositions.Steps)+len(entry.Owner.Refusal)+2)
 	rows = append(rows, entryRowOf(entry))
 	// One `refusal` row per problem, in the array's order, and never one row
 	// carrying an array: a consumer's `select(.type=="refusal")` returns one
 	// problem per line here exactly as it does on the Run that wrote them
 	// (§7, §8).
+	//
+	// The caret excerpt is read against the **working tree**, which is where
+	// an edit is made, and the gloss beneath it against the instant the
+	// entry's own `run.json` holds — this Run's start and not the reader's
+	// clock, months later (§8, ADR-0034).
+	//
+	// **What this page does not render is the narrowed selector.** That
+	// remediation is a speculative re-expansion — a read against the Store
+	// as it stood when the Run refused — and it is derived, hypothetical and
+	// stored nowhere (ADR-0034, internal/run/narrow.go). Re-performing it
+	// here would answer a different question against a different Store and
+	// put the answer on a page reading back evidence, which is the one thing
+	// this command is for.
 	for _, member := range entry.Owner.Refusal {
 		operation, target := bindingOf(dispositions, member.Step)
-		rows = append(rows, refusalRowOf(member, operation, target))
+		read := excerpted(refusalRowOf(member, operation, target), repoRoot, entry.StartedAt)
+		rows = append(rows, read)
+		rows = append(rows, remediationsFor(read, nil, entry.StartedAt)...)
 	}
 	rows = append(rows, runProvenanceRow(entry.Provenance))
 	for _, step := range dispositions.Steps {
@@ -364,30 +379,43 @@ func (r entryRow) Cells() []string { return nil }
 // reading rather than two that have to agree (ADR-0026); `records` is the one
 // member here that is renamed, and §8 is what renames it.
 //
+// `resolved` maps a relative operand to the instant it resolved to, and rides
+// beside `selector` — under `--expansion` and nowhere else, since the operand it
+// glosses is rendered nowhere else. It is derived from the entry's own
+// `run.json` and stored nowhere, which is why it rides on the row that renders
+// it (§8, ADR-0034).
+//
 // `selector` is written under `--expansion` and nowhere else. It is the
 // Refusal footer's destination — §8's `bound-exceeded` page points a reader at
 // `hyper show <run-id> --expansion` — and it is behind a parameter because an
 // Expansion of five hundred members is the whole of what a Step reached and
 // almost never what a reader of a Disposition came for.
 type entryStepRow struct {
-	Type                 string       `json:"type"`
-	Step                 int          `json:"step"`
-	ID                   string       `json:"id,omitempty"`
-	Path                 string       `json:"path,omitempty"`
-	Definition           string       `json:"definition,omitempty"`
-	Operation            string       `json:"operation,omitempty"`
-	Provider             string       `json:"provider,omitempty"`
-	Target               string       `json:"target,omitempty"`
-	Kind                 string       `json:"kind,omitempty"`
-	Disposition          string       `json:"disposition"`
-	StartedAt            string       `json:"started_at,omitempty"`
-	EndedAt              string       `json:"ended_at,omitempty"`
-	Records              *[]string    `json:"records,omitempty"`
-	UnchangedSince       string       `json:"unchanged_since,omitempty"`
-	Selector             *selectorRow `json:"selector,omitempty"`
-	Pattern              *patternRow  `json:"pattern,omitempty"`
-	Answered             *answeredRow `json:"answered,omitempty"`
-	ProjectionFailedPath string       `json:"projection_failed_path,omitempty"`
+	Type                 string            `json:"type"`
+	Step                 int               `json:"step"`
+	ID                   string            `json:"id,omitempty"`
+	Path                 string            `json:"path,omitempty"`
+	Definition           string            `json:"definition,omitempty"`
+	Operation            string            `json:"operation,omitempty"`
+	Provider             string            `json:"provider,omitempty"`
+	Target               string            `json:"target,omitempty"`
+	Kind                 string            `json:"kind,omitempty"`
+	Disposition          string            `json:"disposition"`
+	StartedAt            string            `json:"started_at,omitempty"`
+	EndedAt              string            `json:"ended_at,omitempty"`
+	Records              *[]string         `json:"records,omitempty"`
+	UnchangedSince       string            `json:"unchanged_since,omitempty"`
+	Selector             *selectorRow      `json:"selector,omitempty"`
+	Resolved             map[string]string `json:"resolved,omitempty"`
+	Pattern              *patternRow       `json:"pattern,omitempty"`
+	Answered             *answeredRow      `json:"answered,omitempty"`
+	ProjectionFailedPath string            `json:"projection_failed_path,omitempty"`
+	// resolvedOperands is the relative operands the rendered selector
+	// holds, glossed against the entry's own `started_at`. It is not on the
+	// wire — the glosses go out as Resolved above — and it is held here so
+	// that the `=` notes the page draws and the map the row carries are one
+	// reading of one selector (ADR-0026, ADR-0034, refusal.go).
+	resolvedOperands []gloss
 }
 
 // selectorRow is the Step's `over:` as authored beside what it expanded to.
@@ -482,6 +510,19 @@ func entryStepRowOf(held *store.Store, entry store.Entry, step store.StepFile, e
 			Declared:   wireValue(step.Selector.Declared),
 			ExpandedTo: expanded,
 			Bound:      step.Selector.Bound,
+		}
+		// **A relative predicate is glossed with the instant it
+		// resolved to**, and this is the second of the two surfaces a
+		// Run renders a selector on (§8, ADR-0034). The instant is the
+		// entry's own `started_at` — this Run's start and not the
+		// reader's clock, months later — and it is derived here and
+		// stored nowhere.
+		row.resolvedOperands = selectorGlosses(selectorText(row.Selector.Declared), entry.StartedAt)
+		if len(row.resolvedOperands) > 0 {
+			row.Resolved = map[string]string{}
+			for _, held := range row.resolvedOperands {
+				row.Resolved[held.operand] = held.instant
+			}
 		}
 	}
 	return row, nil
@@ -636,11 +677,12 @@ func showPage(w io.Writer, rows []render.Row) error {
 		return err
 	}
 
-	// The Refusal, beneath everything the entry says about itself, in the
-	// problem table `check` already renders. §8's caret excerpt and its
-	// `EDIT ONE OF` table are milestone 8's own renderer and land with the
-	// ticket that builds them, which is the same deferral gate.go and
-	// run.go both state — and this is the second site that inherits it.
+	// The Refusal, beneath everything the entry says about itself, in §8's
+	// own shape: a caret excerpt per member, its `=` notes, and the `EDIT
+	// ONE OF` table where an artefact edit is the way past (refusal.go).
+	// One renderer serves this page and the Run's, so an entry read back
+	// months later and the Run that wrote it say the same thing about what
+	// declined (ADR-0026).
 	refusals := rowsOf[refusalRow](rows)
 	if len(refusals) == 0 {
 		return nil
@@ -648,7 +690,11 @@ func showPage(w io.Writer, rows []render.Row) error {
 	if _, err := fmt.Fprintln(w); err != nil {
 		return err
 	}
-	return render.WriteTable(w, checkColumns, refusals)
+	// Each member carries the phase its own citation earns, which is
+	// refusal.go's and reads the same here as on the Run that wrote it: the
+	// entry holds the citation, and a phase is a fact about the check rather
+	// than about which command is rendering it (§7, ADR-0026).
+	return writeRefusal(w, rows, true)
 }
 
 // showBlock is one block of the page: a heading, a run of labelled values, or
@@ -827,8 +873,17 @@ func stepValues(row entryStepRow) []labelledValue {
 		{"RECORDS", recordsText(row)},
 	}
 	if row.Selector != nil {
+		values = append(values, labelledValue{"SELECTOR", selectorText(row.Selector.Declared)})
+		// **A relative predicate is glossed with the instant it
+		// resolved to** (ADR-0034), and this is the one surface other
+		// than a Refusal where a Run renders a selector (§8). It is a
+		// `=` note beneath the value rather than a labelled line of its
+		// own: what it annotates is the operand on the line above, and
+		// a label would make it a second fact about the Step.
+		for _, held := range row.resolvedOperands {
+			values = append(values, labelledValue{"", "= " + held.note()})
+		}
 		values = append(values,
-			labelledValue{"SELECTOR", selectorText(row.Selector.Declared)},
 			labelledValue{"EXPANDED TO", namesText(row.Selector.ExpandedTo)},
 			labelledValue{"BOUND", numberText(row.Selector.Bound)})
 	}

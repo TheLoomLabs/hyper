@@ -1,0 +1,18 @@
+nothing ran. no step was reached.
+
+refused: cadence-run-once
+
+  procedures/nightly.yaml:4
+    2 │ procedure: nightly
+    3 │ targets: [local]
+    4 │ cadence: "0 3 * * *"
+      │          ^ cadence: reaches a run-once Step at some depth — a Cadence over a run-once Step declares a recurrence with a lifespan of one occurrence
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                     LINE  FIELD
+procedures/nightly.yaml  4     cadence
+
+refused · exit 77 · run 0199206d-4e15-7c30-9b8a-52d9ea01f7c1

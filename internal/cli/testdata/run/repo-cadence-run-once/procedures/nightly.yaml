@@ -1,0 +1,7 @@
+kind: procedure
+procedure: nightly
+targets: [local]
+cadence: "0 3 * * *"
+steps:
+  - id: call-rotate
+    procedure: rotate-once

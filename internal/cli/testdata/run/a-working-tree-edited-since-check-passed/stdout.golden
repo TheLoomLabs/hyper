@@ -1,7 +1,31 @@
 nothing ran. no step was reached.
 
-FILE                          LINE  FIELD     ERROR_CODE         MESSAGE
-procedures/watch-status.yaml  5     steps[0]  envelope-exceeded  read is outside the Kind envelope this Procedure's own declared targets: imply
-procedures/watch-status.yaml  5     steps[0]  kind-not-granted   read is not in the intersection of the bound Definition's claimed Kind and local's accepted Kinds
+refused: envelope-exceeded
+
+  procedures/watch-status.yaml:5
+    4 │ steps:
+    5 │   - id: status
+      │         ^ read is outside the Kind envelope this Procedure's own declared targets: imply
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                          LINE  FIELD
+procedures/watch-status.yaml  5     steps[0]
+
+refused: kind-not-granted
+
+  procedures/watch-status.yaml:5
+    4 │ steps:
+    5 │   - id: status
+      │         ^ read is not in the intersection of the bound Definition's claimed Kind and local's accepted Kinds
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                          LINE  FIELD
+procedures/watch-status.yaml  5     steps[0]
 
 refused · exit 77 · run 01991f67-7188-73b7-8e93-a1c2e837448b

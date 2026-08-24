@@ -1,7 +1,21 @@
 STEP  ID   KIND  DISPOSITION  RECORDS
 1     ttl  read  refused      –
 
-FILE                       LINE  FIELD              ERROR_CODE       MESSAGE
-procedures/watch-ttl.yaml  15    steps[0].args.ttl  schema-mismatch  {item: $.ttl} resolves to "thirty" on site-a, which does not read as the integer check_ttl declares ttl
+refused: schema-mismatch
+
+  procedures/watch-ttl.yaml:15
+   13 │     args:
+   14 │       host: {item: $.host}
+   15 │       ttl: {item: $.ttl}
+      │            ^ {item: $.ttl} resolves to "thirty" on site-a, which does not read as the integer check_ttl declares ttl
+      │
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                       LINE  FIELD
+procedures/watch-ttl.yaml  15    steps[0].args.ttl
+
+step 1 wrote nothing.
 
 refused · exit 77 · run 01991ea6-b118-7c93-8d41-6b2f7ae05c09

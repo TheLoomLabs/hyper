@@ -1,0 +1,10 @@
+kind: procedure
+procedure: rotate-once
+targets: [local]
+steps:
+  - id: change
+    definition: uptime
+    operation: mutate_once
+    target: local
+    args:
+      command: [uptime]

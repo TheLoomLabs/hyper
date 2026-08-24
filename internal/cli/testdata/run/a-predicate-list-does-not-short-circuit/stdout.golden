@@ -1,7 +1,21 @@
 STEP  ID    KIND  DISPOSITION  RECORDS
 1     both  read  refused      –
 
-FILE                       LINE  FIELD                                     ERROR_CODE               MESSAGE
-procedures/watch-and.yaml  14    steps[0].over.observations[1].older_than  predicate-type-mismatch  on site-a, field: host holds the string "status.hyper.dev", and older_than: takes a timestamp
+refused: predicate-type-mismatch
+
+  procedures/watch-and.yaml:14
+   13 │         - field: host
+   14 │           older_than: 14d
+      │                       ^ on site-a, field: host holds the string "status.hyper.dev", and older_than: takes a timestamp
+      │
+      = older_than: 14d resolved to 2026-03-19T09:41:14Z
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                       LINE  FIELD
+procedures/watch-and.yaml  14    steps[0].over.observations[1].older_than
+
+step 1 wrote nothing.
 
 refused · exit 77 · run 01991ea6-b118-7c93-8d41-6b2f7ae05c05

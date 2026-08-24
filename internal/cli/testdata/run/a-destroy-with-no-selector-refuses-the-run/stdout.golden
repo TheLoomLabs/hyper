@@ -1,6 +1,17 @@
 nothing ran. no step was reached.
 
-FILE                            LINE  FIELD     ERROR_CODE        MESSAGE
-procedures/purge-unscoped.yaml  5     steps[0]  destroy-unscoped  a destroy Step carries no over: selector — it would reach the world once and leave nothing in the record
+refused: destroy-unscoped
+
+  procedures/purge-unscoped.yaml:5
+    4 │ steps:
+    5 │   - id: purge
+      │         ^ a destroy Step carries no over: selector — it would reach the world once and leave nothing in the record
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                            LINE  FIELD
+procedures/purge-unscoped.yaml  5     steps[0]
 
 refused · exit 77 · run 01991f65-5f66-7195-8c71-8fa0c6152e6b

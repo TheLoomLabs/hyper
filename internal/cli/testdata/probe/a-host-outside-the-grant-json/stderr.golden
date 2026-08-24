@@ -1,2 +1,13 @@
-FILE                LINE  FIELD  ERROR_CODE        MESSAGE
-targets/local.yaml  6     hosts  host-not-granted  local grants no elsewhere.example.com
+refused: host-not-granted
+
+  targets/local.yaml:6
+    4 │ kinds: [read]
+    5 │ capabilities: [http]
+    6 │ hosts: [status.hyper.dev, cert.hyper.dev]
+      │        ^ local grants no elsewhere.example.com
+      │
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                LINE  FIELD
+targets/local.yaml  6     hosts

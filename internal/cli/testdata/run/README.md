@@ -86,6 +86,23 @@ names one in a **`repo-from`** file instead, and the ones here are:
   `answers:` list is walked in Expansion order and *the fourth member is the one
   that was answered `500`* is a fact the case states rather than a race it
   hopes for (§6).
+- [`repo-cadence-run-once/`](repo-cadence-run-once) — a Procedure declaring a
+  Cadence over a nested Procedure whose Step is run-once (issue #169). It is a
+  copy of [`check/cadence-run-once/repo/`](../check/cadence-run-once/repo)
+  rather than a `repo-from` reaching across into it: a `check` case's `repo/` is
+  that case's own, and a corpus reaching into another's fixture is one where an
+  edit made for one command breaks a golden of a different one.
+- [`repo-relative-bound/`](repo-relative-bound) — §8's Refusal in full (issue
+  #169): `repo-destroy`'s Manifest, Definition and Target unchanged, over one
+  Procedure whose `destroy` Step carries a **relative** predicate — `created_on
+  older_than: 14d` — with its `bound:` written *beneath* the `over:` block, so
+  that the caret excerpt at the Bound renders the operand in its context and the
+  `=` note has something to gloss. Its Store seeds five Assets whose
+  `created_on` spread across the ladder: four are older than the Run's start by
+  more than fourteen days and one of those by more than thirty, which is what
+  puts *expansion resolved 4* on the caret and *expands to 1* on the narrowed
+  selector's row. It is a repository of its own for `repo-bounded`'s reason
+  above.
 - [`repo-literal-destroy/`](repo-literal-destroy) — the `destroy` by literal
   identifier (issue #151): `repo-destroy`'s Manifest, Definition and Target
   unchanged, over four Procedures whose selectors are `values:` lists rather
@@ -322,6 +339,7 @@ drives.
 | `the-sibling-collision-is-named-first` | both comparands available at once — the sibling is named, being reproducible from the artefact alone with no Store in hand |
 | `a-step-with-no-selector-meets-the-store` | the Store comparand reaching a Step carrying no `over:`: vacuous against itself, and not against the branch |
 | `an-expansion-past-its-bound`, `-json` | the Bound's run-time half (issue #149): three seeded Assets under a `bound: 2`, `bound-exceeded` at `77`, and the Refusal carrying `declared` against `observed` — on `outcome.json` and on the `refusal` row, and on no other code anywhere. **No call goes out**, and the case serves `api.cloudflare.com` so that it is the Bound and not a refused connection that stopped it: had a call gone out it would have been answered, and the branch would hold a version it does not |
+| `a-bound-past-a-relative-predicate`, `-json` | §8's Refusal in full (issue #169): the Step table with the refused Step's cell `–`, the caret excerpt at the `bound:` with the `over:` block above it in context, the `=` note glossing `older_than: 14d` against **this Run's start**, `EDIT ONE OF` carrying both remediations — the Bound raised to `≥ 4`, and the selector narrowed a rung and speculatively re-expanded to `1` — the sentence that names no count, and a terminal line whose `show --expansion` pointer is earned by the four members the caret reported and did not name. On the wire it is one `refusal` row, two `remediation` rows, and `resolved` on the two that render an operand |
 | `a-destroy-step-tombstones-an-asset` | the `destroy` end to end (issue #150): one seeded Asset, an `assets:` selector, a `204`, and a Tombstone carrying `tombstone: true` and the previous Head's `fields` copied forward under the Operation that destroyed it — *ran*, `RECORDS 1`, exit `0`, and **no** `answered`, the call having given the ordinary answer |
 | `a-destroy-answered-a-404-is-still-gone` | the same case answered `404`: the `destroy` **completes**, and its Tombstone is **byte-identical** to the one above — same Run id, same clock, same bytes. What tells the two apart is the Step file's `answered` and nothing else, which is [`../../run_destroy_test.go`](../../run_destroy_test.go)'s |
 | `a-destroy-expansion-is-serial` | five seeded Assets and five Tombstones under an Operation that may not declare a `concurrency:` at all. Its page says only that five landed; that **one** connection stood at a time is [`../../run_destroy_test.go`](../../run_destroy_test.go)'s |
@@ -361,6 +379,7 @@ drives.
 | `a-procedure-matching-nothing`, `a-definition-rather-than-a-procedure`, `two-positionals`, `a-target-flag` | the four usage errors, all `2`, all with stdout completely silent |
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
 | `check-refuses-the-run`, `-json` | `check` re-run in full: five codes across the five artefact kinds, one `refusal` row each, in `check`'s own order |
+| `a-cadence-over-a-run-once-step` | §8's Refusal over a code the walk found and the citation came back from (issue #169): a Procedure declaring a Cadence that reaches a run-once Step through a nested invocation. The fault is the invoked Procedure's Manifest, and the caret sits on the **`cadence:` line** of the Procedure declaring the recurrence — the artefact whose author can act on it. It is the one code here whose file, line and message all come from a walk that ended somewhere else |
 | `a-cyclic-procedure-refuses-the-run` | the invocation graph that closes on itself: `procedure-cycle` at the Run-start `check`, `77`, and the Refusal on the entry. A cycle is `check`'s to refuse — the engine's own arm for one is a precondition no Run reaches (§4, §6, issue #146) |
 | `a-destroy-with-no-selector-refuses-the-run` | the `destroy` Step carrying no `over:`: `destroy-unscoped` at the Run-start `check`, `77`, and the Refusal on the entry. It is here rather than under `check/` alone because what issue #157 found was a Run — the call went out and the process died in the Store afterwards — so the case that proves it fixed has to be one that would have made the call (§4, §5, ADR-0085) |
 | `a-working-tree-edited-since-check-passed` | the same gate driven the way an operator meets it — one `uncommitted/` line narrows `local`'s `kinds:`, and the Run refuses with the codes the edit earns |

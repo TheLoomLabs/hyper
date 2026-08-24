@@ -1,6 +1,17 @@
 nothing ran. no step was reached.
 
-FILE                                       LINE  FIELD                          ERROR_CODE              MESSAGE
-procedures/reference-a-missing-field.yaml  16    steps[1].args.command[1].path  reference-unresolvable  path: $.nope names no field the Record first carries
+refused: reference-unresolvable
+
+  procedures/reference-a-missing-field.yaml:16
+   15 │     args:
+   16 │       command: [words, {step: first, path: $.nope}]
+      │                ^ path: $.nope names no field the Record first carries
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                                       LINE  FIELD
+procedures/reference-a-missing-field.yaml  16    steps[1].args.command[1].path
 
 refused · exit 77 · run 01991ea6-b118-7c93-8d41-6b2f7ae05d0b

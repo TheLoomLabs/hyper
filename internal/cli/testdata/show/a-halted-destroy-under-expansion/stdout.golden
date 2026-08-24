@@ -20,6 +20,7 @@ STARTED              2026-08-06T11:03:18.000Z
 ENDED                2026-08-06T11:03:24.000Z
 RECORDS              preview-8801
 SELECTOR             assets · created_at older_than 14d
+                     = older_than: 14d resolved to 2026-07-23T11:03:18Z
 EXPANDED TO          preview-8801
 BOUND                5
 HOST                 api.hetzner.cloud

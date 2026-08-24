@@ -536,10 +536,16 @@ func (r run) exceededBound(held expansion, authored sequenced, cited citation) [
 	if !bounded || observed <= declared {
 		return nil
 	}
-	return []Refusal{r.compared(CodeBoundExceeded,
+	refused := r.compared(CodeBoundExceeded,
 		fmt.Sprintf("expansion resolved %s on %s", counted(observed, held.Selector), authored.Target),
 		cited.at(authored.Bound.Line, "bound"),
-		store.Int(int64(declared)), store.Int(int64(observed)))}
+		store.Int(int64(declared)), store.Int(int64(observed)))
+	// The second remediation §8's table renders beside the Bound, and the
+	// one read `hyper` performs for a page rather than for a Run: the
+	// selector narrowed a rung, so that a reviewer choosing between the two
+	// edits has both counts in front of them (§8, narrow.go).
+	refused.Narrowed = r.narrowedSelector(held, authored, cited)
+	return []Refusal{refused}
 }
 
 // declaredBound is the Bound the Step authored, and whether it authored one.

@@ -3,7 +3,20 @@ STEP  ID       KIND  DISPOSITION    RECORDS
 2     guarded  read  refused        –
 3     after    read  never-reached  –
 
-FILE                                  LINE  FIELD          ERROR_CODE                 MESSAGE
-procedures/watch-when-expansion.yaml  21    steps[1].over  record-identity-collision  alpha resolves to status.hyper.dev and beta resolves to Status.hyper.dev, which are one Record identity — every member of an Expansion is one identity
+refused: record-identity-collision
+
+  procedures/watch-when-expansion.yaml:21
+   20 │     over:
+   21 │       observations:
+      │       ^ alpha resolves to status.hyper.dev and beta resolves to Status.hyper.dev, which are one Record identity — every member of an Expansion is one identity
+      │
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                                  LINE  FIELD
+procedures/watch-when-expansion.yaml  21    steps[1].over
+
+step 1 ran and what it did stands. step 2 wrote nothing.
 
 refused · exit 77 · run 01991f11-b118-7c93-8d41-6b2f7ae05c47

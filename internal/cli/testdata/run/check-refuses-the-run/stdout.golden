@@ -1,10 +1,76 @@
 nothing ran. no step was reached.
 
-FILE                             LINE  FIELD               ERROR_CODE                 MESSAGE
-definitions/paid-status.yaml     3     provider            artefact-absent            provider: paidd resolves to nothing — no built-in Provider and no providers/paidd.yaml
-hyper.yaml                       5     retain-forever      unknown-key                "retain-forever" is not a key the schema at this position admits
-procedures/reaches-nothing.yaml  7     steps[0].operation  reference-unresolvable     operation: no_such_operation names no Operation the Definition's Provider declares
-providers/paid.yaml              7     auth.header.name    header-reserved            Content-Type: is one of the five headers hyper computes for itself
-targets/paid.yaml                8     auth.token          credential-slot-malformed  auth.token: a credential slot's value must be a mapping whose sole key is env:
+refused: artefact-absent
+
+  definitions/paid-status.yaml:3
+    1 │ kind: definition
+    2 │ definition: paid-status
+    3 │ provider: paidd
+      │           ^ provider: paidd resolves to nothing — no built-in Provider and no providers/paidd.yaml
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                          LINE  FIELD
+definitions/paid-status.yaml  3     provider
+
+refused: unknown-key
+
+  hyper.yaml:5
+    3 │ digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    4 │ retention: 90d
+    5 │ retain-forever: true
+      │                 ^ "retain-forever" is not a key the schema at this position admits
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE        LINE  FIELD
+hyper.yaml  5     retain-forever
+
+refused: reference-unresolvable
+
+  procedures/reaches-nothing.yaml:7
+    5 │   - id: nope
+    6 │     definition: uptime-check
+    7 │     operation: no_such_operation
+      │                ^ operation: no_such_operation names no Operation the Definition's Provider declares
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                             LINE  FIELD
+procedures/reaches-nothing.yaml  7     steps[0].operation
+
+refused: header-reserved
+
+  providers/paid.yaml:7
+    6 │ auth:
+    7 │   header: {name: Content-Type, prefix: "Bearer "}
+      │           ^ Content-Type: is one of the five headers hyper computes for itself
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                 LINE  FIELD
+providers/paid.yaml  7     auth.header.name
+
+refused: credential-slot-malformed
+
+  targets/paid.yaml:8
+    7 │ auth:
+    8 │   token: PAID_TOKEN
+      │          ^ auth.token: a credential slot's value must be a mapping whose sole key is env:
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE               LINE  FIELD
+targets/paid.yaml  8     auth.token
 
 refused · exit 77 · run 01991f65-5f66-7195-8c71-8fa0c6152e69

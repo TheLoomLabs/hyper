@@ -1,7 +1,20 @@
 STEP  ID       KIND    DISPOSITION  RECORDS
 1     publish  mutate  refused      –
 
-FILE                             LINE  FIELD     ERROR_CODE         MESSAGE
-procedures/publish-preview.yaml  5     steps[0]  run-once-recorded  publish binds create_dns_record, which is run-once, and run 01991ea6-b118-7c93-8d41-6b2f7ae05b02 records it as attempted-outcome-unknown
+refused: run-once-recorded
+
+  procedures/publish-preview.yaml:5
+    4 │ steps:
+    5 │   - id: publish
+      │         ^ publish binds create_dns_record, which is run-once, and run 01991ea6-b118-7c93-8d41-6b2f7ae05b02 records it as attempted-outcome-unknown
+      │
+      = checked at expansion, before the first call
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                             LINE  FIELD
+procedures/publish-preview.yaml  5     steps[0]
+
+step 1 wrote nothing.
 
 refused · exit 77 · run 01991f30-b118-7c93-8d41-6b2f7ae05a12

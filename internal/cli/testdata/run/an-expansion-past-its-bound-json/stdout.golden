@@ -1,5 +1,6 @@
 {"type":"step","step":1,"id":"refresh","kind":"mutate","disposition":"refused"}
 {"type":"refusal","error_code":"bound-exceeded","step":1,"step_id":"refresh","operation":"create_dns_record","target":"cloudflare-prod","declared":2,"observed":3,"file":"procedures/refresh-previews.yaml","line":9,"field":"steps[0].bound","message":"expansion resolved 3 assets on cloudflare-prod"}
+{"type":"remediation","file":"procedures/refresh-previews.yaml","line":9,"field":"steps[0].bound","from":2,"to":3}
 {"type":"provenance","hyper_version":"1.4.0","procedure_revision":"b64607d864317e486ff8705b42715ec26e1180ed","repo_revision":"d6c13fc3e75b606d900e91e836e8b76b0102e653"}
 {"type":"provenance","step":1,"definition_revision":"a2000f6bec3f1d8df893e19fc3fbaefbcc942d4b","manifest_digest":"sha256:759d04769fa3c2b5fac6f83fc9ba12d104a781f3e9d877d5c25391fe4c01c45d"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"bound-exceeded","dry_run":false,"run_id":"01991f71-2b3c-7d4e-9f50-6b7c8d9e0f12"}

@@ -1,0 +1,33 @@
+{
+  "definition": "preview-dns",
+  "disposition": "refused",
+  "ended_at": "2026-08-06T11:03:18.000Z",
+  "id": "retire",
+  "kind": "destroy",
+  "operation": "delete_dns_record",
+  "provenance": {
+    "definition_revision": "faa5bb20bbfc9936fae25486223ae095826dbf4d",
+    "manifest_digest": "sha256:628a8a0a38287e60c4bc693177d39d3b8c3426b52973d653d4f600e44336bf22"
+  },
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "selector": {
+    "declared": {
+      "assets": [
+        {
+          "field": "created_on",
+          "older_than": "14d"
+        }
+      ]
+    },
+    "expanded_to": [
+      "preview-41.example.com",
+      "preview-42.example.com",
+      "preview-43.example.com",
+      "preview-44.example.com"
+    ]
+  },
+  "started_at": "2026-08-06T11:03:18.000Z",
+  "step": 1,
+  "target": "cloudflare-prod"
+}

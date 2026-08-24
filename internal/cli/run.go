@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -203,7 +202,7 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		terminal.ErrorCode = answer.Refusal[0].ErrorCode
 	}
 
-	rows := runRows(answer)
+	rows := runRows(answer, repoRoot)
 	if code := writeAnswer(runCommand, stdout, stderr, parsed.json, rows, terminal, runPage(terminal, withheldStep(answer))); code != 0 {
 		return code
 	}
@@ -610,7 +609,7 @@ const noRecords = "–"
 // The order is the page's, and here it is a contract rather than a consequence:
 // a row goes out on its own line, there is no cursor behind the stream, and a
 // consumer cannot re-sort what it has already printed (§8).
-func runRows(answer run.Answer) []render.Row {
+func runRows(answer run.Answer, repoRoot string) []render.Row {
 	rows := make([]render.Row, 0, 2*len(answer.Steps)+len(answer.Refusal)+1)
 	for _, step := range answer.Steps {
 		rows = append(rows, stepRowOf(step))
@@ -619,8 +618,16 @@ func runRows(answer run.Answer) []render.Row {
 	// carrying an array: a consumer's `select(.type=="refusal")` returns one
 	// problem per line, which it would stop doing the day this became the one
 	// stream in the tool that nests (§8).
+	//
+	// **A member's `remediation` rows ride between it and the next member**,
+	// which is the pairing the page draws and the only one the stream can
+	// state: there is no cursor behind it and a row cannot point backwards,
+	// so a row's place in the order is what says which member it is about
+	// (§8, refusal.go).
 	for _, refusal := range answer.Refusal {
-		rows = append(rows, refusalRowOf(refusal.RefusalMember, refusal.Operation, refusal.Target))
+		member := excerpted(refusalRowOf(refusal.RefusalMember, refusal.Operation, refusal.Target), repoRoot, answer.Started)
+		rows = append(rows, member)
+		rows = append(rows, remediationsFor(member, refusal.Narrowed, answer.Started)...)
 	}
 	if answer.Identified {
 		rows = append(rows, runProvenanceRow(answer.Provenance))
@@ -664,27 +671,35 @@ func runRows(answer run.Answer) []render.Row {
 // of 5 is `5`, and one renderer over one value is what keeps the wire and the
 // file from disagreeing about a number (§7, §8, ADR-0026).
 //
-// `resolved` is not here either, and the reason has moved rather than gone. A
-// Run does now evaluate a relative predicate — `older_than: 14d` at an
-// Expansion, against the instant on `run.json` (ADR-0034) — and §8 puts the
-// gloss on the rows **that render the operand**: the `=` note beneath the caret
-// and the trailing cell of `EDIT ONE OF`. This milestone renders neither, its
-// Refusal being the problem table `check` already renders, so no text on this
-// page holds an operand for a gloss to map. It arrives with the excerpt that
-// renders one (milestone 8).
+// `resolved` maps a relative operand to the instant it resolved to, and it
+// rides **where the text this row renders holds one** — the `=` note beneath
+// the caret excerpt, and nowhere else (§8, ADR-0034). It is derived from
+// `run.json`'s `started_at` and stored nowhere, which is why it rides on the
+// rows that render it rather than on the `provenance` row beside them: a Run
+// does evaluate a relative predicate, at an Expansion, against one instant, and
+// what that instant was is arithmetic a reader would otherwise redo.
 type refusalRow struct {
-	Type      string          `json:"type"`
-	ErrorCode string          `json:"error_code"`
-	Step      *int            `json:"step,omitempty"`
-	StepID    string          `json:"step_id,omitempty"`
-	Operation string          `json:"operation,omitempty"`
-	Target    string          `json:"target,omitempty"`
-	Declared  json.RawMessage `json:"declared,omitempty"`
-	Observed  json.RawMessage `json:"observed,omitempty"`
-	File      string          `json:"file,omitempty"`
-	Line      int             `json:"line,omitempty"`
-	Field     string          `json:"field,omitempty"`
-	Message   string          `json:"message,omitempty"`
+	Type      string            `json:"type"`
+	ErrorCode string            `json:"error_code"`
+	Step      *int              `json:"step,omitempty"`
+	StepID    string            `json:"step_id,omitempty"`
+	Operation string            `json:"operation,omitempty"`
+	Target    string            `json:"target,omitempty"`
+	Declared  json.RawMessage   `json:"declared,omitempty"`
+	Observed  json.RawMessage   `json:"observed,omitempty"`
+	File      string            `json:"file,omitempty"`
+	Line      int               `json:"line,omitempty"`
+	Field     string            `json:"field,omitempty"`
+	Message   string            `json:"message,omitempty"`
+	Resolved  map[string]string `json:"resolved,omitempty"`
+	// excerpt is the caret excerpt the page draws for this member, read
+	// from the working tree when the row was built, and resolvedOperands
+	// the glosses that excerpt earned. Neither is on the wire: the excerpt
+	// is a file a consumer already has, and the glosses go out as Resolved
+	// above. They are held here so that the block the page draws and the
+	// member the stream carries are one reading of one Refusal (ADR-0026).
+	excerpt          caretExcerpt
+	resolvedOperands []gloss
 }
 
 // refusalRowOf is one member of the Refusal's array as a row, with the binding
@@ -737,22 +752,11 @@ func wireValue(held store.Value) json.RawMessage {
 	return json.RawMessage(store.Unframed(held))
 }
 
-// Cells is the row's line in the problem table `check` already renders, which
-// is what stands on this milestone's page where §8 puts a caret excerpt and an
-// `EDIT ONE OF` table (gate.go states the same deferral).
-//
-// A member the check does not have renders as an empty cell rather than as a
-// dash. The dash is §8's *no set exists*, which is a fact about a Step's
-// identity set; a Refusal citing a Store file simply has no line to give, and
-// §8 says as much by putting that code's file and field in the `=` notes
-// instead of under a caret.
-func (r refusalRow) Cells() []string {
-	line := ""
-	if r.Line != 0 {
-		line = strconv.Itoa(r.Line)
-	}
-	return []string{r.File, line, r.Field, r.ErrorCode, r.Message}
-}
+// Cells is empty: a Refusal's line on the page is §8's caret excerpt and its
+// `=` notes, which writeRefusal draws as a block rather than as a line of a
+// table (refusal.go). It is the shape outcomeRow already has for the same
+// reason — a row the page renders some other way contributes no line.
+func (r refusalRow) Cells() []string { return nil }
 
 // runPage is the Run's page: §8's Step table, and beneath it §8's terminal
 // line, which is the answer's last line and goes to stdout like the rest of it
@@ -791,7 +795,23 @@ func runPage(terminal outcomeRow, withheld string) func(io.Writer, []render.Row)
 			blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, nothingRan); return err })
 		}
 		if len(refusals) > 0 {
-			blocks = append(blocks, func(w io.Writer) error { return render.WriteTable(w, checkColumns, refusals) })
+			// §8's Refusal: every member of the array, each with its
+			// own caret excerpt and its own remediation table where
+			// it has one (refusal.go).
+			//
+			// Each member carries the phase its own citation earns,
+			// which is refusal.go's; a Run is what supplies one at
+			// all, and this is a Run.
+			blocks = append(blocks, func(w io.Writer) error { return writeRefusal(w, rows, true) })
+			// **The sentence beneath names no count.** What it
+			// carries is that the Steps before the refused one ran
+			// and that nothing rewinds them, which is a different
+			// fact from how many Records they touched and the one a
+			// reader of this surface needs; the counts are in the
+			// column directly above it (§6, §8).
+			if sentence := refusedStepSentence(steps); sentence != "" {
+				blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, sentence); return err })
+			}
 		}
 		// **A rehearsal that stopped says so, and names the Step it
 		// withheld** — the one the table renders *never reached* first,
@@ -805,7 +825,18 @@ func runPage(terminal outcomeRow, withheld string) func(io.Writer, []render.Row)
 		if withheld != "" {
 			blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, stopped(withheld)); return err })
 		}
-		blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, terminal.line()); return err })
+		// **The terminal line's pointer is earned by truncation, not by
+		// the outcome** (§8). It stands where the page is incomplete —
+		// where the caret reported a **count** standing for members it
+		// could not fit — and falls back to the completed form
+		// everywhere else. Where the page is complete, pointing at
+		// `show` would send a reader to look up what they are already
+		// looking at.
+		pointer := ""
+		if len(refusals) > 0 {
+			pointer = expansionPointer(terminal.RunID, refusals[0].(refusalRow))
+		}
+		blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, terminal.line(pointer)); return err })
 
 		for i, block := range blocks {
 			if i > 0 {
@@ -1004,14 +1035,82 @@ func (r outcomeRow) Cells() []string { return nil }
 // Where no entry was written the id is absent and its absence is the fact: the
 // line says what happened and names nothing to look up, there being nothing to
 // look up.
-func (r outcomeRow) line() string {
+// pointer is the remediation pointer a Refusal's line absorbs **in place of**
+// the id beneath it, and "" on every line that names none. A Refusal is the one
+// outcome with a next command to name, its rendering being the entire path back
+// (ADR-0001); a completed Run names none, and saying what to look at next would
+// editorialise on a surface that reports (ADR-0026).
+func (r outcomeRow) line(pointer string) string {
 	parts := []string{r.Outcome}
 	if r.DryRun {
 		parts = append(parts, "dry-run")
 	}
 	parts = append(parts, fmt.Sprintf("exit %d", r.Code))
-	if r.RunID != "" {
+	switch {
+	case pointer != "":
+		parts = append(parts, pointer)
+	case r.RunID != "":
 		parts = append(parts, "run "+r.RunID)
 	}
 	return strings.Join(parts, " · ")
+}
+
+// expansionPointer is where the whole expansion is read back, and "" where the
+// page carrying it is already complete.
+//
+// **What earns it is the count**, and the check that reports one is
+// `bound-exceeded` and no other member of the closed set (§7): the caret said
+// twenty-three assets and named none of them, and this says where the
+// twenty-three are. Every other Refusal names what it found — the two members
+// that collided, the Record whose field would not compare, the Step a Journal
+// entry already records — so its page is the whole of the fact and has nothing
+// to point past itself for (§8).
+//
+// It is "" where no entry was written, there being nothing to look up. That is
+// unreachable from a Refusal at a Step, `run.json` being written at Run start,
+// and it is answered rather than assumed: a pointer naming an empty id is a
+// command a reader would paste.
+func expansionPointer(runID string, first refusalRow) string {
+	if runID == "" || len(first.Observed) == 0 {
+		return ""
+	}
+	return "hyper show " + runID + " --expansion   for all " + string(first.Observed)
+}
+
+// refusedStepSentence is what stands between the Step table and the terminal
+// line on a Run a guardrail declined at a Step: that nothing rewinds what the
+// Steps before it did, and that the refused Step wrote nothing (§6, §8).
+//
+// **It is written from the refused Step's position and from nothing else**,
+// which is what §8 fixes its words as — and the words say *ran*, so a Step
+// before the refused one that skipped is described by a verb it did not earn.
+// That is the sentence's stated cost rather than a fault in this reading: what
+// it carries is *nothing rewinds*, which is true of a skipped Step as much as
+// of a Step that called, and which Disposition each of them reached is the
+// column directly above, per Step and in the vocabulary §12 closes (§6, §8,
+// ADR-0026). A sentence that re-derived the table's own cells would be a second
+// rendering of them, and the second one can be wrong about the first.
+//
+// It is "" where the table holds no refused Step, which is every Refusal that
+// declined before Step 1 — there the table is omitted entirely and *nothing
+// ran. no step was reached.* stands in its place, already saying the whole of
+// it (runPage above).
+func refusedStepSentence(steps []render.Row) string {
+	position := 0
+	for _, row := range steps {
+		if step, is := row.(stepRow); is && step.Disposition == string(store.DispositionRefused) {
+			position = step.Step
+			break
+		}
+	}
+	switch {
+	case position == 0:
+		return ""
+	case position == 1:
+		return "step 1 wrote nothing."
+	case position == 2:
+		return "step 1 ran and what it did stands. step 2 wrote nothing."
+	default:
+		return fmt.Sprintf("steps 1-%d ran and what they did stands. step %d wrote nothing.", position-1, position)
+	}
 }

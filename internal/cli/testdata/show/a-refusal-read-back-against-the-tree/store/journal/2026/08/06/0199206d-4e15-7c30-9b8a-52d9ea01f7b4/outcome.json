@@ -1,0 +1,18 @@
+{
+  "ended_at": "2026-08-06T11:03:18.000Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "declared": 2,
+      "error_code": "bound-exceeded",
+      "field": "steps[0].bound",
+      "file": "procedures/retire-stale.yaml",
+      "line": 13,
+      "message": "expansion resolved 4 assets on cloudflare-prod",
+      "observed": 4,
+      "step": 1,
+      "step_id": "retire"
+    }
+  ],
+  "schema_version": 1
+}

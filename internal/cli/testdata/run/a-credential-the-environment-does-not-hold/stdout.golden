@@ -1,6 +1,13 @@
 nothing ran. no step was reached.
 
-FILE               LINE  FIELD       ERROR_CODE         MESSAGE
-targets/paid.yaml  8     auth.token  credential-absent  the environment does not hold PAID_TOKEN
+refused: credential-absent
+
+  targets/paid.yaml:8
+    7 │ auth:
+    8 │   token: {env: PAID_TOKEN}
+      │          ^ the environment does not hold PAID_TOKEN
+      │
+      = checked at run start, before the first step
+      = set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --
 
 refused · exit 77 · run 01991f62-2c33-7e62-9f4e-5c7d93e2fb36

@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/pin"
 	"github.com/TheLoomLabs/hyper/internal/problem"
@@ -52,8 +53,17 @@ func gateOnVersionPin(command, repoRoot, binaryVersion string, stderr io.Writer)
 //
 // It is two lines on stderr with stdout left silent, whichever mode the caller
 // was invoked in: a Refusal is not a row, so --json opens no stream to carry it
-// (§9). §8's caret form is milestone 8's renderer, and this is the form every
-// Refusal a command makes takes until it lands.
+// (§9).
+//
+// **It stands beside §8's caret form rather than being replaced by it**, and
+// what sorts the two is whether the check has a line to point at. Every Refusal
+// rendered here is a fact about the **invocation** — a binary the Repository
+// declaration does not pin, a Store branch neither side holds — and none of
+// them cites an artefact coordinate at all. A caret excerpt needs a file and a
+// line, an `EDIT ONE OF` table needs a field, and inventing one to reach a
+// richer rendering would point a reader at an edit that is not the remedy: what
+// clears these is a different binary or `hyper store init`, which the message
+// already names (§8, refusal.go).
 //
 // It is one function rather than the same two lines at each site because the
 // milestone that reaches a second code is the one that would otherwise mint a
@@ -66,27 +76,41 @@ func refuse(stderr io.Writer, code, message string) int {
 }
 
 // refuseProblems renders a Refusal that has a position, and answers the exit
-// code its caller returns. It is the milestone-5 Refusal rendering: the problem
-// table `check` already renders, on stderr, with stdout silent in both modes.
+// code its caller returns: §8's caret excerpt, its `=` notes and its `EDIT ONE
+// OF` table, on stderr, with stdout silent in both modes.
 //
 // It stands beside refuse rather than replacing it because the two are one
-// rendering split by what the fault has to point at. Every Refusal reached
-// before this milestone — the pin gate's two codes, `store init`'s absent
-// Store — is a fact about the invocation with no artefact coordinate in it, and
-// the two-line form is the whole of what there is to say. A Refusal a Run or a
-// Probe makes cites a file, a line and a field, and the remedy is an edit
-// there: the columns are what carry it, and they are `check`'s own columns
-// because a reader has already learnt to read them (§8, §9).
+// rendering split by what the fault has to point at. A Refusal with no artefact
+// coordinate in it — the pin gate's two codes, `store init`'s absent Store — is
+// a fact about the invocation, and the two-line form is the whole of what there
+// is to say. A Refusal a Probe makes cites a file, a line and a field, and the
+// remedy is an edit there: the excerpt is what carries it, and it is the same
+// excerpt a Run's Refusal draws because a reader learns one shape (§8, §9).
 //
-// §8's caret excerpt, its `=` notes and its `EDIT ONE OF` table are milestone
-// 8's, which reads §8 whole. What is deferred is the shape; every fact §8
-// requires — file, line, field, code, message — is on the page already, and
-// milestone 8 replaces the table with the excerpt without changing what is
-// reported.
-func refuseProblems(stderr io.Writer, problems []problem.Problem) int {
+// **It carries no phase note and no gloss**, and both absences are the same
+// fact: a Probe is not a Run. There is no Step for a phase to have preceded,
+// and no Run start for a relative operand to resolve against — a gloss is
+// derived arithmetic and renders where its supply is (ADR-0034, ADR-0063).
+//
+// repoRoot is what the excerpt is read against, and the caller has already
+// resolved it: an excerpt is the working tree's lines, and the working tree is
+// where the edit is made.
+func refuseProblems(stderr io.Writer, repoRoot string, problems []problem.Problem) int {
 	problem.Sort(problems)
-	rows := checkRows(problems)
-	if err := render.WriteTable(stderr, checkColumns, rows); err != nil {
+	rows := make([]render.Row, 0, 2*len(problems))
+	for _, found := range problems {
+		member := excerpted(refusalRow{
+			Type:      "refusal",
+			ErrorCode: found.ErrorCode,
+			File:      found.File,
+			Line:      found.Line,
+			Field:     found.Field,
+			Message:   found.Message,
+		}, repoRoot, time.Time{})
+		rows = append(rows, member)
+		rows = append(rows, remediationsFor(member, nil, time.Time{})...)
+	}
+	if err := writeRefusal(stderr, rows, false); err != nil {
 		fmt.Fprintf(stderr, "hyper: %s\n", err)
 	}
 	return ExitRefused

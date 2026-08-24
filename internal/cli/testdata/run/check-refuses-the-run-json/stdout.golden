@@ -1,7 +1,12 @@
 {"type":"refusal","error_code":"artefact-absent","file":"definitions/paid-status.yaml","line":3,"field":"provider","message":"provider: paidd resolves to nothing — no built-in Provider and no providers/paidd.yaml"}
+{"type":"remediation","file":"definitions/paid-status.yaml","line":3,"field":"provider"}
 {"type":"refusal","error_code":"unknown-key","file":"hyper.yaml","line":5,"field":"retain-forever","message":"\"retain-forever\" is not a key the schema at this position admits"}
+{"type":"remediation","file":"hyper.yaml","line":5,"field":"retain-forever"}
 {"type":"refusal","error_code":"reference-unresolvable","file":"procedures/reaches-nothing.yaml","line":7,"field":"steps[0].operation","message":"operation: no_such_operation names no Operation the Definition's Provider declares"}
+{"type":"remediation","file":"procedures/reaches-nothing.yaml","line":7,"field":"steps[0].operation"}
 {"type":"refusal","error_code":"header-reserved","file":"providers/paid.yaml","line":7,"field":"auth.header.name","message":"Content-Type: is one of the five headers hyper computes for itself"}
+{"type":"remediation","file":"providers/paid.yaml","line":7,"field":"auth.header.name"}
 {"type":"refusal","error_code":"credential-slot-malformed","file":"targets/paid.yaml","line":8,"field":"auth.token","message":"auth.token: a credential slot's value must be a mapping whose sole key is env:"}
+{"type":"remediation","file":"targets/paid.yaml","line":8,"field":"auth.token"}
 {"type":"provenance","hyper_version":"1.4.0","procedure_revision":"54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329","repo_revision":"93b6129dc575be36f1bc5a6dd6285a81ead496d5"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"artefact-absent","dry_run":false,"run_id":"01991f66-6077-72a6-9d82-90b1d726337a"}
