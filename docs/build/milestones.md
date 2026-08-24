@@ -34,8 +34,8 @@ Section numbers are the spec's own: file `NN` carries heading `§NN-1`, so §3 i
 | 6 | The effectful Run | `mutate` and `destroy`: the Bound, Repeatability, Tombstones, Assets | §5, §6 (the rest), §7 (the Asset half) | 5 |
 | 7 | The `shell` Capability | argv exec, the process group, the deadline, the built-in Provider's six Operations | §3 (the command), §6 (execution) | 5 for `read`, 6 for effectful |
 | 8 | Comparison and inspection | `changes`, `records`, `runs`, `show`; the review's range; the NDJSON row stream | §8 (the rest, and the review's range) | 3, 6 |
-| 9 | Cadence and projection | `project` writes the workflow; `cadence-malformed`; the job summary | §10 | 6 |
-| 10 | Distribution | `install <ref>`, digest verification, `origin:` | §11 | 1 |
+| 9 | Cadence and projection | `project` writes the workflow and the pin; `cadence-malformed`; the job summary | §10, §11 (the pin) | 6, 8 |
+| 10 | Distribution | `install <ref>`, digest verification, `origin:` | §11 (the Extension half) | 1 |
 | 11 | MCP | the thirteen tools, the return envelope, long Runs | §9 (the MCP half) | 2, 3, 8 |
 
 Every milestone also reads `CONTEXT.md` and the ADRs its sections cite. §12 is a
@@ -113,6 +113,13 @@ Written when the wayfinder map
 fifty-four decision tickets closed, none open. The map's destination was a spec, and
 its Out of scope section states that building the tool is the effort that follows
 this one. This file is the hand-off between them.
+
+Milestone 9's row was corrected when
+[#173](https://github.com/TheLoomLabs/hyper/issues/173) was written. `project`
+writes the version pin and freezes the release digest, which is §11's *The
+version pin* in full and its *projection's constants*, and the workflow it
+generates invokes `hyper changes` — so the milestone reads §11's pin half beside
+§10 and waits on 8 as well as 6. Milestone 10 keeps the Extension half.
 
 The review's range moved from milestone 3 to milestone 8 when
 [#161](https://github.com/TheLoomLabs/hyper/issues/161) was written, milestone 3
