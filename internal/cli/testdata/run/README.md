@@ -527,14 +527,16 @@ It carries no `PATH`, which is why every fixture script under a `bin/` uses
 shell builtins alone: a script reaching for `cat` would be reaching for the
 machine.
 
-## What a Refusal's page looks like, and what stands in for §8's
+## What a Refusal's page looks like
 
-Every Refusal here renders the same three blocks: `nothing ran. no step was
-reached.` where the Step table would be, the problem table `check` already
-renders, and §8's terminal line. §8 puts a caret excerpt and an `EDIT ONE OF`
-table where the middle block is, and that is milestone 8's — every fact §8
-requires is on the page already, and what is deferred is the shape
-(`internal/cli/gate.go` states the same deferral for the pin gate).
+Every Refusal that declined before Step 1 renders the same three blocks:
+`nothing ran. no step was reached.` where the Step table would be, §8's Refusal
+in full, and §8's terminal line. The middle block is the caret excerpt over the
+offending line in its own context, the `=` notes carrying the phase and the
+resolved instant of a relative predicate, and the `EDIT ONE OF` table — one row
+per remediation, with a narrowed selector speculatively re-expanded beside the
+widening (issue #169). It stood as `check`'s problem table for five milestones
+and no longer does.
 
 The Step table is omitted rather than rendered empty, on §8's own reading: an
 empty table asserts *we looked at the Steps*, which is false. `stderr.golden`
@@ -544,7 +546,7 @@ is where that shows twice over — a refusing case narrates `run <id>` and no
 That is the page of a Refusal that declined **before Step 1**, which is most of
 the closed set. A Refusal at a Step's own Expansion — the identity comparands,
 a predicate that cannot compare, a Bound the count is past — reached a Step, so
-its page carries the Step table with that Step *refused* and the problem table
+its page carries the Step table with that Step *refused* and §8's Refusal
 beneath it, and its `stderr.golden` carries the `step` line. The sentence the
 absence would have to carry is not needed there: the table says what became of
 every Step.

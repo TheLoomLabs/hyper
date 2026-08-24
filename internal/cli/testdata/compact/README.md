@@ -85,7 +85,10 @@ cannot otherwise state.
 5 — the branch was never created, so the command Refuses at `77` naming `hyper
 store init`, renders two lines on stderr with stdout silent, and opens no row
 stream in either mode. `--json` carries no Refusal because a Refusal is not a
-row (§9); §8's caret form is milestone 8's renderer.
+row (§9). §8's caret form has landed (issue #169) and this Refusal does not take
+it: a caret excerpt needs a file, a line and a field, and a branch neither side
+holds cites no artefact coordinate at all — what clears it is `hyper store
+init`, which the message already names (`internal/cli/gate.go`).
 
 `schema-unsupported/` is the other one this command can reach: a Record version
 carrying `schema_version: 2`, which is above this reader's ceiling. It Refuses
