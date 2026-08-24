@@ -369,3 +369,47 @@ func TestResultRow_ATruncationNobodySetIsTheBareFalse(t *testing.T) {
 		t.Errorf("WriteJSON() = %q, want %q", got, want)
 	}
 }
+
+// TestWriteAligned_AStackedCellOpensOutAndTheColumnsStayAligned is the one
+// geometry §8's `THE CODE MOVED` needs and no page before it had (issue #171).
+//
+// **The column widens and the row wraps**: a Cadence's cell stacks the
+// expression, the phrase and the rate, and a selector's stacks its form over
+// its members, and neither is truncated. What that costs the renderer is that a
+// cell carrying a newline contributes one physical line per segment while the
+// cells beside it stand empty beneath their own first — a stacked cell that
+// reached the tabwriter whole would take the width of its longest segment and
+// put the columns to its right on a line of their own.
+func TestWriteAligned_AStackedCellOpensOutAndTheColumnsStayAligned(t *testing.T) {
+	var buf bytes.Buffer
+	err := render.WriteAligned(&buf, "  ", [][]string{
+		{"SUBJECT", "FACT", "FROM", "TO"},
+		{"procedure retire", "cadence", "0 0 1 * *\n00:00 UTC on the 1st\n1 run/month", "*/5 * * * *\nevery 5 minutes\n≈8800 runs/month"},
+		{"—", "repository revision", "1f0a3d7", "88bc402"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := "  SUBJECT           FACT                 FROM                  TO\n" +
+		"  procedure retire  cadence              0 0 1 * *             */5 * * * *\n" +
+		"                                         00:00 UTC on the 1st  every 5 minutes\n" +
+		"                                         1 run/month           ≈8800 runs/month\n" +
+		"  —                 repository revision  1f0a3d7               88bc402\n"
+	if got := buf.String(); got != want {
+		t.Errorf("WriteAligned() =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// TestWriteAligned_ABlockWithNothingStackedComesBackAsItWentIn is the fence
+// around that: every page that landed before the third table carries no cell
+// with a newline in it, and none of them may have moved by a byte.
+func TestWriteAligned_ABlockWithNothingStackedComesBackAsItWentIn(t *testing.T) {
+	var buf bytes.Buffer
+	if err := render.WriteAligned(&buf, "", [][]string{{"a", "bb"}, {"ccc", "d"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := buf.String(), "a    bb\nccc  d\n"; got != want {
+		t.Errorf("WriteAligned() = %q, want %q", got, want)
+	}
+}

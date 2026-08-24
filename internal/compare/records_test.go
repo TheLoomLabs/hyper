@@ -66,7 +66,7 @@ func changeRows(t *testing.T, window compare.Window, records []compare.Record) [
 	t.Helper()
 
 	var held []compare.ChangeRow
-	for _, row := range compare.Rows(window, records) {
+	for _, row := range compare.Rows(window, records, compare.Code{}) {
 		if change, is := row.(compare.ChangeRow); is {
 			held = append(held, change)
 		}
@@ -642,7 +642,7 @@ func streamed(t *testing.T, compared compare.Window, records []compare.Record) s
 	t.Helper()
 
 	var out strings.Builder
-	for _, row := range compare.Rows(compared, records) {
+	for _, row := range compare.Rows(compared, records, compare.Code{}) {
 		out.WriteString(wire(t, row))
 	}
 	return out.String()

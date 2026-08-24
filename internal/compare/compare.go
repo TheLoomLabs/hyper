@@ -2,9 +2,8 @@
 // the Run before it, as an ordered list of rows.
 //
 // **It is pure.** It opens no file, starts no subprocess and reads no clock.
-// Two Journal entries, the Store reads those entries need and — once
-// [#171](https://github.com/TheLoomLabs/hyper/issues/171) lands — the artefact
-// bytes at both revisions are handed in; what comes back is the row list, which
+// Two Journal entries, the Store reads those entries need and the artefacts at
+// both revisions are handed in; what comes back is the row list, which
 // `internal/render` writes as the page and as the `--json` stream (ADR-0026).
 // The git reads are `internal/revision`'s and the Store reads are
 // `internal/store`'s, made by the caller.
@@ -17,9 +16,9 @@
 // call rather than contain, exactly as it calls `internal/run` and
 // `internal/store`.
 //
-// What stands here is the window and the header (#167) and the two Record
-// tables beneath them (#170). `THE CODE MOVED` and `TOTALS`' last segment are
-// [#171](https://github.com/TheLoomLabs/hyper/issues/171)'s.
+// What stands here is the window and the header (#167), the two Record tables
+// beneath them (#170), and `THE CODE MOVED` with `TOTALS`' last segment
+// (#171).
 package compare
 
 import (

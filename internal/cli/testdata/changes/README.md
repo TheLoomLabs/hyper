@@ -1,23 +1,54 @@
 # `hyper changes`
 
-§8's Comparison — the window and the header (issue #167), and the two Record
-tables beneath them (issue #170). Every case here drives `hyper changes`
-through `cli.Main` from its own `argv` and asserts the two streams and the exit
-code. No case asserts a branch: `changes` writes nothing, so a `store.golden`
-here would hold the seed it was handed.
+§8's Comparison — the window and the header (issue #167), the two Record
+tables beneath them (issue #170), and `THE CODE MOVED` with `TOTALS`' last
+segment (issue #171). Every case here drives `hyper changes` through `cli.Main`
+from its own `argv` and asserts the two streams and the exit code. No case
+asserts a branch: `changes` writes nothing, so a `store.golden` here would hold
+the seed it was handed.
 
-**`THE CODE MOVED` is still absent, and so is `TOTALS`' last segment.** Both
-are [#171](https://github.com/TheLoomLabs/hyper/issues/171)'s, and until they
-land the surface renders nothing where the third table will sit, which is the
-deferral convention [`review`](../review)'s own absent range followed for five
-milestones — so every `stdout.golden` here ends at a four-number `TOTALS`, and
-the case files gain the table and the phrase rather than being rewritten.
-
-**Both Record tables and the `TOTALS` line render on every case, whether or not
+**All three tables and the `TOTALS` line render on every case, whether or not
 there is a row.** An absent block is ambiguous between *nothing to report* and
 *the renderer had nothing to say*, so every case here that seeds no Record
 renders `0 assets`, `0 observations` and a `TOTALS` of zeros beneath its header
 — which is how a Run whose every Step skipped reads (§8).
+
+## `THE CODE MOVED`, and the half a checked-in case can hold
+
+The eight artefact-authored classes and the catch-all's whole count read
+**bytes at two revisions**, and a `repo_revision` is a commit — a function
+of the tree, the message, the identity and the dates, which no case directory
+can name. Every seed here therefore names revisions this fixture never
+committed (`1f0a3d78…` and `88bc402f…`, §8's own), so every case renders the
+half that needs no bytes:
+
+- the classes read off the **two Journal entries** — `the digests`, whose rows
+  are `procedure revision`, `definition revision`, `manifest digest` and the
+  `—`-subject `repository revision`;
+- the catch-all in its **replaced** form, `other lines could not be counted ·
+  git diff 1f0a3d7 88bc402`, which keeps the command and carries
+  `baseline_absent: not-in-clone` on the wire in place of `count`;
+- `TOTALS`' last segment reading *the code moved*, which is the ordering §8
+  fixes: a surviving classed row is positive proof where the absence line is
+  proof of nothing either way.
+
+The other half — the eight classes over a repository at two real commits, the
+count against `git diff` itself, the two suppressions and the *did not move*
+and *could not be fully read* forms of the phrase — is driven from
+[changes_code_test.go](../../changes_code_test.go) against
+[`a-code-window-seeded-at-run-time/`](a-code-window-seeded-at-run-time), which
+materialises two code commits and seeds the Journal against both. Both halves
+are the specification, and neither can be asserted where the other is.
+
+[`since-names-the-specs-own-window/`](since-names-the-specs-own-window) is
+therefore byte-identical to §8's own printed block **except its catch-all
+line**, which §8 prints as `2 other lines changed · git diff 1f0a3d7 88bc402`
+and which no clone holding neither commit can count.
+
+[`no-baseline-is-a-named-state/`](no-baseline-is-a-named-state) renders the
+table's head over `0 facts` and **no catch-all at all**: its subject is the
+first Run of its Procedure, so there is no earlier revision for code to have
+moved from, no pair for `git diff` to name and nothing for a count to count.
 
 ## What a case supplies
 
@@ -120,7 +151,9 @@ revision whole, one fact in the two notations.
   its [`-json` twin](since-names-the-specs-own-window-json) — §8's own printed
   command, over §8's own two Runs and one below them so the instant has a Run
   on either side of it. Its `stdout.golden` is the block §8 prints beside that
-  command, byte for byte, `TOTALS`' last segment aside. §8's example named
+  command, byte for byte, its catch-all line aside — which is the one line no
+  clone holding neither of §8's two commits can count, and which is asserted in
+  its counted form one file over (above). §8's example named
   `2026-08-04T09:12:00Z`, three seconds **before** its own `BASELINE` started,
   where the prose beside it says *take the last Run **before** that instant*;
   the timestamp was corrected in place in `docs/spec/09-review-and-comparison.md`

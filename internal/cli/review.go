@@ -11,6 +11,7 @@ import (
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/cadence"
+	"github.com/TheLoomLabs/hyper/internal/compare"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
@@ -242,19 +243,26 @@ type resolvedArtefact struct {
 	kind     artefactKind
 }
 
-// artefactKind is one of §12's five artefact `kind:` values with the three
-// other spellings of it this surface needs: the word heading the marker column,
-// the noun a message calls it by, and the key an artefact of that kind declares
-// its own name under.
+// artefactKind is one of §12's five artefact `kind:` values with the four other
+// spellings of it these surfaces need: the word heading the marker column, the
+// noun a message calls it by, the key an artefact of that kind declares its own
+// name under, and the word the Comparison's `SUBJECT` column qualifies a name
+// with.
 //
-// The wire's value and the page's word are two spellings of one fact and not a
+// The wire's value and the page's words are spellings of one fact and not a
 // disagreement: §12 closes the `kind:` values a repository author writes and
 // the row carries one of those, while §8 fixes the five words the marker column
 // is headed by — `MANIFEST` over a Provider's Manifest, `TARGET` over a Target
 // declaration — because a header naming what the file is read as is what a
 // reviewer reads down the column beneath it.
+//
+// **`subject` is that same fact a third time**, lower-case and singular:
+// `manifest hetzner`, `target staging`, `repository hyper.yaml` (§8,
+// compare.CodeRow). It is held here rather than beside the Comparison so that
+// the five kinds are spelled in one table — a sixth arriving is one row here
+// and not one row in each of three files.
 type artefactKind struct {
-	wire, word, noun, nameKey string
+	wire, word, noun, nameKey, subject string
 }
 
 // artefactKinds is §12's directory-to-`kind:` mapping, which is also the
@@ -270,11 +278,11 @@ var artefactKinds = []struct {
 	location string
 	kind     artefactKind
 }{
-	{"definitions/", artefactKind{"definition", "DEFINITION", "Definition", "definition"}},
-	{"procedures/", artefactKind{"procedure", "PROCEDURE", "Procedure", "procedure"}},
-	{"providers/", artefactKind{"provider", "MANIFEST", "Manifest", "provider"}},
-	{"targets/", artefactKind{"target-declaration", "TARGET", "Target declaration", "target"}},
-	{"hyper.yaml", artefactKind{"repository-declaration", "REPOSITORY", "Repository declaration", ""}},
+	{"definitions/", artefactKind{"definition", "DEFINITION", "Definition", "definition", compare.SubjectDefinition}},
+	{"procedures/", artefactKind{"procedure", "PROCEDURE", "Procedure", "procedure", compare.SubjectProcedure}},
+	{"providers/", artefactKind{"provider", "MANIFEST", "Manifest", "provider", compare.SubjectManifest}},
+	{"targets/", artefactKind{"target-declaration", "TARGET", "Target declaration", "target", compare.SubjectTarget}},
+	{"hyper.yaml", artefactKind{"repository-declaration", "REPOSITORY", "Repository declaration", "", compare.SubjectRepository}},
 }
 
 // kindByWire is one of the five looked up by the `kind:` value it carries, and

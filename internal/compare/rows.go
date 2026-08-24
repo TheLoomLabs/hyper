@@ -5,12 +5,14 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
-// The Comparison's rows (§8, issues #167 and #170). One list, written twice —
+// The Comparison's rows (§8, issues #167, #170 and #171). One list, written
+// twice —
 // as the page and as the `--json` stream — so the two surfaces cannot state
 // different things (ADR-0026).
 
 // Rows answers the ordered rows of one window: the `window` row, then the rows
-// of `YOU DID THIS`, then the rows of `THE WORLD MOVED`.
+// of `YOU DID THIS`, then the rows of `THE WORLD MOVED`, then the rows of
+// `THE CODE MOVED` and the catch-all that terminates it.
 //
 // records is what the caller read for the identities Eligible named — the two
 // endpoints of each, and what they projected. Nothing here opens a file: which
@@ -21,13 +23,14 @@ import (
 // (§8, ADR-0026): a row goes out on its own line, there is no cursor behind the
 // stream, and a consumer cannot re-sort what it has already printed.
 //
-// `THE CODE MOVED` is #171's, and until it lands the surface renders nothing
-// where it will sit rather than an empty header. `TOTALS` gets no row here or
-// anywhere: §8's stream carries the rows of the tables and the `window` row
-// above them and no `totals` object, that line being those rows counted rather
-// than a fact of its own (internal/cli's totalsLine).
-func Rows(window Window, records []Record) []render.Row {
-	return append([]render.Row{windowRowOf(window)}, changeRowsOf(window, records)...)
+// code is what the caller read for the third table: the reviewed artefacts at
+// both revisions and what git says moved between them (code.go). `TOTALS` gets
+// no row here or anywhere — §8's stream carries the rows of the tables and the
+// `window` row above them and no `totals` object, that line being those rows
+// counted rather than a fact of its own (internal/cli's totalsLine).
+func Rows(window Window, records []Record, code Code) []render.Row {
+	rows := append([]render.Row{windowRowOf(window)}, changeRowsOf(window, records)...)
+	return append(rows, CodeRows(window, code)...)
 }
 
 // WindowRow is the Comparison's header: which two Runs are being compared, and

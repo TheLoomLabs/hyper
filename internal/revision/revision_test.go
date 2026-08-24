@@ -190,6 +190,16 @@ func (r *repo) write(name, content string) {
 	}
 }
 
+// remove takes a file out of the working tree, which `commit` then records as a
+// deletion: a file one revision holds and the next does not is a change git
+// counts the lines of, and a case has no other way to make one.
+func (r *repo) remove(name string) {
+	r.t.Helper()
+	if err := os.Remove(filepath.Join(r.root, filepath.FromSlash(name))); err != nil {
+		r.t.Fatal(err)
+	}
+}
+
 func (r *repo) commit() {
 	r.t.Helper()
 	r.git("add", "--all")

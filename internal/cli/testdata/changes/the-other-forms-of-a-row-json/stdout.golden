@@ -3,4 +3,7 @@
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8999","to_ordinal":1,"confirmed_at":"2026-08-06T11:05:09.000Z","fields":{}}
 {"type":"observation","change":"appeared","target":"local","definition":"uptime","name":"queue.hyper.dev","to_ordinal":2,"fields":{"status":503}}
 {"type":"observation","change":"vanished","target":"local","definition":"uptime","name":"status.hyper.dev","from_ordinal":1,"fields":{"status":200,"stdout":"HTTP/1.1 200 OK\nserver: nginx"}}
+{"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1","to":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}
+{"type":"code","fact":"repository revision","from":"1f0a3d78c2e5b91467af03d28b5c9e610473fa8d","to":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"}
+{"type":"code","fact":"other lines changed","baseline_absent":"not-in-clone","command":"git diff 1f0a3d7 88bc402"}
 {"type":"result","truncated":false}

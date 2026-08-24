@@ -12,4 +12,10 @@
   appeared  local   uptime      queue.hyper.dev   – → 2    status: 503
   vanished  local   uptime      status.hyper.dev  1 → –    status: 200 · stdout
 
-  TOTALS  4 changes · 2 asset · 2 observation · 1 tombstone
+  THE CODE MOVED   2 facts
+  SUBJECT                        FACT                 FROM     TO
+  procedure retire-preview-envs  procedure revision   a91f0c2  b0c94f1
+  —                              repository revision  1f0a3d7  88bc402
+  other lines could not be counted · git diff 1f0a3d7 88bc402
+
+  TOTALS  4 changes · 2 asset · 2 observation · 1 tombstone · the code moved

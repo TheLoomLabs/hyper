@@ -249,3 +249,95 @@ steps:
 		t.Errorf("the Procedure's own declared envelope went with it")
 	}
 }
+
+// TestChangeFacts_WireIsTheArtefactsOwnParsedShape is what §8's row stream
+// carries for a value that is not a scalar (issue #171).
+//
+// **A `from` or `to` that is not a scalar carries the artefact's own parsed
+// shape** — `{"values":[…]}`, `{"assets":[{"field":…,"equals":…}]}`,
+// `["read","mutate"]` — in the order the page renders it. The page's notation
+// is that chapter's geometry and never a fact either surface states
+// (ADR-0059), so nothing composed goes out composed: a ` · `-separated run and
+// a `field operator operand` line are renderings, and a reader composing the
+// wire out of them could not tell an `in:` list from a bare operand.
+func TestChangeFacts_WireIsTheArtefactsOwnParsedShape(t *testing.T) {
+	read := facts(t, artefact.KindProcedure, `kind: procedure
+procedure: sync
+targets: [staging, local]
+cadence: "0 3 * * 1"
+steps:
+  - id: issue
+    bound: 3
+    over:
+      values: [ci-x86, ci-arm64]
+  - id: retire
+    over:
+      assets:
+        - field: labels.role
+          in: [preview, scratch]
+        - field: created
+          older_than: 30d
+`)
+	for key, want := range map[string]string{
+		// A set carries the sorted, deduplicated run the page renders:
+		// a set compares by set equality, so the order the author
+		// happened to write it in is not a fact.
+		"targets": `["local","staging"]`,
+		// A Cadence is a scalar under the shape rule; what stacks its
+		// cell is the mandatory gloss, which rides beside it as parts.
+		"cadence": `"0 3 * * 1"`,
+		// A Bound is a number because the author wrote an integer.
+		// `"3"` would be this surface re-typing a value it was handed.
+		"issue · bound": `3`,
+		// A `values:` selector is **as authored**: its order is the
+		// fact, so sorting it would hide the whole of what changed.
+		"issue · over": `{"values":["ci-x86","ci-arm64"]}`,
+		// A predicate selector's conjuncts are in the order the page
+		// renders them — sorted on the rendered line — and each one
+		// keeps the keys the author wrote, in the order they wrote
+		// them, an `in:` list included.
+		"retire · over": `{"assets":[{"field":"created","older_than":"30d"},{"field":"labels.role","in":["preview","scratch"]}]}`,
+	} {
+		if got := string(read[key].Wire); got != want {
+			t.Errorf("%s carries %s on the wire, want %s", key, got, want)
+		}
+	}
+}
+
+// TestChangeFacts_AFactStatedByOmissionCarriesNoWire is the absence rule on the
+// wire: the key is absent where the page renders `–`, rather than written as
+// null — which is `from_ordinal`'s rule two row types up (§7, §8).
+//
+// For a set-shaped fact an absent key and an empty list are one value, so a
+// `destroy: []` carries no wire either.
+func TestChangeFacts_AFactStatedByOmissionCarriesNoWire(t *testing.T) {
+	read := facts(t, artefact.KindDefinition, `kind: definition
+definition: ci-keys
+kinds: [mutate]
+destroy: []
+`)
+	for _, key := range []string{"destroy", "targets"} {
+		if wire := read[key].Wire; wire != nil {
+			t.Errorf("%s carries %s on the wire, want no member at all", key, wire)
+		}
+	}
+}
+
+// TestChangeFacts_TheWireDoesNotEscapeHTML is the stream's own rule holding
+// here: the wire carries an artefact's own bytes, and a predicate operand
+// quoting a `&` or a `<` is one a consumer reads back as it was written (§8,
+// render.WriteJSON).
+func TestChangeFacts_TheWireDoesNotEscapeHTML(t *testing.T) {
+	read := facts(t, artefact.KindProcedure, `kind: procedure
+procedure: sync
+steps:
+  - id: retire
+    over:
+      observations:
+        - field: title
+          equals: "a & b < c"
+`)
+	if got, want := string(read["retire · over"].Wire), `{"observations":[{"field":"title","equals":"a & b < c"}]}`; got != want {
+		t.Errorf("the selector carries %s on the wire, want %s", got, want)
+	}
+}

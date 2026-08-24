@@ -12,4 +12,10 @@
 
   THE WORLD MOVED   0 observations
 
-  TOTALS  5 changes · 5 asset · 0 observation · 3 tombstone
+  THE CODE MOVED   2 facts
+  SUBJECT                        FACT                 FROM     TO
+  procedure retire-preview-envs  procedure revision   a91f0c2  b0c94f1
+  —                              repository revision  1f0a3d7  88bc402
+  other lines could not be counted · git diff 1f0a3d7 88bc402
+
+  TOTALS  5 changes · 5 asset · 0 observation · 3 tombstone · the code moved

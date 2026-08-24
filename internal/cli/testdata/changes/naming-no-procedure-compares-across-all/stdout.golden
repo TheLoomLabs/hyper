@@ -6,7 +6,13 @@
 
   THE WORLD MOVED   0 observations
 
-  TOTALS  0 changes · 0 asset · 0 observation · 0 tombstone
+  THE CODE MOVED   2 facts
+  SUBJECT                        FACT                 FROM     TO
+  procedure retire-preview-envs  procedure revision   a91f0c2  b0c94f1
+  —                              repository revision  1f0a3d7  88bc402
+  other lines could not be counted · git diff 1f0a3d7 88bc402
+
+  TOTALS  0 changes · 0 asset · 0 observation · 0 tombstone · the code moved
 
   watch
   BASELINE  01991900-0000…  igor@thinkpad  Mon 3 Aug 07:00  completed  1m0s   procedure rev a91f0c2
@@ -16,4 +22,9 @@
 
   THE WORLD MOVED   0 observations
 
-  TOTALS  0 changes · 0 asset · 0 observation · 0 tombstone
+  THE CODE MOVED   1 fact
+  SUBJECT          FACT                FROM     TO
+  procedure watch  procedure revision  a91f0c2  b0c94f1
+  other lines could not be counted · git diff 1f0a3d7 1f0a3d7
+
+  TOTALS  0 changes · 0 asset · 0 observation · 0 tombstone · the code moved

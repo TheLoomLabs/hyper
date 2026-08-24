@@ -1,0 +1,51 @@
+kind: provider
+provider: tailscale
+schema-version: 1
+class: tailscale
+capabilities: [http]
+operations:
+  create_key:
+    kind: mutate
+    deadline: 10s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /api/v2/keys
+    input:
+      type: object
+      properties:
+        name: {type: string}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+        expires: $.expires
+  delete_key:
+    kind: destroy
+    deadline: 10s
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /api/v2/keys/{id}
+    input:
+      type: object
+      properties:
+        id: {type: string}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+  list_keys:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /api/v2/keys
+    input:
+      type: object
+      properties: {}
+    record:
+      identity: $.id
+      fields:
+        id: $.id

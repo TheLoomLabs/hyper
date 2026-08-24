@@ -36,8 +36,15 @@ func TestPackage_ReachesNoFileNoSubprocessAndNoClock(t *testing.T) {
 		`"strconv"`:       true,
 		`"strings"`:       true,
 		`"unicode/utf8"`:  true,
-		`"github.com/TheLoomLabs/hyper/internal/render"`: true,
-		`"github.com/TheLoomLabs/hyper/internal/store"`:  true,
+		// internal/artefact and internal/cadence are the two readings
+		// `THE CODE MOVED` is written from — the code-fact vocabulary
+		// §12 fixes and §10's mandatory gloss — and both are pure in
+		// this package's own sense: each takes what it is handed and
+		// opens nothing (#171).
+		`"github.com/TheLoomLabs/hyper/internal/artefact"`: true,
+		`"github.com/TheLoomLabs/hyper/internal/cadence"`:  true,
+		`"github.com/TheLoomLabs/hyper/internal/render"`:   true,
+		`"github.com/TheLoomLabs/hyper/internal/store"`:    true,
 	}
 
 	for _, path := range sources(t) {

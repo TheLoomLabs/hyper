@@ -1,0 +1,21 @@
+kind: procedure
+procedure: sync-ci-keys
+targets: [staging]
+cadence: "0 0 1 * *"
+steps:
+  - id: issue-runner-keys
+    definition: ci-keys
+    operation: create_key
+    target: staging
+    bound: 3
+    over:
+      values: [ci-arm64, ci-x86, ci-macos]
+  - id: retire-expired
+    definition: ci-keys
+    operation: delete_key
+    target: staging
+    bound: 5
+    over:
+      assets:
+        - field: expires
+          older_than: 0s

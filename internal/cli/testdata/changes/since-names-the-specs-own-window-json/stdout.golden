@@ -6,4 +6,7 @@
 {"type":"asset","change":"created","target":"staging","definition":"hetzner-staging","name":"preview-8821","to_ordinal":1,"fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"observation","change":"changed","target":"local","definition":"uptime","name":"cert.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"days_left":[41,34]}}
 {"type":"observation","change":"changed","target":"local","definition":"uptime","name":"status.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"status":[200,503]}}
+{"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1","to":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}
+{"type":"code","fact":"repository revision","from":"1f0a3d78c2e5b91467af03d28b5c9e610473fa8d","to":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"}
+{"type":"code","fact":"other lines changed","baseline_absent":"not-in-clone","command":"git diff 1f0a3d7 88bc402"}
 {"type":"result","truncated":false}

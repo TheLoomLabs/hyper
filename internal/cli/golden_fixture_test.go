@@ -102,6 +102,20 @@ type fixtureInputs struct {
 	// from HEAD, or one that is untracked. It is what `repo_dirty` is
 	// driven by (§7).
 	uncommitted bool
+	// codeBaseline is a directory committed **below** repo/, so that a
+	// materialised case holds two code commits and a seeded Journal
+	// baseline entry can name the earlier one. Five of §12's nine
+	// `THE CODE MOVED` classes and its catch-all count read bytes at two
+	// revisions, and a fixture that makes one commit has one revision to
+	// read (§8, issue #171).
+	//
+	// It **composes with uncommitted/ rather than replacing it**:
+	// `repo_dirty` and *two commits* are two different facts, and the `+`
+	// suffix on a revision that a second commit makes diffable needs both
+	// at once. The two commits' trees are exactly the two directories, so
+	// a file the earlier one holds and the later one does not is a
+	// deletion the diff reports like any other.
+	codeBaseline bool
 	// git is the bare marker: materialise, and seed no branch. A case that
 	// wants nothing but a git root asks for it with this and nothing else.
 	git bool
@@ -187,6 +201,10 @@ func (in fixtureInputs) fault() string {
 		return "asks for a git fixture and carries no repo/ to make one from"
 	case in.uncommitted && !in.materialised():
 		return "carries an uncommitted/ and materialises no repository; there is no commit for its files to differ from"
+	case in.codeBaseline && !in.repo:
+		return "carries a code-baseline/ and no repo/ to commit above it; a baseline is the earlier of two commits"
+	case in.codeBaseline && !in.materialised():
+		return "carries a code-baseline/ and materialises no repository; there is no history for it to be the earlier commit of"
 	case in.remoteStore && !in.remote:
 		return "seeds hyper-store on origin and wires no origin; remote-store/ needs a remote marker beside it"
 	case in.remoteAhead && !in.remote:
@@ -229,14 +247,15 @@ func (c goldenCase) fixtureInputs() fixtureInputs {
 	from := strings.TrimSpace(readFileAt(filepath.Join(c.dir, "repo-from")))
 	storeFrom := strings.TrimSpace(readFileAt(filepath.Join(c.dir, "store-from")))
 	return fixtureInputs{
-		repo:        isDir(filepath.Join(c.dir, "repo")) || from != "",
-		from:        from,
-		uncommitted: isDir(filepath.Join(c.dir, "uncommitted")),
-		git:         isFile(filepath.Join(c.dir, "git")),
-		store:       isDir(filepath.Join(c.dir, "store")),
-		storeFrom:   storeFrom,
-		remote:      isFile(filepath.Join(c.dir, "remote")),
-		remoteStore: isDir(filepath.Join(c.dir, "remote-store")),
+		repo:         isDir(filepath.Join(c.dir, "repo")) || from != "",
+		from:         from,
+		uncommitted:  isDir(filepath.Join(c.dir, "uncommitted")),
+		codeBaseline: isDir(filepath.Join(c.dir, "code-baseline")),
+		git:          isFile(filepath.Join(c.dir, "git")),
+		store:        isDir(filepath.Join(c.dir, "store")),
+		storeFrom:    storeFrom,
+		remote:       isFile(filepath.Join(c.dir, "remote")),
+		remoteStore:  isDir(filepath.Join(c.dir, "remote-store")),
 
 		remoteAhead:       isDir(filepath.Join(c.dir, "remote-ahead")),
 		storeUnpushed:     isDir(filepath.Join(c.dir, "store-unpushed")),
@@ -301,11 +320,28 @@ func (c goldenCase) materialise(t *testing.T, in fixtureInputs) gitFixture {
 		root: filepath.Join(base, "repo"),
 		env:  fixtureEnvironment(home, c.instant(t)),
 	}
-	if err := os.CopyFS(fx.root, os.DirFS(c.repository(t, in))); err != nil {
+	// The earlier commit, where the case asked for one: code-baseline/'s
+	// files committed on their own, so that HEAD~1 is a revision a seeded
+	// Journal entry can name and a `git diff` has two ends (§8, issue #171).
+	// The working tree is then emptied before repo/ is copied over it, so
+	// the two commits' trees are exactly the two directories and a file the
+	// baseline holds and repo/ does not is a deletion rather than a leftover.
+	if in.codeBaseline {
+		if err := os.CopyFS(fx.root, os.DirFS(c.abs(t, "code-baseline"))); err != nil {
+			t.Fatal(err)
+		}
+		fx.run(t, fx.root, "init", "--quiet", "--initial-branch="+codeBranchName)
+		fx.run(t, fx.root, "add", "--all")
+		fx.run(t, fx.root, "commit", "--quiet", "--message", "the fixture's earlier revision", "--allow-empty")
+		emptyWorkingTree(t, fx.root)
+		overwrite(t, c.repository(t, in), fx.root)
+	} else if err := os.CopyFS(fx.root, os.DirFS(c.repository(t, in))); err != nil {
 		t.Fatal(err)
 	}
 
-	fx.run(t, fx.root, "init", "--quiet", "--initial-branch="+codeBranchName)
+	if !in.codeBaseline {
+		fx.run(t, fx.root, "init", "--quiet", "--initial-branch="+codeBranchName)
+	}
 	fx.run(t, fx.root, "add", "--all")
 	// --allow-empty, because a fixture repository is allowed to be empty —
 	// an assertion about the fixture itself needs no artefact in it — and a
@@ -394,6 +430,26 @@ func overwrite(t *testing.T, from, into string) {
 			t.Fatal(err)
 		}
 		if err := os.WriteFile(path, content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// emptyWorkingTree removes everything the working tree holds except git's own
+// directory, which is what lets a second commit's tree be exactly the directory
+// copied into it rather than that directory folded over the one before.
+func emptyWorkingTree(t *testing.T, root string) {
+	t.Helper()
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Name() == ".git" {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(root, entry.Name())); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1245,6 +1301,8 @@ func TestGoldenFixture_AnInputWithNothingToActOnIsNamed(t *testing.T) {
 		"a remote golden over no remote":           {"repo/", "git", "remote.golden"},
 		"a repository and nowhere to stand beside": {"repo/", "git", "no-git-root"},
 		"an uncommitted tree over no repository":   {"repo/", "uncommitted/"},
+		"a code baseline with nothing above it":    {"code-baseline/"},
+		"a code baseline over no repository":       {"repo/", "code-baseline/"},
 		"a commit above a Store on no origin":      {"repo/", "git", "store/", "remote-ahead/"},
 		"a commit above a Store that is not there": {"repo/", "remote", "remote-ahead/"},
 		"two roots on one origin":                  {"repo/", "remote", "store/", "remote-store/", "remote-ahead/"},
@@ -1264,16 +1322,22 @@ func TestGoldenFixture_AnInputWithNothingToActOnIsNamed(t *testing.T) {
 	// The whole of what a landed case supplies, which must not be a fault:
 	// the fence is only worth having if it lets the corpora through.
 	for name, inputs := range map[string][]string{
-		"a case supplying nothing at all":  nil,
-		"a case supplying a repository":    {"repo/"},
-		"a seeded store":                   {"repo/", "store/", "store.golden"},
-		"a store on origin alone":          {"repo/", "remote", "remote-store/", "store.golden", "remote.golden"},
-		"a walk up to the git root":        {"repo/", "git", "find-root"},
-		"a directory under no git root":    {"no-git-root"},
-		"a working tree that moved":        {"repo/", "git", "uncommitted/"},
-		"a Store two Runs wrote":           {"repo/", "remote", "store/", "store-unpushed/", "remote-ahead/", "store.golden", "remote.golden"},
-		"a remote that cannot be read":     {"repo/", "remote", "store/", "unfetchable-remote", "store.golden", "remote.golden"},
-		"a remote that rejects every push": {"repo/", "remote", "store/", "remote-ahead/", "reject-pushes", "store.golden", "remote.golden"},
+		"a case supplying nothing at all": nil,
+		"a case supplying a repository":   {"repo/"},
+		"a seeded store":                  {"repo/", "store/", "store.golden"},
+		"a store on origin alone":         {"repo/", "remote", "remote-store/", "store.golden", "remote.golden"},
+		"a walk up to the git root":       {"repo/", "git", "find-root"},
+		"a directory under no git root":   {"no-git-root"},
+		"a working tree that moved":       {"repo/", "git", "uncommitted/"},
+		"two code commits":                {"repo/", "git", "code-baseline/"},
+		// The two compose: `repo_dirty` and *two commits* are two
+		// different facts, and the Comparison's header renders the `+`
+		// on a revision whose window a second commit is what makes
+		// diffable at all (§7, §8, issue #171).
+		"two code commits and a moved tree": {"repo/", "git", "code-baseline/", "uncommitted/"},
+		"a Store two Runs wrote":            {"repo/", "remote", "store/", "store-unpushed/", "remote-ahead/", "store.golden", "remote.golden"},
+		"a remote that cannot be read":      {"repo/", "remote", "store/", "unfetchable-remote", "store.golden", "remote.golden"},
+		"a remote that rejects every push":  {"repo/", "remote", "store/", "remote-ahead/", "reject-pushes", "store.golden", "remote.golden"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if fault := fabricate(t, name, inputs).fixtureInputs().fault(); fault != "" {

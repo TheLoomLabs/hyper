@@ -284,7 +284,7 @@ func WriteTable(w io.Writer, header []string, rows []Row) error {
 func WriteAligned(w io.Writer, indent string, lines [][]string) error {
 	var aligned bytes.Buffer
 	tw := tabwriter.NewWriter(&aligned, 0, 2, 2, ' ', 0)
-	for _, cells := range lines {
+	for _, cells := range opened(lines) {
 		if _, err := fmt.Fprintln(tw, strings.Join(cells, "\t")); err != nil {
 			return err
 		}
@@ -299,4 +299,51 @@ func WriteAligned(w io.Writer, indent string, lines [][]string) error {
 		}
 	}
 	return nil
+}
+
+// opened is the block with every stacked cell opened out: a cell carrying a
+// newline contributes one physical line per segment, and the cells beside it
+// stand empty beneath their own first segment.
+//
+// It is here rather than in the one command that stacks a cell because it is a
+// fact about the alignment: a stacked cell that reached the tabwriter whole
+// would take the width of its longest segment and put the columns to its right
+// on a line of their own, which is the alignment failing rather than a page
+// deciding something. **The column widens and the row wraps** — §8's
+// `THE CODE MOVED` renders a Cadence's expression, phrase and rate stacked in
+// one cell, and a selector's form over its members, and neither is truncated
+// (ADR-0059 governs `FIELDS` and reaches neither).
+//
+// A block with nothing stacked comes back as it went in, which is every page
+// that landed before this one.
+func opened(lines [][]string) [][]string {
+	stacked := false
+	for _, cells := range lines {
+		for _, cell := range cells {
+			stacked = stacked || strings.Contains(cell, "\n")
+		}
+	}
+	if !stacked {
+		return lines
+	}
+
+	var written [][]string
+	for _, cells := range lines {
+		segments := make([][]string, len(cells))
+		deep := 1
+		for i, cell := range cells {
+			segments[i] = strings.Split(cell, "\n")
+			deep = max(deep, len(segments[i]))
+		}
+		for row := range deep {
+			line := make([]string, len(cells))
+			for i, held := range segments {
+				if row < len(held) {
+					line[i] = held[row]
+				}
+			}
+			written = append(written, line)
+		}
+	}
+	return written
 }

@@ -1,0 +1,8 @@
+kind: target-declaration
+target: staging
+class: tailscale
+kinds: [read, mutate, destroy]
+capabilities: [http]
+hosts: [api.tailscale.com]
+auth:
+  token: {env: TAILSCALE_STAGING}

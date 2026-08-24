@@ -1,2 +1,5 @@
 {"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03.000Z","outcome":"completed","ended":"2026-08-04T09:13:51.000Z","procedure_revision":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18.000Z","outcome":"completed","ended":"2026-08-06T11:05:49.000Z","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe","closed_by":[{"run":"01992099-0000-7000-8000-000000000009","outcome":"failed","step":2,"ended":"2026-08-06T11:20:00.000Z"}]}}
+{"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1","to":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}
+{"type":"code","fact":"repository revision","from":"1f0a3d78c2e5b91467af03d28b5c9e610473fa8d","to":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"}
+{"type":"code","fact":"other lines changed","baseline_absent":"not-in-clone","command":"git diff 1f0a3d7 88bc402"}
 {"type":"result","truncated":false}

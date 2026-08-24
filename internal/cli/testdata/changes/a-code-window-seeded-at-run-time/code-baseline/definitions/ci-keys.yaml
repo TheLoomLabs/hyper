@@ -1,0 +1,6 @@
+kind: definition
+definition: ci-keys
+provider: tailscale
+kinds: [mutate]
+destroy: [delete_key]
+targets: [staging]

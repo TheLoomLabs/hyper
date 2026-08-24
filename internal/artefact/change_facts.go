@@ -1,6 +1,7 @@
 package artefact
 
 import (
+	"encoding/json"
 	"slices"
 	"sort"
 	"strings"
@@ -111,6 +112,19 @@ type ChangeFact struct {
 	// which is the difference between ranging over what `hyper` built and
 	// over what it read (§5, §8).
 	Value string
+	// Wire is the value as §8's row stream carries it: **the artefact's own
+	// parsed shape**, in the order the page renders it, and nil where the
+	// artefact states the value by omission — the absence the page renders
+	// `–` and the wire states by writing no member at all.
+	//
+	// It is here rather than composed by a renderer because the page's
+	// notation is that chapter's geometry and never a fact either surface
+	// states (ADR-0059): a ` · `-separated run and a `field operator
+	// operand` line are renderings, and a reader composing the wire out of
+	// them would have to parse its own rendering back — and could not, an
+	// `in:` list and a bare operand rendering alike once a conjunct is one
+	// line of text (fact_wire.go).
+	Wire json.RawMessage
 }
 
 // Written reports whether the artefact writes this fact at all. A fact with no
@@ -170,6 +184,7 @@ func procedureChangeFacts(root *yaml.Node, opens int) []ChangeFact {
 		declared := topLevelFields(root, "cadence")["cadence"]
 		cadence.Lines = scalarFactLines(line, declared)
 		cadence.Value = scalarText(declared)
+		cadence.Wire = jsonNode(declared)
 	}
 	facts = append(facts, cadence)
 	for _, step := range ReadProcedureSteps(root) {
@@ -209,6 +224,7 @@ func stepScalarFact(step Step, key string, entry []*yaml.Node, shape FactShape) 
 	if keyNode, val := entryField(entry, key); keyNode != nil {
 		fact.Lines = scalarFactLines(keyNode.Line, val)
 		fact.Value = scalarText(val)
+		fact.Wire = jsonNode(val)
 	}
 	return fact
 }
@@ -226,7 +242,7 @@ func selectorFact(step Step, entry []*yaml.Node) ChangeFact {
 		return fact
 	}
 	fact.Lines = subtreeLines(keyNode.Line, val)
-	fact.Value, fact.Members = readSelector(val)
+	fact.Value, fact.Members, fact.Wire = readSelector(val)
 	return fact
 }
 
@@ -241,25 +257,42 @@ func selectorFact(step Step, entry []*yaml.Node) ChangeFact {
 // on the rendered line: a predicate list is always AND and does not
 // short-circuit, so conjunct order carries no meaning and two cells can only be
 // differenced by eye where both run in the same order (§8, §12).
-func readSelector(over *yaml.Node) (form string, members []string) {
+func readSelector(over *yaml.Node) (form string, members []string, wire json.RawMessage) {
 	forms := topLevelFields(over, "assets", "observations", "values")
 	if values := forms["values"]; values != nil {
-		return "values", scalarSequence(values)
+		members = scalarSequence(values)
+		written := make([]json.RawMessage, 0, len(values.Content))
+		for _, item := range values.Content {
+			if item.Kind == yaml.ScalarNode {
+				written = append(written, jsonNode(item))
+			}
+		}
+		return "values", members, jsonForm("values", written)
 	}
 	for _, named := range []string{"assets", "observations"} {
 		list := forms[named]
 		if list == nil {
 			continue
 		}
-		for _, conjunct := range list.Content {
-			if rendered := renderPredicate(conjunct); rendered != "" {
-				members = append(members, rendered)
+		type conjunct struct {
+			rendered string
+			node     *yaml.Node
+		}
+		var read []conjunct
+		for _, node := range list.Content {
+			if rendered := renderPredicate(node); rendered != "" {
+				read = append(read, conjunct{rendered: rendered, node: node})
 			}
 		}
-		sort.Strings(members)
-		return named, members
+		sort.Slice(read, func(i, j int) bool { return read[i].rendered < read[j].rendered })
+		written := make([]json.RawMessage, 0, len(read))
+		for _, held := range read {
+			members = append(members, held.rendered)
+			written = append(written, jsonNode(held.node))
+		}
+		return named, members, jsonForm(named, written)
 	}
-	return "", nil
+	return "", nil, nil
 }
 
 // renderPredicate is one conjunct as §8 renders it: `field operator operand`,
@@ -326,6 +359,9 @@ func keyChangeFacts(root *yaml.Node, opens int, keys ...string) []ChangeFact {
 		if line := TopLevelKeyLine(root, key); line > 0 {
 			fact.Lines = memberLines(line, fields[key])
 			fact.Members = sortedSet(scalarSequence(fields[key]))
+			if len(fact.Members) > 0 {
+				fact.Wire = jsonNames(fact.Members)
+			}
 		}
 		facts = append(facts, fact)
 	}
@@ -354,6 +390,9 @@ func operationSetFact(root *yaml.Node, opens int) ChangeFact {
 		}
 	}
 	fact.Members = sortedSet(fact.Members)
+	if len(fact.Members) > 0 {
+		fact.Wire = jsonNames(fact.Members)
+	}
 	return fact
 }
 
@@ -383,12 +422,14 @@ func credentialChangeFacts(root *yaml.Node, opens int) []ChangeFact {
 		if key.Kind != yaml.ScalarNode {
 			continue
 		}
+		variable := envVariable(val)
 		facts = append(facts, ChangeFact{
 			Key:         "credential " + key.Value,
 			SubjectLine: opens,
 			Lines:       subtreeLines(key.Line, val),
 			Shape:       FactScalar,
-			Value:       envVariable(val),
+			Value:       variable,
+			Wire:        jsonText(variable),
 		})
 	}
 	return facts
