@@ -27,9 +27,15 @@ func TestPackage_ReachesNoFileNoSubprocessAndNoClock(t *testing.T) {
 	allowed := map[string]bool{
 		// time is the type an instant is, and never a clock: the two
 		// readings are told apart by the source scan below.
-		`"time"`:   true,
-		`"maps"`:   true,
-		`"slices"`: true,
+		`"time"`:          true,
+		`"bytes"`:         true,
+		`"cmp"`:           true,
+		`"encoding/json"`: true,
+		`"maps"`:          true,
+		`"slices"`:        true,
+		`"strconv"`:       true,
+		`"strings"`:       true,
+		`"unicode/utf8"`:  true,
 		`"github.com/TheLoomLabs/hyper/internal/render"`: true,
 		`"github.com/TheLoomLabs/hyper/internal/store"`:  true,
 	}

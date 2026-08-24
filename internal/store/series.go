@@ -172,6 +172,22 @@ func (s *Store) Read(version Version) (RecordVersion, error) {
 	return read[0], nil
 }
 
+// Contents answers the versions named, whole, in the order they were named, in
+// one batch read.
+//
+// It is Read's shape for many versions rather than one, and it exists for the
+// reason SuppressedFields does: a caller reading the content of a hundred
+// versions one at a time pays a subprocess a hundred times, where the door
+// behind both of them reads the lot in one (readVersions). §8's Comparison is
+// the caller — it reads the two endpoint versions of every eligible identity,
+// so the count is a Run's identity set rather than one Record.
+//
+// The versions are named by the files a listing found them at, so a caller
+// cannot ask for one this Store never answered.
+func (s *Store) Contents(versions []Version) ([]RecordVersion, error) {
+	return s.readVersions(versions)
+}
+
 // readVersions opens the versions named and answers them whole, in the order
 // they were named, in one batch read.
 //

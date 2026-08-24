@@ -10,8 +10,8 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
-// The rows one window answers (§8, issue #167): the `window` row and, once
-// #170 and #171 land, the three tables beneath it.
+// The rows one window answers (§8, issue #167): the `window` row, with the two
+// Record tables beneath it in records_test.go and `THE CODE MOVED` still #171's.
 
 // wire is one row as the --json stream carries it.
 func wire(t *testing.T, row render.Row) string {
@@ -38,7 +38,7 @@ func TestRows_TheWindowRowCarriesBothSidesWhole(t *testing.T) {
 		Procedure: "watch",
 		Baseline:  compare.Side{Present: true, Entry: baseline},
 		Subject:   compare.Side{Present: true, Entry: subject},
-	})
+	}, nil)
 	if len(rows) != 1 {
 		t.Fatalf("Rows() answered %d rows, want the one window row", len(rows))
 	}
@@ -56,7 +56,7 @@ func TestRows_ADirtySideCarriesRepoDirtyAndNeverThePagesSuffix(t *testing.T) {
 	subject.Provenance.ProcedureRevision = "b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"
 	subject.Provenance.RepoDirty = true
 
-	rows := compare.Rows(compare.Window{Procedure: "watch", Subject: compare.Side{Present: true, Entry: subject}})
+	rows := compare.Rows(compare.Window{Procedure: "watch", Subject: compare.Side{Present: true, Entry: subject}}, nil)
 	got := wire(t, rows[0])
 	if !bytes.Contains([]byte(got), []byte(`"procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe","repo_dirty":true`)) {
 		t.Errorf("the window row is\n%s\nwant repo_dirty beside the revision it qualifies, and the revision whole", got)
@@ -70,7 +70,7 @@ func TestRows_NoBaselineWritesNoBaselineMember(t *testing.T) {
 	rows := compare.Rows(compare.Window{
 		Procedure: "watch",
 		Subject:   compare.Side{Present: true, Entry: run("11", "watch", at(9, 0), at(9, 2))},
-	})
+	}, nil)
 	if got := wire(t, rows[0]); bytes.Contains([]byte(got), []byte("baseline")) {
 		t.Errorf("the window row is\n%s\nwant no baseline member at all where there is no baseline", got)
 	}
@@ -84,7 +84,7 @@ func TestRows_AReapedSideCarriesItsClosersAndNoEnd(t *testing.T) {
 	rows := compare.Rows(compare.Window{
 		Procedure: "watch",
 		Subject:   compare.Side{Present: true, Entry: entry, Steps: []store.StepFile{{Step: 1, EndedAt: at(9, 1)}}},
-	})
+	}, nil)
 	got := wire(t, rows[0])
 	if !bytes.Contains([]byte(got), []byte(`"outcome":"failed","procedure_revision"`)) {
 		t.Errorf("the window row is\n%s\nwant no ended member between them: no duration derives, which is what the page renders reaped for", got)
@@ -102,7 +102,7 @@ func TestRows_AContestedSideCarriesTheOwnersOutcomeAndItsClosersBeside(t *testin
 	entry := run("11", "watch", at(9, 0), at(9, 2))
 	entry.Closers = []store.Closer{{Run: runID("09"), ClosedBy: store.ClosedBy{EndedAt: at(23, 0), Step: 3}}}
 
-	rows := compare.Rows(compare.Window{Procedure: "watch", Subject: compare.Side{Present: true, Entry: entry}})
+	rows := compare.Rows(compare.Window{Procedure: "watch", Subject: compare.Side{Present: true, Entry: entry}}, nil)
 	got := wire(t, rows[0])
 	if !bytes.Contains([]byte(got), []byte(`"outcome":"completed","ended":"2026-08-06T09:02:00.000Z"`)) {
 		t.Errorf("the window row is\n%s\nwant the owner's outcome and end, unqualified", got)
@@ -113,7 +113,7 @@ func TestRows_AContestedSideCarriesTheOwnersOutcomeAndItsClosersBeside(t *testin
 }
 
 func TestWindowRow_HasNoLineOfItsOwnInATable(t *testing.T) {
-	rows := compare.Rows(compare.Window{Procedure: "watch", Subject: compare.Side{Present: true, Entry: run("11", "watch", at(9, 0), at(9, 2))}})
+	rows := compare.Rows(compare.Window{Procedure: "watch", Subject: compare.Side{Present: true, Entry: run("11", "watch", at(9, 0), at(9, 2))}}, nil)
 	if cells := rows[0].Cells(); len(cells) != 0 {
 		t.Errorf("Cells() = %v, want none: the header is a block and not a row of a table of like rows", cells)
 	}

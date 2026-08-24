@@ -1,0 +1,21 @@
+{
+  "definition": "uptime",
+  "fields": {
+    "status": 200
+  },
+  "name": "status.hyper.dev",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "c3a17b09e4d582f61b7c0a94d3e85f207c6b1d43",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1",
+    "procedure_revision": "a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1",
+    "repo_revision": "1f0a3d78c2e5b91467af03d28b5c9e610473fa8d"
+  },
+  "record_type": "observation",
+  "run_id": "01991711-0000-7000-8000-00000025f2a8",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-07-18T09:12:03.000Z"
+}

@@ -1,20 +1,23 @@
 # `hyper changes`
 
-§8's Comparison — the window and the header (issue #167). Every case here
-drives `hyper changes` through `cli.Main` from its own `argv` and asserts the
-two streams and the exit code. No case asserts a branch: `changes` writes
-nothing, so a `store.golden` here would hold the seed it was handed.
+§8's Comparison — the window and the header (issue #167), and the two Record
+tables beneath them (issue #170). Every case here drives `hyper changes`
+through `cli.Main` from its own `argv` and asserts the two streams and the exit
+code. No case asserts a branch: `changes` writes nothing, so a `store.golden`
+here would hold the seed it was handed.
 
-**No table stands beneath the header yet.** §8 requires three —
-`YOU DID THIS`, `THE WORLD MOVED` and `THE CODE MOVED` — and they arrive in
-the two tickets this one blocks:
-[#170](https://github.com/TheLoomLabs/hyper/issues/170) for the two Record
-tables and [#171](https://github.com/TheLoomLabs/hyper/issues/171) for the code
-facts, the catch-all and `TOTALS`. Until they land the surface renders nothing
-where they will sit, which is the deferral convention
-[`review`](../review)'s own absent range followed for five milestones — so
-every `stdout.golden` here ends at the header and the case files gain rows
-rather than being rewritten.
+**`THE CODE MOVED` is still absent, and so is `TOTALS`' last segment.** Both
+are [#171](https://github.com/TheLoomLabs/hyper/issues/171)'s, and until they
+land the surface renders nothing where the third table will sit, which is the
+deferral convention [`review`](../review)'s own absent range followed for five
+milestones — so every `stdout.golden` here ends at a four-number `TOTALS`, and
+the case files gain the table and the phrase rather than being rewritten.
+
+**Both Record tables and the `TOTALS` line render on every case, whether or not
+there is a row.** An absent block is ambiguous between *nothing to report* and
+*the renderer had nothing to say*, so every case here that seeds no Record
+renders `0 assets`, `0 observations` and a `TOTALS` of zeros beneath its header
+— which is how a Run whose every Step skipped reads (§8).
 
 ## What a case supplies
 
@@ -28,7 +31,13 @@ Every case that reaches the record carries three inputs, which is
   declaration and a Manifest for them to load against.
 - **`git`**, so the fixture is materialised and the Store has a branch to be.
 - **`store/`**, whose files are `internal/store`'s own canonical encoding at
-  the paths its grammar builds.
+  the paths its grammar builds — or a **`store-from`** naming a seed shared
+  with another case, which is `repo-from`'s shape one branch over. Two seeds
+  here are shared: [`spec-store/`](spec-store), which is §8's own worked
+  Comparison, and [`moved-store/`](moved-store), which is the four forms of a
+  row that example has none of. A page case and its `--json` twin assert two
+  renderings of **one** Store (ADR-0026), which two copies of it would let
+  drift apart.
 
 [`version-pin-mismatch/`](version-pin-mismatch) is the one case with a `repo/`
 of its own, pinning a version this binary is not, and
@@ -107,14 +116,20 @@ revision whole, one fact in the two notations.
 - [`since-after-every-run/`](since-after-every-run) — a window nothing happened
   in. It is an answer at `0` and not an error: the name resolved, and fetching
   nothing is not naming nothing (ADR-0060).
-- [`since-names-the-specs-own-window/`](since-names-the-specs-own-window) —
-  §8's own printed command, over §8's own two Runs and one below them so the
-  instant has a Run on either side of it. Its `stdout.golden` is the block §8
-  prints beside that command, byte for byte. §8's example named
+- [`since-names-the-specs-own-window/`](since-names-the-specs-own-window) and
+  its [`-json` twin](since-names-the-specs-own-window-json) — §8's own printed
+  command, over §8's own two Runs and one below them so the instant has a Run
+  on either side of it. Its `stdout.golden` is the block §8 prints beside that
+  command, byte for byte, `TOTALS`' last segment aside. §8's example named
   `2026-08-04T09:12:00Z`, three seconds **before** its own `BASELINE` started,
   where the prose beside it says *take the last Run **before** that instant*;
   the timestamp was corrected in place in `docs/spec/09-review-and-comparison.md`
-  and this case is what holds the two together.
+  and this case is what holds the two together. §8's three `† confirmed`
+  instants were corrected the same way and for the same kind of reason:
+  `11:02:41`, `11:02:52` and `11:03:09` are **before** the subject Run started
+  at `11:03:18`, and a Tombstone's `written_at` is when the Run that wrote it
+  confirmed the destruction (§7). They now read `11:04:41`, `11:04:52` and
+  `11:05:09`.
 - [`between-names-two-runs/`](between-names-two-runs) — the two Runs named
   directly, baseline first, skipping the Run between them.
 - [`usage-since-and-between/`](usage-since-and-between) — the two together is a
@@ -131,10 +146,52 @@ revision whole, one fact in the two notations.
 - [`a-procedure-with-no-run/`](a-procedure-with-no-run) and
   [`an-empty-store/`](an-empty-store) — the sentence that stands where there is
   no window, naming the Procedure where one was named. Both exit `0`.
-- [`the-narrowing-parameters-are-accepted/`](the-narrowing-parameters-are-accepted)
-  — `--target`, `--kind` and `--limit` narrow the rows of the tables above, and
-  narrow nothing on a page that has none of them yet. The case is what says
-  they are accepted now rather than arriving with the tables.
+
+## The two Record tables
+
+[`spec-store/`](spec-store) is §8's own worked Comparison seeded whole: three
+Runs of `retire-preview-envs`, twelve Observations and eleven Assets, with the
+ordinals §8 prints. Twenty-three conclusions and seven rows is what the
+identity sets buy — a Record that came back unchanged is in the set and mints
+nothing, so it draws no row (ADR-0030, ADR-0058). `TOTALS` counts the rows, so
+the tombstone count is a subset of the asset count and is never added to it.
+
+- [`since-names-the-specs-own-window/`](since-names-the-specs-own-window) and
+  its `-json` twin are that seed rendered: `created`, `changed` and `destroyed`
+  in `YOU DID THIS`, `changed` in `THE WORLD MOVED`, and `ORDINAL` in the forms
+  `n → m` and `– → 1`.
+- [`the-other-forms-of-a-row/`](the-other-forms-of-a-row) and its
+  [`-json` twin](the-other-forms-of-a-row-json), over
+  [`moved-store/`](moved-store), are the four that example has none of:
+  `appeared` at `– → n`, `vanished` at `n → –`, the `destroyed` row of a series
+  a **Tombstone opened** — `– → 1` with an empty `FIELDS`, which is *`hyper`
+  ended a thing it never built* — and a value the budget disqualifies. The
+  budget's three disqualifications are one class: the `user_data` field is over
+  120 characters **and** carries a newline and renders `changed` on the
+  two-sided row, and `stdout` renders its bare `path` on the one-sided one,
+  where `changed` would be false (ADR-0059). Both go out whole on the wire.
+- `cert.hyper.dev` in `moved-store/` stood at both ends and did not move, so it
+  draws no row at all: this surface reports what differs and not what was
+  looked at.
+
+**A partial set and a Disposition carrying no set are not cases here.** Their
+whole content is a row that is *not* drawn, which a golden asserts by being
+identical to one that seeds nothing — so they are held in
+`internal/compare/records_test.go`, where the two sides can be stated beside the
+row they do not draw.
+
+## The narrowing parameters, now that there are rows to narrow
+
+- [`narrowed-by-target/`](narrowed-by-target) — `--target local` is a fact
+  about the **identity**, so it is spent before a series is read and empties
+  `YOU DID THIS` outright.
+- [`narrowed-by-kind/`](narrowed-by-kind) — `--kind asset` is a fact the
+  **version** carries, so it is spent over the rows: the table it names keeps
+  its rows and the other renders its head over none.
+- [`the-limit-cuts-the-tables/`](the-limit-cuts-the-tables) — `--limit 3` cuts
+  the rows of the tables and never a `window` row, and the marker names the
+  **identity** axis with the two parameters that narrow it. The line on stderr
+  is the page's half of the same fact (§9, ADR-0065).
 
 ## The failure paths, and the order between them
 

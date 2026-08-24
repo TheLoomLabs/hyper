@@ -108,6 +108,14 @@ type fixtureInputs struct {
 	// store is a directory whose files become refs/heads/hyper-store's
 	// content before the command runs, built as a parentless commit.
 	store bool
+	// storeFrom is the directory that seed is copied from where the case
+	// carries no store/ of its own: a path relative to the case directory,
+	// named in a store-from file. It is repo-from's shape one branch over
+	// and it is there for the same reason — a Store holding several long
+	// series is a large seed, and a page case and its --json twin assert two
+	// renderings of **one** Store (ADR-0026), which two copies of it would
+	// let drift apart.
+	storeFrom string
 	// remote wires a bare repository as origin, with the code branch pushed
 	// to it.
 	remote bool
@@ -158,8 +166,14 @@ type fixtureInputs struct {
 // that make one. Every case that supplies none of them is driven exactly as it
 // was before this ticket.
 func (in fixtureInputs) materialised() bool {
-	return in.repo && (in.git || in.store || in.remote)
+	return in.repo && (in.git || in.seedsStore() || in.remote)
 }
+
+// seedsStore says the case puts a Store branch on the fixture, from its own
+// store/ or from the one its store-from names. Which of the two it is is
+// storeSeed's, and every other reading here is about there being a branch at
+// all.
+func (in fixtureInputs) seedsStore() bool { return in.store || in.storeFrom != "" }
 
 // fault names what a case asked for that the harness cannot honour, or "" where
 // the inputs are coherent. It is a message rather than a boolean because every
@@ -169,7 +183,7 @@ func (in fixtureInputs) materialised() bool {
 // able to notice.
 func (in fixtureInputs) fault() string {
 	switch {
-	case !in.repo && (in.git || in.store || in.remote || in.remoteStore):
+	case !in.repo && (in.git || in.seedsStore() || in.remote || in.remoteStore):
 		return "asks for a git fixture and carries no repo/ to make one from"
 	case in.uncommitted && !in.materialised():
 		return "carries an uncommitted/ and materialises no repository; there is no commit for its files to differ from"
@@ -177,11 +191,13 @@ func (in fixtureInputs) fault() string {
 		return "seeds hyper-store on origin and wires no origin; remote-store/ needs a remote marker beside it"
 	case in.remoteAhead && !in.remote:
 		return "seeds a commit above the Store on origin and wires no origin; remote-ahead/ needs a remote marker beside it"
-	case in.remoteAhead && !in.store:
+	case in.remoteAhead && !in.seedsStore():
 		return "seeds a commit above the Store on origin and materialises no store/ for it to sit above"
 	case in.remoteAhead && in.remoteStore:
 		return "seeds hyper-store on origin twice, once as a root of its own and once above store/; those are two different remotes"
-	case in.storeUnpushed && !in.store:
+	case in.store && in.storeFrom != "":
+		return "carries a store/ and names a store-from; a branch is built from one seed"
+	case in.storeUnpushed && !in.seedsStore():
 		return "seeds an unpushed commit and materialises no store/ for it to sit above"
 	case in.unfetchableRemote && !in.remote:
 		return "breaks origin's fetch URL and wires no origin; unfetchable-remote needs a remote marker beside it"
@@ -197,6 +213,8 @@ func (in fixtureInputs) fault() string {
 		return "asks for the repository root to be found by walking up and materialises no repository; the walk would climb out of testdata/ and resolve hyper's own root"
 	case in.storeGolden && !in.materialised():
 		return "holds a store.golden and materialises no repository; there is no branch to render"
+	case in.storeGolden && in.storeFrom != "":
+		return "holds a store.golden and names a store-from; the golden is read against the case's own store/ seed, and a shared one has no case to belong to"
 	case in.remoteGolden && !in.remote:
 		return "holds a remote.golden and wires no origin; there is no remote branch to render"
 	}
@@ -209,12 +227,14 @@ func (in fixtureInputs) fault() string {
 // that meant something the harness would otherwise silently not do.
 func (c goldenCase) fixtureInputs() fixtureInputs {
 	from := strings.TrimSpace(readFileAt(filepath.Join(c.dir, "repo-from")))
+	storeFrom := strings.TrimSpace(readFileAt(filepath.Join(c.dir, "store-from")))
 	return fixtureInputs{
 		repo:        isDir(filepath.Join(c.dir, "repo")) || from != "",
 		from:        from,
 		uncommitted: isDir(filepath.Join(c.dir, "uncommitted")),
 		git:         isFile(filepath.Join(c.dir, "git")),
 		store:       isDir(filepath.Join(c.dir, "store")),
+		storeFrom:   storeFrom,
 		remote:      isFile(filepath.Join(c.dir, "remote")),
 		remoteStore: isDir(filepath.Join(c.dir, "remote-store")),
 
@@ -306,8 +326,8 @@ func (c goldenCase) materialise(t *testing.T, in fixtureInputs) gitFixture {
 	// unrelated orphans would be a fixture asserting the retry against a
 	// shape no repository is ever in (§7, ADR-0074).
 	root := ""
-	if in.store {
-		root = fx.commitAbove(t, filepath.Join(c.dir, "store"), "")
+	if in.seedsStore() {
+		root = fx.commitAbove(t, c.storeSeed(t, in), "")
 		fx.run(t, fx.root, "update-ref", store.Ref, root)
 	}
 
@@ -393,6 +413,23 @@ func (c goldenCase) repository(t *testing.T, in fixtureInputs) string {
 	source := c.abs(t, filepath.FromSlash(in.from))
 	if !isDir(source) {
 		t.Fatalf("case %s names repo-from %s, which is not a directory", c.name, in.from)
+	}
+	return source
+}
+
+// storeSeed is the directory the case's Store branch is built from: its own
+// store/, or the one its store-from names. The second is how two cases assert
+// two renderings of one Store — the page and its --json twin — without holding
+// two copies of it, which is repo-from's own argument one branch over.
+func (c goldenCase) storeSeed(t *testing.T, in fixtureInputs) string {
+	t.Helper()
+
+	if in.storeFrom == "" {
+		return filepath.Join(c.dir, "store")
+	}
+	source := c.abs(t, filepath.FromSlash(in.storeFrom))
+	if !isDir(source) {
+		t.Fatalf("case %s names store-from %s, which is not a directory", c.name, in.storeFrom)
 	}
 	return source
 }
@@ -977,7 +1014,7 @@ func (fx gitFixture) assertCommitsAt(t *testing.T, instant time.Time) {
 // nothing else — and a fixture that hung it off the working tree's commit would
 // be seeding a shape the tool will never meet (§7, ADR-0075).
 func TestGoldenFixture_TheStoreBranchIsAParentlessCommit(t *testing.T) {
-	judged := eachMaterialisedCase(t, func(in fixtureInputs) bool { return in.store }, func(t *testing.T, c goldenCase, fx gitFixture) {
+	judged := eachMaterialisedCase(t, func(in fixtureInputs) bool { return in.seedsStore() }, func(t *testing.T, c goldenCase, fx gitFixture) {
 		// The **root** rather than the tip, because a case seeding an
 		// unpushed commit has a branch two commits long and the claim is
 		// about where its history begins: one parentless root, and not
@@ -1106,7 +1143,7 @@ func parseRendering(t *testing.T, rendered string) []renderedFile {
 // with nothing in it is not something a corpus can check in: git tracks files,
 // so an empty store/ would arrive at a fresh clone as no store/ at all.
 func TestGoldenFixture_AnAbsentBranchAndAnEmptyOneAreDifferentAnswers(t *testing.T) {
-	judged := eachMaterialisedCase(t, func(in fixtureInputs) bool { return !in.store }, func(t *testing.T, c goldenCase, fx gitFixture) {
+	judged := eachMaterialisedCase(t, func(in fixtureInputs) bool { return !in.seedsStore() }, func(t *testing.T, c goldenCase, fx gitFixture) {
 		if got := fx.render(t, fx.root); got != absentBranch {
 			t.Errorf("a repository with no Store renders %q, want the marker %q", got, absentBranch)
 		}
@@ -1128,7 +1165,7 @@ func TestGoldenFixture_AnAbsentBranchAndAnEmptyOneAreDifferentAnswers(t *testing
 // author or a date would pin the implementation to a fact the specification
 // does not state — and would move on every machine whose fixture clock did.
 func TestGoldenFixture_NeitherGoldenRendersACommitOrADate(t *testing.T) {
-	judged := eachMaterialisedCase(t, func(in fixtureInputs) bool { return in.store }, func(t *testing.T, c goldenCase, fx gitFixture) {
+	judged := eachMaterialisedCase(t, func(in fixtureInputs) bool { return in.seedsStore() }, func(t *testing.T, c goldenCase, fx gitFixture) {
 		rendered := fx.render(t, fx.root)
 
 		for what, unwanted := range map[string]string{
@@ -1171,7 +1208,7 @@ func TestGoldenFixture_TheCodeBranchReachesTheRemote(t *testing.T) {
 		if held, want := fx.hasStoreBranch(t, fx.origin), in.remoteStore || in.remoteAhead; held != want {
 			t.Errorf("origin holds %s: %v, want %v — the case %s a branch on origin", store.Ref, held, want, seedsOrNot(want))
 		}
-		if held, want := fx.hasStoreBranch(t, fx.root), in.store; held != want {
+		if held, want := fx.hasStoreBranch(t, fx.root), in.seedsStore(); held != want {
 			t.Errorf("the clone holds %s: %v, want %v — the case %s a store/", store.Ref, held, want, seedsOrNot(want))
 		}
 	})

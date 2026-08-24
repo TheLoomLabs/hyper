@@ -1,3 +1,18 @@
   retire-preview-envs
   BASELINE  01991c3a-7d40…  cron           Tue 4 Aug 09:12  completed  1m48s  procedure rev a91f0c2
   SUBJECT   01991ea6-b118…  igor@thinkpad  Thu 6 Aug 11:03  completed  2m31s  procedure rev b0c94f1
+
+  YOU DID THIS   5 assets
+  CHANGE     TARGET   DEFINITION       RECORD        ORDINAL  FIELDS
+  destroyed  staging  hetzner-staging  preview-8801  4 → 5    † confirmed 11:04 · region: fsn1 · server_type: cx22
+  destroyed  staging  hetzner-staging  preview-8802  3 → 4    † confirmed 11:04 · region: fsn1 · server_type: cx22
+  destroyed  staging  hetzner-staging  preview-8806  7 → 8    † confirmed 11:05 · region: fsn1 · server_type: cx22
+  changed    staging  hetzner-staging  preview-8815  9 → 10   labels.retire-after: 2026-08-18 → 2026-08-25
+  created    staging  hetzner-staging  preview-8821  – → 1    region: fsn1 · server_type: cx22
+
+  THE WORLD MOVED   2 observations
+  CHANGE   TARGET  DEFINITION  RECORD            ORDINAL  FIELDS
+  changed  local   uptime      cert.hyper.dev    22 → 23  days_left: 41 → 34
+  changed  local   uptime      status.hyper.dev  22 → 23  status: 200 → 503
+
+  TOTALS  7 changes · 5 asset · 2 observation · 3 tombstone

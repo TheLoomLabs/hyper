@@ -717,6 +717,16 @@ file it is rather than which key it holds. It is also every *attempted, world un
 set is absent by construction (§7). Nothing renders *vanished* on their account and an identity
 returning next Run renders no *appeared* on it either.
 
+***Never reached* is the third, and it is read off a silence rather than off a file** (§7). Inside an
+entry whose Run did not reach its end, a Step the entry holds no record for is one that Run never
+reached, and it carries no set like the other two. Inside a `completed` one the same silence is a Step
+that Run's revision did not declare — not a silence at all, but an **absence of sight**, which is
+exactly what *appeared* and *vanished* report: the first Run of a Procedure is that case at its
+cleanest, where the baseline holds no record of any Step and every Observation the subject read
+*appeared*. The two are told apart by the outcome and by nothing costlier, a Run that completed having
+reached every Step it declared; resolving the Procedure at the baseline's revision to ask which Steps
+existed would be this table reading bytes to name a row, on a surface whose other rows read none.
+
 The three tables never join an Observation series to an Asset series. That join is the drift detection
 `hyper` has no engine for and never performs (ADR-0010).
 
@@ -964,9 +974,9 @@ $ hyper changes --since 2026-08-05T00:00:00Z
 
   YOU DID THIS   5 assets
   CHANGE     TARGET   DEFINITION       RECORD        ORDINAL  FIELDS
-  destroyed  staging  hetzner-staging  preview-8801  4 → 5    † confirmed 11:02 · region: fsn1 · server_type: cx22
-  destroyed  staging  hetzner-staging  preview-8802  3 → 4    † confirmed 11:02 · region: fsn1 · server_type: cx22
-  destroyed  staging  hetzner-staging  preview-8806  7 → 8    † confirmed 11:03 · region: fsn1 · server_type: cx22
+  destroyed  staging  hetzner-staging  preview-8801  4 → 5    † confirmed 11:04 · region: fsn1 · server_type: cx22
+  destroyed  staging  hetzner-staging  preview-8802  3 → 4    † confirmed 11:04 · region: fsn1 · server_type: cx22
+  destroyed  staging  hetzner-staging  preview-8806  7 → 8    † confirmed 11:05 · region: fsn1 · server_type: cx22
   changed    staging  hetzner-staging  preview-8815  9 → 10   labels.retire-after: 2026-08-18 → 2026-08-25
   created    staging  hetzner-staging  preview-8821  – → 1    region: fsn1 · server_type: cx22
 
@@ -1371,9 +1381,9 @@ $ hyper review procedures/retire-preview-envs.yaml --json
 ```
 $ hyper changes --since 2026-08-05T00:00:00Z --json
 {"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","outcome":"completed","procedure_revision":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","outcome":"completed","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}}
-{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_ordinal":4,"to_ordinal":5,"confirmed_at":"2026-08-06T11:02:41Z","fields":{"region":"fsn1","server_type":"cx22"}}
-{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_ordinal":3,"to_ordinal":4,"confirmed_at":"2026-08-06T11:02:52Z","fields":{"region":"fsn1","server_type":"cx22"}}
-{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_ordinal":7,"to_ordinal":8,"confirmed_at":"2026-08-06T11:03:09Z","fields":{"region":"fsn1","server_type":"cx22"}}
+{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_ordinal":4,"to_ordinal":5,"confirmed_at":"2026-08-06T11:04:41Z","fields":{"region":"fsn1","server_type":"cx22"}}
+{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_ordinal":3,"to_ordinal":4,"confirmed_at":"2026-08-06T11:04:52Z","fields":{"region":"fsn1","server_type":"cx22"}}
+{"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_ordinal":7,"to_ordinal":8,"confirmed_at":"2026-08-06T11:05:09Z","fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"asset","change":"changed","target":"staging","definition":"hetzner-staging","name":"preview-8815","from_ordinal":9,"to_ordinal":10,"fields":{"labels.retire-after":["2026-08-18","2026-08-25"]}}
 {"type":"asset","change":"created","target":"staging","definition":"hetzner-staging","name":"preview-8821","to_ordinal":1,"fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"observation","change":"changed","target":"local","definition":"uptime","name":"cert.hyper.dev","from_ordinal":22,"to_ordinal":23,"fields":{"days_left":[41,34]}}

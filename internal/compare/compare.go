@@ -17,11 +17,9 @@
 // call rather than contain, exactly as it calls `internal/run` and
 // `internal/store`.
 //
-// This ticket is the window and the header. The three tables it stands above
-// are [#170](https://github.com/TheLoomLabs/hyper/issues/170) —
-// `YOU DID THIS` and `THE WORLD MOVED` — and
-// [#171](https://github.com/TheLoomLabs/hyper/issues/171) — `THE CODE MOVED`
-// and `TOTALS`.
+// What stands here is the window and the header (#167) and the two Record
+// tables beneath them (#170). `THE CODE MOVED` and `TOTALS`' last segment are
+// [#171](https://github.com/TheLoomLabs/hyper/issues/171)'s.
 package compare
 
 import (

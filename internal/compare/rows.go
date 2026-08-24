@@ -5,20 +5,29 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
-// The Comparison's rows (§8, issue #167). One list, written twice — as the page
-// and as the `--json` stream — so the two surfaces cannot state different
-// things (ADR-0026).
+// The Comparison's rows (§8, issues #167 and #170). One list, written twice —
+// as the page and as the `--json` stream — so the two surfaces cannot state
+// different things (ADR-0026).
 
-// Rows answers the ordered rows of one window.
+// Rows answers the ordered rows of one window: the `window` row, then the rows
+// of `YOU DID THIS`, then the rows of `THE WORLD MOVED`.
 //
-// It is the `window` row alone in this milestone's fifth ticket. The three
-// tables that stand beneath it are #170 — `YOU DID THIS` and `THE WORLD
-// MOVED` — and #171 — `THE CODE MOVED`, the catch-all and `TOTALS`. Until they
-// land the surface renders nothing where they will sit rather than an empty
-// header, which is the deferral convention the review's own absent range
-// followed for five milestones.
-func Rows(window Window) []render.Row {
-	return []render.Row{windowRowOf(window)}
+// records is what the caller read for the identities Eligible named — the two
+// endpoints of each, and what they projected. Nothing here opens a file: which
+// identities are eligible and which version stands at each end are this
+// package's (Eligible, Endpoint), and the bytes behind them are the Store's.
+//
+// **The order is the page's and it is a contract rather than a consequence**
+// (§8, ADR-0026): a row goes out on its own line, there is no cursor behind the
+// stream, and a consumer cannot re-sort what it has already printed.
+//
+// `THE CODE MOVED` is #171's, and until it lands the surface renders nothing
+// where it will sit rather than an empty header. `TOTALS` gets no row here or
+// anywhere: §8's stream carries the rows of the tables and the `window` row
+// above them and no `totals` object, that line being those rows counted rather
+// than a fact of its own (internal/cli's totalsLine).
+func Rows(window Window, records []Record) []render.Row {
+	return append([]render.Row{windowRowOf(window)}, changeRowsOf(window, records)...)
 }
 
 // WindowRow is the Comparison's header: which two Runs are being compared, and

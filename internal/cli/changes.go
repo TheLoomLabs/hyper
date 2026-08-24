@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/compare"
@@ -34,18 +35,14 @@ var changesParameters = parameters{
 }
 
 // RunChanges implements `hyper changes [procedure]` — §8's Comparison: which
-// two Runs are being compared, and everything the header says about them
-// (issue #167).
+// two Runs are being compared, everything the header says about them, and the
+// two Record tables beneath it (issues #167 and #170).
 //
-// **This ticket is the window and the header, and no table stands beneath them
-// yet.** §8 requires three — `YOU DID THIS`, `THE WORLD MOVED` and `THE CODE
-// MOVED` — and they arrive in the two tickets this one blocks:
-// [#170](https://github.com/TheLoomLabs/hyper/issues/170) for the two Record
-// tables and [#171](https://github.com/TheLoomLabs/hyper/issues/171) for the
-// code facts, the catch-all and `TOTALS`. Until they land the surface renders
-// nothing where they will sit rather than an empty header, which is the
-// deferral convention `review`'s own absent range followed for five
-// milestones.
+// **`THE CODE MOVED` is still absent, and so is `TOTALS`' last segment.** Both
+// are [#171](https://github.com/TheLoomLabs/hyper/issues/171)'s, and until they
+// land the surface renders nothing where the third table will sit rather than
+// an empty header, which is the deferral convention `review`'s own absent range
+// followed for five milestones.
 //
 // **The derivation is `internal/compare`'s and this is flags, the lookups and
 // the page.** That package opens no file, starts no subprocess and reads no
@@ -58,13 +55,12 @@ var changesParameters = parameters{
 // Store at all, and `store-absent` Refuses `77` only once the name is known to
 // be one (§9, ADR-0060).
 //
-// `--target` and `--kind` narrow the rows of the tables above. They are read
-// and validated here — the set `--kind` closes is where a third name becomes a
-// usage error rather than an empty answer — and they narrow nothing yet
-// because there is nothing yet to narrow; the header they stand over is not
-// theirs to cut. `--limit` is the same: it cuts the first N of §8's table
-// ordering, and this milestone's fifth ticket emits no row that ordering
-// ranges over, so every stream here terminates in the bare `false`.
+// **`--target`, `--kind` and `--limit` narrow the two Record tables and never
+// the header.** The header orients a reader between two Runs, and a narrowing
+// that cut it would answer a question about a window the caller did not ask
+// about (§8). `--kind` is validated at the flag rather than at the table, which
+// is where a third name becomes a usage error instead of an empty answer, and
+// the cap is applied to one row list before either rendering (ADR-0026).
 //
 // It is not a Run: it writes nothing, terminates its stream with `result`
 // rather than `outcome`, and exits 0 whatever outcomes the entries it named
@@ -126,19 +122,83 @@ func RunChanges(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	if code != 0 {
 		return code
 	}
-	rows, err := comparisonRows(held, windows)
+	rows, err := comparisonRows(held, windows, changeNarrowingsOf(parsed))
 	if err != nil {
 		return reportReadStoreFault(changesCommand, stderr, err)
 	}
+	kept, left := cutChangeRows(rows, parsed.limit)
 
-	// The two renderings are one list of rows written twice (ADR-0026): the
-	// page and the --json stream state the same facts because they are built
-	// from one row set.
+	// The two renderings are one list of rows written twice (ADR-0026), and
+	// the cut is applied before either of them: the page and the --json
+	// stream state the same facts because they are built from one row set,
+	// cut in one place.
 	page := func(w io.Writer, rows []render.Row) error { return changesPage(w, rows, noWindowLine(named, parsed)) }
-	if code := writeAnswer(changesCommand, stdout, stderr, parsed.json, rows, render.NewResultRow(false), page); code != 0 {
+	if code := writeAnswer(changesCommand, stdout, stderr, parsed.json, kept, changesTerminal(left), page); code != 0 {
 		return code
 	}
+
+	// The human counterpart of the marker is a line on stderr, in both
+	// modes, because it is narration rather than an answer (§9). A truncated
+	// result must never look complete, and a table that simply stopped after
+	// the last row it was allowed would be one.
+	if left.dropped > 0 {
+		fmt.Fprintf(stderr, "hyper %s: %s\n", changesCommand, truncationLine("Records", left.returned, left.returned+left.dropped, parsed, changesNarrowing))
+	}
 	return ExitClean
+}
+
+// changesNarrowing is what a truncated Comparison says to do next: the two
+// parameters that narrow the identity axis, which is the axis the two Record
+// tables order on and therefore the one a cap cuts.
+//
+// It is the command's own words rather than the renderer's, because the
+// parameters that narrow an axis differ by which command was called — a caller
+// pointed at `--definition` here would go looking for a flag `changes` does not
+// take (§9, §12, ADR-0065).
+//
+// `--since` and `--between` are not among them, and their absence is the rule
+// rather than an oversight: they move the **window**, which is which two Runs
+// are compared, and what a cap cut here is Records inside one window.
+const changesNarrowing = "narrow with --target or --kind"
+
+// changeNarrowing is what the caller narrowed the two Record tables by: §9's
+// two typed, closed parameters for this surface, read off the arguments once.
+//
+// They are one value rather than two reads of `commandArgs` because they are
+// applied in two different places for one reason each, and a page that narrowed
+// on one of them in only one of those places would report a Comparison the
+// caller did not ask for.
+type changeNarrowing struct {
+	// target is `--target`, matched byte-exact over UTF-8 as every name
+	// comparison in §9 is. It is a fact about the **identity**, so it is
+	// spent before a series is read.
+	target string
+	// recordKind is `--kind`, one of §7's two Record types. It is a fact the
+	// **version** carries — which of the two tables a row belongs to — so it
+	// is spent over the rows rather than over the identities (§8, ADR-0025).
+	recordKind store.RecordType
+}
+
+// changeNarrowingsOf reads the two off the arguments, which is where every
+// other command in §9's Inspection section reads its own (recordNarrowingsOf).
+func changeNarrowingsOf(parsed commandArgs) changeNarrowing {
+	return changeNarrowing{target: parsed.target, recordKind: parsed.recordKind}
+}
+
+// keepsIdentity answers whether an identity survives `--target`.
+func (n changeNarrowing) keepsIdentity(id store.Identity) bool {
+	return n.target == "" || id.Target == n.target
+}
+
+// keepsRow answers whether a row survives `--kind`.
+//
+// A row's type is the Record type of the version standing at it, which is what
+// the two tables are split by: `asset` keeps `YOU DID THIS` and `observation`
+// keeps `THE WORLD MOVED` (ADR-0026). A row that is neither — the `window` row
+// — is not what this narrows and is kept whatever was named.
+func (n changeNarrowing) keepsRow(row render.Row) bool {
+	change, is := tableRow(row)
+	return !is || n.recordKind == "" || change.Type == string(n.recordKind)
 }
 
 // resolveProcedureName holds the positional to the namespace it resolves
@@ -281,32 +341,232 @@ func entryNamed(entries []store.Entry, id string) (store.Entry, bool) {
 // the windows were chosen.
 //
 // This is where the Store reads `internal/compare` is handed happen, and it
-// makes exactly the one that is needed. A window's end is an instant, and on
-// every entry that gave an account of its own end that instant is in the
-// account: only a **reaped** end — one whose sole account is a `closed-by/`
-// file — is the last Step file's `ended_at`, and that is the one end whose
-// Step records have to be read (compare.Side.Instant).
+// makes three: the Step records of every end, the branch's Record listing, and
+// the content of the versions the endpoints landed on.
 //
-// So a Comparison of two ordinary Runs opens no Step file at all. The tables
-// #170 and #171 add read the identity sets off both ends and will widen this
-// to every end; widening it now would pay a Journal's Step files to fill a
-// member nothing on this page renders.
-func comparisonRows(held *store.Store, windows []compare.Window) ([]render.Row, error) {
-	var rows []render.Row
-	for _, window := range windows {
-		for _, side := range []*compare.Side{&window.Baseline, &window.Subject} {
-			if !side.Present || !side.Reaped() {
-				continue
-			}
-			records, err := held.Dispositions(side.Entry)
-			if err != nil {
+// **The Step records are read for every end now, where #167 read only a reaped
+// one.** The two Record tables above are eligible over the identity sets those
+// records carry (ADR-0058), so a Comparison of two ordinary Runs opens their
+// Step files where it used to open none — and where a record carries a digest
+// and no members, the set is read off the Run that last wrote them, which is a
+// walk of the Journal (§7, ADR-0055, resolveMembers).
+//
+// **The versions are one listing for the invocation and one batch read per
+// window.** `store.Store.Records` lists the branch once however many windows a
+// fold renders, the Head derivation reading a whole series either way, and
+// `store.Store.Contents` opens one window's endpoint versions in one go — so
+// the cost is bytes rather than a subprocess per identity, which is the trade
+// the Version/RecordVersion split exists for (§7).
+func comparisonRows(held *store.Store, windows []compare.Window, narrowing changeNarrowing) ([]render.Row, error) {
+	if len(windows) == 0 {
+		return nil, nil
+	}
+	for i := range windows {
+		for _, side := range []*compare.Side{&windows[i].Baseline, &windows[i].Subject} {
+			if err := readDispositions(held, side); err != nil {
 				return nil, err
 			}
-			side.Steps = records.Steps
 		}
-		rows = append(rows, compare.Rows(window)...)
+	}
+
+	// One listing of the branch, however many windows this invocation
+	// renders, and never one per identity: the Head derivation reads a
+	// whole series either way, and a per-identity listing would be a
+	// subprocess per Record (§7, store.Records).
+	listed, err := held.Records()
+	if err != nil {
+		return nil, err
+	}
+	series := map[store.Identity]store.Series{}
+	for _, record := range listed {
+		series[record.Identity] = record
+	}
+
+	var rows []render.Row
+	for _, window := range windows {
+		records, err := comparisonRecords(held, window, series, narrowing)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range compare.Rows(window, records) {
+			if narrowing.keepsRow(row) {
+				rows = append(rows, row)
+			}
+		}
 	}
 	return rows, nil
+}
+
+// tableRow answers whether a row is one of the two Record tables' — and which
+// table, the type being the split (§8, compare.ChangeRow).
+//
+// It is one predicate rather than a type assertion at each of the four sites
+// that ask: the cut, the count, the rows one window's block renders and
+// `--kind`. A stream carries the `window` row beside them and will carry
+// #171's, so *is this a row a table holds* is a question this page asks
+// repeatedly and must answer identically each time.
+func tableRow(row render.Row) (compare.ChangeRow, bool) {
+	change, is := row.(compare.ChangeRow)
+	return change, is
+}
+
+// changeCut is what a cap left of the two Record tables: how many of their rows
+// came back and how many it dropped.
+//
+// It is a value rather than two returns for `records`' own reason one file
+// over: the same pair is read by the marker on the wire and by the line on
+// stderr, and a caller recomputing one of them from the row list is a caller
+// free to count something else (`cut`, records.go).
+type changeCut struct{ returned, dropped int }
+
+// cutChangeRows applies `--limit` to the two Record tables and to nothing else.
+//
+// The cap counts the rows of the tables, in the order the page renders them,
+// and every `window` row survives it: a header is not a row a cap cuts, and a
+// Comparison whose cap fell on its own headers would report a window it did not
+// render (§8, §9). What that leaves is a page whose last window may render its
+// tables empty where the cap fell before them, and the marker on the wire and
+// the line on stderr are what say so — a truncated result must never look
+// complete, and there is no cursor behind this stream (ADR-0065).
+//
+// A limit of none is the flag left off and cuts nothing, which is what every
+// other cut on these surfaces means by it (truncate, cutIdentities).
+func cutChangeRows(rows []render.Row, limit int) (kept []render.Row, left changeCut) {
+	for _, row := range rows {
+		if _, is := tableRow(row); !is {
+			kept = append(kept, row)
+			continue
+		}
+		if limit > 0 && left.returned == limit {
+			left.dropped++
+			continue
+		}
+		left.returned++
+		kept = append(kept, row)
+	}
+	return kept, left
+}
+
+// changesTerminal is the row every stream here ends with: the marker where the
+// cap cut the tables, and the bare `false` where it did not.
+//
+// The marker names the **identity** axis, which is the axis the two Record
+// tables order on and therefore the one a cap cuts (§12, ADR-0065). It is the
+// object shape and never the bare `true`: this command has parameters that
+// narrow what it cut, so a boolean here would hand back a truncated result with
+// no next question in it.
+func changesTerminal(left changeCut) render.Row {
+	if left.dropped == 0 {
+		return render.NewResultRow(false)
+	}
+	return render.NewTruncatedResultRow(render.TruncationMarker{
+		Axis:     render.AxisIdentity,
+		Returned: left.returned,
+		Dropped:  left.dropped,
+		Hint:     changesNarrowing,
+	})
+}
+
+// readDispositions fills one side's Step records, with every identity set
+// resolved to its members.
+//
+// A set whose digest did not move is written in an earlier entry and reading it
+// back is a walk of the Journal (§7, ADR-0055). `internal/compare` is handed
+// the answer rather than the Store, so the walk happens here — the same walk
+// `show` makes for the same member, through the same door.
+func readDispositions(held *store.Store, side *compare.Side) error {
+	if !side.Present {
+		return nil
+	}
+	dispositions, err := held.Dispositions(side.Entry)
+	if err != nil {
+		return err
+	}
+	side.Steps = dispositions.Steps
+	for i, step := range side.Steps {
+		if step.Identities.Digest == "" || step.Identities.Members != nil {
+			continue
+		}
+		members, _, err := resolveMembers(held, side.Entry, step)
+		if err != nil {
+			return err
+		}
+		side.Steps[i].Identities.Members = members
+	}
+	return nil
+}
+
+// comparisonRecords is one window's eligible identities with both ends read for
+// each: the version standing at each end's instant, and what that version
+// projected.
+//
+// **`--target` narrows here rather than over the rows**, being a fact about the
+// identity and not about what happened to it: an identity another Target owns
+// is one this call never reads a series for. `--kind` narrows over the rows,
+// the Record type being a fact the version carries and not the identity
+// (changeNarrowing).
+func comparisonRecords(held *store.Store, window compare.Window, series map[store.Identity]store.Series, narrowing changeNarrowing) ([]compare.Record, error) {
+	var records []compare.Record
+	var wanted []store.Version
+	for _, id := range compare.Eligible(window) {
+		if !narrowing.keepsIdentity(id) {
+			continue
+		}
+		standing := series[id]
+		record := compare.Record{Identity: id}
+		record.Baseline.Version, record.Baseline.Held = compare.Endpoint(window.Baseline, standing)
+		record.Subject.Version, record.Subject.Held = compare.Endpoint(window.Subject, standing)
+		if record.Baseline.Held {
+			wanted = append(wanted, record.Baseline.Version)
+		}
+		if record.Subject.Held {
+			wanted = append(wanted, record.Subject.Version)
+		}
+		records = append(records, record)
+	}
+
+	projected, err := projectedFields(held, wanted)
+	if err != nil {
+		return nil, err
+	}
+	for i, record := range records {
+		if record.Baseline.Held {
+			records[i].Baseline.Fields = projected[record.Baseline.Version.File]
+		}
+		if record.Subject.Held {
+			records[i].Subject.Fields = projected[record.Subject.Version.File]
+		}
+	}
+	return records, nil
+}
+
+// projectedFields is the content of every version named, keyed by the file it
+// sits at.
+//
+// It is one batch read for the whole answer, so what an endpoint's `fields`
+// costs is bytes and never a subprocess per row (store.Contents). The two ends
+// of an unchanged Record are one version, and it is read once: the key is the
+// file, which is what names a version to git.
+func projectedFields(held *store.Store, versions []store.Version) (map[string]store.Mapping, error) {
+	var wanted []store.Version
+	seen := map[string]bool{}
+	for _, version := range versions {
+		if seen[version.File] {
+			continue
+		}
+		seen[version.File] = true
+		wanted = append(wanted, version)
+	}
+
+	read, err := held.Contents(wanted)
+	if err != nil {
+		return nil, err
+	}
+	projected := make(map[string]store.Mapping, len(read))
+	for i, version := range read {
+		projected[wanted[i].File] = version.Fields
+	}
+	return projected, nil
 }
 
 // changesPage is the Comparison's page: one block per window, and the sentence
@@ -318,7 +578,7 @@ func comparisonRows(held *store.Store, windows []compare.Window) ([]render.Row, 
 // across windows with different baselines (§8).
 func changesPage(w io.Writer, rows []render.Row, noWindow string) error {
 	written := 0
-	for _, row := range rows {
+	for i, row := range rows {
 		window, is := row.(compare.WindowRow)
 		if !is {
 			continue
@@ -328,7 +588,7 @@ func changesPage(w io.Writer, rows []render.Row, noWindow string) error {
 				return err
 			}
 		}
-		if err := writeWindowBlock(w, window); err != nil {
+		if err := writeWindowBlock(w, window, changeRowsUnder(rows[i+1:])); err != nil {
 			return err
 		}
 		written++
@@ -338,6 +598,24 @@ func changesPage(w io.Writer, rows []render.Row, noWindow string) error {
 	}
 	_, err := fmt.Fprintln(w, noWindow)
 	return err
+}
+
+// changeRowsUnder is the rows of one window's tables: everything up to the next
+// window and no further.
+//
+// The stream's order is the page's, so a window's rows are the run that follows
+// it — which is the contract §8 fixes rather than a consequence of how this
+// happens to be built (ADR-0026).
+func changeRowsUnder(rows []render.Row) []compare.ChangeRow {
+	var under []compare.ChangeRow
+	for _, row := range rows {
+		change, is := tableRow(row)
+		if !is {
+			break
+		}
+		under = append(under, change)
+	}
+	return under
 }
 
 // noWindowLine is what stands where no window could be named, and it says which
@@ -360,9 +638,12 @@ func noWindowLine(named string, parsed commandArgs) string {
 	return of + " in this repository's Store — the " + store.BranchName + " branch is that namespace"
 }
 
-// writeWindowBlock writes one window's header: the Procedure it is of, the two
-// Runs, and one stated line per closing write beneath them.
-func writeWindowBlock(w io.Writer, window compare.WindowRow) error {
+// writeWindowBlock writes one window: the Procedure it is of, the two Runs, one
+// stated line per closing write beneath them, and the two Record tables.
+//
+// `THE CODE MOVED` and `TOTALS` are #171's, and until they land the block ends
+// at the second table rather than at an empty header.
+func writeWindowBlock(w io.Writer, window compare.WindowRow, rows []compare.ChangeRow) error {
 	if _, err := fmt.Fprintln(w, changesIndent+window.Procedure); err != nil {
 		return err
 	}
@@ -374,7 +655,139 @@ func writeWindowBlock(w io.Writer, window compare.WindowRow) error {
 			return err
 		}
 	}
-	return nil
+	for _, table := range []struct {
+		head string
+		kind store.RecordType
+	}{
+		{youDidThis, store.RecordAsset},
+		{theWorldMoved, store.RecordObservation},
+	} {
+		if err := writeChangeTable(w, table.head, table.kind, rowsOfKind(rows, table.kind)); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprintln(w); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(w, changesIndent+totalsLine(rows))
+	return err
+}
+
+// totalsLine is what stands beneath a window's tables: how many rows are on the
+// page above it.
+//
+// **It counts rows** (ADR-0058), so the line totals what a reader can see and a
+// Record changed and destroyed in one window counts once. `changes` is the
+// asset rows plus the observation rows; **the tombstone count is a subset of
+// the asset count and is never added to it**, a Tombstone being a marker inside
+// the Asset table rather than a class of its own (§7, §8, ADR-0033).
+//
+// **All four numbers render, `0` included**, so the line is scanned rather than
+// parsed. There is no grand total across windows: a fold renders this line per
+// block, and summing across windows with different baselines is the
+// cross-Procedure reading the window rule refuses (§8).
+//
+// **The last segment is #171's.** It is a phrase and not a count — summing a
+// classed fact, a repository revision and a line count into one integer is
+// three incommensurable things under one head — and it arrives with the table
+// it reports on, `TOTALS` gaining a segment rather than being rewritten.
+//
+// It has no row of its own on the wire. §8's stream carries the rows of the
+// tables and the `window` row above them and no `totals` object, this line
+// being those rows counted rather than a fact of its own — and a consumer
+// counting what it was handed cannot disagree with the page about it
+// (ADR-0026).
+func totalsLine(rows []compare.ChangeRow) string {
+	assets, observations, tombstones := 0, 0, 0
+	for _, row := range rows {
+		if row.Type != string(store.RecordAsset) {
+			observations++
+			continue
+		}
+		assets++
+		if row.Change == string(compare.ChangeDestroyed) {
+			tombstones++
+		}
+	}
+	return fmt.Sprintf("%s%s%d changes%s%d asset%s%d observation%s%d tombstone",
+		totalsLabel, totalsGap,
+		assets+observations, factMemberGap,
+		assets, factMemberGap,
+		observations, factMemberGap,
+		tombstones)
+}
+
+// rowsOfKind is one table's rows: the ones whose Record type names it.
+func rowsOfKind(rows []compare.ChangeRow, kind store.RecordType) []render.Row {
+	var held []render.Row
+	for _, row := range rows {
+		if row.Type == string(kind) {
+			held = append(held, row)
+		}
+	}
+	return held
+}
+
+// writeChangeTable writes one of the two Record tables: a blank line, the
+// table's own head and count, and then the rows.
+//
+// **The head and the count render whether or not the table holds a row.** An
+// absent block is ambiguous between *nothing to report* and *the renderer had
+// nothing to say*, which is the ambiguity every named absence on these surfaces
+// refuses to leave standing — and two zero-row tables is how a Run whose every
+// Step skipped reads (§8).
+//
+// The column header stands over the rows and not over their absence, which is
+// the renderer's own rule: a page whose rows contribute no line is written as
+// nothing, header included, and what stands in its place is the command's own
+// (render.WriteTable). Here that is the count line above, which has already
+// said *none*.
+func writeChangeTable(w io.Writer, head string, kind store.RecordType, rows []render.Row) error {
+	if _, err := fmt.Fprintln(w); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "%s%s%s%s\n", changesIndent, head, changeTableGap, countOf(len(rows), string(kind))); err != nil {
+		return err
+	}
+	return render.WriteTable(indented{w: w, indent: changesIndent}, changeColumns, rows)
+}
+
+// countOf is a count and the noun it counts, pluralised. Zero takes the plural,
+// which is what English does and what keeps the line scanned rather than read.
+func countOf(counted int, noun string) string {
+	if counted == 1 {
+		return "1 " + noun
+	}
+	return strconv.Itoa(counted) + " " + noun + "s"
+}
+
+// indented is a writer that puts this page's left margin in front of every line
+// written through it.
+//
+// It exists because `render.WriteTable` writes a table at no indent and this
+// page is a block with a margin — the same margin `review` renders with, §8's
+// other block-shaped page. The alternative is a second alignment path for one
+// prefix, and one path from cells to bytes is what the renderer holds
+// (ADR-0026).
+type indented struct {
+	w      io.Writer
+	indent string
+}
+
+// Write puts the indent in front of the line and hands the rest on.
+//
+// It is called once per line by the renderer, which writes through
+// `fmt.Fprintln` — a line at a time, terminated — so nothing here reassembles a
+// line out of pieces. A write that is not a line is passed through unchanged
+// rather than guessed at.
+func (i indented) Write(p []byte) (int, error) {
+	if len(p) == 0 || p[len(p)-1] != '\n' {
+		return i.w.Write(p)
+	}
+	if _, err := io.WriteString(i.w, i.indent); err != nil {
+		return 0, err
+	}
+	return i.w.Write(p)
 }
 
 // writeHeaderLines writes the two lines that name the Runs, aligned against one
@@ -543,6 +956,23 @@ const (
 	// changesReaped is what stands in the duration cell of an entry whose
 	// only account is a closing write: the word, and never a dash (§8).
 	changesReaped = "reaped"
+	// youDidThis and theWorldMoved are the two Record tables' heads, one per
+	// actor and Assets first. The split is by actor rather than by field,
+	// and Asset against Observation is two tables rather than one column
+	// with two values (§8, ADR-0026).
+	youDidThis    = "YOU DID THIS"
+	theWorldMoved = "THE WORLD MOVED"
+	// totalsLabel and totalsGap are the line beneath the tables. The gap is
+	// two spaces where a table's head takes three, which is §8's own
+	// rendering: the label is shorter and the line is one segment run
+	// rather than a head over a table.
+	totalsLabel = "TOTALS"
+	totalsGap   = "  "
+	// changeTableGap stands between a table's head and its count. It is a
+	// fixed gap and not an alignment: the two heads are different lengths
+	// and their counts are not a column, each line being a sentence about
+	// its own table.
+	changeTableGap = "   "
 	// baselineLabel and subjectLabel are the header's two rows, named once.
 	// They are the label a line carries and the noun a stated line beneath
 	// the header names it by, and two spellings of one label is where the
@@ -550,3 +980,8 @@ const (
 	baselineLabel = "BASELINE"
 	subjectLabel  = "SUBJECT"
 )
+
+// changeColumns is the head of both Record tables: the row's own members in the
+// row's own order. One head for the two tables, because one row type carries
+// them and the split is by actor rather than by column (§8, compare.ChangeRow).
+var changeColumns = []string{"CHANGE", "TARGET", "DEFINITION", "RECORD", "ORDINAL", "FIELDS"}
