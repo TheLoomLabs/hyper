@@ -393,10 +393,11 @@ the binary rather than authored anywhere, and §11 states that whole set and wha
 **The deepen step is what makes the Comparison legible on a runner**, and it is there because
 `actions/checkout` defaults to one commit. `hyper changes` reads bytes at the baseline Run's revisions,
 and a blob id is content-addressed, so on a shallow clone the object is present exactly where the
-artefact did not move and absent exactly where it did: five of the nine code classes and the whole line
+artefact did not move and absent exactly where it did: eight of the nine code classes and the whole line
 count would go unread on every window that had something in it, and a Target declaration — which carries
 no Provenance member at all — would move without a single row saying so (§8,
-[ADR-0071](../adr/0071-a-missing-git-object-is-an-absence-to-name-never-a-supply-to-substitute.md)).
+[ADR-0071](../adr/0071-a-missing-git-object-is-an-absence-to-name-never-a-supply-to-substitute.md),
+[ADR-0086](../adr/0086-a-code-fact-is-read-where-it-is-authored.md)).
 
 **It deepens the code branch and not the Store.** `fetch-depth: 0` is the obvious spelling and it is
 *all history for all branches and tags* by the action's own documentation, which fetches the Store

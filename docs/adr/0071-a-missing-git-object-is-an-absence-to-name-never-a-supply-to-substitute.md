@@ -2,8 +2,8 @@
 
 Two surfaces read the repository's history. A review's range opens at the revision the last non-rehearsal
 Run recorded for the artefact (§8, ADR-0067), and the gutter's supply is that artefact *at that revision*
-(ADR-0057). `THE CODE MOVED` computes five of its nine classes and its whole line count by reading bytes
-at two revisions. Neither stated what it needs, nor what happens when the clone does not hold it. When
+(ADR-0057). `THE CODE MOVED` computes eight of its nine classes and its whole line count by reading
+bytes at two revisions (ADR-0086). Neither stated what it needs, nor what happens when the clone does not hold it. When
 the object is absent, `hyper` names the absence — `not-in-clone`, a fourth `baseline_absent` member (§12)
 — renders whatever else it could read, and substitutes nothing. It does not fall back, it does not reach
 for the object, and it does not refuse. What it does instead is fix the supply where the supply is
@@ -34,7 +34,7 @@ A blob id is content-addressed. `procedure_revision` and `definition_revision` a
 the bytes that Run read, so in a shallow clone the object is present exactly where the artefact's bytes
 have not moved since — the case with nothing to mark — and absent exactly where they have. The absence
 and the marks coincide. Left at `fetch-depth: 1`, the range on a runner would be missing on every review
-that would have carried a `~`, and `THE CODE MOVED` would lose five classes and its line count on every
+that would have carried a `~`, and `THE CODE MOVED` would lose eight classes and its line count on every
 window that had anything in them.
 
 The worst instance is not a missing row but a false one. A **Target declaration** carries no Provenance

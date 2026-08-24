@@ -31,21 +31,18 @@ import (
 // surface and the review's gutter read, the difference between them being that
 // a review reads one file and a Comparison reads two revisions of it.
 //
-// **Where this implementation reads a Step's `over:`, `bound:` and `target:`
-// differs from §8's own account, deliberately.** §8 says four of the nine
-// classes read off two Journal entries — `the digests` and the three facts a
-// Step file records beside them — and the eight here are read off the artefacts
-// at the two revisions instead, `the digests` alone off the entries. Three
-// reasons, and the third is the one that decides it: one reader answers the
-// review and the Comparison, so a selector cannot be read one way on one screen
-// and another way on the other; a Step file is written only by a Step that was
-// reached, so a Bound that moved on a Step neither Run reached would emit no
-// row at all where the artefacts carry every Step both revisions declared; and
-// the row stream carries *the artefact's own parsed shape* for a value that is
-// not a scalar (§8), which the Store's canonical encoding — keys in code-point
-// order, authored order discarded — cannot supply. What it costs is stated
-// where it is paid: a revision the clone does not hold takes eight classes down
-// rather than five, leaving `the digests` and the catch-all's own absence line.
+// **A code fact is read where it is authored** (ADR-0086). `the digests` is
+// read off the two Journal entries, being the one class with no line in any
+// artefact (§12); the other eight are read off the reviewed artefacts at the
+// two revisions the window names. No class has two supplies and none has a
+// supply that depends on what else could be read — a Bound row meaning *what
+// the Run used* on one clone and *what the file said* on another would be this
+// surface deciding between two accounts of what happened, silently and by clone
+// state.
+//
+// What that costs is paid in one place and stated there: a revision the clone
+// does not hold takes eight classes down rather than one, leaving `the digests`
+// and the catch-all's own absence line (catchAllRow, ADR-0071).
 
 // The five subject kinds §8's `SUBJECT` column qualifies a name with. **A
 // header reading `DEFINITION` misdescribes every row whose fact belongs to

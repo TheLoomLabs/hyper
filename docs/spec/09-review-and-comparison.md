@@ -890,10 +890,10 @@ two — over the reviewed five and nothing else, minus the lines a classed row a
 unit is the command's because the row names the command, and any other unit makes the row disagree with
 its own evidence; the word *other* is what makes the enumeration and the count sum to the whole rather
 than overlap, so `hyper` maps each classed fact to its lines at both revisions. It already loads both
-revisions of the reviewed artefacts — four of the nine classes read off two Journal entries, and the
-Cadence, the required Capabilities, the credential source, the declared Kinds and the Operation set do
-not — so that map costs nothing beyond what the table already pays. Nothing outside the reviewed five
-counts, which is §7's rule arriving from the other side: `repo_dirty` marks that same file set "so the
+revisions of the reviewed artefacts — `the digests` is the one class with no line in any artefact and
+reads off two Journal entries, and the other eight are read where they are authored (ADR-0086) — so
+that map costs nothing beyond what the table already pays. Nothing outside the reviewed five counts,
+which is §7's rule arriving from the other side: `repo_dirty` marks that same file set "so the
 marker and the count agree on what code is by construction". The generated workflow is out
 particularly — it is projected rather than authored and byte-exact against what `project` would write
 (ADR-0046), so a change in it is a `hyper` version move already in Provenance, a Procedure move already
@@ -917,10 +917,11 @@ facts "where the dead Run's revision resolves them, and absent where it does not
 that recorded `repo_dirty`".
 
 **Where the clone does not contain a revision the window names, this table degrades partially rather
-than absent.** Four of the nine classes read off two Journal entries and are unaffected; the Cadence,
-the required Capabilities, the credential source, the declared Kinds and the Operation set read bytes,
-and so does the catch-all count. What renders is every row the surviving classes produce, and the
-catch-all row is **replaced** by one line naming what could not be read:
+than absent.** `the digests` reads off two Journal entries and is unaffected; the other eight classes
+are authored in an artefact's own lines and so read bytes, and so does the catch-all count (ADR-0086).
+What renders is every row that class produces — the Procedure revision, each Definition revision, each
+Manifest digest and the repository revision among them — and the catch-all row is **replaced** by one
+line naming what could not be read:
 
 ```
   other lines could not be counted · git diff 1f0a3d7 88bc402

@@ -22,9 +22,9 @@ can name. Every seed here therefore names revisions this fixture never
 committed (`1f0a3d78…` and `88bc402f…`, §8's own), so every case renders the
 half that needs no bytes:
 
-- the classes read off the **two Journal entries** — `the digests`, whose rows
-  are `procedure revision`, `definition revision`, `manifest digest` and the
-  `—`-subject `repository revision`;
+- `the digests`, the one class read off the **two Journal entries** (ADR-0086),
+  whose rows here are `procedure revision`, `definition revision`, `manifest
+  digest` and the `—`-subject `repository revision`;
 - the catch-all in its **replaced** form, `other lines could not be counted ·
   git diff 1f0a3d7 88bc402`, which keeps the command and carries
   `baseline_absent: not-in-clone` on the wire in place of `count`;

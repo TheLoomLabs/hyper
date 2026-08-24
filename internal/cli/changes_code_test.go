@@ -22,9 +22,10 @@ import (
 //
 // What the checked-in [`changes`](testdata/changes) corpus holds instead is the
 // other half: every case there seeds a `repo_revision` this fixture never
-// committed, so the catch-all renders `not-in-clone` and the classes that read
-// off the two Journal entries render beside it. Both halves are the
-// specification, and neither can be asserted where the other is.
+// committed, so the catch-all renders `not-in-clone` and `the digests` — the
+// one class read off the two Journal entries (ADR-0086) — renders beside it.
+// Both halves are the specification, and neither can be asserted where the
+// other is.
 
 // codeWindow is the two-commit fixture with both of its revisions in hand.
 type codeWindow struct {
