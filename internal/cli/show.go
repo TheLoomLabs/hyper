@@ -85,7 +85,7 @@ func RunShow(args []string, stdout, stderr io.Writer, process Process, wd, binar
 	if code != 0 {
 		return code
 	}
-	if code := gateOnVersionPin(showCommand, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(showCommand, repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 

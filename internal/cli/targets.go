@@ -49,7 +49,7 @@ func RunTargets(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 
 	// The gate, before the repository is loaded and before any row exists
 	// (§9, §11, ADR-0020).
-	if code := gateOnVersionPin("targets", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("targets", repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 

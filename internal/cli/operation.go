@@ -60,7 +60,7 @@ func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// is resolved: a mismatched pin plus a name matching nothing is 77 and
 	// not 2, because the gate fires first for all sixteen (§9, §11,
 	// ADR-0020, ADR-0060).
-	if code := gateOnVersionPin("operation", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("operation", repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 

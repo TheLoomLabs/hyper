@@ -87,7 +87,7 @@ func RunRuns(args []string, stdout, stderr io.Writer, process Process, wd, binar
 	if code != 0 {
 		return code
 	}
-	if code := gateOnVersionPin(runsCommand, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(runsCommand, repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 

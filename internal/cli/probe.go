@@ -78,7 +78,7 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 	if code != 0 {
 		return code
 	}
-	if code := gateOnVersionPin("probe", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("probe", repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 

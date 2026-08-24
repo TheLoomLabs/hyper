@@ -31,29 +31,43 @@ import (
 //
 // command names the command for the one message that is not a Refusal: a
 // hyper.yaml that exists and cannot be read at all. repoRoot is the resolved
-// repository root; binaryVersion is what the running binary claims to be. A
-// return of 0 clears the caller to proceed; anything else is the exit code the
-// caller returns unchanged, having already rendered its own reason.
-func gateOnVersionPin(command, repoRoot, binaryVersion string, stderr io.Writer) int {
+// repository root; binaryVersion is what the running binary claims to be.
+//
+// It answers two things. The first is the exit code: 0 clears the caller to
+// proceed, and anything else is what the caller returns, this having already
+// rendered its own reason. The second is the `error_code` it Refused under, ""
+// on the two answers that are not Refusals — the clear, and the unreadable
+// hyper.yaml, which is a usage error and opens no stream (§9, ADR-0060).
+//
+// **Fifteen callers discard the name and one does not**, which is `run`: the
+// gate is one of the two paths on which a Run declines *before it has an id*,
+// and §8 puts `run` on the `outcome` side on both — what is missing there is
+// the row's `run_id` and never the row (§9, §10, issue #172). That row carries
+// the code of the check that declined it, so the one caller that writes a
+// terminal row reads it here rather than deriving a second name for what this
+// already knows.
+func gateOnVersionPin(command, repoRoot, binaryVersion string, stderr io.Writer) (int, string) {
 	data, err := os.ReadFile(filepath.Join(repoRoot, "hyper.yaml"))
 	present := err == nil
 	if err != nil && !os.IsNotExist(err) {
 		fmt.Fprintf(stderr, "hyper %s: %s\n", command, err)
-		return ExitUsage
+		return ExitUsage, ""
 	}
 
 	if result := pin.Check(present, data, binaryVersion); result.Refused {
-		return refuse(stderr, result.Code, result.Message)
+		return refuse(stderr, result.Code, result.Message), result.Code
 	}
 
-	return 0
+	return 0, ""
 }
 
 // refuse renders a Refusal and answers the exit code its caller returns.
 //
 // It is two lines on stderr with stdout left silent, whichever mode the caller
 // was invoked in: a Refusal is not a row, so --json opens no stream to carry it
-// (§9).
+// (§9). What a Run writes to stdout beside it is the Run's own and is written
+// there (run.go's runRendering.terminate), on the same footing as every other
+// path a Run takes: the answer on one stream and the narration on the other.
 //
 // **It stands beside §8's caret form rather than being replaced by it**, and
 // what sorts the two is whether the check has a line to point at. Every Refusal

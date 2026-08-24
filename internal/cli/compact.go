@@ -61,7 +61,7 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// The gate, before the branch is read and before any row exists: a
 	// mismatched pin exits 77 without a single git subprocess running (§9,
 	// §11, ADR-0020).
-	if code := gateOnVersionPin("compact", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("compact", repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 

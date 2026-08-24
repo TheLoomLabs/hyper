@@ -116,7 +116,7 @@ func RunRecords(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	if code != 0 {
 		return code
 	}
-	if code := gateOnVersionPin(recordsCommand, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(recordsCommand, repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 

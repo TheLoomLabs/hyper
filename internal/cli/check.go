@@ -41,7 +41,7 @@ func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (s
 	// compares itself against hyper.yaml's version: pin before reading a
 	// second file, and Refuses on mismatch in either direction (§9, §11,
 	// ADR-0020). check calls it rather than carrying it.
-	if code := gateOnVersionPin("check", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("check", repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 

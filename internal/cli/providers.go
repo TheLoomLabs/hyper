@@ -50,7 +50,7 @@ func RunProviders(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// every command compares itself against hyper.yaml's version: pin and
 	// Refuses on mismatch in either direction, with stdout left silent in
 	// both modes (§9, §11, ADR-0020).
-	if code := gateOnVersionPin("providers", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("providers", repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 

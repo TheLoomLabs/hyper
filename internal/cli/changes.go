@@ -97,7 +97,7 @@ func RunChanges(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	if code != 0 {
 		return code
 	}
-	if code := gateOnVersionPin(changesCommand, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(changesCommand, repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 	if code := resolveProcedureName(named, repoRoot, stderr); code != 0 {

@@ -300,10 +300,11 @@ drives.
 | `a-host-that-answered-nothing` | the `read` that never halts on what came back: the host is granted and the case serves it nothing, so the Observation records the silence and the Run completes at `0` |
 | `a-run-halted-by-its-step` | a Run the world resisted: `failed`, exit `1`, the Step *ran* with the set it concluded about, and the entry left where it stopped |
 | `what-the-run-wrote-reaches-the-remote` | the Run's own commits go out and `remote.golden` shows what arrived |
-| `a-repository-with-no-store` | `store-absent`, `77`, naming `hyper store init` — a Run never creates the branch |
+| `a-repository-with-no-store`, `-json` | `store-absent`, `77`, naming `hyper store init` — a Run never creates the branch. It is one of the two paths that **decline before a Run is identified**, so stdout still carries §8's terminal line and its `outcome` row: what is missing there is the row's `run_id` and never the row (§8, §9, issue #172) |
+| `version-pin-mismatch`, `-json` | the other of the two: the gate fires before the positional is resolved or the Store is reached, and the Run answers `refused · exit 77` naming nothing to look up |
 | `the-runner-clone-fetches-the-store` | the runner shape: `hyper-store` on `origin` alone, brought down by the Run's own sync, and the Run proceeds normally |
 | `a-sync-that-could-not-reach-the-remote` | the sync fails and the Run **tolerates it**, saying so on stderr, reading the branch the clone holds and completing at `0` — never `75` for a sync it could not complete |
-| `a-sync-that-could-not-bring-a-branch` | the same failure with no branch in hand: the same stderr line, then `store-absent` at `77`, because what is missing is an act and not a network |
+| `a-sync-that-could-not-bring-a-branch` | the same failure with no branch in hand: the same stderr line, then `store-absent` at `77`, because what is missing is an act and not a network — and the terminal line beneath it, that Refusal being a decline before a Run is identified like the one above |
 | `a-later-run-pushes-what-an-earlier-one-stranded` | an earlier Run's unpushed commit and a second environment's published one, over one root: the push is rejected, the **whole** unpushed set is re-applied, and `remote.golden` holds all three Runs |
 | `two-read-steps-push-once` | a two-Step Run with a host each, and what `run_push_test.go` counts the reaches of |
 | `two-effectful-steps-push-three-times` | the other rhythm, driven by the same test: two `mutate` Steps, two Assets, and three reaches — the sync, then one per Step |
@@ -607,6 +608,15 @@ reason a golden cannot get past:
   [`a-read-only-sync-in-the-same-fixture`](a-read-only-sync-in-the-same-fixture),
   which tolerates the failure and completes.
 
+**None of the three writes a terminal row where it has no id, and that is the
+rule rather than an omission.** §8 puts `run` on the `outcome` side on every path
+a Run was **attempted** on, and on the two that decline before one is identified
+— the version pin gate and the bootstrap `store-absent` (issue #172). The lock
+and the sync stand before `run.json`, so no Run was attempted on either and
+neither declined: stdout is silent, and `run_id` stays absent exactly where §8
+says it is. The push that could not land is the other way round — the Run ran,
+so its terminal line names the id it wrote.
+
 ## How a case reaches the Operation's deadline
 
 A `read` never halts on what came back, so the only thing that fails one short
@@ -671,6 +681,17 @@ every branch golden under `testdata/`, decodes every Step file it finds, and
 fails on a `read` Step carrying the key — and on a corpus holding no `read` Step
 file, or no effectful one carrying it, either of which would be the rule passing
 over nothing (§7, ADR-0010, issue #148).
+
+**That the row stream is a contract and not a per-case accident.** §9 states
+three rules over the *whole* stream and each is held over the whole corpus in
+[`../../row_stream_test.go`](../../row_stream_test.go): that nothing is
+abbreviated on the wire, with the catch-all row's `command` as the one stated
+exception; that the page and the wire carry the same rows, over every case with
+both a plain and a `--json` twin; and that every stream terminates — a Run in an
+`outcome` row on every path it takes, a usage error in no stream at all. Each
+fails once more where the corpus holds nothing for it to range over, which is
+the failure a rule asserted over eighty-three pairs is written to catch (issue
+#172).
 
 **That `declared` and `observed` are written by `bound-exceeded` and by nothing
 else.** The same shape of claim, one key over: §7 states the pair for a check

@@ -83,8 +83,23 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	if code != 0 {
 		return code
 	}
-	if code := gateOnVersionPin(runCommand, repoRoot, binaryVersion, stderr); code != 0 {
+	// Where this Run's answer is rendered and in which mode, carried from
+	// here to every path that ends without one being written the ordinary
+	// way (§8, §9, issue #172).
+	rendering := runRendering{stdout: stdout, stderr: stderr, asJSON: parsed.json, dryRun: dryRun}
+
+	// The gate, and the first of the two paths on which a Run **declines**
+	// before it has an id: the terminal row goes out regardless, carrying
+	// the code the gate Refused under and no `run_id` (§8, §9, §10).
+	//
+	// Its usage arm is not one of them and returns unchanged: a hyper.yaml
+	// that cannot be read at all is the command never starting, and a usage
+	// error opens no stream (§9, ADR-0060).
+	switch code, errorCode := gateOnVersionPin(runCommand, repoRoot, binaryVersion, stderr); {
+	case code == ExitUsage:
 		return code
+	case code != 0:
+		return rendering.terminate(store.OutcomeRefused, code, errorCode)
 	}
 
 	// The sink's path against the working tree, which needs the root and so
@@ -114,10 +129,12 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	//
 	// A Run that cannot take it is `failed` at 75 and is **not** a Refusal:
 	// nothing declined, the other Run ends, and this invocation succeeds
-	// verbatim five minutes later (§12, ADR-0061). It is also a Run with no
-	// id: the entry a Refusal would decline into is a file on the branch
-	// this Run may not write, so there is nothing to look up and the
-	// terminal line names nothing.
+	// verbatim five minutes later (§12, ADR-0061). It is also a Run that was
+	// never attempted — the lock stands before the sync, before `run.json`
+	// and before Step 1 — so it writes no terminal row either: §8 puts `run`
+	// on the `outcome` side on every path a Run was attempted on and on the
+	// two that decline before one is identified, and this is neither
+	// (reportLockFault).
 	mode := run.LockMode(loaded, name)
 	lock, err := store.Acquire(repoRoot, mode)
 	if err != nil {
@@ -131,7 +148,7 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	// failed mid-flight and a branch that never existed look identical from
 	// the inside (§6, §7).
 	instant := process.Now()
-	held, code := locateStore(repoRoot, instant, mode, stderr)
+	held, code := locateStore(repoRoot, instant, mode, rendering)
 	if code != 0 {
 		return code
 	}
@@ -202,11 +219,7 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		terminal.ErrorCode = answer.Refusal[0].ErrorCode
 	}
 
-	rows := runRows(answer, repoRoot)
-	if code := writeAnswer(runCommand, stdout, stderr, parsed.json, rows, terminal, runPage(terminal, withheldStep(answer))); code != 0 {
-		return code
-	}
-	return terminal.Code
+	return rendering.write(runRows(answer, repoRoot), terminal, withheldStep(answer))
 }
 
 // withheldStep is the Step a rehearsal stopped at, named as the page names it,
@@ -498,19 +511,87 @@ func unresolvedProcedure(loaded repository.Loaded, name string) string {
 // ErrAbsent is the one answer here that is a Refusal, and it is 77 from either
 // call: a branch neither side holds is cleared by an act of somebody's, `hyper
 // store init`, and never by waiting (§12, ADR-0061).
-func locateStore(repoRoot string, instant time.Time, mode store.LockMode, stderr io.Writer) (*store.Store, int) {
+func locateStore(repoRoot string, instant time.Time, mode store.LockMode, rendering runRendering) (*store.Store, int) {
 	if mode == store.Exclusive {
 		if err := store.Sync(repoRoot, instant); err != nil {
-			return nil, reportRunStoreFault(stderr, err)
+			return nil, reportRunStoreFault(rendering, err)
 		}
 	} else {
-		syncForReading(runCommand, "this Run", repoRoot, instant, stderr)
+		syncForReading(runCommand, "this Run", repoRoot, instant, rendering.stderr)
 	}
 	held, err := store.Open(repoRoot, instant)
 	if err != nil {
-		return nil, reportRunStoreFault(stderr, err)
+		return nil, reportRunStoreFault(rendering, err)
 	}
 	return held, 0
+}
+
+// runRendering is where a Run's answer is rendered and in which mode: the two
+// streams, whether `--json` was named, and whether the invocation was a
+// rehearsal. It is not the answer — that is `run.Answer`, which the engine
+// returns — it is where one goes.
+//
+// It exists because **a Run answers on stdout at every exit on which a Run was
+// attempted** (§9, issue #172), and the two paths that decline before the Run
+// has an id are the ones furthest from the renderer that knows how — the pin
+// gate, which fires before the positional is even resolved, and the bootstrap
+// `store-absent`, three calls down inside the Store's own lookup. Threading the
+// four together is what lets each of them write §8's terminal line, or its
+// `outcome` row, where each of them used to write nothing at all.
+type runRendering struct {
+	stdout, stderr io.Writer
+	asJSON, dryRun bool
+}
+
+// write is a Run's answer in whichever mode was asked for, and the exit code
+// that follows it: the rows and §8's terminal row on the wire, the Step table
+// and §8's terminal line on the page.
+//
+// It is one function rather than two call sites because the ordinary path and
+// the two declines write the same thing — a stream terminated by an `outcome`
+// row, and a page ending in the line that row also carries — and what differs
+// between them is only how much stands in front of it (ADR-0026).
+//
+// withheld is the Step a rehearsal stopped at, "" where it withheld none: a
+// page fact no row carries (runPage).
+func (r runRendering) write(rows []render.Row, terminal outcomeRow, withheld string) int {
+	if fault := writeAnswer(runCommand, r.stdout, r.stderr, r.asJSON, rows, terminal, runPage(terminal, withheld)); fault != 0 {
+		return fault
+	}
+	return terminal.Code
+}
+
+// terminate is a Run's whole answer on a path that ended **before a Run was
+// identified**: §8's terminal line on the page, the `outcome` row on the wire,
+// and no rows in front of either.
+//
+// **The row is emitted regardless and what is missing is its `run_id`** (§8,
+// §9, §10). `run` is on the `outcome` side on every path it takes, the two that
+// decline before a Run is identified included — the version pin gate and the
+// bootstrap `store-absent` — and a terminal type that flipped to `result`
+// according to how early the tool declined would be one fact arriving under two
+// contracts. Where no entry was written the id is absent and its absence is the
+// fact: the line says what happened and names nothing to look up, there being
+// nothing to look up (ADR-0047).
+//
+// **The 75s do not reach it**, and the rule that keeps them out is the one
+// above read backwards: a lock another Run holds and a Store this one could not
+// reach are paths on which no Run was attempted at all — both stand before
+// `run.json` — so neither declined and neither answers. §9 says `run_id` is
+// absent *exactly* where the two declines are, and a third place carrying no id
+// would make that sentence false (reportLockFault, reportRunStoreFault).
+//
+// The narration is the caller's and has already gone to stderr. This is the
+// answer beside it, and the two say different halves of one fact on different
+// streams, exactly as they do on every other path a Run takes (§9).
+func (r runRendering) terminate(outcome store.Outcome, code int, errorCode string) int {
+	return r.write(nil, outcomeRow{
+		Type:      "outcome",
+		Outcome:   string(outcome),
+		Code:      code,
+		ErrorCode: errorCode,
+		DryRun:    r.dryRun,
+	}, "")
 }
 
 // reportLockFault renders a lock the Run could not take, and answers the exit
@@ -523,8 +604,14 @@ func locateStore(repoRoot string, instant time.Time, mode store.LockMode, stderr
 // the same code from the sync before this ticket moved the order, and moving
 // the order is not a licence to change what it means.
 //
-// stdout is silent, which is the deferral reportRunStoreFault states below: 75
-// is not a Refusal at all, has no `error_code` and has no Step table to write.
+// **stdout is silent, and that is the rule rather than a deferral.** §8 puts
+// `run` on the `outcome` side on every path on which a Run was **attempted**,
+// the two that decline before a Run is identified included — and the lock is
+// neither. Nothing was attempted: the lock is taken before the sync, before
+// `run.json` and before Step 1, so no Run began here and none declined, which
+// is why 75 carries no `error_code` either. §9 says `run_id` is absent exactly
+// where the two declines are, and a terminal row emitted here would be a third
+// place (§9, runAnswer.terminate).
 func reportLockFault(stderr io.Writer, err error) int {
 	fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, err)
 	return ExitStoreLost
@@ -551,19 +638,26 @@ func reportLockFault(stderr io.Writer, err error) int {
 // — inside the engine, into an entry that exists, rendered like every other
 // Refusal a Run makes (internal/run/gates.go).
 //
-// stdout is silent on both, and that is the one shape this milestone leaves
-// deferred. §8 says `run` is on the `outcome` side "on every path on which a
-// Run was attempted, the two that decline before a Run is identified
-// included" — what is missing there is the row's `run_id` and never the row.
-// These two are those two, and until that lands what is on the page is the code
-// and the remedy, which is the whole of the path back from either
-// (gate.go states the same deferral for the pin gate). 75 is not a Refusal at
-// all and has no Step table to write.
-func reportRunStoreFault(stderr io.Writer, err error) int {
+// **The two differ on stdout as well, and on the same axis.** §8 puts `run` on
+// the `outcome` side "on every path on which a Run was attempted, the two that
+// decline before a Run is identified included" — what is missing there is the
+// row's `run_id` and never the row — and **the bootstrap `store-absent` is one
+// of those two**, the version pin gate being the other (gate.go). So it writes
+// §8's terminal line, or its `outcome` row, carrying the code this Refused
+// under and no id, there being no entry to name.
+//
+// The 75 beside it writes nothing to stdout, and it is the same sentence read
+// the other way: nothing declined and no Run was attempted, the sync standing
+// before `run.json` and long before Step 1. §9 says `run_id` is absent exactly
+// where the two declines are, so a terminal row here would be a third place —
+// and a `failed` one carrying no `error_code`, a failure having no check to
+// name (§12, runRendering.terminate).
+func reportRunStoreFault(rendering runRendering, err error) int {
 	if errors.Is(err, store.ErrAbsent) {
-		return refuse(stderr, storeAbsentCode, "no "+store.BranchName+" branch in this repository — hyper store init")
+		refuse(rendering.stderr, storeAbsentCode, "no "+store.BranchName+" branch in this repository — hyper store init")
+		return rendering.terminate(store.OutcomeRefused, ExitRefused, storeAbsentCode)
 	}
-	fmt.Fprintf(stderr, "hyper %s: the Store could not be reached: %s\n", runCommand, err)
+	fmt.Fprintf(rendering.stderr, "hyper %s: the Store could not be reached: %s\n", runCommand, err)
 	return ExitStoreLost
 }
 

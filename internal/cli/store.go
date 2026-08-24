@@ -110,7 +110,7 @@ func runStoreInit(parsed commandArgs, stdout, stderr io.Writer, process Process,
 		return code
 	}
 
-	if code := gateOnVersionPin(storeInit, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(storeInit, repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}
 
