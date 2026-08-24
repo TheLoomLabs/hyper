@@ -519,9 +519,16 @@ The baseline is the previous Run of the same Procedure, so a monitoring Run is n
 provisioning one. That window is total rather than partial: every Run is a Run of a Procedure
 (ADR-0036), so no Run reaches the world outside some Procedure's Comparison. `since <t>` is sugar for *take the last Run before that instant and fold everything
 after it into one rendering*; `between` names two Runs directly; a whole-Store mode compares across
-every Procedure at once. Those parameters — `since` or `between`, `target`, `kind`, `limit` — are typed
-and closed, and there is no predicate dialect over them: a caller wanting an arbitrary filter takes the
-rows and applies it themselves (ADR-0013).
+every Procedure at once. **`since`'s bound is a lower bound on `started_at`, and it includes the instant
+it names**: a Run that began exactly at `t` is inside the window, and the baseline is the Run before it.
+It is the Run's *start* that is compared because that is the instant every entry has — an open entry has
+no end at all, and a reaped one's is on the closing Run's clock (§7) — which is the reason §9 orders
+`runs` on the same member. It is inclusive because the value a caller types is one this tool handed
+them: `started` goes out in the record's own spelling, and a bound that excluded what it named would
+drop the very Run whose value was copied to write it. `runs` and `records` take the same flag and the
+same boundary; which member each compares it against is its own axis's (§9). Those parameters — `since`
+or `between`, `target`, `kind`, `limit` — are typed and closed, and there is no predicate dialect over
+them: a caller wanting an arbitrary filter takes the rows and applies it themselves (ADR-0013).
 
 An outcome does not disqualify a baseline, a refused Run's completed Steps having reached the world
 like any other's. A dry-run entry is disqualified as baseline and as subject alike (§7), and a Probe

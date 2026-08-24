@@ -184,6 +184,26 @@ func TestSelect_SinceTakesTheLastRunBeforeTheInstantAndFoldsTheRest(t *testing.T
 	}
 }
 
+func TestSelect_SinceIncludesTheInstantItNames(t *testing.T) {
+	// The bound is a lower bound on `started_at` and it includes the instant
+	// it names, so a Run that began exactly at `t` is **inside** the window
+	// and the baseline is the Run before it (§8). A caller who copied a
+	// Run's `started` off the wire to write the argument gets that Run
+	// reported, not skipped over.
+	windows := compare.Select([]store.Entry{
+		run("13", "watch", at(11, 0), at(11, 2)),
+		run("12", "watch", at(10, 0), at(10, 2)),
+		run("11", "watch", at(9, 0), at(9, 2)),
+	}, compare.Selection{Procedure: "watch", Since: at(10, 0), SinceNamed: true})
+
+	if len(windows) != 1 {
+		t.Fatalf("Select() answered %d windows, want 1", len(windows))
+	}
+	if got, want := windows[0].Baseline.Entry.Run.String(), runID("11").String(); got != want {
+		t.Errorf("baseline = %s, want %s — the Run that began at the named instant is inside the window", got, want)
+	}
+}
+
 func TestSelect_SinceAfterEveryRunNamesNoWindow(t *testing.T) {
 	windows := compare.Select([]store.Entry{
 		run("11", "watch", at(9, 0), at(9, 2)),

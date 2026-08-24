@@ -98,6 +98,12 @@ revision whole, one fact in the two notations.
   — three Runs and one `--since`: the baseline is the last Run before the
   instant and the subject is the newest, everything between them folded into
   one rendering.
+- [`since-includes-the-instant-it-names/`](since-includes-the-instant-it-names)
+  — the boundary itself: `--since` naming the exact instant a Run started. The
+  bound is a lower bound on `started_at` and includes the instant it names, so
+  that Run is **inside** the window and the baseline is the Run before it — a
+  caller who copied a `started` off the wire to write the argument gets that
+  Run reported rather than skipped over (§8).
 - [`since-after-every-run/`](since-after-every-run) — a window nothing happened
   in. It is an answer at `0` and not an error: the name resolved, and fetching
   nothing is not naming nothing (ADR-0060).
