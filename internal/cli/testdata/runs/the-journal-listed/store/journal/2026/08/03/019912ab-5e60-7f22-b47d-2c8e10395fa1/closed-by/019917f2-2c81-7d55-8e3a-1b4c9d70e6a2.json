@@ -1,0 +1,12 @@
+{
+  "definition": "hetzner-staging",
+  "disposition": "attempted-outcome-unknown",
+  "ended_at": "2026-08-04T09:13:00.000Z",
+  "id": "publish",
+  "kind": "mutate",
+  "operation": "create_server",
+  "provider": "hetzner",
+  "schema_version": 1,
+  "step": 2,
+  "target": "staging"
+}

@@ -172,4 +172,8 @@ var repositoryCommands = map[string]repositoryCommand{
 	// four of §9's sixteen exist to read the Journal and the Records back,
 	// and this is the first of them (§9, issue #163).
 	"show": RunShow,
+	// The second of the four, and the surface that enumerates the namespace
+	// `show`'s own unresolved-id message points at. It takes the whole
+	// value for the same clock and writes nothing either (§9, issue #165).
+	"runs": RunRuns,
 }

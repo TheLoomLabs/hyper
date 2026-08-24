@@ -1,0 +1,12 @@
+{
+  "definition": "preview-dns",
+  "disposition": "attempted-outcome-unknown",
+  "ended_at": "2026-08-06T11:03:19.000Z",
+  "id": "retire",
+  "kind": "destroy",
+  "operation": "delete_dns_record",
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "step": 2,
+  "target": "cloudflare-prod"
+}

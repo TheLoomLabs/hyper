@@ -1,0 +1,20 @@
+{
+  "dry_run": false,
+  "procedure": "publish-preview",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "7c1d05b9e8a34f26d0b71c93a5e08f4d26b9c130",
+    "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
+  },
+  "run_id": "0199235c-1b62-7c28-8e15-4f6a7b3c9d28",
+  "schema_version": 1,
+  "started_at": "2026-08-07T06:15:00.000Z",
+  "trigger": {
+    "actor": "hyper-bot",
+    "cause": "cron",
+    "executor": "github-actions",
+    "job_url": "https://github.com/theloomlabs/infra/actions/runs/4901/attempts/1",
+    "run_attempt": 1,
+    "run_id": "4901"
+  }
+}

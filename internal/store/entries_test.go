@@ -999,3 +999,133 @@ func readWhole(held *store.Store) error {
 	}
 	return nil
 }
+
+// TestListing_AnswersTheTargetsEachEntryBound is the second door beside Entries
+// (issue #165). A Target is a fact only a Step file carries, and `runs` is the
+// one surface §9 gives it to — so what this answers is the entries with the
+// Targets beside them, and never the Step records they were read off.
+//
+// Each Target appears once however many Steps bound it, and the set is ordered
+// by Unicode code point: it is a set read down a cell rather than a sequence of
+// events, so nothing here is in the Run's written order.
+func TestListing_AnswersTheTargetsEachEntryBound(t *testing.T) {
+	first, second, third := stepFile(), stepFile(), stepFile()
+	first.Step, first.Target = 1, "local"
+	second.Step, second.Target = 2, "cloudflare-prod"
+	third.Step, third.Target = 3, "local"
+
+	elsewhere := stepFile()
+	elsewhere.Step, elsewhere.Target = 1, "staging"
+
+	_, held := seededJournal(t,
+		anEntry{run: runFileAt(t, theEntryRunID, theRunStart), steps: []store.StepFile{first, second, third}},
+		anEntry{run: runFileAt(t, theDayBeforeRunID, theRunStart.AddDate(0, 0, -1)), steps: []store.StepFile{elsewhere}},
+	)
+
+	listed := listing(t, held, nil)
+	if got := boundBy(listed, theEntryRunID); !slices.Equal(got, []string{"cloudflare-prod", "local"}) {
+		t.Errorf("the entry bound %v, want each Target once in code-point order", got)
+	}
+	if got := boundBy(listed, theDayBeforeRunID); !slices.Equal(got, []string{"staging"}) {
+		t.Errorf("the day before bound %v, want [staging]", got)
+	}
+}
+
+// TestListing_IsOrderedNewestFirstLikeEveryListingOfTheJournal. The two doors
+// answer one order: what a listing of Runs renders and what a walk of the
+// Journal reaches are the same sequence (§7, ADR-0065).
+func TestListing_IsOrderedNewestFirstLikeEveryListingOfTheJournal(t *testing.T) {
+	_, held := seededJournal(t,
+		anEntry{run: runFileAt(t, theDayBeforeRunID, theRunStart.AddDate(0, 0, -1))},
+		anEntry{run: runFileAt(t, theEntryRunID, theRunStart)},
+		anEntry{run: runFileAt(t, theMonthBeforeRunID, theRunStart.AddDate(0, -1, 0))},
+	)
+
+	listed := listing(t, held, nil)
+	want := []string{theEntryRunID, theDayBeforeRunID, theMonthBeforeRunID}
+	got := make([]string, len(listed))
+	for i, entry := range listed {
+		got[i] = entry.Run.String()
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("the listing is %v, want %v newest first", got, want)
+	}
+}
+
+// TestListing_ReadsTheStepFilesOfTheEntriesTheCallerWanted. The predicate is
+// applied after the accounts are read and before the Step files are, which is
+// what makes narrowing the time axis cheap: an entry nobody wanted contributes
+// no row and costs none of its Step files.
+func TestListing_ReadsTheStepFilesOfTheEntriesTheCallerWanted(t *testing.T) {
+	step := stepFile()
+	step.Step, step.Target = 1, "staging"
+	_, held := seededJournal(t,
+		anEntry{run: runFileAt(t, theEntryRunID, theRunStart), steps: []store.StepFile{step}},
+		anEntry{run: runFileAt(t, theDayBeforeRunID, theRunStart.AddDate(0, 0, -1)), steps: []store.StepFile{step}},
+	)
+
+	listed := listing(t, held, func(entry store.Entry) bool { return entry.Run == runID(t, theEntryRunID) })
+	if len(listed) != 1 || listed[0].Run != runID(t, theEntryRunID) {
+		t.Fatalf("the listing is %v, want the one entry the predicate kept", listed)
+	}
+	if !slices.Equal(listed[0].Targets, []string{"staging"}) {
+		t.Errorf("the kept entry bound %v, want [staging]", listed[0].Targets)
+	}
+}
+
+// TestListing_OfAnEntryHoldingNoStepRecordIsNothing. A Run that Refused before
+// Step 1, or went quiet before it wrote a file, bound nothing — and the answer
+// is the absence rather than a name nobody recorded (§7).
+func TestListing_OfAnEntryHoldingNoStepRecordIsNothing(t *testing.T) {
+	_, held := seededJournal(t, anEntry{run: runFileAt(t, theEntryRunID, theRunStart)})
+
+	if got := boundBy(listing(t, held, nil), theEntryRunID); len(got) != 0 {
+		t.Errorf("the entry bound %v, want nothing: it holds no Step record", got)
+	}
+}
+
+// TestListing_ReadsAReapersInferenceAsTheStepItNamed. A reaped entry's account
+// of the Step the dead Run went quiet on is a closing write, and it is a record
+// of that Step in the shape a Step file records one — so the Target it resolved
+// is a Target that Run bound (§7, ADR-0076).
+func TestListing_ReadsAReapersInferenceAsTheStepItNamed(t *testing.T) {
+	reached := stepFile()
+	reached.Step, reached.Target = 1, "local"
+
+	_, held := seededJournal(t, anEntry{
+		run:   runFileAt(t, theEntryRunID, theRunStart),
+		steps: []store.StepFile{reached},
+		closers: map[string]store.ClosedBy{theCloserRunID: {
+			EndedAt:  theRunStart.Add(time.Hour),
+			Step:     2,
+			StepCode: store.StepCode{ID: "publish", Target: "cloudflare-prod"},
+		}},
+	})
+
+	if got := boundBy(listing(t, held, nil), theEntryRunID); !slices.Equal(got, []string{"cloudflare-prod", "local"}) {
+		t.Errorf("the entry bound %v, want the reaper's Step counted with the owner's", got)
+	}
+}
+
+// listing reads the Journal back with the Targets beside each entry, failing
+// the case where it could not be read at all.
+func listing(t *testing.T, held *store.Store, wanted func(store.Entry) bool) []store.Listed {
+	t.Helper()
+
+	listed, err := held.Listing(wanted)
+	if err != nil {
+		t.Fatalf("Listing: %v", err)
+	}
+	return listed
+}
+
+// boundBy is what one Run of a listing bound, found by its id so that an
+// assertion names the entry it is about rather than a position.
+func boundBy(listed []store.Listed, run string) []string {
+	for _, entry := range listed {
+		if entry.Run.String() == run {
+			return entry.Targets
+		}
+	}
+	return nil
+}

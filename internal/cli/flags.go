@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/repository"
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
 // commandArgs is one command's arguments, already read: the three globals §9
@@ -50,6 +51,18 @@ type commandArgs struct {
 	// command reading it as a bound would be filtering rather than not
 	// filtering.
 	sinceNamed bool
+	// procedure, target and outcome are §9's three remaining typed
+	// parameters on the Inspection commands: the name a listing is narrowed
+	// to, and the empty string where the caller named none. A name is
+	// matched byte-exact over UTF-8 wherever it is matched (§9), so what is
+	// kept is what was typed.
+	procedure string
+	target    string
+	// outcome is one of §12's triple, and the empty string where the caller
+	// named none. It is the typed value rather than the text, so a command
+	// filtering on it compares what the record holds against a member of
+	// the closed set and never against a string somebody spelled.
+	outcome    store.Outcome
 	positional []string
 }
 
@@ -83,6 +96,14 @@ type parameters struct {
 	// window to cut, so offering it there would be a parameter that narrows
 	// nothing.
 	since bool
+	// procedure, target and outcome say the command takes each of those.
+	// §9 gives all three to `runs` and gives `--target` to `changes` and
+	// `records` besides, which is why they are three members and not one:
+	// what a command accepts is read off its own line rather than out of a
+	// group somebody has to look up.
+	procedure bool
+	target    bool
+	outcome   bool
 }
 
 // defaultListLimit is the modest default §9 leaves to the implementation, and
@@ -142,21 +163,19 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 		case a == "--no-color":
 			parsed.noColor = true
 		case a == "--repo-dir":
-			i++
-			if i >= len(args) {
-				fmt.Fprintf(stderr, "hyper %s: --repo-dir requires a value\n", command)
-				return parsed, ExitUsage
+			value, code := nextValue(command, "--repo-dir", args, &i, stderr)
+			if code != 0 {
+				return parsed, code
 			}
-			parsed.repoDir = args[i]
+			parsed.repoDir = value
 		case strings.HasPrefix(a, "--repo-dir="):
 			parsed.repoDir = strings.TrimPrefix(a, "--repo-dir=")
 		case a == "--limit" && takesLimit:
-			i++
-			if i >= len(args) {
-				fmt.Fprintf(stderr, "hyper %s: --limit requires a value\n", command)
-				return parsed, ExitUsage
+			value, code := nextValue(command, "--limit", args, &i, stderr)
+			if code != 0 {
+				return parsed, code
 			}
-			if code := parsed.readLimit(command, args[i], stderr); code != 0 {
+			if code := parsed.readLimit(command, value, stderr); code != 0 {
 				return parsed, code
 			}
 		case strings.HasPrefix(a, "--limit=") && takesLimit:
@@ -164,16 +183,43 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 				return parsed, code
 			}
 		case a == "--since" && takes.since:
-			i++
-			if i >= len(args) {
-				fmt.Fprintf(stderr, "hyper %s: --since requires a value\n", command)
-				return parsed, ExitUsage
+			value, code := nextValue(command, "--since", args, &i, stderr)
+			if code != 0 {
+				return parsed, code
 			}
-			if code := parsed.readSince(command, args[i], stderr); code != 0 {
+			if code := parsed.readSince(command, value, stderr); code != 0 {
 				return parsed, code
 			}
 		case strings.HasPrefix(a, "--since=") && takes.since:
 			if code := parsed.readSince(command, strings.TrimPrefix(a, "--since="), stderr); code != 0 {
+				return parsed, code
+			}
+		case a == "--procedure" && takes.procedure:
+			value, code := nextValue(command, "--procedure", args, &i, stderr)
+			if code != 0 {
+				return parsed, code
+			}
+			parsed.procedure = value
+		case strings.HasPrefix(a, "--procedure=") && takes.procedure:
+			parsed.procedure = strings.TrimPrefix(a, "--procedure=")
+		case a == "--target" && takes.target:
+			value, code := nextValue(command, "--target", args, &i, stderr)
+			if code != 0 {
+				return parsed, code
+			}
+			parsed.target = value
+		case strings.HasPrefix(a, "--target=") && takes.target:
+			parsed.target = strings.TrimPrefix(a, "--target=")
+		case a == "--outcome" && takes.outcome:
+			value, code := nextValue(command, "--outcome", args, &i, stderr)
+			if code != 0 {
+				return parsed, code
+			}
+			if code := parsed.readOutcome(command, value, stderr); code != 0 {
+				return parsed, code
+			}
+		case strings.HasPrefix(a, "--outcome=") && takes.outcome:
+			if code := parsed.readOutcome(command, strings.TrimPrefix(a, "--outcome="), stderr); code != 0 {
 				return parsed, code
 			}
 		case strings.HasPrefix(a, "--"):
@@ -184,6 +230,54 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 		}
 	}
 	return parsed, 0
+}
+
+// nextValue is the value of a flag spelled with a space, and the usage error
+// where the flag stands last on the line. It advances the loop's own index past
+// the value it took.
+//
+// It is one function rather than the same five lines at each valued flag
+// because the message is a rule and not a convenience: a caller who left a
+// value off reads one sentence whichever flag they left it off, and six copies
+// of it is where the day comes that one of them names the flag differently.
+// The `=`-joined spelling needs none of this — its value is in the argument
+// already — which is why only half the cases above reach here.
+func nextValue(command, flag string, args []string, i *int, stderr io.Writer) (string, int) {
+	*i++
+	if *i >= len(args) {
+		fmt.Fprintf(stderr, "hyper %s: %s requires a value\n", command, flag)
+		return "", ExitUsage
+	}
+	return args[*i], 0
+}
+
+// readOutcome reads --outcome's value: one of §12's triple, and nothing else.
+//
+// The set is closed where the flag is read rather than where a listing is
+// filtered, which is what makes a fourth name a usage error instead of an empty
+// answer. **`open` is the value this is really for.** An entry holding no
+// account of how it ended is in a state and not in the triple (§7), so a
+// parameter accepting the word would relitigate by accident the distinction the
+// outcome cell exists to hold — and a caller who typed it would read *no rows*
+// as *no such Run*, which is the one thing this surface may not say.
+//
+// The comparison is byte-exact, as every name comparison in §9 is: the record
+// spells an outcome one way, so a value in another case is a value the record
+// does not hold.
+//
+// It is a usage error carrying **no error_code**, on readSince's own reading:
+// an error_code names a check that declined an artefact, and a value typed at a
+// command line is not one (§9, §12, ADR-0060). The message names the flag and
+// every value it wanted, a triple being short enough to state in full.
+func (c *commandArgs) readOutcome(command, value string, stderr io.Writer) int {
+	switch store.Outcome(value) {
+	case store.OutcomeCompleted, store.OutcomeRefused, store.OutcomeFailed:
+		c.outcome = store.Outcome(value)
+		return 0
+	}
+	fmt.Fprintf(stderr, "hyper %s: --outcome %s: want %s, %s or %s\n",
+		command, value, store.OutcomeCompleted, store.OutcomeRefused, store.OutcomeFailed)
+	return ExitUsage
 }
 
 // readLimit reads --limit's value. A limit is a count of rows, so the only

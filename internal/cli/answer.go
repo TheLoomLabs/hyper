@@ -93,26 +93,35 @@ func truncate(rows []render.Row, limit int) (kept []render.Row, dropped int) {
 }
 
 // truncationLine is what a truncated result says to a human: what came back,
-// out of what, and what did not. noun is what was counted, in the plural and
-// capitalised as the glossary spells it — the one part of this line that is the
-// command's own.
+// out of what, what did not, and what to do about it. noun is what was counted,
+// in the plural and capitalised as the glossary spells it — the one part of the
+// count that is the command's own.
 //
-// Which of the two forms it takes turns on whether the caller named the cap,
-// because the two send a reader somewhere different — a caller who wrote
-// --limit 2 is told what their own number cut, and one who wrote nothing is
-// told there is a default at all and what widens it. Naming a flag the caller
-// never typed would point the remedy at an argument they would go looking for
-// in their own command line.
+// Which form the count takes turns on whether the caller named the cap, because
+// the two send a reader somewhere different — a caller who wrote --limit 2 is
+// told what their own number cut, and one who wrote nothing is told there is a
+// default at all. Naming a flag the caller never typed would point the remedy
+// at an argument they would go looking for in their own command line.
 //
-// Neither form names an axis, and neither offers a next page: there is no
-// cursor behind this stream, and neither namespace a listing command
-// enumerates has a narrowing parameter to suggest (§9, §12).
-func truncationLine(noun string, returned, found int, parsed commandArgs) string {
-	dropped := found - returned
-	if parsed.limitNamed {
-		return fmt.Sprintf("returned %d of %d %s; %d dropped by --limit %d",
-			returned, found, noun, dropped, parsed.limit)
+// narrowing is the remedy, and it is the caller's own words for the same reason
+// the noun is: the parameters that narrow an axis differ by which command was
+// called (render.TruncationMarker). A command that has none passes the empty
+// string, and there the remedy is a larger cap — which is what a listing over a
+// namespace with nothing to narrow has left. **Where a command has one, the
+// narrowing is the whole remedy and no larger --limit is offered beside it**:
+// this line is the page's half of the marker on the wire, and the marker names
+// a narrower question rather than a bigger answer (§9, §12, ADR-0065).
+//
+// Neither form offers a next page. There is no cursor behind this stream, and a
+// truncated result must never look complete.
+func truncationLine(noun string, returned, found int, parsed commandArgs, narrowing string) string {
+	cut, remedy := fmt.Sprintf("--limit %d", parsed.limit), ""
+	if !parsed.limitNamed {
+		cut, remedy = fmt.Sprintf("the default limit of %d", parsed.limit), " — name a larger --limit for the rest"
 	}
-	return fmt.Sprintf("returned %d of %d %s; %d dropped by the default limit of %d — name a larger --limit for the rest",
-		returned, found, noun, dropped, parsed.limit)
+	if narrowing != "" {
+		remedy = " — " + narrowing
+	}
+	return fmt.Sprintf("returned %d of %d %s; %d dropped by %s%s",
+		returned, found, noun, found-returned, cut, remedy)
 }

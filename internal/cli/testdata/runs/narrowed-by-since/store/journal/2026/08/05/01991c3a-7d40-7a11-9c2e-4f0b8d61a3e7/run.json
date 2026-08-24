@@ -1,0 +1,20 @@
+{
+  "dry_run": false,
+  "procedure": "publish-preview",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "7c1d05b9e8a34f26d0b71c93a5e08f4d26b9c130",
+    "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
+  },
+  "run_id": "01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7",
+  "schema_version": 1,
+  "started_at": "2026-08-05T14:20:00.000Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "github-actions",
+    "job_url": "https://github.com/theloomlabs/infra/actions/runs/4790/attempts/1",
+    "run_attempt": 1,
+    "run_id": "4790"
+  }
+}

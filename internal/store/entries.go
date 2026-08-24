@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -359,16 +360,7 @@ func (e Evidence) Comparable(procedure, path string) bool {
 // file. That is what makes a listing of a year of Runs one batch read rather
 // than one per Step, and Dispositions the door to the rest.
 func (s *Store) Entries() ([]Entry, error) {
-	partitions, err := s.partitions()
-	if err != nil {
-		return nil, err
-	}
-
-	var groups []group
-	for _, partition := range partitions {
-		groups = append(groups, partition...)
-	}
-	visits, err := s.accountsOf(groups)
+	visits, err := s.visits()
 	if err != nil {
 		return nil, err
 	}
@@ -379,6 +371,132 @@ func (s *Store) Entries() ([]Entry, error) {
 	}
 	slices.SortFunc(entries, func(a, b Entry) int { return newest(a.RunFile, b.RunFile) })
 	return entries, nil
+}
+
+// visits is the branch listed once and every entry's account read off it: the
+// files a listing found under each entry, and the classification those files
+// make.
+//
+// It is the whole of what both listings below share, and it is one function so
+// that they cannot come to disagree about what an entry is. What they differ in
+// is the Step files, which this opens none of.
+func (s *Store) visits() ([]visit, error) {
+	partitions, err := s.partitions()
+	if err != nil {
+		return nil, err
+	}
+
+	var groups []group
+	for _, partition := range partitions {
+		groups = append(groups, partition...)
+	}
+	return s.accountsOf(groups)
+}
+
+// Listed is one Journal entry as a listing of Runs answers it: the entry, and
+// the Targets its Run bound.
+//
+// The two travel together because one surface needs both and reading them apart
+// costs a second walk of the branch. §9's `runs` row is the entry's own facts
+// with the Targets beside them, and a Target is the one member of that row no
+// run.json carries.
+type Listed struct {
+	// Entry is everything the entry's own files say: its run.json, the
+	// account its own Run gave, and every inference another Run drew.
+	Entry
+	// Targets is what this Run bound, each once and in Unicode code-point
+	// order, and nothing at all where it bound none. It is a set read down
+	// a cell rather than a sequence of events, so it is not in the Run's
+	// written order.
+	Targets []string
+}
+
+// Listing answers every Journal entry `wanted` keeps, newest first, with the
+// Targets each Run bound.
+//
+// **It is a second door beside Entries rather than a member on one, because
+// which door a caller needs is a cost.** A Target is a fact only a Step file
+// carries, so this opens the Step files of the entries it answers where Entries
+// opens none. §9 gives the Targets to one surface — `runs` — and every other
+// reader of the Journal is served by the listing that does not pay for them.
+//
+// **`wanted` is applied after the accounts are read and before the Step files
+// are**, which is what makes the parameters §9 gives `runs` to narrow the time
+// axis with actually cheap: a caller who named `--since` pays the Step files of
+// the window and not of the Journal. A nil predicate keeps everything.
+//
+// The predicate reaches the entry and never the Targets, and that is the line
+// between what is cheap here and what is not — a caller filtering on a Target
+// is asking a question only the Step files answer, and it applies that filter
+// to what this hands back.
+//
+// **What it does not do is cap.** A `--limit` cuts the rows a caller sees, and
+// reading the Step files of the first N alone would hand back entries whose
+// `Targets` are empty because nothing read them, indistinguishable from a Run
+// that bound none — a set this listing does not hold, presented as though it
+// did. So an unnarrowed listing of a long Journal pays that Journal's Step
+// files, which is the honest cost of a column §9 puts on every row.
+//
+// The read is one batch over every entry kept rather than one per entry, which
+// is the trade accountsOf already makes: a year of Runs is a cost in bytes
+// rather than in processes.
+//
+// It is the **records** an entry holds and not its Step files alone, so a
+// reaped entry's account of the Step the dead Run went quiet on binds the
+// Target the reaper resolved — that reading being a record of that Step in the
+// shape a Step file records one (§7, ADR-0076). A Step whose record names no
+// Target — a closing write the dead Run's revision did not resolve — binds
+// none, and the absence is what it is.
+func (s *Store) Listing(wanted func(Entry) bool) ([]Listed, error) {
+	visits, err := s.visits()
+	if err != nil {
+		return nil, err
+	}
+
+	kept := visits[:0:0]
+	for _, visit := range visits {
+		if wanted == nil || wanted(visit.entry) {
+			kept = append(kept, visit)
+		}
+	}
+
+	var blobs []string
+	for _, visit := range kept {
+		blobs = append(blobs, blobsOf(visit.files.steps)...)
+	}
+	contents, err := s.repo.readBlobs(blobs)
+	if err != nil {
+		return nil, err
+	}
+
+	listed := make([]Listed, len(kept))
+	read := 0
+	for i, visit := range kept {
+		steps := visit.files.steps
+		dispositions, err := dispositionsFrom(steps, contents[read:read+len(steps)], visit.entry)
+		if err != nil {
+			return nil, err
+		}
+		read += len(steps)
+		listed[i] = Listed{Entry: visit.entry, Targets: targetsOf(dispositions)}
+	}
+	slices.SortFunc(listed, func(a, b Listed) int { return newest(a.RunFile, b.RunFile) })
+	return listed, nil
+}
+
+// targetsOf is the Targets one entry's records name, each once and in code-point
+// order.
+func targetsOf(dispositions Dispositions) []string {
+	named := map[string]struct{}{}
+	for _, step := range dispositions.Steps {
+		if step.Target != "" {
+			named[step.Target] = struct{}{}
+		}
+	}
+	if len(named) == 0 {
+		return nil
+	}
+	return slices.Sorted(maps.Keys(named))
 }
 
 // newest orders two entries the way every listing of the Journal does: on the
@@ -713,7 +831,18 @@ func (s *Store) dispositionsOf(files []entryFile, entry Entry) (Dispositions, er
 	if err != nil {
 		return Dispositions{}, err
 	}
+	return dispositionsFrom(files, contents, entry)
+}
 
+// dispositionsFrom is the reading itself, over bytes a caller already has in
+// hand.
+//
+// It is split from the read above so that a listing of the whole Journal can
+// batch every entry's Step files into one call rather than one per entry
+// (Listing). What it holds is the rule and not the fetch: one record per
+// position, the owner's file over a closer's inference, and the whole ordered
+// by position.
+func dispositionsFrom(files []entryFile, contents [][]byte, entry Entry) (Dispositions, error) {
 	steps := make([]StepFile, 0, len(files)+1)
 	for i, file := range files {
 		read, err := DecodeStepFile(contents[i])

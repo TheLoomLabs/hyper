@@ -1,0 +1,3 @@
+{"type":"run","id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4","started":"2026-08-06T11:03:18.000Z","trigger":"igor@thinkpad","outcome":"completed","procedure":"retire-preview-envs","targets":["local","staging"],"hyper_version":"1.4.0"}
+{"type":"run","id":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","started":"2026-08-06T09:41:12.508Z","trigger":"cron","outcome":"failed","procedure":"retire-preview-envs","targets":["cloudflare-prod"],"hyper_version":"1.4.0"}
+{"type":"result","truncated":{"axis":"time","returned":2,"dropped":4,"hint":"narrow with --since or --target"}}
