@@ -11,18 +11,24 @@
 // is two readings of §4, and the day comes that a Run admits a repository
 // `check` refuses.
 //
-// It owns no rule either. Every problem it reports comes from the load
-// (internal/repository, over internal/yamlsubset's own grammar) and from an
-// artefact's own schema and checks (internal/artefact). What is here is the
-// walk: which checks run over which artefact, and the one graph-wide pass that
+// It owns one rule and no more. Every other problem it reports comes from the
+// load (internal/repository, over internal/yamlsubset's own grammar) and from
+// an artefact's own schema and checks (internal/artefact); what is here is the
+// walk — which checks run over which artefact, and the one graph-wide pass that
 // needs every procedures/ file at once.
+//
+// The rule that is its own is the one whose subject is not an artefact, and so
+// could belong to no artefact's checks: §10's `projection-stale`, the generated
+// workflows the load found against the projection this repository's artefacts
+// ask for (projection.go).
 //
 // Two derivations stand beside that pass and are exported for one reason: a
 // surface renders what this pass checks, and two builders of one thing is where
 // the day comes that they disagree. ProcedureGraph is the invocation graph a
 // review's roster quantifies over; Projection is the set of workflow files
 // `hyper project` writes, which is the same set §10's own check holds a working
-// tree to (projection.go).
+// tree to — generate and verify being one derivation called from two places
+// (projection.go).
 package verify
 
 import (
@@ -61,7 +67,16 @@ func Repository(loaded repository.Loaded) []problem.Problem {
 	// caller's, and the two Cadence rules that ride the same walk — needs
 	// every procedures/ file at once, so it runs once here rather than per
 	// file inside artefactChecks (issue #96).
-	return append(problems, artefact.CheckProcedureGraph(ProcedureGraph(loaded))...)
+	problems = append(problems, artefact.CheckProcedureGraph(ProcedureGraph(loaded))...)
+
+	// And the one rule whose subject is not an artefact at all: the
+	// generated workflows the load found, against the projection this
+	// repository asks for. It runs here rather than beside a file's own
+	// checks because the comparison is over a **set** — a file nobody asks
+	// for is a fault of the namespace rather than of any artefact — and
+	// because it reaches `check` and a Run's pre-flight through this one
+	// signature, neither having to be taught the rule (§10, issue #179).
+	return append(problems, projectionProblems(loaded)...)
 }
 
 // ProcedureGraph is the invocation graph an already-loaded repository makes:

@@ -1,5 +1,7 @@
-FILE                         LINE  FIELD    ERROR_CODE         MESSAGE
-procedures/nightly.yaml      4     cadence  cadence-malformed  cadence: "@daily" is not an expression the grammar admits — it carries 1 field where the grammar states five: minute, hour, day of month, month, day of week
-procedures/nightly.yaml      4     cadence  cadence-run-once   cadence: reaches a run-once Step at some depth — a Cadence over a run-once Step declares a recurrence with a lifespan of one occurrence
-procedures/rotate-once.yaml  4     cadence  cadence-malformed  cadence: "@weekly" is not an expression the grammar admits — it carries 1 field where the grammar states five: minute, hour, day of month, month, day of week
-procedures/rotate-once.yaml  4     cadence  cadence-run-once   cadence: reaches a run-once Step at some depth — a Cadence over a run-once Step declares a recurrence with a lifespan of one occurrence
+FILE                                     LINE  FIELD    ERROR_CODE         MESSAGE
+.github/workflows/hyper-nightly.yml                     projection-stale   the Procedure nightly declares a Cadence and the working tree holds no file here — hyper project writes it
+.github/workflows/hyper-rotate-once.yml                 projection-stale   the Procedure rotate-once declares a Cadence and the working tree holds no file here — hyper project writes it
+procedures/nightly.yaml                  4     cadence  cadence-malformed  cadence: "@daily" is not an expression the grammar admits — it carries 1 field where the grammar states five: minute, hour, day of month, month, day of week
+procedures/nightly.yaml                  4     cadence  cadence-run-once   cadence: reaches a run-once Step at some depth — a Cadence over a run-once Step declares a recurrence with a lifespan of one occurrence
+procedures/rotate-once.yaml              4     cadence  cadence-malformed  cadence: "@weekly" is not an expression the grammar admits — it carries 1 field where the grammar states five: minute, hour, day of month, month, day of week
+procedures/rotate-once.yaml              4     cadence  cadence-run-once   cadence: reaches a run-once Step at some depth — a Cadence over a run-once Step declares a recurrence with a lifespan of one occurrence

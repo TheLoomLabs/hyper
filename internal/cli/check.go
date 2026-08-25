@@ -168,8 +168,18 @@ type problemRow struct {
 // carrying more than its page renders, which is not the two surfaces
 // disagreeing but one of them having no column for a fact a consumer filters
 // on.
+//
+// **A problem with no line renders an empty cell**, as one with no field
+// already does. No file has a line 0, so printing the number would put a
+// position on the page that cannot be gone to; the wire carries the zero, where
+// it reads as the absence the `field` beside it reads as (§12). The one code
+// this reaches is `projection-stale`, whose comparison is whole-file (§10).
 func (r problemRow) Cells() []string {
-	return []string{r.File, strconv.Itoa(r.Line), r.Field, r.ErrorCode, r.Message}
+	line := ""
+	if r.Line != 0 {
+		line = strconv.Itoa(r.Line)
+	}
+	return []string{r.File, line, r.Field, r.ErrorCode, r.Message}
 }
 
 // checkRows is the sorted problems as the ordered list both surfaces are

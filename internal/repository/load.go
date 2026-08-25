@@ -11,6 +11,7 @@ import (
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/problem"
+	"github.com/TheLoomLabs/hyper/internal/workflow"
 	"github.com/TheLoomLabs/hyper/internal/yamlsubset"
 )
 
@@ -88,6 +89,40 @@ type Loaded struct {
 	// built from one fold, so no surface can mean a different file by one
 	// name than the check does.
 	DefinitionDeclarations map[string]*yaml.Node
+	// Workflows is every file in the namespace `hyper project` owns that
+	// the working tree holds, in path order: `hyper-*.yml` directly under
+	// `.github/workflows/`, as bytes and nothing else.
+	//
+	// It is not a namespace and its members are not artefacts. Nothing here
+	// is parsed as YAML, nothing declares a name, and no schema check reads
+	// one — a generated file is derived from the reviewed artefacts rather
+	// than being one, and the only question anything asks of it is whether
+	// its bytes are the bytes a fresh projection would write (§10, §12,
+	// issue #179).
+	//
+	// It is on the load because that comparison has two callers and neither
+	// is entitled to a walk of its own: `check` and a Run's pre-flight get
+	// the rule through verify.Repository, whose signature this leaves where
+	// it is, and `project` reads the same list to know which standing files
+	// no Procedure asks for any more.
+	//
+	// A repository read through LoadFrom holds none. That door is the
+	// reaper's and `changes`', which read artefacts out of a revision and
+	// verify nothing, so there is no directory to walk and nothing that
+	// would ask (§7, issue #154).
+	Workflows []LoadedWorkflow
+}
+
+// LoadedWorkflow is one generated workflow as the load found it: where it sits,
+// relative to the repository root with forward slashes, and its exact bytes.
+//
+// What it does not carry is the whole of what separates it from a
+// LoadedArtefact: no Root, because nothing parses it; no Problems and no OK,
+// because the load has nothing to say about it. Reading it is opening a file,
+// and the one rule that reads it compares bytes (§10).
+type LoadedWorkflow struct {
+	Path  string
+	Bytes []byte
 }
 
 // DeclarationPath is where the Repository declaration sits: `hyper.yaml`, at
@@ -176,7 +211,64 @@ func Load(repoRoot string) (Loaded, error) {
 	for _, rel := range files {
 		artefacts = append(artefacts, loadFile(repoRoot, rel))
 	}
-	return build(artefacts), nil
+
+	// The namespace beside the five artefact locations, and after them: it
+	// is read on the same walk so that the rule holding a working tree to
+	// its projection reaches every caller of this load, and so that no
+	// caller has to be taught where a generated file sits (§10, issue #179).
+	generated, err := generatedWorkflows(repoRoot)
+	if err != nil {
+		return Loaded{}, err
+	}
+
+	loaded := build(artefacts)
+	loaded.Workflows = generated
+	return loaded, nil
+}
+
+// generatedWorkflows reads every file in the namespace `hyper project` owns, in
+// path order.
+//
+// **The namespace is the generator's own** and is asked rather than spelled
+// again: workflow.ProcedureOf is Path read backwards, so which files are
+// `project`'s to speak for has one answer here, at the command that writes them
+// and at the check that holds them to their derivation (§10).
+//
+// A repository with no `.github/workflows/` holds none, which is an answer
+// rather than a fault: the directory is created where a file is written into it
+// and is not a thing a repository has to have first. Nothing here recurses — a
+// directory whose name is in the namespace is not a file in it.
+//
+// A file in the namespace hyper cannot read is the walk's error, on the
+// division Load's own error return states: what a single file can do wrong is
+// carried on that file's LoadedArtefact, and this is not one — there is nothing
+// to hang a problem on, and bytes read as absent would report a projection
+// wanted and not held about a file that is sitting there.
+func generatedWorkflows(repoRoot string) ([]LoadedWorkflow, error) {
+	entries, err := os.ReadDir(filepath.Join(repoRoot, filepath.FromSlash(workflow.Dir)))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var held []LoadedWorkflow
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		path := workflow.Dir + "/" + entry.Name()
+		if _, inside := workflow.ProcedureOf(path); !inside {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(repoRoot, filepath.FromSlash(path)))
+		if err != nil {
+			return nil, err
+		}
+		held = append(held, LoadedWorkflow{Path: path, Bytes: data})
+	}
+	return held, nil
 }
 
 // Source is one artefact's path and its exact bytes, as a caller that already

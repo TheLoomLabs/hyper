@@ -91,13 +91,28 @@ names one in a **`repo-from`** file instead, and the ones here are:
   copy of [`check/cadence-run-once/repo/`](../check/cadence-run-once/repo)
   rather than a `repo-from` reaching across into it: a `check` case's `repo/` is
   that case's own, and a corpus reaching into another's fixture is one where an
-  edit made for one command breaks a golden of a different one.
+  edit made for one command breaks a golden of a different one. It carries the
+  workflow its Cadence projects, for the reason the one below does.
 - [`repo-cadence-malformed/`](repo-cadence-malformed) — a Procedure declaring a
   Cadence outside §10's five-field grammar, `0 3 * * MON` (issue #174). It is
   `repo-cadence-run-once/` with the nested Procedure dropped and the Definition
   narrowed to `read`, so the Run refuses on **one** code: what this case drives
   is a Procedure's own per-file check reaching a Run's pre-flight, and a second
   code on the page would leave which of the two got it there unsaid.
+
+  **Both carry a `hyper-*.yml` that no `project` could have written**, and that
+  is what keeps the *one code* above true (issue #179). A Procedure declaring a
+  Cadence with no generated file beside it is `projection-stale`, so either
+  repository without one refuses twice — and since `project` refuses these
+  repositories for the very codes they exist to drive, the projection they carry
+  was written by hand from the generator's own bytes. That is also what it costs:
+  §11's compiled-in constants appear in those bytes, so a runner label or a
+  `checkout` SHA that moves takes every checked-in `hyper-*.yml` in the corpora
+  with it — the failure names them, and `-update` does not write them, a fixture
+  being an input rather than a golden. What a repository that
+  declares a Cadence and holds no file for it looks like is
+  [`check/projection-stale`](../check/projection-stale)'s, and a Run's own is
+  `a-stale-projection` below.
 - [`repo-relative-bound/`](repo-relative-bound) — §8's Refusal in full (issue
   #169): `repo-destroy`'s Manifest, Definition and Target unchanged, over one
   Procedure whose `destroy` Step carries a **relative** predicate — `created_on
@@ -387,6 +402,7 @@ drives.
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
 | `check-refuses-the-run`, `-json` | `check` re-run in full: five codes across the five artefact kinds, one `refusal` row each, in `check`'s own order |
 | `a-cadence-over-a-run-once-step` | §8's Refusal over a code the walk found and the citation came back from (issue #169): a Procedure declaring a Cadence that reaches a run-once Step through a nested invocation. The fault is the invoked Procedure's Manifest, and the caret sits on the **`cadence:` line** of the Procedure declaring the recurrence — the artefact whose author can act on it. It is the one code here whose file, line and message all come from a walk that ended somewhere else |
+| `a-stale-projection` | §10's other static code reaching the same pre-flight (issue #179): a repository whose projection is current but for one line — the install step's URL, pointed at a mirror by hand — refuses `projection-stale` at `77`. It is the shape a runner actually meets, the file being *there and wrong* rather than absent, and it is where §8's rendering for the code is asserted whole: **no caret**, since the comparison is whole-file and the file is not one to edit; the coordinate as a note; and the remedy as a **command**, `hyper project`, rather than an `EDIT ONE OF` table |
 | `a-malformed-cadence`, `-json` | §10's grammar closed, one command over (issue #174): a `cadence:` naming a day of the week rather than numbering it, `cadence-malformed` at the Run-start `check`, `77`, and the Refusal on the entry. It is here as well as under `check/` because the whole point of the closure is that an expression no executor's clock could read never reaches one — a rule that held for `check` and not for a Run would make the Run the way past it |
 | `a-cyclic-procedure-refuses-the-run` | the invocation graph that closes on itself: `procedure-cycle` at the Run-start `check`, `77`, and the Refusal on the entry. A cycle is `check`'s to refuse — the engine's own arm for one is a precondition no Run reaches (§4, §6, issue #146) |
 | `a-destroy-with-no-selector-refuses-the-run` | the `destroy` Step carrying no `over:`: `destroy-unscoped` at the Run-start `check`, `77`, and the Refusal on the entry. It is here rather than under `check/` alone because what issue #157 found was a Run — the call went out and the process died in the Store afterwards — so the case that proves it fixed has to be one that would have made the call (§4, §5, ADR-0085) |

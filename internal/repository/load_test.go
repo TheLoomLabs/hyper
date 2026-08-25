@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
@@ -398,5 +399,78 @@ func TestLoad_AManifestThatNamesNothingIsInNoNamespace(t *testing.T) {
 	}
 	if len(loaded.Manifests) != 2 {
 		t.Errorf("Manifests holds %d entries, want the built-in and hetzner alone", len(loaded.Manifests))
+	}
+}
+
+// TestLoad_CarriesTheGeneratedWorkflowsAsBytes is the namespace beside the five
+// artefact locations: `hyper-*.yml` under `.github/workflows/`, read whole and
+// carried as bytes, which is what §10's projection check compares against a
+// fresh regeneration and what `project` reads to know what already stands
+// (issue #179).
+//
+// What is asserted beside the bytes is the boundary: the namespace is
+// `hyper-`-prefixed files **directly** under that directory, so a hand-written
+// workflow beside them and a file one directory down are both somebody else's.
+func TestLoad_CarriesTheGeneratedWorkflowsAsBytes(t *testing.T) {
+	root := fiveArtefacts(t)
+	write(t, root, ".github/workflows/hyper-deploy.yml", "name: deploy\n")
+	write(t, root, ".github/workflows/hyper-nightly.yml", "name: nightly\n")
+	write(t, root, ".github/workflows/release.yml", "name: release\n")
+	write(t, root, ".github/workflows/nested/hyper-deeper.yml", "name: deeper\n")
+
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []LoadedWorkflow{
+		{Path: ".github/workflows/hyper-deploy.yml", Bytes: []byte("name: deploy\n")},
+		{Path: ".github/workflows/hyper-nightly.yml", Bytes: []byte("name: nightly\n")},
+	}
+	if len(loaded.Workflows) != len(want) {
+		t.Fatalf("Workflows = %+v, want the two files in the namespace", loaded.Workflows)
+	}
+	for i, held := range loaded.Workflows {
+		if held.Path != want[i].Path || !bytes.Equal(held.Bytes, want[i].Bytes) {
+			t.Errorf("Workflows[%d] = %+v, want %+v", i, held, want[i])
+		}
+	}
+}
+
+// TestLoad_AGeneratedWorkflowIsNotAnArtefact is the other half of the sentence
+// above, and it is what keeps a generated file out of everything an artefact is
+// in: no LoadedArtefact, so nothing parses it, no namespace holds it, no schema
+// check reads it, and `check`'s own count of what it checked does not move
+// (§10, §12).
+func TestLoad_AGeneratedWorkflowIsNotAnArtefact(t *testing.T) {
+	root := fiveArtefacts(t)
+
+	before, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, root, ".github/workflows/hyper-deploy.yml", "this: [is not, even, valid: yaml\n")
+
+	after, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after.Artefacts) != len(before.Artefacts) {
+		t.Errorf("the load holds %d artefacts with a generated workflow in the tree and %d without", len(after.Artefacts), len(before.Artefacts))
+	}
+	for _, a := range after.Artefacts {
+		if strings.HasPrefix(a.Path, ".github/") {
+			t.Errorf("%s loaded as an artefact; a generated file is derived from artefacts rather than being one", a.Path)
+		}
+	}
+}
+
+// TestLoadFrom_HoldsNoGeneratedWorkflow is the door that supplies none. The
+// reaper and `changes` read artefacts out of a revision and verify nothing, so
+// there is no directory to walk and nothing that would ask (§7, issue #154).
+func TestLoadFrom_HoldsNoGeneratedWorkflow(t *testing.T) {
+	loaded := LoadFrom([]Source{{Path: "hyper.yaml", Bytes: []byte("kind: repository-declaration\n")}})
+	if len(loaded.Workflows) != 0 {
+		t.Errorf("LoadFrom() carries %+v, want no generated workflow", loaded.Workflows)
 	}
 }

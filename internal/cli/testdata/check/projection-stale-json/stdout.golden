@@ -1,0 +1,4 @@
+{"type":"problem","file":".github/workflows/hyper-list-preview-dns.yml","line":0,"column":0,"field":"","error_code":"projection-stale","message":"the Procedure list-preview-dns declares a Cadence and the working tree holds no file here — hyper project writes it"}
+{"type":"problem","file":".github/workflows/hyper-retire-preview-cdn.yml","line":0,"column":0,"field":"","error_code":"projection-stale","message":"no Procedure asks for this file — hyper project removes it"}
+{"type":"problem","file":".github/workflows/hyper-retire-preview-dns.yml","line":0,"column":0,"field":"","error_code":"projection-stale","message":"this file is not what hyper project would write now — the comparison is whole-file and byte-exact"}
+{"type":"result","truncated":false}

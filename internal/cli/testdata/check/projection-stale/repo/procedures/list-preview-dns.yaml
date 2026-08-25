@@ -1,0 +1,11 @@
+kind: procedure
+procedure: list-preview-dns
+targets: [cloudflare-prod]
+cadence: "15,45 * * * *"
+steps:
+  - id: list
+    definition: preview-dns-observed
+    operation: list_records
+    target: cloudflare-prod
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353

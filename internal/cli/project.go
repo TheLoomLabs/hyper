@@ -46,6 +46,11 @@ import (
 // `cadence-malformed` existing precisely so that an expression no grammar admits
 // never reaches an executor's clock (§4, §10, issue #174).
 //
+// **One code is excluded from that pass and only one**: `projection-stale`, the
+// drift this command is the repair for. Including it would make the command
+// that repairs the drift refuse to run because of the drift, which is a state
+// with no way out of it (§10, issue #179).
+//
 // **It writes the pin, and nothing else in the tool does.** The version is the
 // binary's own, derived rather than authored, and the digest beside it is the
 // checksum published for that version — so changing the version is *install a
@@ -100,7 +105,7 @@ func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, bi
 		return ExitUsage
 	}
 
-	if problems := verify.Repository(loaded); len(problems) > 0 {
+	if problems := blockingProblems(verify.Repository(loaded)); len(problems) > 0 {
 		problem.Sort(problems)
 		rows := checkRows(problems)
 		page := func(w io.Writer, rows []render.Row) error { return render.WriteTable(w, checkColumns, rows) }
@@ -132,14 +137,15 @@ func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// through the file: `loaded` still carries the pin being replaced, so a
 	// workflow generated off it would install the version this invocation is
 	// upgrading away from.
+	//
+	// The pass above projected too, at the pin the declaration carries
+	// rather than at the one being written — which is why an upgrade is not
+	// a repository that fails its own pre-write check: the files standing
+	// were written at the declared version and match a regeneration at it,
+	// and what moves them is this write (§11, verify.Projection).
 	pinned := pin.Written(declared.bytes, declared.present, binaryVersion, digest)
 	wanted := verify.Projection(loaded, binaryVersion, digest)
-	standing, err := standingWorkflows(repoRoot)
-	if err != nil {
-		fmt.Fprintf(stderr, "hyper project: %s\n", err)
-		return ExitProblems
-	}
-	unwanted := unwantedWorkflows(wanted, standing)
+	unwanted := verify.UnwantedWorkflows(loaded, wanted)
 
 	if path, err := writeDerived(repoRoot, pinned, wanted, unwanted); err != nil {
 		// The file it died on, named, and the tree left as it stands.
@@ -157,59 +163,24 @@ func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	return ExitClean
 }
 
-// standingWorkflows is every file in the namespace `project` owns that the
-// working tree already holds, in path order (§10).
+// blockingProblems is what stops a projection: everything `check` would report
+// except the one thing this command exists to repair.
 //
-// A repository with no `.github/workflows/` holds none, which is an answer
-// rather than a fault: the directory is created where a file is written into it
-// and is not a thing a repository has to have first.
-//
-// **A directory whose name is in the namespace is not a file in it.** Nothing
-// here recurses and nothing here removes a directory: what `project` owns is
-// files directly under `.github/workflows/`, and a tree somebody put there under
-// a name that looks like one is theirs.
-func standingWorkflows(repoRoot string) ([]string, error) {
-	entries, err := os.ReadDir(filepath.Join(repoRoot, filepath.FromSlash(workflow.Dir)))
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	var held []string
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		path := workflow.Dir + "/" + entry.Name()
-		if _, inside := workflow.ProcedureOf(path); inside {
-			held = append(held, path)
+// **`projection-stale` is excluded and nothing else is.** Every other problem
+// still stops it, on the rule above — a projection derived from a repository
+// that does not check is derived from something nobody could review — and this
+// one is the exception that rule cannot survive without: a command that refused
+// to run because the working tree's workflows are stale is the repair refusing
+// on the ground that there is something to repair, and the state it leaves a
+// reader in has no exit (§4, §10, issue #179).
+func blockingProblems(problems []problem.Problem) []problem.Problem {
+	kept := make([]problem.Problem, 0, len(problems))
+	for _, found := range problems {
+		if found.ErrorCode != verify.CodeProjectionStale {
+			kept = append(kept, found)
 		}
 	}
-	return held, nil
-}
-
-// unwantedWorkflows is the standing files no Procedure asks for any more: what
-// `project` takes away in the same act that writes the rest.
-//
-// A Procedure that has dropped its Cadence and a `hyper-*.yml` naming no
-// Procedure at all reach this the same way, and that is the point — the
-// namespace is answered as a set rather than one file at a time, so there is no
-// shape of leftover that has to be recognised for what it is (§10).
-func unwantedWorkflows(wanted []verify.ProjectedWorkflow, standing []string) []string {
-	asked := make(map[string]bool, len(wanted))
-	for _, file := range wanted {
-		asked[file.Path] = true
-	}
-
-	var unwanted []string
-	for _, path := range standing {
-		if !asked[path] {
-			unwanted = append(unwanted, path)
-		}
-	}
-	return unwanted
+	return kept
 }
 
 // writeDerived is the one act: the Repository declaration, then every wanted
@@ -262,10 +233,9 @@ func writeDerived(repoRoot string, pinned []byte, wanted []verify.ProjectedWorkf
 // `project` writes: the bytes it will edit, whether the repository holds the
 // file at all, and the two derived facts already in it.
 //
-// It is named for standing as standingWorkflows below is, and for that
-// function's reason: what this command does is compare what a repository asks
-// for against what is already there, and both halves of *what is already there*
-// read alike.
+// It is named for standing as the files verify.UnwantedWorkflows reads are:
+// what this command does is compare what a repository asks for against what is
+// already there, and both halves of *what is already there* read alike.
 //
 // It is a type rather than four values threaded singly because they are one
 // read of one file, and because two of them decide whether the third is

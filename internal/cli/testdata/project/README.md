@@ -1,7 +1,7 @@
 # What `project` wrote, and what it left alone
 
-Twenty-three cases, each with a repository of its own, and every one of them
-holds a `tree.golden` (issues #177 and #178). That is the corpus's own rule and
+Twenty-four cases, each with a repository of its own, and every one of them
+holds a `tree.golden` (issues #177, #178 and #179). That is the corpus's own rule and
 the reason it exists: the two text streams say what the command **reported**,
 and only the tree says what it **did** — a case checking its stdout alone would
 pass on a command that printed the right table and wrote nothing, or wrote it
@@ -47,6 +47,7 @@ retirement. Both bind one Target under one scheme, so both carry the same one
 | `a-dropped-cadence-loses-its-file` | both files stand, one Procedure has dropped its `cadence:`; the same command rewrites one and removes the other |
 | `an-unclaimed-workflow-is-removed` | a `hyper-*.yml` naming no Procedure, beside a hand-written `release.yml` the namespace does not own |
 | `re-projection-is-byte-identical` | the projection already current: nothing to say and nothing to change |
+| `a-hand-edit-does-not-survive` | two hand-edits inside a generated file — the concurrency block and an `if:` — overwritten whole, and the command not refused by the drift it repairs |
 | `nothing-to-project` | a Procedure that declares no recurrence, and no file standing |
 | `a-repository-that-does-not-check` | `cadence-malformed`: `check`'s own problem table, exit `1`, and the stale file still there |
 | `usage-positional` | `project <procedure>` — there is no per-Procedure projection to name |
@@ -57,6 +58,16 @@ retirement. Both bind one Target under one scheme, so both carry the same one
 | `no-release-under-the-tag` | `release-artefact-absent`: the checksums file answers `404`, which is a tag with no release and a release with no checksums file alike |
 | `no-line-for-the-artefact` | the same code's third shape: the file is there and names no artefact for the platform `runs-on` fixes |
 | `a-checksum-that-never-arrived` | the connection is refused: exit `1`, the world resisting rather than a check declining, and nothing written |
+
+`a-hand-edit-does-not-survive` is the corpus's half of §10's own sentence, the
+other half being `check`'s: a hand-edit to a generated file does not survive the
+next `project`, which is correct rather than regrettable, being authority living
+outside every reviewed artefact. It is also where the **one code `project`
+excludes from its pre-write pass** is visible — `projection-stale`, the drift
+this command is the repair for, which every other case here holds by not being
+about it: a corpus that refused on the drift would have no case in it at all,
+every repository here that wants a file it does not hold being in exactly that
+state (issue #179).
 
 `a-repository-that-does-not-check`, the three usage cases and the three that
 fail at the fetch are together the criterion no page can state on its own: **a

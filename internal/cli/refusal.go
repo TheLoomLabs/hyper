@@ -16,6 +16,7 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/run"
 	"github.com/TheLoomLabs/hyper/internal/schema"
 	"github.com/TheLoomLabs/hyper/internal/store"
+	"github.com/TheLoomLabs/hyper/internal/verify"
 )
 
 // §8's Refusal rendering: the caret excerpt, the `=` notes and the `EDIT ONE
@@ -119,38 +120,39 @@ func refusalPhase(member refusalRow) string {
 var refusalRemedies = map[string]string{
 	run.CodeCredentialAbsent:    "set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --",
 	run.CodeSecretSinkAbsent:    "the same invocation again with --secret-out <path>",
-	projectionStaleCode:         "hyper project",
+	verify.CodeProjectionStale:  "hyper project",
 	storeAbsentCode:             "hyper store init",
 	store.SchemaUnsupportedCode: "a hyper that reads this schema version — nothing in the repository is the fault",
 	manifestSchemaUnsupported:   "a hyper that reads this schema version — nothing in the repository is the fault",
 	pin.CodeMismatch:            "the hyper the Repository declaration pins",
 }
 
-// **Four of the seven are not reachable through this renderer today**, and
+// **Three of the seven are not reachable through this renderer today**, and
 // they are in the map anyway. `store-absent` and `version-pin-mismatch` decline
 // before a Run is identified at all and render as the two-line form gate.go
-// states; `projection-stale` arrives with the projection and
-// `manifest-schema-unsupported` with the digest-verified install. The map is
-// §8's own list of *the remedies that are not an edit*, and a list that dropped
-// a member because the check that fires it is not built is a partial copy of a
-// closed set — the day one lands, the default is a remediation table pointing
-// at a generated workflow or at a Manifest verified by digest, which is the one
+// states, and `manifest-schema-unsupported` arrives with the digest-verified
+// install. The map is §8's own list of *the remedies that are not an edit*, and
+// a list that dropped a member because the check that fires it is not built is
+// a partial copy of a closed set — the day one lands, the default is a
+// remediation table pointing at a Manifest verified by digest, which is the one
 // thing §8 says this surface must not draw.
+//
+// `projection-stale` was the fourth until issue #179 built the check, and its
+// arrival is what the ground above was held for: a Run's pre-flight declines on
+// it like any other static code, and what a reader gets is a command to run
+// rather than a table pointing at a generated file (§10).
 
-// The two codes named in refusalRemedies that no package this one imports
-// spells as a constant. They are the strings §12 fixes, reached here the way
-// internal/run reaches the codes it shares with internal/artefact: the string
-// is the contract, and a second site declaring it is not a second definition.
+// The one code named in refusalRemedies that no package this one imports spells
+// as a constant. It is the string §12 fixes, reached here the way internal/run
+// reaches the codes it shares with internal/artefact: the string is the
+// contract, and a second site declaring it is not a second definition.
 //
 // `manifest-schema-unsupported` is **not** internal/artefact's
 // `schema-unsupported`, which the tool already emits: that one is an input
 // schema reaching outside §4's four-keyword subset and its remedy is an
 // ordinary artefact edit. The two are different checks that read alike, which
 // is why this one is spelled out rather than reached for.
-const (
-	projectionStaleCode       = "projection-stale"
-	manifestSchemaUnsupported = "manifest-schema-unsupported"
-)
+const manifestSchemaUnsupported = "manifest-schema-unsupported"
 
 // relativeOperand is `older_than:` or `newer_than:` written against a duration,
 // found in the text an excerpt renders.
@@ -194,13 +196,16 @@ func (c caretExcerpt) rendered() bool { return len(c.lines) > 0 }
 // readExcerpt is the caret excerpt for one citation, and false where none can
 // be drawn.
 //
-// **`store-schema-unsupported` renders no caret and the check is here** rather
-// than falling out of a Store file being absent from the working tree. The file
-// it cites is evidence rather than an artefact, and editing it is editing
-// evidence (ADR-0011): a caret excerpt over a Store path would render, on the
-// surface whose whole purpose is *here is the line to change*, a file the reader
-// must not touch. A rule that holds by accident is one no reading can be checked
-// against, so it is stated (§7, §8, ADR-0028).
+// **Two codes render no caret and both checks are here** rather than falling
+// out of what the working tree happens to hold. Each cites a file that is not an
+// artefact to edit, which is the one thing this surface must not point a reader
+// at: `store-schema-unsupported` cites evidence, and editing it is editing
+// evidence (ADR-0011); `projection-stale` cites a generated file, whose every
+// byte is derived from artefacts elsewhere and whose hand-edits do not survive
+// the next `project` (§10). Neither would draw one today — a Store file is
+// absent from the working tree and a projection problem cites no line — and a
+// rule that holds by accident is one no reading can be checked against, so both
+// are stated (§7, §8, ADR-0028).
 //
 // A file that cannot be read draws nothing either, and says so by drawing
 // nothing: the coordinate then renders as a note, which is the same shape the
@@ -208,7 +213,7 @@ func (c caretExcerpt) rendered() bool { return len(c.lines) > 0 }
 // rendering is rare and is not an error — what the page owes a reader there is
 // the file and the line, which it still has.
 func readExcerpt(root, code, file string, line int) caretExcerpt {
-	if code == store.SchemaUnsupportedCode || file == "" || line < 1 {
+	if code == store.SchemaUnsupportedCode || code == verify.CodeProjectionStale || file == "" || line < 1 {
 		return caretExcerpt{}
 	}
 	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))

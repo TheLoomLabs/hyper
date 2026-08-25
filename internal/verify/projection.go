@@ -1,10 +1,13 @@
 package verify
 
 import (
+	"bytes"
 	"maps"
 	"slices"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
+	"github.com/TheLoomLabs/hyper/internal/pin"
+	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/store"
 	"github.com/TheLoomLabs/hyper/internal/workflow"
@@ -45,6 +48,12 @@ type ProjectedWorkflow struct {
 // caller hands over is what it is about to write into `hyper.yaml`, which is
 // what makes the workflow and the declaration one edit rather than two
 // (issue #178).
+//
+// **The other caller reads them off the declaration**, and is right to: §10's
+// projection check regenerates against what `hyper.yaml` says, because under
+// the pin gate the declaration's version and the running binary's are the same
+// string and reading the file is what keeps the check inside a pass that
+// touches nothing outside the load (projectionProblems below, issue #179).
 //
 // **Nothing here reads a file, a clock or a network**, and nothing here judges a
 // repository: an artefact that would earn a problem still projects, because what
@@ -109,4 +118,125 @@ func projectedVariables(loaded repository.Loaded, pairs []store.Pair) []string {
 		}
 	}
 	return named
+}
+
+// CodeProjectionStale is §10's own static code: a generated workflow that is
+// not what `project` would write now (§12).
+//
+// It is spelled here, at the check that fires it, and read from here by the
+// Refusal rendering that knows its remedy — one string rather than two that
+// happen to agree (§8, internal/cli/refusal.go).
+const CodeProjectionStale = "projection-stale"
+
+// projectionProblems is the verification half of generate-and-verify: the
+// working tree's own `.github/workflows/hyper-*.yml` against a fresh
+// regeneration of the same set, whole-file and byte-exact (§10, §12, issue
+// #179).
+//
+// **Byte-exact is what catches every way the two can part**, and one comparison
+// is why there is no shape of drift that has to be recognised for what it is: a
+// Cadence edited and not projected, a hand-edit to a generated file, a
+// generated file deleted, one left behind by a Procedure that no longer
+// declares a Cadence, and a hand-edited version pin — which is therefore caught
+// twice, here and by the fetched binary's own gate, neither detection depending
+// on the other having run (§11, ADR-0020).
+//
+// **Regeneration reaches no network, and that is structural rather than
+// disciplinary.** The version and the digest are read off `hyper.yaml` rather
+// than off the binary's stamped facts: under the gate they are the same string,
+// and reading the declaration is what keeps this rule inside a pass that takes
+// a loaded repository and nothing else. Where the declaration carries neither
+// legibly there is nothing to regenerate against and this reports **nothing** —
+// that is the declaration's own `schema-mismatch`, already reported, and a
+// second opinion would put two rows on the page for one fault (§3, ADR-0064).
+//
+// The two facts come through two doors and that is the pin's own shape: the
+// version is internal/pin's, which is where the gate reads it, and the digest is
+// internal/artefact's, which is where every fact the declaration *says* is read
+// (§9, §11, ADR-0020).
+func projectionProblems(loaded repository.Loaded) []problem.Problem {
+	declaration, _ := loaded.DeclarationBytes()
+	version := pin.Declared(declaration)
+	digest := artefact.ReadRepositoryFacts(loaded.Declaration()).Digest
+	if version == "" || digest == "" {
+		return nil
+	}
+
+	standing := make(map[string][]byte, len(loaded.Workflows))
+	for _, file := range loaded.Workflows {
+		standing[file.Path] = file.Bytes
+	}
+
+	var problems []problem.Problem
+	wanted := Projection(loaded, version, digest)
+	asked := make(map[string]bool, len(wanted))
+	for _, file := range wanted {
+		asked[file.Path] = true
+		held, stands := standing[file.Path]
+		switch {
+		case !stands:
+			problems = append(problems, stale(file.Path,
+				"the Procedure "+file.Procedure+" declares a Cadence and the working tree holds no file here — hyper project writes it"))
+		case !bytes.Equal(held, file.Bytes):
+			problems = append(problems, stale(file.Path,
+				"this file is not what hyper project would write now — the comparison is whole-file and byte-exact"))
+		}
+	}
+	for _, path := range unwanted(loaded, asked) {
+		problems = append(problems, stale(path, "no Procedure asks for this file — hyper project removes it"))
+	}
+	return problems
+}
+
+// UnwantedWorkflows is the files standing in the namespace that this
+// repository's projection does not ask for: what `hyper project` takes away in
+// the same act that writes the rest, and what the check above reports as the
+// second of the code's three shapes.
+//
+// **The namespace is answered as a set**, which is why there is no shape of
+// leftover that has to be recognised for what it is: a Procedure that has
+// dropped its `cadence:`, a Procedure that has been deleted, and a
+// `hyper-*.yml` naming no Procedure at all reach it the same way (§10).
+//
+// It is exported beside Projection, and for Projection's own reason: **the
+// command that removes a file and the check that says the file should not be
+// there are one derivation**, and two of them is the day a `project` leaves
+// behind a repository that fails its own check.
+//
+// wanted is the caller's projection rather than one computed here, because the
+// two callers project at two versions — `project` at the binary's, the check at
+// the declaration's — and which files are asked for is the same set either way
+// (issue #178).
+func UnwantedWorkflows(loaded repository.Loaded, wanted []ProjectedWorkflow) []string {
+	asked := make(map[string]bool, len(wanted))
+	for _, file := range wanted {
+		asked[file.Path] = true
+	}
+	return unwanted(loaded, asked)
+}
+
+// unwanted is that set over an index the caller already holds.
+func unwanted(loaded repository.Loaded, asked map[string]bool) []string {
+	var held []string
+	for _, file := range loaded.Workflows {
+		if !asked[file.Path] {
+			held = append(held, file.Path)
+		}
+	}
+	return held
+}
+
+// stale is one shape of the code, cited at the file and nowhere further in.
+//
+// **It carries no line, no column and no field**, and renders no caret on a
+// Refusal for the same reason (§8, internal/cli/refusal.go). The comparison is
+// whole-file, so a diff hunk is not a citation — and pointing a reader at line
+// 14 of a file they must not hand-edit is worse than pointing at the file, the
+// file being derived from the artefacts rather than authored (§9, ADR-0011's
+// own ground one artefact over).
+//
+// Each shape names `hyper project` verbatim, which is a check knowing its own
+// remedy stated as a fact rather than editorialised (§8).
+func stale(path, message string) problem.Problem {
+	return problem.Problem{File: path, ErrorCode: CodeProjectionStale, Message: message}
 }

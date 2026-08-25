@@ -1,0 +1,43 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/08/06/0199206d-4e15-7c30-9b8a-52d9ea01f7d1/outcome.json (341 bytes)
+{
+  "ended_at": "2026-08-06T11:03:18.000Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "error_code": "projection-stale",
+      "file": ".github/workflows/hyper-watch-status.yml",
+      "message": "this file is not what hyper project would write now — the comparison is whole-file and byte-exact"
+    }
+  ],
+  "schema_version": 1
+}
+=== journal/2026/08/06/0199206d-4e15-7c30-9b8a-52d9ea01f7d1/run.json (472 bytes)
+{
+  "dry_run": false,
+  "procedure": "watch-status",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "62814810980e99eb845e551a09192f66a3106d20",
+    "repo_revision": "f60dbc4929d49acefb1ef31b82e3333b583c6939"
+  },
+  "run_id": "0199206d-4e15-7c30-9b8a-52d9ea01f7d1",
+  "schema_version": 1,
+  "started_at": "2026-08-06T11:03:18.000Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

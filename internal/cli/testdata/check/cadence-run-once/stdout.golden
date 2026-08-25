@@ -1,2 +1,3 @@
-FILE                     LINE  FIELD    ERROR_CODE        MESSAGE
-procedures/nightly.yaml  4     cadence  cadence-run-once  cadence: reaches a run-once Step at some depth — a Cadence over a run-once Step declares a recurrence with a lifespan of one occurrence
+FILE                                 LINE  FIELD    ERROR_CODE        MESSAGE
+.github/workflows/hyper-nightly.yml                 projection-stale  the Procedure nightly declares a Cadence and the working tree holds no file here — hyper project writes it
+procedures/nightly.yaml              4     cadence  cadence-run-once  cadence: reaches a run-once Step at some depth — a Cadence over a run-once Step declares a recurrence with a lifespan of one occurrence

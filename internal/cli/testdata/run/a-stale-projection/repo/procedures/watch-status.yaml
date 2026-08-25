@@ -1,0 +1,11 @@
+kind: procedure
+procedure: watch-status
+targets: [local]
+cadence: "0 3 * * *"
+steps:
+  - id: status
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev

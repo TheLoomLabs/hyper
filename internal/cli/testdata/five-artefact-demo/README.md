@@ -72,6 +72,20 @@ anchor on a commit**, which no case can hold; those are driven from
 repository, reads its `HEAD`, seeds the Journal against it and edits the working
 tree in place.
 
+## The file that is not an artefact
+
+Milestone 9 put a sixth kind of file in it, and it is not one of the five:
+`retire-preview-dns` declares a Cadence, so the projection asks for
+`.github/workflows/hyper-retire-preview-dns.yml`, and a repository that declares
+a recurrence and holds no file for it is `projection-stale` (§10, issue #179).
+The file here is the generator's own bytes, and it is what keeps *checks clean*
+true of this repository.
+
+Nothing else moves with it. It enters no namespace, is parsed as YAML nowhere,
+and `check`'s count of what it checked still says **nine** — which is the whole
+of what *a generated workflow is derived from the artefacts rather than being
+one* means, asserted by a golden that did not change.
+
 ## Why the repository sits here and not in a case
 
 It is one repository and forty-nine cases, in seven corpora: the four commands'

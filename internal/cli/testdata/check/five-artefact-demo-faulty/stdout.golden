@@ -1,6 +1,7 @@
-FILE                                   LINE  FIELD           ERROR_CODE              MESSAGE
-definitions/preview-dns-observed.yaml  4     kinds           definition-kinds-mixed  read stands in kinds: beside mutate or a destroy: claim — a Definition observes or it effects, never both
-hyper.yaml                             5     unexpected      unknown-key             "unexpected" is not a key the schema at this position admits
-procedures/retire-preview-dns.yaml     32    steps[2].bound  bound-missing           a destroy Step carries no bound: — an absent Bound means unbounded, and unbounded is refused before anything runs
-providers/uptime.yaml                  5     capabilities    capability-mismatch     capabilities: declares shell, and no Operation's request block names it
-targets/local.yaml                     8     auth            local-reserved          a declaration named local carries no auth: block — the reserved name leaves a Probe no credential to resolve
+FILE                                            LINE  FIELD           ERROR_CODE              MESSAGE
+.github/workflows/hyper-retire-preview-dns.yml                        projection-stale        the Procedure retire-preview-dns declares a Cadence and the working tree holds no file here — hyper project writes it
+definitions/preview-dns-observed.yaml           4     kinds           definition-kinds-mixed  read stands in kinds: beside mutate or a destroy: claim — a Definition observes or it effects, never both
+hyper.yaml                                      5     unexpected      unknown-key             "unexpected" is not a key the schema at this position admits
+procedures/retire-preview-dns.yaml              32    steps[2].bound  bound-missing           a destroy Step carries no bound: — an absent Bound means unbounded, and unbounded is refused before anything runs
+providers/uptime.yaml                           5     capabilities    capability-mismatch     capabilities: declares shell, and no Operation's request block names it
+targets/local.yaml                              8     auth            local-reserved          a declaration named local carries no auth: block — the reserved name leaves a Probe no credential to resolve

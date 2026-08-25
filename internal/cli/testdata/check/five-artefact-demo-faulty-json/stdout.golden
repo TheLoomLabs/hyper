@@ -1,3 +1,4 @@
+{"type":"problem","file":".github/workflows/hyper-retire-preview-dns.yml","line":0,"column":0,"field":"","error_code":"projection-stale","message":"the Procedure retire-preview-dns declares a Cadence and the working tree holds no file here — hyper project writes it"}
 {"type":"problem","file":"definitions/preview-dns-observed.yaml","line":4,"column":9,"field":"kinds","error_code":"definition-kinds-mixed","message":"read stands in kinds: beside mutate or a destroy: claim — a Definition observes or it effects, never both"}
 {"type":"problem","file":"hyper.yaml","line":5,"column":1,"field":"unexpected","error_code":"unknown-key","message":"\"unexpected\" is not a key the schema at this position admits"}
 {"type":"problem","file":"procedures/retire-preview-dns.yaml","line":32,"column":5,"field":"steps[2].bound","error_code":"bound-missing","message":"a destroy Step carries no bound: — an absent Bound means unbounded, and unbounded is refused before anything runs"}

@@ -1,0 +1,10 @@
+nothing ran. no step was reached.
+
+refused: projection-stale
+
+  = this file is not what hyper project would write now — the comparison is whole-file and byte-exact
+  = file: .github/workflows/hyper-watch-status.yml
+  = checked at run start, before the first step
+  = hyper project
+
+refused · exit 77 · run 0199206d-4e15-7c30-9b8a-52d9ea01f7d1

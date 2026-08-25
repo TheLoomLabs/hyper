@@ -306,3 +306,74 @@ func TestRunProject_APinThatDisagreesReachesForTheChecksum(t *testing.T) {
 		t.Errorf("stat %s = %v, want it never created", workflow.Dir, err)
 	}
 }
+
+// TestRunProject_TheRoundTripIsProjectThenCheck is generate-and-verify closed:
+// `project` writes, `check` passes, one byte moves, `check` declines (§10,
+// issue #179).
+//
+// It is one case rather than four because what it asserts is the **loop** —
+// each half of it is held elsewhere, `project`'s bytes by testdata/project's
+// tree goldens and the check's three shapes by testdata/check/projection-stale,
+// and neither says that the writer and the reader agree about one repository.
+// A generator and a check that were each right about a different set of bytes
+// would pass both of those corpora and fail every user on the first invocation.
+//
+// The byte moved is inside the generated file rather than in an artefact,
+// because that is the edit no other surface catches: an artefact edit shows up
+// in a review's gutter, and this one shows up nowhere but here (§8, §10).
+func TestRunProject_TheRoundTripIsProjectThenCheck(t *testing.T) {
+	root := projectRepository(t)
+	p := &process{wd: root}
+
+	var stdout, stderr bytes.Buffer
+	if exit := cli.Main([]string{"project", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitClean {
+		t.Fatalf("project exited %d, want %d: %s", exit, cli.ExitClean, stderr.String())
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if exit := cli.Main([]string{"check", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitClean {
+		t.Fatalf("check exited %d over a repository `project` had just written: %s%s", exit, stdout.String(), stderr.String())
+	}
+
+	generated := filepath.Join(root, filepath.FromSlash(workflow.Path("beat")))
+	written, err := os.ReadFile(generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// One byte, in the last place a reader would look for one: the `n` of
+	// the runner's own name. Nothing about it is legible in a diff of the
+	// repository's artefacts, and the whole-file comparison does not care
+	// where it fell.
+	if err := os.WriteFile(generated, bytes.Replace(written, []byte("ubuntu"), []byte("ubuntv"), 1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	if exit := cli.Main([]string{"check", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitProblems {
+		t.Errorf("check exited %d after one byte moved, want %d", exit, cli.ExitProblems)
+	}
+	if !strings.Contains(stdout.String(), "projection-stale") {
+		t.Errorf("stdout = %q, want the code the byte earned", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), workflow.Path("beat")) {
+		t.Errorf("stdout = %q, want it to cite the file that moved", stdout.String())
+	}
+
+	// And `project` runs on it, which is the exclusion the pre-write pass
+	// makes for this one code: the repair is not refused on the ground that
+	// there is something to repair.
+	stdout.Reset()
+	stderr.Reset()
+	if exit := cli.Main([]string{"project", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitClean {
+		t.Fatalf("project exited %d over a repository whose only problem is the drift it repairs: %s%s", exit, stdout.String(), stderr.String())
+	}
+	repaired, err := os.ReadFile(generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(repaired, written) {
+		t.Errorf("the file `project` rewrote is not the file it wrote the first time:\n%s", repaired)
+	}
+}

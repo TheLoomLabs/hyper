@@ -85,21 +85,25 @@ var milestoneOneErrorCodes = []string{
 	"procedure-cycle",
 }
 
-// milestoneNineCheckCodes is what milestone 9 adds to the same set: §10's
-// static Cadence code that is a Procedure's own (docs/build/milestones.md's
-// milestone 9). `cadence-malformed` is here rather than in the list above
-// because the grammar was stated and unenforced until the milestone that
-// projects a Cadence into a workflow — an expression outside it loaded clean
-// and rendered no gloss, which is the one surface built to show a reviewer the
-// blast radius of a recurrence saying nothing about the recurrence it could not
-// read (§10, §12, issue #174).
+// milestoneNineCheckCodes is what milestone 9 adds to the same set: §10's two
+// static Cadence codes that are not the transitive walk's (docs/build/
+// milestones.md's milestone 9).
 //
-// `projection-stale` is §10's other static code and is not a member yet.
-// `hyper project` generates the file (issue #177); what compares one against a
-// fresh regeneration is the check that lands beside it, and until it does there
-// is no rule for a fixture to fail.
+// `cadence-malformed` is here rather than in the list above because the grammar
+// was stated and unenforced until the milestone that projects a Cadence into a
+// workflow — an expression outside it loaded clean and rendered no gloss, which
+// is the one surface built to show a reviewer the blast radius of a recurrence
+// saying nothing about the recurrence it could not read (§10, §12, issue #174).
+//
+// `projection-stale` is §10's other static code and the verification half of
+// generate-and-verify: `hyper project` writes the file (issue #177) and this
+// compares what stands against a fresh regeneration (issue #179). It is the one
+// member of the whole set whose fixture cites a file that is **not** an
+// artefact, which is what testdata/check/projection-stale is for — one code,
+// three shapes, each citing a path in the namespace `project` owns.
 var milestoneNineCheckCodes = []string{
 	"cadence-malformed",
+	"projection-stale",
 }
 
 // checkCorpusErrorCodes is every error_code the check corpus owes a failing
@@ -188,10 +192,18 @@ const runCorpus = "testdata/run"
 // no artefact in the repository states and `check` therefore cannot read (§6,
 // §12, issue #153). It is a member here and in no list above for that reason.
 //
-// cadence-malformed is the one member milestone 9 adds, and it is here on the
-// ordinary footing: §10's grammar is closed so that an expression no executor's
-// clock could read never reaches one, and a rule that held for `check` and not
-// for a Run would let the Run be the way past it (§6, issue #174).
+// cadence-malformed is one of the two members milestone 9 adds, and it is here
+// on the ordinary footing: §10's grammar is closed so that an expression no
+// executor's clock could read never reaches one, and a rule that held for
+// `check` and not for a Run would let the Run be the way past it (§6, issue
+// #174).
+//
+// projection-stale is the other, and it is the member this list was hardest to
+// leave out: a Run started by a projected workflow is a Run started by a file
+// that must be what the artefacts ask for, and a rule that held on a laptop and
+// not on the runner would exempt the one occasion nobody is watching (§6, §10,
+// issue #179). Its Refusal is also where the rendering §8 owes it is asserted —
+// no caret, and a remedy that is a command rather than an `EDIT ONE OF` table.
 var codesReachingARun = []string{
 	"unknown-key",
 	"credential-slot-malformed",
@@ -206,6 +218,7 @@ var codesReachingARun = []string{
 	"bound-exceeded",
 	"run-once-recorded",
 	"cadence-malformed",
+	"projection-stale",
 }
 
 // artefactKindsCitedByARefusal is the five reviewed artefacts by where each one
