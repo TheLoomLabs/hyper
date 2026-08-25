@@ -157,6 +157,10 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //   - actor and hostname, optional: who is running hyper and on which machine,
 //     which a Journal entry's Trigger carries — `actor` on both executors and
 //     `host` on `local`. Absent, the harness's stated constants.
+//   - tree.golden, optional: the working tree's `.github/workflows/` after the
+//     run, every path under it with its exact bytes. It is what says a command
+//     that writes files wrote the ones it reported and no others, and what says
+//     a command that reported nothing wrote nothing (issue #177).
 //   - git, store/, store-unpushed/, remote, remote-store/, remote-ahead/,
 //     reject-pushes, unfetchable-remote, find-root, no-git-root, optional: the
 //     git fixture, which golden_fixture_test.go states in full. A case
@@ -176,8 +180,8 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //     full.
 //
 // Its stdout.golden, stderr.golden and exit.golden are compared byte for byte,
-// and regenerated in place behind -update; so are store.golden and
-// remote.golden, where the case supplies them.
+// and regenerated in place behind -update; so are store.golden, remote.golden
+// and tree.golden, where the case supplies them.
 func TestGolden(t *testing.T) {
 	for _, c := range goldenCases(t) {
 		t.Run(c.name, func(t *testing.T) {
@@ -188,6 +192,7 @@ func TestGolden(t *testing.T) {
 
 			compareGolden(t, c.dir, stdout.Bytes(), stderr.Bytes(), exit)
 			run.compareBranches(t, c.dir)
+			run.compareTree(t, c.dir)
 		})
 	}
 }
@@ -405,16 +410,34 @@ func (r goldenRun) compareBranches(t *testing.T, dir string) {
 	t.Helper()
 
 	if r.inputs.storeGolden {
-		compareBranchGolden(t, filepath.Join(dir, "store.golden"), r.fixture.render(t, r.fixture.root))
+		compareRendering(t, filepath.Join(dir, "store.golden"), r.fixture.render(t, r.fixture.root))
 	}
 	if r.inputs.remoteGolden {
-		compareBranchGolden(t, filepath.Join(dir, "remote.golden"), r.fixture.render(t, r.fixture.origin))
+		compareRendering(t, filepath.Join(dir, "remote.golden"), r.fixture.render(t, r.fixture.origin))
 	}
 }
 
-// compareBranchGolden holds one rendered branch against its golden file, byte
-// for byte, on compareGolden's own footing and behind the same one flag.
-func compareBranchGolden(t *testing.T, path, rendered string) {
+// compareTree holds the case's tree.golden against what the run left in the
+// working tree, on compareBranches' own footing: opted into by the file being
+// there, so every landed case is untouched by a -update run.
+//
+// It is the axis `project` needs and no branch golden can carry: the two text
+// streams say what the command **reported**, and only the tree says what it
+// **did** — including the cases where what it did was nothing at all, which a
+// stdout golden cannot tell from a command that wrote the wrong file quietly
+// (§10, issue #177).
+func (r goldenRun) compareTree(t *testing.T, dir string) {
+	t.Helper()
+
+	if r.inputs.treeGolden {
+		compareRendering(t, filepath.Join(dir, "tree.golden"), r.fixture.renderTree(t))
+	}
+}
+
+// compareRendering holds one rendered fixture — a branch, or the working tree —
+// against its golden file, byte for byte, on compareGolden's own footing and
+// behind the same one flag.
+func compareRendering(t *testing.T, path, rendered string) {
 	t.Helper()
 
 	if *update {
@@ -775,6 +798,39 @@ func corpusNames(command string) []string {
 		}
 	}
 	return names
+}
+
+// TestGoldenCorpora_EveryCaseThatWritesTheWorkingTreeHoldsATreeGolden is the
+// other direction of the guard fixtureInputs.fault holds: a tree.golden with no
+// repository to write into is a case that means nothing, and a case that writes
+// the working tree with no tree.golden is a case that asserts half of what it
+// drives (issue #177).
+//
+// `project` is named here rather than inferred because it is the one command in
+// §9's tree that writes a file into the working tree, and no shape of a case
+// directory says so — a case is found by having an argv, and what its command
+// does is exactly what the harness deliberately does not know. So the fact is
+// stated in one place, and a second writer landing in a later milestone joins it
+// here on purpose rather than by being forgotten.
+//
+// What it holds is `store init`'s own rule read across: the two text streams say
+// what a command **reported** and only the tree says what it **did**, so a case
+// that checks its stdout alone would pass on a command that printed the right
+// table and wrote nothing (§10, issue #126).
+func TestGoldenCorpora_EveryCaseThatWritesTheWorkingTreeHoldsATreeGolden(t *testing.T) {
+	var held int
+	for _, c := range goldenCases(t) {
+		if c.argv[0] != "project" {
+			continue
+		}
+		held++
+		if !isFile(filepath.Join(c.dir, "tree.golden")) {
+			t.Errorf("case %s drives %q, which writes the working tree, and holds no tree.golden", c.name, c.argv[0])
+		}
+	}
+	if held == 0 {
+		t.Fatal("no case in any corpus drives a command that writes the working tree; the rule was held over nothing")
+	}
 }
 
 // TestGoldenCorpora_StdoutCarriesNothingButTheAnswer is §9's stream discipline

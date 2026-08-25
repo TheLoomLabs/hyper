@@ -1,0 +1,2 @@
+FILE                                LINE  FIELD    ERROR_CODE         MESSAGE
+procedures/retire-preview-dns.yaml  4     cadence  cadence-malformed  cadence: "0 3 * *" is not an expression the grammar admits — it carries 4 fields where the grammar states five: minute, hour, day of month, month, day of week

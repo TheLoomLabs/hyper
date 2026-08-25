@@ -16,6 +16,13 @@
 // artefact's own schema and checks (internal/artefact). What is here is the
 // walk: which checks run over which artefact, and the one graph-wide pass that
 // needs every procedures/ file at once.
+//
+// Two derivations stand beside that pass and are exported for one reason: a
+// surface renders what this pass checks, and two builders of one thing is where
+// the day comes that they disagree. ProcedureGraph is the invocation graph a
+// review's roster quantifies over; Projection is the set of workflow files
+// `hyper project` writes, which is the same set §10's own check holds a working
+// tree to (projection.go).
 package verify
 
 import (

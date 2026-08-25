@@ -1,0 +1,3 @@
+{"type":"workflow","path":".github/workflows/hyper-list-preview-dns.yml","procedure":"list-preview-dns"}
+{"type":"workflow","path":".github/workflows/hyper-retire-preview-dns.yml","procedure":"retire-preview-dns","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3}
+{"type":"result","truncated":false}

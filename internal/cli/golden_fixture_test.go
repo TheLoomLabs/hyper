@@ -16,6 +16,7 @@ import (
 
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/store"
+	"github.com/TheLoomLabs/hyper/internal/workflow"
 )
 
 // A golden case can be a real git repository, and this file is the whole of
@@ -173,6 +174,12 @@ type fixtureInputs struct {
 	// supplying neither asserts nothing about any branch, which is every
 	// case that landed before this ticket.
 	storeGolden, remoteGolden bool
+	// treeGolden says the case asserts the **working tree** — the third
+	// golden a case can opt into, and the one `store init`'s own rule asks
+	// for: the two text streams say what a command *reported*, and only the
+	// tree says what it *did*. `project` writes files, so a case driving it
+	// with no tree.golden asserts half of what it drives (§10, issue #177).
+	treeGolden bool
 }
 
 // materialised says the case is driven against a real git repository: it
@@ -235,6 +242,10 @@ func (in fixtureInputs) fault() string {
 		return "holds a store.golden and names a store-from; the golden is read against the case's own store/ seed, and a shared one has no case to belong to"
 	case in.remoteGolden && !in.remote:
 		return "holds a remote.golden and wires no origin; there is no remote branch to render"
+	case in.treeGolden && !in.materialised():
+		return "holds a tree.golden and materialises no repository; a command that writes the working tree would write into the checked-in corpus"
+	case in.treeGolden && in.from != "":
+		return "holds a tree.golden and names a repo-from; the golden is read against the case's own repo/, and a shared one has no case to belong to"
 	}
 	return ""
 }
@@ -265,6 +276,7 @@ func (c goldenCase) fixtureInputs() fixtureInputs {
 		noGitRoot:         isFile(filepath.Join(c.dir, "no-git-root")),
 		storeGolden:       isFile(filepath.Join(c.dir, "store.golden")),
 		remoteGolden:      isFile(filepath.Join(c.dir, "remote.golden")),
+		treeGolden:        isFile(filepath.Join(c.dir, "tree.golden")),
 	}
 }
 
@@ -603,6 +615,69 @@ func (fx gitFixture) render(t *testing.T, gitdir string) string {
 		blob := fx.run(t, gitdir, "cat-file", "blob", entry.object)
 		fmt.Fprintf(&rendered, "=== %s (%d bytes)\n", entry.path, len(blob))
 		rendered.Write(blob)
+	}
+	return rendered.String()
+}
+
+// absentWorkflows is what a tree golden holds where `.github/workflows/` is not
+// there at all. It is a stated line for absentBranch's reason: a directory that
+// does not exist and one that exists and holds nothing are two different
+// answers — `project` creates it where it writes into it and never otherwise —
+// and a golden that rendered both as nothing could not tell them apart (§10).
+const absentWorkflows = "no " + workflow.Dir + "/ directory\n"
+
+// renderTree is the working tree's `.github/workflows/` as a tree golden holds
+// it, on render's own shape: every path under it, in path order, each under a
+// header line naming it and its length, with the bytes verbatim beneath.
+//
+// It is the third golden a case can hold and it exists because `store init`'s
+// own rule says so: the two text streams say what a command **reported**, and
+// only the tree says what it **did** (issue #126, issue #177). A `project` case
+// asserting its stdout alone would pass on a command that printed the right
+// table and wrote nothing.
+//
+// It reads the **working tree** and not a git ref, which is what separates it
+// from render above: what `project` writes is a file in the tree that a human
+// then reviews in a diff, and a golden read off HEAD would be reading the commit
+// the fixture made before the command ran (§10).
+//
+// Nothing outside `.github/workflows/` is rendered. That is the criterion the
+// golden is here to hold — `project` creates that directory where absent and
+// touches nothing beside it — and a golden over the whole tree would be one that
+// moved every time a case's own artefacts did.
+func (fx gitFixture) renderTree(t *testing.T) string {
+	t.Helper()
+
+	dir := filepath.Join(fx.root, filepath.FromSlash(workflow.Dir))
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return absentWorkflows
+	}
+
+	var paths []string
+	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		rel, err := filepath.Rel(fx.root, path)
+		if err != nil {
+			return err
+		}
+		paths = append(paths, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(paths)
+
+	var rendered strings.Builder
+	for _, path := range paths {
+		data, err := os.ReadFile(filepath.Join(fx.root, filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Fprintf(&rendered, "=== %s (%d bytes)\n", path, len(data))
+		rendered.Write(data)
 	}
 	return rendered.String()
 }

@@ -1,0 +1,7 @@
+PATH                                            PROCEDURE           CADENCE
+.github/workflows/hyper-nightly.yml                                 removed
+.github/workflows/hyper-retire-preview-dns.yml  retire-preview-dns  0 3 * * 1
+                                                                    03:00 UTC every Monday
+                                                                    ≈4.3 runs/month
+                                                                    scheduled runs happen on the default branch only
+                                                                    :00 is the executor's busiest minute — delivery there is likeliest to be delayed or dropped

@@ -1,0 +1,37 @@
+kind: provider
+provider: preview-dns
+schema-version: 1
+class: cloudflare
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  list_records:
+    kind: read
+    repeatability: repeatable
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /client/v4/zones/{zone_id}/dns_records
+    input:
+      type: object
+      properties:
+        zone_id: {type: string}
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id, name: $.name}
+  delete_record:
+    kind: destroy
+    repeatability: repeatable
+    deadline: 30s
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /client/v4/zones/{zone_id}/dns_records/{record_id}
+    input:
+      type: object
+      properties:
+        zone_id: {type: string}
+        record_id: {type: string}

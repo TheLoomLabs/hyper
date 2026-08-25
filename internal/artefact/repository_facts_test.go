@@ -49,3 +49,27 @@ func TestReadRepositoryFacts_ANilRootStatesNothing(t *testing.T) {
 		t.Errorf("retention is %q, want none stated", got)
 	}
 }
+
+// TestReadRepositoryFacts_ReadsTheDigestAsTheDeclarationSpellsIt is what
+// `project` freezes into every generated workflow: the algorithm inline, as §3
+// writes it, so that one split into the hex a `sha256sum -c -` line takes
+// happens in the generator and nowhere else (§3, §11).
+func TestReadRepositoryFacts_ReadsTheDigestAsTheDeclarationSpellsIt(t *testing.T) {
+	facts := ReadRepositoryFacts(parse(t, `kind: repository-declaration
+version: 1.4.0
+digest: sha256:a3f1c07d2b9e4a6155c8e0d3f7b21ac49e5d8f0361b4c72ae9d05f83c1e6b7a2
+`))
+
+	if want := "sha256:a3f1c07d2b9e4a6155c8e0d3f7b21ac49e5d8f0361b4c72ae9d05f83c1e6b7a2"; facts.Digest != want {
+		t.Errorf("digest is %q, want the declaration's own %q", facts.Digest, want)
+	}
+}
+
+// TestReadRepositoryFacts_ADeclarationWithNoDigestStatesNone is the reader
+// declining to judge: the schema makes `digest:` required, so what is missing
+// here is `check`'s to report and not this reader's to invent (ADR-0064).
+func TestReadRepositoryFacts_ADeclarationWithNoDigestStatesNone(t *testing.T) {
+	if got := ReadRepositoryFacts(parse(t, "kind: repository-declaration\nversion: 1.4.0\n")).Digest; got != "" {
+		t.Errorf("digest is %q, want none stated", got)
+	}
+}

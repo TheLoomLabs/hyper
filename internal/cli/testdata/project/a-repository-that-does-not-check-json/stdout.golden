@@ -1,0 +1,2 @@
+{"type":"problem","file":"procedures/retire-preview-dns.yaml","line":4,"column":10,"field":"cadence","error_code":"cadence-malformed","message":"cadence: \"0 3 * *\" is not an expression the grammar admits — it carries 4 fields where the grammar states five: minute, hour, day of month, month, day of week"}
+{"type":"result","truncated":false}

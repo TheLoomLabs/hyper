@@ -5,7 +5,6 @@ import (
 	"slices"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
-	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/store"
@@ -247,27 +246,27 @@ func resolveCredentials(loaded repository.Loaded, steps []sequenced, lookupEnv f
 	var declined []Refusal
 
 	for _, pair := range pairsOf(steps) {
-		scheme := authOf(loaded, pair.Definition)
-		declaration, held := loaded.TargetDeclaration(pair.Target)
-		if !held {
-			continue
-		}
-		slots := artefact.ReadTargetFacts(declaration.Root).Credentials
+		// Which slots the binding requires, and where the declaration
+		// that names their variables was read from, is the load's own
+		// answer: `project` writes the same slots' variables into the
+		// generated workflow's `env:` block, and one walk is what keeps
+		// the job's block and this gate quantified over one set
+		// (repository.Loaded.CredentialSlots, §10).
+		file, slots := loaded.CredentialSlots(pair)
 
-		for _, slot := range scheme.Slots() {
-			named, declares := slotNamed(slots, slot)
-			if !declares || named.Env == "" || asked[credentialSlot{pair.Target, slot}] {
+		for _, named := range slots {
+			if named.Env == "" || asked[credentialSlot{pair.Target, named.Slot}] {
 				continue
 			}
-			asked[credentialSlot{pair.Target, slot}] = true
+			asked[credentialSlot{pair.Target, named.Slot}] = true
 
 			value, present := lookupEnv(named.Env)
 			if !present {
 				declined = append(declined, Refusal{RefusalMember: store.RefusalMember{
 					ErrorCode: CodeCredentialAbsent,
-					File:      declaration.Path,
+					File:      file,
 					Line:      named.Line,
-					Field:     "auth." + slot,
+					Field:     "auth." + named.Slot,
 					Message:   "the environment does not hold " + named.Env,
 				}})
 				continue
@@ -275,7 +274,7 @@ func resolveCredentials(loaded repository.Loaded, steps []sequenced, lookupEnv f
 			if resolved[pair.Target] == nil {
 				resolved[pair.Target] = map[string]string{}
 			}
-			resolved[pair.Target][slot] = value
+			resolved[pair.Target][named.Slot] = value
 		}
 	}
 
@@ -309,32 +308,6 @@ func credentialVariables(loaded repository.Loaded) []string {
 		}
 	}
 	return named
-}
-
-// authOf is the Auth scheme the Definition's Provider names, and the empty
-// scheme where the binding does not resolve far enough to say — which is a
-// repository `check` has already refused, this pass running after it.
-func authOf(loaded repository.Loaded, definition string) capability.Auth {
-	info, declared := loaded.Definitions[definition]
-	if !declared {
-		return capability.Auth{}
-	}
-	manifest, published := loaded.Manifests[info.ProviderName]
-	if !published {
-		return capability.Auth{}
-	}
-	return capability.ReadAuth(manifest.Root)
-}
-
-// slotNamed is the Target declaration's own entry for one of the scheme's
-// slots, and false where the declaration carries none.
-func slotNamed(slots []artefact.CredentialSlot, want string) (artefact.CredentialSlot, bool) {
-	for _, slot := range slots {
-		if slot.Slot == want {
-			return slot, true
-		}
-	}
-	return artefact.CredentialSlot{}, false
 }
 
 // sortRefusals puts an array in the order §7 fixes for one: the order `check`

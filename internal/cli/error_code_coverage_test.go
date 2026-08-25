@@ -94,9 +94,10 @@ var milestoneOneErrorCodes = []string{
 // blast radius of a recurrence saying nothing about the recurrence it could not
 // read (§10, §12, issue #174).
 //
-// `projection-stale` is §10's other static code and is not a member yet: it
-// compares a generated workflow against a fresh regeneration, and nothing
-// generates one until `hyper project` lands.
+// `projection-stale` is §10's other static code and is not a member yet.
+// `hyper project` generates the file (issue #177); what compares one against a
+// fresh regeneration is the check that lands beside it, and until it does there
+// is no rule for a fixture to fail.
 var milestoneNineCheckCodes = []string{
 	"cadence-malformed",
 }

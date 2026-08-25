@@ -182,6 +182,14 @@ var repositoryCommands = map[string]repositoryCommand{
 	// value for the clock the Store's handle is opened at, and writes
 	// nothing (§8, §9, issue #167).
 	"changes": RunChanges,
+	// The fifteenth of the sixteen, and the first thing in the tool that
+	// writes a file into the working tree. It takes a lookup alone and says
+	// so by its shape: the projection is a function of the reviewed
+	// artefacts and of the binary's own version, so there is no clock to
+	// read, no id to mint, nothing to dial and no child to start — a
+	// generated file is the same file on two machines forever (§10, §11,
+	// issue #177).
+	"project": environmentOnly(RunProject),
 	// The third of the four, and the one whose job is finding a version.
 	// It reads the record for the versions and the working tree for one
 	// column of them — an Asset whose Definition no longer exists is

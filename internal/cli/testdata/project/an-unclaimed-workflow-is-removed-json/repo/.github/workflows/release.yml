@@ -1,0 +1,11 @@
+# hand-written, and outside the namespace `hyper project` owns
+name: release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tag:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "nothing hyper wrote"
