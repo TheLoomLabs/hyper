@@ -120,6 +120,31 @@ func projectedVariables(loaded repository.Loaded, pairs []store.Pair) []string {
 	return named
 }
 
+// DeclaredPin is the version and the digest a loaded repository's own
+// declaration carries — the two facts a projection regenerated against what
+// `hyper.yaml` says is derived from — and the empty strings where it carries
+// neither legibly.
+//
+// **The two facts come through two doors and that is the pin's own shape**: the
+// version is internal/pin's, which is where the gate reads it, and the digest is
+// internal/artefact's, which is where every fact the declaration *says* is read
+// (§9, §11, ADR-0020).
+//
+// It is exported beside Projection, and for Projection's own reason: the check
+// below regenerates at the declared pin, and so does the corpus guard that holds
+// a fixture repository to the same derivation — **two readings of the pin is the
+// day a `-update` writes bytes `check` disagrees with** (issue #181,
+// internal/cli/golden_test.go).
+//
+// It is not the reading `project` does. That command derives the version from
+// the binary that ran it and freezes a digest for it, which is a different
+// question about a different moment and is stated at its own site (§11,
+// internal/cli/project.go).
+func DeclaredPin(loaded repository.Loaded) (version, digest string) {
+	declaration, _ := loaded.DeclarationBytes()
+	return pin.Declared(declaration), artefact.ReadRepositoryFacts(loaded.Declaration()).Digest
+}
+
 // CodeProjectionStale is §10's own static code: a generated workflow that is
 // not what `project` would write now (§12).
 //
@@ -150,14 +175,9 @@ const CodeProjectionStale = "projection-stale"
 // that is the declaration's own `schema-mismatch`, already reported, and a
 // second opinion would put two rows on the page for one fault (§3, ADR-0064).
 //
-// The two facts come through two doors and that is the pin's own shape: the
-// version is internal/pin's, which is where the gate reads it, and the digest is
-// internal/artefact's, which is where every fact the declaration *says* is read
-// (§9, §11, ADR-0020).
+// Which two facts those are, and where each is read, is DeclaredPin's.
 func projectionProblems(loaded repository.Loaded) []problem.Problem {
-	declaration, _ := loaded.DeclarationBytes()
-	version := pin.Declared(declaration)
-	digest := artefact.ReadRepositoryFacts(loaded.Declaration()).Digest
+	version, digest := DeclaredPin(loaded)
 	if version == "" || digest == "" {
 		return nil
 	}

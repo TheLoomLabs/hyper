@@ -105,13 +105,25 @@ names one in a **`repo-from`** file instead, and the ones here are:
   Cadence with no generated file beside it is `projection-stale`, so either
   repository without one refuses twice — and since `project` refuses these
   repositories for the very codes they exist to drive, the projection they carry
-  was written by hand from the generator's own bytes. That is also what it costs:
-  §11's compiled-in constants appear in those bytes, so a runner label or a
-  `checkout` SHA that moves takes every checked-in `hyper-*.yml` in the corpora
-  with it — the failure names them, and `-update` does not write them, a fixture
-  being an input rather than a golden. What a repository that
-  declares a Cadence and holds no file for it looks like is
-  [`check/projection-stale`](../check/projection-stale)'s, and a Run's own is
+  was written by hand from the generator's own bytes. That is also what it once
+  cost: §11's compiled-in constants appear in those bytes, so a runner label or
+  a `checkout` SHA that moves takes every checked-in `hyper-*.yml` in the corpora
+  with it, and nothing regenerated them.
+
+  **The one flag now carries them** (issue #181).
+  `TestGoldenCorpora_AFixtureWhoseProjectionIsCurrentRegeneratesToItself` holds
+  these two — and the six other fixture repositories whose projection must stay
+  current — to a fresh `verify.Projection` at the pin each one's own `hyper.yaml`
+  declares, naming the repository and the file where they part; and `-update`
+  regenerates them **before** the first case is driven, an input being settled
+  before anything reads it. Nothing about these two makes them a special case for
+  it: the generator judges nothing it is handed (ADR-0064), so a Cadence outside
+  the grammar and a run-once Step project like any other and a regeneration
+  reproduces them exactly — which is what keeps them maintainable rather than
+  frozen.
+
+  What a repository that declares a Cadence and holds no file for it looks like
+  is [`check/projection-stale`](../check/projection-stale)'s, and a Run's own is
   `a-stale-projection` below.
 - [`repo-relative-bound/`](repo-relative-bound) — §8's Refusal in full (issue
   #169): `repo-destroy`'s Manifest, Definition and Target unchanged, over one

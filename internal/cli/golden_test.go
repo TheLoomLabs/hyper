@@ -20,7 +20,9 @@ import (
 
 	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/cli"
+	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/store"
+	"github.com/TheLoomLabs/hyper/internal/verify"
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
 
@@ -672,10 +674,19 @@ func compareGolden(t *testing.T, dir string, stdout, stderr []byte, exit int) {
 // assertions included.
 //
 // Under -update it does not, because rewriting golden files is exactly what
-// that flag is for.
+// that flag is for — and that flag has one more thing to do before the first
+// case runs. The fixture repositories whose projection must stay current are
+// **inputs**, and an input is settled before anything is driven from it: they
+// are regenerated here, ahead of m.Run, so that a constant moving under §11
+// leaves one diff carrying both halves rather than a corpus that needs the flag
+// run twice (issue #181).
 func TestMain(m *testing.M) {
 	flag.Parse()
 	if *update {
+		if err := regenerateFixtureProjections(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		os.Exit(m.Run())
 	}
 
@@ -831,6 +842,220 @@ func TestGoldenCorpora_EveryCaseThatWritesTheWorkingTreeHoldsATreeGolden(t *test
 	if held == 0 {
 		t.Fatal("no case in any corpus drives a command that writes the working tree; the rule was held over nothing")
 	}
+}
+
+// currentProjectionFixtures is every fixture repository whose generated
+// workflows must be what `hyper project` would write now, in the corpora's own
+// path spelling and with the reason each one is on the list (issue #181).
+//
+// **The division is written out because it cannot be inferred.** Twenty-two
+// fixture repositories under testdata/ hold a `hyper-*.yml`, and in the other
+// fourteen the staleness *is* the case: testdata/check/projection-stale holds
+// the code's three shapes and testdata/run/a-stale-projection its Refusal, while
+// testdata/project/ holds the overwrite, the two removals, the stale file
+// `project` declines to repair because the repository does not check, and the
+// four usage cases — whose repositories stand a workflow **no Procedure asks
+// for**, so that a command refused at the parse can be shown to have left it
+// exactly where it was. A guard that read *current* off *holds a workflow* would
+// repair every one of them, which is this guard's own failure mode wearing the
+// other hat. So the members are spelled here, in the idiom the error-code
+// rosters beside them already use (error_code_coverage_test.go).
+var currentProjectionFixtures = []string{
+	// `check` over §10's grammar: six Procedures whose Cadences are all
+	// admitted, over a repository whose whole claim is that nothing is
+	// wrong with it. A projection gone stale here turns a clean page into
+	// six `projection-stale` rows and says nothing about having changed its
+	// mind (issue #174).
+	"check/cadence-the-grammar-admits/repo",
+	"check/cadence-the-grammar-admits-json/repo",
+	// `check`'s clean Procedure, on the same ground: the case is that the
+	// page is empty.
+	"check/procedure-clean/repo",
+	// The demonstration repository the corpora share, held clean by
+	// testdata/check/five-artefact-demo-clean — so every case that reads it
+	// for something else reads a repository that checks (issue #99).
+	"five-artefact-demo/repo",
+	// `project` over a projection already current: the case says the
+	// command found nothing to change, which is a claim about these exact
+	// bytes and about no others (issue #177).
+	"project/re-projection-is-byte-identical/repo",
+	"project/re-projection-is-byte-identical-json/repo",
+	// The two Runs whose pre-flight must report **one** code, and the two
+	// members carrying bytes no `project` could have written: it refuses
+	// each of these repositories for the very code its case drives, so
+	// their workflows were written by hand from the generator's own output.
+	// A regeneration reproduces them exactly all the same — the generator
+	// judges nothing it is handed, so a Cadence outside the grammar and a
+	// run-once Step project like any other, which is what makes the two
+	// maintainable rather than frozen (§10, ADR-0064, issue #174).
+	"run/repo-cadence-malformed",
+	"run/repo-cadence-run-once",
+}
+
+// regenerateTheFixture is how each of the three ways a fixture can be out of
+// date with the generator ends: the remedy, stated once, because what differs
+// between them is which file is wrong and not what to do about it.
+const regenerateTheFixture = "regenerate the fixture with `go test ./internal/cli -update`"
+
+// TestGoldenCorpora_AFixtureWhoseProjectionIsCurrentRegeneratesToItself holds
+// each of those repositories to a fresh verify.Projection, whole-file and byte
+// for byte (issue #181).
+//
+// **The hazard it stands against is `-update`, not forgetfulness.** §11 closes
+// the projection's executor at four compiled-in constants — the runner label,
+// the `actions/checkout` commit and the two release URLs (ADR-0046) — and any of
+// them moving changes the bytes of every generated workflow in the tree, these
+// fixtures' included. What follows is not a loud failure: the clean cases above
+// start reporting `projection-stale`, the reflex `go test ./internal/cli
+// -update` writes that into their goldens, and a case whose whole claim is
+// *these six expressions are admitted and nothing is wrong* becomes one
+// asserting the code six times with nothing saying it changed its mind. The
+// gesture that keeps the corpus honest about outputs is what would degrade it
+// about inputs.
+//
+// **So the repair is the same gesture, and it happens before this runs**:
+// TestMain regenerates the listed fixtures ahead of the corpus under -update,
+// and by the time this test is reached there is nothing left for it to report.
+// What it is, then, is the thing that fails on a constant nobody thought to
+// regenerate for — one flag, one gesture, and a diff a human reads.
+//
+// **It fails naming the repository and the file**, because what a reader has to
+// know is which fixture to regenerate; the goldens that moved underneath it are
+// the symptom, and pointing at them is pointing at the wrong end.
+//
+// A repository currentProjectionFixtures does not name is untouched here and by
+// -update alike: the deliberately stale fixtures belong to the cases they drive,
+// and nothing may repair them.
+func TestGoldenCorpora_AFixtureWhoseProjectionIsCurrentRegeneratesToItself(t *testing.T) {
+	if len(currentProjectionFixtures) == 0 {
+		t.Fatal("no fixture repository is named; the rule would be held over nothing")
+	}
+	for _, name := range currentProjectionFixtures {
+		t.Run(name, func(t *testing.T) {
+			held, err := readFixtureProjection(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// A member whose projection is empty is a member that
+			// belongs nowhere: it is on this list for declaring a
+			// Cadence, and a path that has moved or a Procedure that
+			// has dropped its `cadence:` would otherwise pass here by
+			// having nothing to compare (issue #181).
+			if len(held.wanted) == 0 {
+				t.Fatalf("%s asks for no workflow at all; a repository on this list declares a Cadence", name)
+			}
+			for _, file := range held.wanted {
+				stood, stands := held.standing[file.Path]
+				switch {
+				case !stands:
+					t.Errorf("%s asks for %s and holds no file there — "+regenerateTheFixture, name, file.Path)
+				case !bytes.Equal(stood, file.Bytes):
+					t.Errorf("%s: %s is not what `hyper project` would write now — "+regenerateTheFixture, name, file.Path)
+				}
+			}
+			// The set, not only the files in it: a fixture holding
+			// one its projection does not ask for is as stale as one
+			// holding the wrong bytes, and `project` would take it
+			// away in the same act (§10, verify.UnwantedWorkflows).
+			for _, path := range held.unwanted {
+				t.Errorf("%s holds %s and no Procedure in it asks for that file — "+regenerateTheFixture, name, path)
+			}
+		})
+	}
+}
+
+// fixtureProjection is one listed repository's namespace read from both ends:
+// what its declaration asks verify.Projection for, and what stands in it on
+// disk.
+//
+// The two readers below take the same value because they are one question asked
+// twice — *is this fixture current* and *make it current* — and a regeneration
+// derived differently from the comparison would be a guard that passed over
+// bytes nothing had checked.
+type fixtureProjection struct {
+	root     string
+	wanted   []verify.ProjectedWorkflow
+	standing map[string][]byte
+	unwanted []string
+}
+
+// readFixtureProjection projects one fixture repository at the pin that
+// repository's own `hyper.yaml` declares.
+//
+// **The pin is the fixture's and not this binary's**, which is the check's own
+// supply: verify.projectionProblems regenerates against what the declaration
+// says, so reading it the same way is what makes this guard hold a fixture the
+// way the rule under test holds it — and what keeps the fixtures' bytes
+// independent of the version the suite happened to be built at (§10, §11).
+//
+// **The pin is read through verify.DeclaredPin rather than off the declaration
+// here**, which is what makes *the guard reads a fixture the way the rule reads
+// it* structural rather than a resemblance: a second reading of the pin would be
+// free to drift, and the day it did, -update would write bytes `check` disagrees
+// with (§9, ADR-0020).
+//
+// Every error it answers names the repository, this being a guard whose whole
+// point is to say which fixture to go and look at.
+func readFixtureProjection(name string) (fixtureProjection, error) {
+	root := filepath.Join("testdata", filepath.FromSlash(name))
+	loaded, err := repository.Load(root)
+	if err != nil {
+		return fixtureProjection{}, fmt.Errorf("%s: %w", name, err)
+	}
+
+	version, digest := verify.DeclaredPin(loaded)
+	if version == "" || digest == "" {
+		return fixtureProjection{}, fmt.Errorf("%s declares no version and digest; there is nothing to regenerate its projection against", name)
+	}
+
+	standing := make(map[string][]byte, len(loaded.Workflows))
+	for _, file := range loaded.Workflows {
+		standing[file.Path] = file.Bytes
+	}
+	wanted := verify.Projection(loaded, version, digest)
+	return fixtureProjection{
+		root:     root,
+		wanted:   wanted,
+		standing: standing,
+		unwanted: verify.UnwantedWorkflows(loaded, wanted),
+	}, nil
+}
+
+// regenerateFixtureProjections writes every listed repository's namespace from a
+// fresh projection: each wanted file whole, and each file no Procedure asks for
+// removed — `hyper project`'s own act, less the pin, which is the fixture's to
+// declare and not this run's to move.
+//
+// **It runs before the corpus rather than beside it**, and that is the one thing
+// about it that is not writeGolden's shape. A golden is written *from* what a
+// run did; a fixture is what the run is driven *from*. A fixture regenerated
+// after the cases had already been driven would put a stale reading into every
+// golden that reads it — the clean check pages would land carrying
+// `projection-stale`, and the second -update run would quietly repair what the
+// first one broke — so the input is settled first and every case then runs
+// against the corpus a human is about to read the diff of (issue #181).
+func regenerateFixtureProjections() error {
+	for _, name := range currentProjectionFixtures {
+		held, err := readFixtureProjection(name)
+		if err != nil {
+			return err
+		}
+		for _, file := range held.wanted {
+			path := filepath.Join(held.root, filepath.FromSlash(file.Path))
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				return fmt.Errorf("%s: %s: %w", name, file.Path, err)
+			}
+			if err := os.WriteFile(path, file.Bytes, 0o644); err != nil {
+				return fmt.Errorf("%s: %s: %w", name, file.Path, err)
+			}
+		}
+		for _, path := range held.unwanted {
+			if err := os.Remove(filepath.Join(held.root, filepath.FromSlash(path))); err != nil {
+				return fmt.Errorf("%s: %s: %w", name, path, err)
+			}
+		}
+	}
+	return nil
 }
 
 // pinGatePrefix is how a Refusal the version pin gate makes opens on stderr.
