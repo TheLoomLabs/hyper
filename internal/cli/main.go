@@ -182,6 +182,12 @@ var repositoryCommands = map[string]repositoryCommand{
 	// value for the clock the Store's handle is opened at, and writes
 	// nothing (§8, §9, issue #167).
 	"changes": RunChanges,
+	// The third of the four, and the one whose job is finding a version.
+	// It reads the record for the versions and the working tree for one
+	// column of them — an Asset whose Definition no longer exists is
+	// Orphaned, and what exists is a fact about the repository rather than
+	// about the branch (§7, §9, issue #166).
+	"records": RunRecords,
 	// The fifteenth of the sixteen, and the first thing in the tool that
 	// writes a file into the working tree. It takes a lookup alone and says
 	// so by its shape: the projection is a function of the reviewed
@@ -190,10 +196,4 @@ var repositoryCommands = map[string]repositoryCommand{
 	// generated file is the same file on two machines forever (§10, §11,
 	// issue #177).
 	"project": environmentOnly(RunProject),
-	// The third of the four, and the one whose job is finding a version.
-	// It reads the record for the versions and the working tree for one
-	// column of them — an Asset whose Definition no longer exists is
-	// Orphaned, and what exists is a fact about the repository rather than
-	// about the branch (§7, §9, issue #166).
-	"records": RunRecords,
 }

@@ -55,5 +55,9 @@ func ProcedureOf(path string) (string, bool) {
 	if !opens {
 		return "", false
 	}
-	return strings.CutSuffix(name, suffix)
+	name, closes := strings.CutSuffix(name, suffix)
+	if !closes {
+		return "", false
+	}
+	return name, true
 }

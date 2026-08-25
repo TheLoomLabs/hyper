@@ -10,7 +10,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
-	"github.com/TheLoomLabs/hyper/internal/cadence"
 	"github.com/TheLoomLabs/hyper/internal/compare"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/render"
@@ -520,41 +519,24 @@ func ambiguousArtefactName(named string, matched []resolvedArtefact) string {
 // shortened value is one a consumer has to go somewhere else to complete (§8,
 // ADR-0047).
 type artefactRow struct {
-	Type           string      `json:"type"`
-	Kind           string      `json:"kind"`
-	Path           string      `json:"path,omitempty"`
-	Baseline       string      `json:"baseline,omitempty"`
-	BaselineAbsent string      `json:"baseline_absent,omitempty"`
-	Cadence        string      `json:"cadence,omitempty"`
-	Phrase         string      `json:"phrase,omitempty"`
-	Rate           *float64    `json:"rate,omitempty"`
-	LastRun        *lastRunRow `json:"last_run,omitempty"`
+	Type           string `json:"type"`
+	Kind           string `json:"kind"`
+	Path           string `json:"path,omitempty"`
+	Baseline       string `json:"baseline,omitempty"`
+	BaselineAbsent string `json:"baseline_absent,omitempty"`
+	// The gloss's parts, embedded so that `cadence`, `phrase` and `rate`
+	// stand at this row's own top level in this position — the group is one
+	// value because `project`'s `workflow` row carries the same one, and
+	// two rows reading an expression for themselves would be two copies of
+	// a rule that is total (cadence_gloss.go, §9, §10, ADR-0063).
+	cadenceGloss
+	LastRun *lastRunRow `json:"last_run,omitempty"`
 
-	// rateText is the rate in the notation the page renders it in — the
-	// `≈` where it was rounded, and the unit fixed at runs per month (§10).
-	// It is off the wire because the wire carries the number, and it is on
-	// the row because the page is written from the rows (ADR-0026): both
-	// come out of one reading of the expression, so the digits the page
-	// renders and the number the row carries are one rounding and cannot
-	// disagree.
-	rateText string
 	// lastRanText is the age the gloss line renders beside the rate, and ""
 	// where no entry supplied one. It is off the wire for rateText's reason
 	// and on the row for the same one: the instant the row carries and the
 	// age the page renders come out of one subtraction against one clock.
 	lastRanText string
-	// facts are §10's two facts about how the executor will treat the
-	// declaration — the default-branch one always, the hour-boundary one
-	// where the minute field selects `0` (internal/cadence).
-	//
-	// They are off the wire because §9 closes this row at the gloss's three
-	// parts, and both are derived from `cadence` and `phrase`, which the
-	// row already carries: a consumer derives them exactly as this page
-	// does, so widening the row would be one derived fact carried twice
-	// (§8, §10). They are on the row for rateText's reason — the page is
-	// written from the rows (ADR-0026) — and they are a member of their own
-	// rather than folded into rateText, neither being part of the gloss.
-	facts []string
 	// revisionText is the range as the page renders it, the revision
 	// abbreviated — a fact to recognise, which is what ADR-0047 abbreviates
 	// and what the wire's whole value beside it does not. It is "" wherever
@@ -599,12 +581,7 @@ func newArtefactRow(reviewed reviewedArtefact, opened reviewRange, absent string
 		row.Baseline = opened.blob
 		row.revisionText = abbreviatedRevision(opened.blob) + " → working tree"
 	}
-	if gloss, readable := cadence.Read(reviewed.cadence); readable {
-		row.Cadence = gloss.Expression
-		row.Phrase = gloss.Phrase
-		row.Rate = &gloss.Rate
-		row.rateText = gloss.RateText
-		row.facts = cadence.Facts(reviewed.cadence)
+	if row.read(reviewed.cadence) {
 		// *last ran* is a member of the gloss and renders where the
 		// gloss does. §8 gives the header *the artefact's kind, its
 		// path, the range the review is read across, and — **on a

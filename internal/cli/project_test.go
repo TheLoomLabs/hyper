@@ -87,6 +87,13 @@ func TestRunProject_AWriteThatFailsNamesTheFileItDiedOn(t *testing.T) {
 	if !strings.Contains(stderr.String(), wanted) {
 		t.Errorf("stderr = %q, want it to name %q, the file the write died on", stderr.String(), wanted)
 	}
+	// Once, and in the repository's own vocabulary. os names the file
+	// absolutely in every *os.PathError it hands back, and the message has
+	// already named it relative to the root — one fault reported as two
+	// files is worse than either of them alone (§9).
+	if strings.Contains(stderr.String(), root) {
+		t.Errorf("stderr = %q, want the path named once and repo-relative, not again as %q", stderr.String(), root)
+	}
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want it silent: there is no answer to a projection that did not finish", stdout.String())
 	}

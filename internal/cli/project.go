@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -8,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/TheLoomLabs/hyper/internal/cadence"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
@@ -100,14 +100,14 @@ func RunProject(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 		fmt.Fprintf(stderr, "hyper project: %s\n", err)
 		return ExitProblems
 	}
-	unwanted := removed(wanted, standing)
+	unwanted := unwantedWorkflows(wanted, standing)
 
 	if path, err := writeProjection(repoRoot, wanted, unwanted); err != nil {
 		// The file it died on, named, and the tree left as it stands.
 		// git is the undo, the tree is under review, and a rollback path
 		// is code that runs only when something has already gone wrong
 		// and is therefore the least-tested thing in the command (§10).
-		fmt.Fprintf(stderr, "hyper project: %s: %s\n", path, err)
+		fmt.Fprintf(stderr, "hyper project: %s: %s\n", path, reasonFor(err))
 		return ExitProblems
 	}
 
@@ -151,14 +151,14 @@ func standingWorkflows(repoRoot string) ([]string, error) {
 	return held, nil
 }
 
-// removed is the standing files no Procedure asks for any more: what `project`
-// takes away in the same act that writes the rest.
+// unwantedWorkflows is the standing files no Procedure asks for any more: what
+// `project` takes away in the same act that writes the rest.
 //
 // A Procedure that has dropped its Cadence and a `hyper-*.yml` naming no
 // Procedure at all reach this the same way, and that is the point — the
 // namespace is answered as a set rather than one file at a time, so there is no
 // shape of leftover that has to be recognised for what it is (§10).
-func removed(wanted []verify.ProjectedWorkflow, standing []string) []string {
+func unwantedWorkflows(wanted []verify.ProjectedWorkflow, standing []string) []string {
 	asked := make(map[string]bool, len(wanted))
 	for _, file := range wanted {
 		asked[file.Path] = true
@@ -204,6 +204,26 @@ func writeProjection(repoRoot string, wanted []verify.ProjectedWorkflow, unwante
 	return "", nil
 }
 
+// reasonFor is what a file operation failed with, less the path it already
+// carries.
+//
+// os names the file in every *os.PathError, absolutely and as the process
+// resolved it — and the message above has already named it in the repository's
+// own vocabulary, which is the vocabulary every path this command reports is
+// spelled in. Naming it twice, once relative and once absolute, is one fault
+// reported as two files.
+//
+// Anything that is not a *os.PathError is written whole: the unwrapping is
+// about a duplicate this command introduced and not about shortening what the
+// world said.
+func reasonFor(err error) error {
+	var path *os.PathError
+	if errors.As(err, &path) {
+		return path.Err
+	}
+	return err
+}
+
 // workflowRow is `project`'s row, and the only one it writes: §9 fixes it at
 // `{ type: "workflow", path, procedure, cadence, phrase, rate }` — the gloss's
 // parts rather than the composed line, one per Procedure, all of them.
@@ -218,21 +238,14 @@ func writeProjection(repoRoot string, wanted []verify.ProjectedWorkflow, unwante
 // rather than a widening of the shape. Where the Procedure no longer exists,
 // `procedure` is absent too and only `path` stands (§7, §10).
 type workflowRow struct {
-	Type      string   `json:"type"`
-	Path      string   `json:"path"`
-	Procedure string   `json:"procedure,omitempty"`
-	Cadence   string   `json:"cadence,omitempty"`
-	Phrase    string   `json:"phrase,omitempty"`
-	Rate      *float64 `json:"rate,omitempty"`
-
-	// rateText is the rate in the notation the page renders it in, and
-	// facts are §10's two facts about how the executor will treat the
-	// declaration. Both are off the wire and on the row for the reason the
-	// review's own gloss carries them so: the page is written from the rows
-	// like every other page, and a rounding done twice or a fact derived
-	// twice is two answers to one question (§8, §10, ADR-0026).
-	rateText string
-	facts    []string
+	Type      string `json:"type"`
+	Path      string `json:"path"`
+	Procedure string `json:"procedure,omitempty"`
+	// The gloss's parts, embedded so that `cadence`, `phrase` and `rate`
+	// stand at this row's own top level after `procedure` — the same value
+	// a review's `artefact` row carries, read once for both
+	// (cadence_gloss.go, §9, §10).
+	cadenceGloss
 }
 
 // Cells is the row's line: where the file is, which Procedure asked for it, and
@@ -251,6 +264,13 @@ const removedCell = "removed"
 // phrase and the rate **stack**, the gloss under the cron it glosses, and the
 // two facts close it — the same shape `THE CODE MOVED`'s `cadence` row draws,
 // because a reader learns one (§8, §10).
+//
+// **The arrangement is written here rather than shared with that row**, and that
+// is §10's own division: *how the three parts are arranged is the surface's, and
+// what they are is not*. What they are is the value this row embeds, read once;
+// how they are laid out differs surface by surface — a review's header joins
+// them with `·` and hangs *last ran* off the end — so a page that borrowed
+// another's arrangement would be a surface with no say in its own layout.
 //
 // The column is derived from the row and adds no member: everything on it comes
 // off `cadence`, `phrase` and `rate`, which is what lets a consumer of the wire
@@ -271,19 +291,19 @@ func (r workflowRow) cadenceCell() string {
 // names no Procedure has. One key rather than two is what keeps the order total
 // over a list that holds both kinds.
 func projectionRows(loaded repository.Loaded, wanted []verify.ProjectedWorkflow, unwanted []string) []render.Row {
-	written := make([]workflowRow, 0, len(wanted)+len(unwanted))
+	reported := make([]workflowRow, 0, len(wanted)+len(unwanted))
 	for _, file := range wanted {
-		written = append(written, writtenRow(file))
+		reported = append(reported, writtenRow(file))
 	}
 	for _, path := range unwanted {
-		written = append(written, removedRow(loaded, path))
+		reported = append(reported, removedRow(loaded, path))
 	}
-	slices.SortFunc(written, func(a, b workflowRow) int {
+	slices.SortFunc(reported, func(a, b workflowRow) int {
 		return strings.Compare(a.orderedBy(), b.orderedBy())
 	})
 
-	rows := make([]render.Row, 0, len(written))
-	for _, row := range written {
+	rows := make([]render.Row, 0, len(reported))
+	for _, row := range reported {
 		rows = append(rows, row)
 	}
 	return rows
@@ -301,13 +321,7 @@ func (r workflowRow) orderedBy() string {
 // is always there to render (§4, §10).
 func writtenRow(file verify.ProjectedWorkflow) workflowRow {
 	row := workflowRow{Type: "workflow", Path: file.Path, Procedure: file.Procedure}
-	if gloss, readable := cadence.Read(file.Cadence); readable {
-		row.Cadence = gloss.Expression
-		row.Phrase = gloss.Phrase
-		row.Rate = &gloss.Rate
-		row.rateText = gloss.RateText
-		row.facts = cadence.Facts(file.Cadence)
-	}
+	row.read(file.Cadence)
 	return row
 }
 
