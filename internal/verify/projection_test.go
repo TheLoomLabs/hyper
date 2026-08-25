@@ -312,10 +312,22 @@ func TestRepository_AFileNoProcedureAsksForIsStale(t *testing.T) {
 // TestRepository_OneByteChangedAnywhereIsStale is what whole-file and
 // byte-exact means: the comparison has no notion of a significant line, so a
 // hand-edit to a generated file is caught wherever in it the reader made one.
+//
+// The runner label is the edit because it is the one a reader actually makes —
+// *let me just bump the image* — and it is one of §11's four compiled-in
+// constants, so this test names a string internal/workflow owns and cannot
+// import (ADR-0046). **That the edit happened is therefore asserted before its
+// effect is**: a constant that moved would leave strings.Replace matching
+// nothing, and the assertion below would then report a clean tree and blame the
+// check for a file nobody edited.
 func TestRepository_OneByteChangedAnywhereIsStale(t *testing.T) {
 	files := current(t, beating())
 	generated := files[workflow.Path("beat")]
-	files[workflow.Path("beat")] = strings.Replace(generated, "ubuntu-24.04", "ubuntu-22.04", 1)
+	edited := strings.Replace(generated, "ubuntu-24.04", "ubuntu-22.04", 1)
+	if edited == generated {
+		t.Fatal("no generated file carries the runner label this edits; §11's constant has moved and this test's own edit is what needs updating, not the check below")
+	}
+	files[workflow.Path("beat")] = edited
 
 	if found := stale(checked(t, files)); len(found) != 1 {
 		t.Fatalf("reported %v, want the one file whose bytes were edited", found)
