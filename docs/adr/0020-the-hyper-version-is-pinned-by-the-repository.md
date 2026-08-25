@@ -7,6 +7,21 @@ for being the pin's only writer. `hyper project` is the door: it *derives* the p
 that ran it, so changing the version means installing a binary, running one command, and reading the
 diff it writes.
 
+*Amended:* this said `version` and `completions` were the only exemptions, two sentences before the
+same paragraph called `hyper project` the door. Both could not be true: a gated `project` Refuses
+`version-pin-absent` naming itself on an unpinned repository and `version-pin-mismatch` naming itself
+under a newer binary, which leaves the door unopenable at its second step. `project` is a third
+exemption, and **its ground is not the other two's**. `version` and `completions` are exempt for
+reading no repository and saying nothing about `hyper`'s domain, where `project` reads a repository
+and says a great deal and is exempt for being **the pin's only writer** — a writer gated on what it
+writes being a bootstrap with no bootstrap. That ground is why this is a third exemption rather than a
+fourth waiting to be argued for: it admits exactly one command, the one this decision had already
+called the door. It is not *nothing is exempted for being read-only* softened either, that being a
+different argument and left standing (§11). **And ADR-0001 is untouched.** A bypass would be
+proceeding under a pin it disagrees with, which `project` does not do: it *replaces* that pin with the
+binary's own and writes the replacement into a tracked file whose diff is the review, so nothing acts
+on the repository under a guardrail set nobody reviewed.
+
 We chose this because after ADR-0004 the binary is the only code that runs, which makes a version
 bump the largest behaviour change available in the system — larger than any Definition edit, since it
 moves Bound checking, Expansion ordering, Repeatability evidence and redaction at once. ADR-0005

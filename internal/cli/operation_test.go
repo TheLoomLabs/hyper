@@ -378,8 +378,9 @@ func TestRunOperation_TakesNoLimit(t *testing.T) {
 }
 
 // TestRunOperation_TheGateFiresBeforeEitherPositionalIsResolved is the ordering
-// every command shares: a mismatched pin plus a positional matching nothing is
-// 77 and not 2, because the gate fires first for all sixteen (§9, ADR-0020).
+// every gated command shares: a mismatched pin plus a positional matching
+// nothing is 77 and not 2, because the gate fires first for fifteen of the
+// sixteen (§9, ADR-0020).
 func TestRunOperation_TheGateFiresBeforeEitherPositionalIsResolved(t *testing.T) {
 	root := widgetRepo(t)
 	writeFile(t, filepath.Join(root, "hyper.yaml"),

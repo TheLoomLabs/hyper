@@ -80,8 +80,8 @@ func RunReview(args []string, stdout, stderr io.Writer, process Process, wd, bin
 
 	// The gate, before the repository is loaded and before the positional is
 	// resolved: a mismatched pin plus a name matching nothing is 77 and not
-	// 2, because the gate fires first for all sixteen (§9, §11, ADR-0020,
-	// ADR-0060).
+	// 2, because the gate fires first for fifteen of the sixteen (§9, §11,
+	// ADR-0020, ADR-0060).
 	if code, _ := gateOnVersionPin("review", repoRoot, binaryVersion, stderr); code != 0 {
 		return code
 	}

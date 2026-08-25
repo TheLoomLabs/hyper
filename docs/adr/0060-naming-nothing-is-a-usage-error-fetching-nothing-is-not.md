@@ -94,11 +94,11 @@ produced by a rule nobody wrote.
   is unviolated because nothing opened one, and its claim that `run` is on the `outcome` side "on every
   path it takes" is corrected to every path on which a Run was **attempted**: a usage error is not a
   path `run` takes, it is `run` never starting.
-- **A positional resolves against its own namespace, and whatever that namespace requires is in place
-  before the lookup can happen.** The pin gate fires first for all sixteen. A working-tree name needs
-  nothing beyond it, so `hyper run typo` is `2` on a repository with no Store. `show` is the exception
-  that states the rule: the Store is its namespace, so `store-absent` (`77`) necessarily precedes the
-  lookup.
+- **A positional resolves against its own namespace, and whatever that namespace requires is in
+  place before the lookup can happen.** The pin gate fires first for fifteen of the sixteen. A
+  working-tree name needs nothing beyond it, so `hyper run typo` is `2` on a repository with no
+  Store. `show` is the exception that states the rule: the Store is its namespace, so `store-absent`
+  (`77`) necessarily precedes the lookup.
 - **`install` carries three codes** — `2` where the ref grammar rejects the invocation, `1` where the
   registry does not hold the ref or the fetch did not complete, and `77` for
   `origin-digest-mismatch`, a check declining bytes that did arrive.

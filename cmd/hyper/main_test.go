@@ -52,8 +52,8 @@ func TestDispatch_UnknownCommandIsUsageError(t *testing.T) {
 // process is standing in — against the three repository contexts issue #103
 // requires `hyper version` to answer identically in: outside a git tree, inside
 // a repository with no hyper.yaml, and inside one whose pin is a different
-// version entirely. The last is the one that matters: every one of the sixteen
-// Refuses there with 77, and this command is exempt (§9, ADR-0020).
+// version entirely. The last is the one that matters: fifteen of the sixteen
+// Refuse there with 77, and this command is exempt (§9, ADR-0020).
 func TestDispatch_VersionAnswersFromAnyDirectory(t *testing.T) {
 	outsideAnyRepo := t.TempDir()
 
@@ -168,8 +168,8 @@ func TestDispatch_VersionRejectsAnArgument(t *testing.T) {
 // against the three repository contexts issue #104 requires `hyper
 // completions` to answer identically in: outside a git tree, inside a
 // repository with no hyper.yaml, and inside one whose pin is a different
-// version entirely. Every one of the sixteen Refuses with 77 in the last of
-// them, and this command is exempt for the reason the whole criterion exists
+// version entirely. Fifteen of the sixteen Refuse with 77 in the last of them,
+// and this command is exempt for the reason the whole criterion exists
 // — shell setup in a dotfiles bootstrap runs before any repository does (§9,
 // ADR-0020).
 func TestDispatch_CompletionsAnswersFromAnyDirectory(t *testing.T) {
