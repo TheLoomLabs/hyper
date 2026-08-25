@@ -140,9 +140,7 @@ func TestGenerate_EnvEntriesAreOrderedByVariableName(t *testing.T) {
 		"          CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}\n" +
 		"          STAGING_TOKEN: ${{ secrets.STAGING_TOKEN }}\n"
 
-	forward := twoSlots()
-	backward := forward
-	backward.Variables = []string{"STAGING_TOKEN", "CLOUDFLARE_TOKEN"}
+	forward, backward := twoSlots(), twoSlots()
 	slices.Reverse(backward.Variables)
 
 	for _, facts := range []workflow.Facts{forward, backward} {
@@ -382,8 +380,7 @@ func TestGenerate_ThePermissionsAreTheWholeOfWhatWritingTheStoreNeeds(t *testing
 	}
 }
 
-// TestConstants_TheFourAreCompiledInAndTheVersionIsTheirOnlyVariable holds §11's
-// closed set: the runner and the checkout are bytes in the file above, and the
+// TestConstants_TheVersionIsTheOnlyVariableInEitherURL holds §11's closed set: the runner and the checkout are bytes in the file above, and the
 // two URLs are the package's own with the version their one variable — the
 // platform being the same compiled-in fact `runs-on` is.
 func TestConstants_TheVersionIsTheOnlyVariableInEitherURL(t *testing.T) {

@@ -294,6 +294,11 @@ func writeEnv(b *strings.Builder, variables []string) {
 // ordered is variables by Unicode code point, each once. The block is a
 // function of the repository and not of the order a caller's walk found the
 // pairs in, and a mapping may not carry a key twice.
+//
+// The dedup §10 states is on the (Definition, Target) pair's slot, which is
+// where the caller resolves one — two Definitions binding one Target under one
+// scheme reach one slot. This is the mapping's own rule beneath it: two slots
+// resolving from one variable are one key, whatever pairs named them.
 func ordered(variables []string) []string {
 	held := make(map[string]bool, len(variables))
 	names := make([]string, 0, len(variables))
@@ -403,7 +408,9 @@ func plain(text string) bool {
 			return false
 		}
 	}
-	if strings.ContainsRune(indicators, rune(text[0])) {
+	// The comparison is over the first byte and that is exact: every
+	// indicator is ASCII, and no byte of a multi-byte character is.
+	if strings.IndexByte(indicators, text[0]) >= 0 {
 		return false
 	}
 	// `: ` opens a mapping value and ` #` opens a comment, wherever in a

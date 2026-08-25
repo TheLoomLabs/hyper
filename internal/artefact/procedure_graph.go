@@ -23,6 +23,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/TheLoomLabs/hyper/internal/problem"
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
 // CodeCadenceRunOnce is the code a Procedure declaring a Cadence earns for
@@ -70,41 +71,39 @@ type ProcedureRoot struct {
 type procedureGraphStep struct {
 	runOnce   bool
 	hasSecret bool
-	// binding is the (Definition, Target) pair the Step makes, as
-	// authored, and the zero Binding where the Step names neither — the
-	// pair the generated workflow's env: block derives from (§10).
-	binding Binding
-	// reads is whether the Step's Operation declares kind: read. A Step
-	// whose binding does not resolve carries false, on the rule below:
-	// an Operation this walk could not read declares no read.
-	reads bool
+	// pair is the (Definition, Target) pair the Step makes, as authored,
+	// and the zero Pair where the Step names neither — the pair the
+	// generated workflow's env: block derives from (§10).
+	pair store.Pair
+	// effects is whether the Step's Operation declares a Kind other than
+	// read. A Step whose binding does not resolve carries false, on this
+	// walk's own rule for every fact it reads: an Operation it could not
+	// resolve declares nothing for it to read, the resolution fault is
+	// already reported, and `project` writes nothing where `check`
+	// reports anything (ADR-0064).
+	effects bool
 }
 
-// Binding is one (Definition, Target) pair a Step makes: what a Run binds,
-// and what the generated workflow's env: block derives its credential slots
-// from (§3, §10, issue #176).
-//
-// It is the pair rather than either name because a slot belongs to the
-// Target declaration and the scheme belongs to the Definition's Provider —
-// neither half decides which variable the runner needs, and only the two
-// together do.
-type Binding struct{ Definition, Target string }
-
-// Reached is what one Procedure reaches, to any depth, that nothing about a
-// single procedures/ file can answer: the pairs its Steps bind, and whether
-// every Step it reaches is a read (§10, issue #176).
+// ProcedureReach is what one Procedure reaches, to any depth, that nothing
+// about a single procedures/ file can answer: the pairs its Steps bind, and
+// whether every Step it reaches is a read (§10, issue #176).
 //
 // Both are the projection's, and both come off the walk the two Cadence
 // rules already ride rather than a traversal of their own: a Procedure's
 // reach is one question, and asking it twice is where the day comes that the
 // env: block and the concurrency group disagree about what a Procedure runs.
-type Reached struct {
-	// Bindings is each pair once, in the Steps' own order and a nested
-	// invocation's after its caller's — deterministic, so one repository
-	// answers one way. The env: block orders itself by variable name and
-	// does not read this order (§10); what it needs is that a walk of one
-	// repository twice is a walk of one repository.
-	Bindings []Binding
+type ProcedureReach struct {
+	// Pairs is each (Definition, Target) pair once, in the Steps' own
+	// order and a nested invocation's after its caller's — deterministic,
+	// so one repository answers one way. The env: block orders itself by
+	// variable name and does not read this order (§10); what it needs is
+	// that a walk of one repository twice is a walk of one repository.
+	//
+	// They are store.Pair because they are §6's own noun, and the same
+	// pairs a Run's credential pass and the Store's schema test are
+	// quantified over — one concept, and the walk that finds them early
+	// answers in the type the walk that binds them uses.
+	Pairs []store.Pair
 	// EveryStepReads is whether every Step reachable from this Procedure
 	// declares kind: read — the fact deciding whether its workflow takes
 	// the Store's concurrency group. Reachability decides it and not the
@@ -113,17 +112,17 @@ type Reached struct {
 	EveryStepReads bool
 }
 
-// Reached answers name's own Reached, walking every procedures/ file the
-// graph holds to whatever depth name's invocations run to.
+// Reaches answers name's own ProcedureReach, walking every procedures/ file
+// the graph holds to whatever depth name's invocations run to.
 //
 // A name the graph does not hold reaches nothing and reads everything it
-// reaches, which is the same answer a Procedure with no Steps gives: there is
-// no Step under it that effects. An invocation naming nothing has already
-// earned procedure.go's own artefact-absent, and a Procedure that does not
-// resolve is one `project` never writes a file for (ADR-0064).
-func (g ProcedureGraph) Reached(name string) Reached {
-	reach := walkProcedure(name, g, map[string]procedureReach{}, map[string]bool{})
-	return Reached{Bindings: reach.bindings, EveryStepReads: !reach.effects}
+// reaches, which is the same answer a Procedure with no Steps gives and the
+// same answer this walk gives every name it cannot resolve: there is no Step
+// under it that effects, the fault is already reported where it was authored,
+// and `project` writes nothing where `check` reports anything (ADR-0064).
+func (g ProcedureGraph) Reaches(name string) ProcedureReach {
+	reach := walkProcedure(name, g, map[string]walkedReach{}, map[string]bool{})
+	return ProcedureReach{Pairs: reach.pairs, EveryStepReads: !reach.effects}
 }
 
 // procedureGraphInvocation is one nested invocation entry a procedures/
@@ -223,7 +222,7 @@ func buildProcedureGraphInfo(file string, root *yaml.Node, providers ProviderInd
 // unresolved Operation carries no Kind or Repeatability for this walk to
 // read (§4, §5, issue #96).
 func procedureGraphStepFacts(fields map[string]*yaml.Node, providers ProviderIndex, definitions DefinitionIndex) procedureGraphStep {
-	step := procedureGraphStep{binding: bindingOf(fields)}
+	step := procedureGraphStep{pair: pairOf(fields)}
 
 	defName, defOK := resolveScalar(fields["definition"])
 	if !defOK {
@@ -243,76 +242,78 @@ func procedureGraphStepFacts(fields map[string]*yaml.Node, providers ProviderInd
 	}
 	step.runOnce = op.IsRunOnce()
 	step.hasSecret = op.HasSecret
-	step.reads = op.Kind == "read"
+	step.effects = op.Kind != "read"
 	return step
 }
 
-// bindingOf is the pair one Step entry names, as authored and unresolved,
-// and the zero Binding where either half is absent or illegible — a Step
-// that does not name both names no pair, and what is wrong with it is
-// `check`'s to report rather than this walk's to repeat (ADR-0064).
-func bindingOf(fields map[string]*yaml.Node) Binding {
+// pairOf is the pair one Step entry names, as authored and unresolved, and
+// the zero Pair where either half is absent or illegible — a Step that does
+// not name both names no pair, and what is wrong with it is `check`'s to
+// report rather than this walk's to repeat (ADR-0064).
+func pairOf(fields map[string]*yaml.Node) store.Pair {
 	definition, defOK := resolveScalar(fields["definition"])
 	target, targetOK := resolveScalar(fields["target"])
 	if !defOK || !targetOK || definition == "" || target == "" {
-		return Binding{}
+		return store.Pair{}
 	}
-	return Binding{Definition: definition, Target: target}
+	return store.Pair{Definition: definition, Target: target}
 }
 
-// procedureReach is what walkProcedure accumulates for one procedure, to
+// walkedReach is what walkProcedure accumulates for one procedure, to
 // any depth: every target name reachable through its own declared
 // targets: and everything it invokes; whether that same reach touches a
 // run-once Step or a Step whose Operation declares secret: output — the two
 // facts the Cadence rules read; and the pairs it binds and whether anything
 // it reaches effects — the two the projection reads (§4, §5, §10, issues
 // #96, #176).
-type procedureReach struct {
+type walkedReach struct {
 	targets   map[string]bool
 	runOnce   bool
 	hasSecret bool
-	// bindings is each reachable pair once, in the Steps' own order.
-	bindings []Binding
-	// effects is whether any reachable Step is something other than a
-	// read — a Step whose Operation declares mutate or destroy, and a
-	// Step whose Operation this walk could not resolve.
+	// pairs is each reachable (Definition, Target) pair once, in the
+	// Steps' own order.
+	pairs []store.Pair
+	// effects is whether any reachable Step declares a Kind other than
+	// read.
 	//
-	// It is the negation Reached answers with, and it is accumulated in
+	// It is the negation Reaches answers with, and it is accumulated in
 	// this direction because that is the direction reach composes in: a
 	// caller effects where anything it reaches does, and an empty walk
-	// carries the identity rather than a claim.
+	// carries the identity rather than a claim — which is the same shape
+	// runOnce and hasSecret compose in, and the same reading each of the
+	// three gives a name it could not resolve.
 	effects bool
 }
 
-// walkProcedure computes name's own procedureReach, memoized in memo so a
+// walkProcedure computes name's own walkedReach, memoized in memo so a
 // Procedure invoked from several places is walked once per repository pass
 // rather than once per caller. visiting guards the one recursion in
 // progress against a cycle: a name already being walked contributes an
-// empty procedureReach rather than recursing forever, since there is
+// empty walkedReach rather than recursing forever, since there is
 // nothing further this walk could learn from a Procedure it is already
 // inside of. A name absent from graph — an invocation naming nothing,
 // already reported by procedure.go's own artefact-absent — contributes an
-// empty procedureReach the same way (§4, §5, issue #96).
-func walkProcedure(name string, graph ProcedureGraph, memo map[string]procedureReach, visiting map[string]bool) procedureReach {
+// empty walkedReach the same way (§4, §5, issue #96).
+func walkProcedure(name string, graph ProcedureGraph, memo map[string]walkedReach, visiting map[string]bool) walkedReach {
 	if r, ok := memo[name]; ok {
 		return r
 	}
 	info, ok := graph[name]
 	if !ok || visiting[name] {
-		return procedureReach{targets: map[string]bool{}}
+		return walkedReach{targets: map[string]bool{}}
 	}
 
 	visiting[name] = true
-	r := procedureReach{targets: map[string]bool{}}
-	held := map[Binding]bool{}
+	r := walkedReach{targets: map[string]bool{}}
+	held := map[store.Pair]bool{}
 	for t := range info.targets {
 		r.targets[t] = true
 	}
 	for _, s := range info.steps {
 		r.runOnce = r.runOnce || s.runOnce
 		r.hasSecret = r.hasSecret || s.hasSecret
-		r.effects = r.effects || !s.reads
-		r.bindings = appendBinding(r.bindings, held, s.binding)
+		r.effects = r.effects || s.effects
+		r.pairs = appendPair(r.pairs, held, s.pair)
 	}
 	for _, inv := range info.invocations {
 		child := walkProcedure(inv.procedureName, graph, memo, visiting)
@@ -322,8 +323,8 @@ func walkProcedure(name string, graph ProcedureGraph, memo map[string]procedureR
 		r.runOnce = r.runOnce || child.runOnce
 		r.hasSecret = r.hasSecret || child.hasSecret
 		r.effects = r.effects || child.effects
-		for _, binding := range child.bindings {
-			r.bindings = appendBinding(r.bindings, held, binding)
+		for _, pair := range child.pairs {
+			r.pairs = appendPair(r.pairs, held, pair)
 		}
 	}
 	delete(visiting, name)
@@ -403,7 +404,7 @@ func checkProcedureCycles(graph ProcedureGraph) []problem.Problem {
 // wherever in the graph the fact was read, since that line is the one an
 // author can act on: narrow the Cadence away, or edit the Step.
 func CheckProcedureGraph(graph ProcedureGraph) []problem.Problem {
-	memo := map[string]procedureReach{}
+	memo := map[string]walkedReach{}
 	problems := checkProcedureCycles(graph)
 
 	for _, name := range sortedProcedureNames(graph) {
@@ -467,18 +468,25 @@ func sortedNames(set map[string]bool) []string {
 	return names
 }
 
-// appendBinding adds binding to bindings where it is a pair not already
-// held, and answers what to keep. The zero Binding is no pair and is
-// dropped: a Step naming neither a Definition nor a Target binds nothing.
+// appendPair adds pair to pairs where it is one not already held, and
+// answers what to keep. The zero Pair is no pair and is dropped: a Step
+// naming neither a Definition nor a Target binds nothing.
+//
+// **Each once** is the same rule internal/run's own pairsOf folds over a
+// Run's sequenced Steps, for the same reason — a Procedure of ten Steps
+// against one pair makes one pair — and the two are two folds rather than
+// one because they run over different things at different times: this over
+// procedures/ files' nodes before a Run exists, that over the flattened
+// sequence a Run performs.
 //
 // It appends into a slice of the caller's own rather than into a memoized
-// one — walkProcedure builds each procedureReach's bindings fresh, so a
-// Procedure invoked from two places contributes its pairs to both callers
-// without either being able to write into the answer the memo holds.
-func appendBinding(bindings []Binding, held map[Binding]bool, binding Binding) []Binding {
-	if binding == (Binding{}) || held[binding] {
-		return bindings
+// one — walkProcedure builds each walkedReach's pairs fresh, so a Procedure
+// invoked from two places contributes its pairs to both callers without
+// either being able to write into the answer the memo holds.
+func appendPair(pairs []store.Pair, held map[store.Pair]bool, pair store.Pair) []store.Pair {
+	if pair == (store.Pair{}) || held[pair] {
+		return pairs
 	}
-	held[binding] = true
-	return append(bindings, binding)
+	held[pair] = true
+	return append(pairs, pair)
 }

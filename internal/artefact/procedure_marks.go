@@ -168,7 +168,7 @@ func ReadProcedureMarks(root *yaml.Node, providers ProviderIndex, definitions De
 		return marks
 	}
 
-	memo := map[string]procedureReach{}
+	memo := map[string]walkedReach{}
 	for _, entry := range stepsVal.Content {
 		line, _ := position(entry)
 		fields := topLevelFields(entry, "id", "definition", "operation", "target", "bound", "procedure")
@@ -262,7 +262,7 @@ func stepMark(line int, id string, fields map[string]*yaml.Node, providers Provi
 // deriving a Procedure's reach a second way, so the gutter and the check
 // cannot disagree about what a Procedure reaches. memo is the caller's, so a
 // Procedure invoked from several lines of one file is walked once.
-func invocationMark(line int, id string, procVal *yaml.Node, graph ProcedureGraph, memo map[string]procedureReach) StepMark {
+func invocationMark(line int, id string, procVal *yaml.Node, graph ProcedureGraph, memo map[string]walkedReach) StepMark {
 	name, ok := resolveScalar(procVal)
 	if !ok {
 		return StepMark{Line: line, ID: id, Unresolved: true, Absent: AbsentName{Key: KeyProcedure}}
