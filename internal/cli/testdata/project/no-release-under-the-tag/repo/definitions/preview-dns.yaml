@@ -1,0 +1,6 @@
+kind: definition
+definition: preview-dns
+provider: preview-dns
+kinds: [mutate]
+destroy: [delete_record]
+targets: [cloudflare-prod]

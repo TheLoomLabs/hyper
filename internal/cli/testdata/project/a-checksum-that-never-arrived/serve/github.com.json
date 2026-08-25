@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "refuse_first": 1,
+  "body": "3a1f0b6c0d9e4a7b8c5d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b  hyper-1.4.0-aarch64-linux.tar.gz\n9f2c1b7a4e6d038c5b1f92a7de40cb83f5710e2d9a6c4b83fe012d75c9a4e6b1  hyper-1.4.0-x86_64-linux.tar.gz\n5c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d  hyper-1.4.0-x86_64-linux.tar.gz.sig\n"
+}

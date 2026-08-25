@@ -1,0 +1,7 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "text/plain; charset=utf-8"
+  },
+  "body": "3a1f0b6c0d9e4a7b8c5d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b  hyper-1.4.0-aarch64-linux.tar.gz\n5c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d  hyper-1.4.0-x86_64-darwin.tar.gz\n"
+}

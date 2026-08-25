@@ -29,13 +29,22 @@ arguments and `runs` accepts none positionally, so the typo in either direction 
 
 Two more commands exist and are not among the sixteen, because neither reads a repository and neither
 says anything about `hyper`'s domain: `version` prints the version of the binary that would act, and
-`completions <shell>` writes a shell completion script. They are also the only two exempt from the
-version pin gate below (ADR-0020). Neither ever checks whether a newer version exists (ADR-0019).
+`completions <shell>` writes a shell completion script. They are exempt from the version pin gate
+below for that reason — a command that reads no repository has no pin to compare itself against
+(ADR-0020). Neither ever checks whether a newer version exists (ADR-0019).
 
-Every one of the sixteen compares itself against the version pin in the Repository declaration before
-reading a second file and Refuses on mismatch, on a laptop and in CI alike; where there is no pin it
-Refuses naming `hyper project` (§4, ADR-0020). The pin gate is stated once here and presupposed by
+Fifteen of the sixteen compare themselves against the version pin in the Repository declaration before
+reading a second file and Refuse on mismatch, on a laptop and in CI alike; where there is no pin they
+Refuse naming `hyper project` (§4, ADR-0020). The pin gate is stated once here and presupposed by
 every command below.
+
+`project` is the sixteenth and it stands outside the gate, which is the one exemption inside the tree.
+It is exempt not for being read-only — nothing is exempted for that, and §11 says so — but for being
+**the pin's only writer**: a gated `project` on an unpinned repository would Refuse naming itself, and
+a gated `project` under a newer binary would Refuse naming itself, which makes the upgrade ritual
+unperformable at its second step. A writer gated on what it writes is a bootstrap with no bootstrap.
+Nothing about ADR-0001 is softened by it: `project` does not proceed under a pin it disagrees with, it
+*replaces* that pin and writes the replacement into a tracked file whose diff is the review.
 
 ## A positional that matches nothing
 
@@ -452,6 +461,14 @@ rather than regrettable — a hand-edit to a projected file is authority living 
 artefact, and the git diff `project` writes is where it gets reviewed. It Refuses where it cannot
 resolve a published artefact for its own version, which is exactly the case where it would otherwise
 write a workflow fetching a binary nobody can download (ADR-0020).
+
+**The Repository declaration is the second thing it writes, and it is edited rather than regenerated.**
+Two scalars move in it — the `version:` pin and the `digest:` beside it — and every other byte is
+carried through: `retention:` is authored, and so are the comments and the layout. The whole-file rule
+above governs files that are *entirely* derived, and `hyper.yaml` is a reviewed artefact carrying two
+derived facts. Where the repository holds none, `project` creates one carrying `kind:`, `version:` and
+`digest:` and **no `retention:`** — a repository that has not stated a policy has not agreed to lose
+anything (§3, §11).
 
 `store init` creates the orphan branch §7 names and writes `STORE.md`, and does nothing else: there is
 no configuration to write (ADR-0014), and no example Definition is scaffolded, `hyper` authoring a

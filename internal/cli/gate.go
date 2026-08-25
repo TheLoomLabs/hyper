@@ -13,13 +13,14 @@ import (
 )
 
 // gateOnVersionPin is the version pin gate, and it is one function because
-// every command stands behind it rather than each carrying its own copy: all
-// sixteen compare themselves against the pin in the Repository declaration and
-// Refuse on mismatch, on a laptop and on a runner alike, with `version` and
-// `completions` the only exemptions (§9, ADR-0020). It lives in internal/cli
-// rather than in cmd/hyper/main.go deliberately — main.go has no golden
-// coverage, and the tool's most load-bearing guardrail must not sit outside the
-// only harness that proves it byte for byte (issue #102).
+// every command stands behind it rather than each carrying its own copy: fifteen
+// of §9's sixteen compare themselves against the pin in the Repository
+// declaration and Refuse on mismatch, on a laptop and on a runner alike, with
+// `version` and `completions` exempt for reading no repository and `project`
+// exempt for being the pin's only writer (§9, §11, ADR-0020). It lives in
+// internal/cli rather than in cmd/hyper/main.go deliberately — main.go has no
+// golden coverage, and the tool's most load-bearing guardrail must not sit
+// outside the only harness that proves it byte for byte (issue #102).
 //
 // Every gated entry point calls it as its first act after resolving a
 // repository root, and before its own positionals and work. That ordering is

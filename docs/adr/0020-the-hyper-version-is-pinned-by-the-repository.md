@@ -2,9 +2,10 @@
 
 A **Repository declaration** names the version of `hyper` that may act on the repository. Every
 command compares itself against that pin and Refuses on mismatch — on a laptop and on a runner
-alike — with `version` and `completions` the only exemptions. `hyper project` is the door: it
-*derives* the pin from the binary that ran it, so changing the version means installing a binary,
-running one command, and reading the diff it writes.
+alike — with `version` and `completions` exempt for reading no repository, and `hyper project` exempt
+for being the pin's only writer. `hyper project` is the door: it *derives* the pin from the binary
+that ran it, so changing the version means installing a binary, running one command, and reading the
+diff it writes.
 
 We chose this because after ADR-0004 the binary is the only code that runs, which makes a version
 bump the largest behaviour change available in the system — larger than any Definition edit, since it

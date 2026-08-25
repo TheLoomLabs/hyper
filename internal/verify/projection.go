@@ -36,18 +36,21 @@ type ProjectedWorkflow struct {
 // between the two callers is only what they do with the bytes — write them, or
 // compare them against what stands.
 //
-// version is the one fact here that is not read off a reviewed artefact, and it
-// is a parameter to say so: `project` derives the pin from the binary that ran
-// it (§9, ADR-0020), and the gate has already proved the declaration agrees
-// before anything gets this far. The digest beside it is the declaration's,
-// which is where §11 puts it.
+// version and digest are the two facts here that are not read off the loaded
+// repository, and they are parameters to say so. `project` derives the pin from
+// the binary that ran it and freezes the checksum for that version in the same
+// act (§11, ADR-0020) — so at the moment these bytes are generated the
+// declaration on disk still carries the pin they are replacing, and reading
+// either fact off it would project the version being left behind. What the
+// caller hands over is what it is about to write into `hyper.yaml`, which is
+// what makes the workflow and the declaration one edit rather than two
+// (issue #178).
 //
 // **Nothing here reads a file, a clock or a network**, and nothing here judges a
 // repository: an artefact that would earn a problem still projects, because what
 // stops a projection is `check` reporting something and that is its caller's to
 // ask (§10, ADR-0064).
-func Projection(loaded repository.Loaded, version string) []ProjectedWorkflow {
-	digest := artefact.ReadRepositoryFacts(loaded.Declaration()).Digest
+func Projection(loaded repository.Loaded, version, digest string) []ProjectedWorkflow {
 	graph := ProcedureGraph(loaded)
 
 	var projected []ProjectedWorkflow

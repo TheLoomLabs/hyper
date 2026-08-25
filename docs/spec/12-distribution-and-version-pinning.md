@@ -30,17 +30,21 @@ command (§3). What that digest is for, and why it is not the running binary's, 
 
 ### The gate
 
-§9 states where the gate sits and which two commands stand outside it. What it declines under is named
-here. A binary whose version differs from the pin in either direction is `version-pin-mismatch`; a
-command that needs the pin and finds none is `version-pin-absent`, naming `hyper project` exactly as an
-absent Store names `store init` (§12). Both are Refusals and both exit `77`.
+§9 states where the gate sits and which commands stand outside it — `version` and `completions`, which
+read no repository, and `project`, which is the pin's only writer and cannot be gated on what it
+writes. What it declines under is named here. A binary whose version differs from the pin in either
+direction is `version-pin-mismatch`; a command that needs the pin and finds none is
+`version-pin-absent`, naming `hyper project` exactly as an absent Store names `store init` (§12). Both
+are Refusals and both exit `77`.
 
 Deleting `hyper.yaml` is therefore a dead end rather than a bypass, which is what ADR-0001 requires of
 anything gate-shaped, and a repository with no pin gets one from its first `project`.
 
 Nothing is exempted for being read-only. `check` predicts what the pinned binary will do (§4) and
 `changes` renders what it did (§8); either one answering under a different binary answers a question
-nobody asked.
+nobody asked. `project`'s exemption is not that one and does not open the door to it: it is exempt for
+*writing* the pin, and a repository with no pin gets one from its first `project` exactly because
+nothing gates that command.
 
 ### The comparison is exact
 
@@ -75,6 +79,13 @@ fact (ADR-0020). Re-projection resolves nothing: only a version change fetches.
 checksums file beside it, and no line in that file for the artefact the template names. An unreleased
 binary therefore runs and checks and cannot project, which is the same statement as: every pin in every
 repository names a version somebody can download.
+
+**A fetch that did not complete is exit `1` and not that code**, which is `install`'s own rule one
+command over (§9, ADR-0060): a host that did not respond, a resolution that timed out, no network at
+all — and equally a release host that answered a rate limit or a bad gateway, which is an answer that
+arrived and is still not an answer about the artefact. What sorts the two is `77`'s promise that a
+verbatim retry Refuses identically, which the three shapes above keep and a rate limit does not.
+Nothing is written on either path.
 
 Only the platform the workflow's `runs-on` names is ever fetched, so one digest is recorded rather than
 a table of them (§10) — `runs-on` and the artefact's platform being one compiled-in fact rather than

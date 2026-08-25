@@ -54,11 +54,13 @@ var tree = []string{
 
 // outsideTree is the two commands §9 states are not among the sixteen:
 // `version` prints the version of the binary that would act, and
-// `completions <shell>` writes a shell completion script. They are the only
-// two exempt from the version pin gate, and the distinction is load-bearing
-// here rather than decorative — the three globals govern the sixteen, so a
-// completion script may not offer `--json` after either of these (§9,
-// ADR-0020).
+// `completions <shell>` writes a shell completion script. They are exempt from
+// the version pin gate for reading no repository — `project` is exempt too and
+// is inside the tree, being the pin's only writer, which is why this list is
+// *what the globals govern* rather than *what the gate skips* — and the
+// distinction is load-bearing here rather than decorative: the three globals
+// govern the sixteen, so a completion script may not offer `--json` after
+// either of these (§9, §11, ADR-0020).
 var outsideTree = []string{
 	"version",
 	"completions",

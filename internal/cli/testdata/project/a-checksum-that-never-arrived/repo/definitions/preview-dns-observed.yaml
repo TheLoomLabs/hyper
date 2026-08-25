@@ -1,0 +1,5 @@
+kind: definition
+definition: preview-dns-observed
+provider: preview-dns
+kinds: [read]
+targets: [cloudflare-prod]

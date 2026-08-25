@@ -33,12 +33,15 @@ import (
 // each member is and why it is threaded is process.go's to say; that a command
 // reaches for none of them itself is this dispatch's.
 //
-// Getwd is called on the repository commands' arm and nowhere else, because the
+// Getwd is called on the repository commands' arm and nowhere else, because that
 // exemption is a property of this dispatch and not of the commands behind it.
 // `version` and `completions` are the two cases that resolve no working
 // directory and call no gate — an exemption expressed as a path not taken (§9,
 // ADR-0020) — so a working directory that cannot be read does not stop `hyper
-// version`.
+// version`. `project` calls no gate either and is not one of them: it resolves a
+// repository like every other command in the table below and declines to compare
+// itself against the pin it is about to write, which is an exemption the command
+// states rather than one this dispatch grants (§11, issue #178).
 //
 // facts is threaded whole rather than the bare version string it carries:
 // RunVersion needs all of it, the gate needs the version out of it, and passing
@@ -189,11 +192,19 @@ var repositoryCommands = map[string]repositoryCommand{
 	// about the branch (§7, §9, issue #166).
 	"records": RunRecords,
 	// The fifteenth of the sixteen, and the first thing in the tool that
-	// writes a file into the working tree. It takes a lookup alone and says
-	// so by its shape: the projection is a function of the reviewed
-	// artefacts and of the binary's own version, so there is no clock to
-	// read, no id to mint, nothing to dial and no child to start — a
-	// generated file is the same file on two machines forever (§10, §11,
-	// issue #177).
-	"project": environmentOnly(RunProject),
+	// writes a file into the working tree. It took a lookup alone until it
+	// grew the one thing the version pin ever reaches the network for: the
+	// checksum published for the version it is about to pin, resolved once,
+	// attended, and only where that version differs from the pin already in
+	// the declaration (§11, issue #178). Everything else about it is still a
+	// function of the reviewed artefacts and of the binary's own version —
+	// no clock, no id, no child — and the signature says which of those two
+	// it is.
+	//
+	// It is also the one name in this table that calls no gate, and it is
+	// the command itself that does not call one rather than the dispatch
+	// exempting it: the exemption belongs to the pin's only writer, and
+	// stating it here would put it a layer above the reason for it (§9,
+	// ADR-0020).
+	"project": RunProject,
 }

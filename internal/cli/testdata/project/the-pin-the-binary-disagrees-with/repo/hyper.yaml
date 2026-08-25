@@ -1,0 +1,8 @@
+# our own declaration: `hyper project` writes the two derived facts and we write
+# everything else in this file
+kind: repository-declaration
+version: 1.3.0  # moved by `hyper project`, and read in the diff
+digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+# ninety days of interior versions, agreed when we turned the Cadence on
+retention: 90d

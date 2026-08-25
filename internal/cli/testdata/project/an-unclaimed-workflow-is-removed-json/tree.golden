@@ -63,3 +63,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: echo "nothing hyper wrote"
+=== hyper.yaml (139 bytes)
+kind: repository-declaration
+version: 1.4.0
+digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+retention: 90d

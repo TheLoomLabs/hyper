@@ -117,6 +117,28 @@ func (l Loaded) Declaration() *yaml.Node {
 	return nil
 }
 
+// DeclarationBytes is the Repository declaration's exact bytes, and false where
+// the repository holds no `hyper.yaml` at all.
+//
+// It stands beside Declaration for the reason LoadedArtefact keeps Bytes at all:
+// the one command that **writes** the declaration edits it rather than
+// regenerating it, so what it needs is the file as it stands and not a parse
+// tree that has already thrown the comments and the layout away (§11, issue
+// #178). The parse says where a scalar sits; these bytes are what it sits in.
+//
+// false is the answer a repository that has never been projected gives, and it
+// is what `project` reads to know it is creating the file rather than editing
+// one. It is not an error: nothing about the walk failed, and the pin gate is
+// what has an opinion about a repository with no declaration (§9, ADR-0020).
+func (l Loaded) DeclarationBytes() ([]byte, bool) {
+	for _, a := range l.Artefacts {
+		if a.Path == DeclarationPath {
+			return a.Bytes, true
+		}
+	}
+	return nil, false
+}
+
 // LoadedManifest is one member of the Provider namespace as the commands that
 // report a Provider read it: the name the Manifest declares for itself, the
 // origin §12 reads off where its bytes loaded from, those exact bytes, and what

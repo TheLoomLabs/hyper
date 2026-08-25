@@ -833,6 +833,88 @@ func TestGoldenCorpora_EveryCaseThatWritesTheWorkingTreeHoldsATreeGolden(t *test
 	}
 }
 
+// pinGatePrefix is how a Refusal the version pin gate makes opens on stderr.
+// Both of its codes begin with it, which is what lets one match ask *did this
+// command gate* without asking which of the two it gated under (§12, gate.go).
+const pinGatePrefix = "refused: version-pin-"
+
+// notYetBuilt is the names §9's tree fixes that this binary does not implement,
+// so no corpus drives them and none can be held to the gate. It is spelled out
+// rather than inferred from an empty corpus, because *no case drives this
+// command* is exactly what a corpus deleted by accident looks like (§9, issue
+// #104).
+var notYetBuilt = []string{"install"}
+
+// TestGoldenCorpora_EveryCommandButProjectGatesOnThePin is §9's gate held over
+// the whole surface at once, and the one exemption inside the tree held with it
+// (§11, ADR-0020, issue #178).
+//
+// **What it holds is the corpus and not the binary.** TestGolden is what proves
+// a command still gates — restore the gate to `project` and two of its cases
+// exit `77` where their goldens say `0`. This asks the question one layer out:
+// *is there still a fixture for it at all*. A gate deleted from a command whose
+// only Refusing case was deleted in the same commit passes every golden there
+// is, and this is what notices.
+//
+// **Fifteen of the sixteen gate**, and each of them has a case saying so.
+// **`project` does not**, and the absence is the assertion; why it is exempt is
+// RunProject's own comment. The positive half is two cases in its own corpus —
+// `the-pin-the-binary-disagrees-with` and `a-repository-with-no-pin`, both of
+// which project cleanly against a declaration the gate would have Refused — and
+// what is asserted here is that no case anywhere in that corpus Refuses under
+// either code.
+func TestGoldenCorpora_EveryCommandButProjectGatesOnThePin(t *testing.T) {
+	refusals := map[string][]byte{}
+	for _, c := range goldenCases(t) {
+		corpus := filepath.Base(filepath.Dir(c.dir))
+		refusals[corpus] = append(refusals[corpus], readFile(t, filepath.Join(c.dir, "stderr.golden"))...)
+	}
+
+	for _, command := range cli.Tree() {
+		var driven []byte
+		for _, corpus := range corpusNames(command) {
+			driven = append(driven, refusals[corpus]...)
+		}
+
+		switch {
+		case slices.Contains(notYetBuilt, command):
+			if len(driven) > 0 {
+				t.Errorf("%q has a corpus and is listed as not yet built; the list is stale", command)
+			}
+		case command == "project":
+			if bytes.Contains(driven, []byte(pinGatePrefix)) {
+				t.Errorf("a case under %s/ Refuses under the pin gate; `project` is the pin's only writer and calls no gate", command)
+			}
+		case len(driven) == 0:
+			t.Errorf("no case drives %q at all, so nothing holds it to the gate", command)
+		case !bytes.Contains(driven, []byte(pinGatePrefix)):
+			t.Errorf("no case under %s/ Refuses under the pin gate; every command in the tree but `project` compares itself against the pin", command)
+		}
+	}
+}
+
+// TestGoldenCorpora_BothPinCodesHaveAFixture is the other half of the gate: it
+// declines under two codes, and a corpus that only ever drove the mismatch would
+// leave the repository that has never been projected undriven.
+//
+// It is asked of the corpora as a whole rather than per command, because which
+// of the two a command's own cases drive is an accident of what that case was
+// written to show — the gate is one function, and what a second command's second
+// code would assert is that function running twice (gate.go). That the function
+// still answers both, and under which conditions, is internal/pin's own cases;
+// what is left for a corpus is that both still reach a page somewhere.
+func TestGoldenCorpora_BothPinCodesHaveAFixture(t *testing.T) {
+	var refusals []byte
+	for _, c := range goldenCases(t) {
+		refusals = append(refusals, readFile(t, filepath.Join(c.dir, "stderr.golden"))...)
+	}
+	for _, code := range []string{"version-pin-mismatch", "version-pin-absent"} {
+		if !bytes.Contains(refusals, []byte("refused: "+code)) {
+			t.Errorf("no case in any corpus Refuses under %s", code)
+		}
+	}
+}
+
 // TestGoldenCorpora_StdoutCarriesNothingButTheAnswer is §9's stream discipline
 // asserted over every corpus at once: **stdout is the answer, and nothing else
 // ever goes there.**

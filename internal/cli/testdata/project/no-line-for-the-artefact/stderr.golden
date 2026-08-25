@@ -1,0 +1,2 @@
+refused: release-artefact-absent
+  https://github.com/TheLoomLabs/hyper/releases/download/v1.4.0/checksums.txt names no hyper-1.4.0-x86_64-linux.tar.gz — publish a release for 1.4.0, or install a released hyper

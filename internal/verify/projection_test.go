@@ -11,11 +11,30 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/workflow"
 )
 
+// projectedDigest is the checksum the cases below project at. It is the
+// caller's fact rather than the repository's — `project` freezes it in the same
+// act that writes the pin — so it is stated here once rather than read back off
+// each case's own declaration.
+const projectedDigest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
 // projected is one repository written into a temp directory, loaded and
 // projected. The files are the least a Procedure needs to reach a Step and a
 // credential slot, and every case below is that repository with one thing
 // changed.
 func projected(t *testing.T, files map[string]string) []verify.ProjectedWorkflow {
+	t.Helper()
+
+	loaded, err := repository.Load(write(t, files))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return verify.Projection(loaded, "1.4.0", projectedDigest)
+}
+
+// write lays one repository's files out in a temp directory and answers its
+// root. It is projected's other half, split out for the one case that projects
+// at a version and a digest of its own.
+func write(t *testing.T, files map[string]string) string {
 	t.Helper()
 
 	root := t.TempDir()
@@ -28,12 +47,7 @@ func projected(t *testing.T, files map[string]string) []verify.ProjectedWorkflow
 			t.Fatal(err)
 		}
 	}
-
-	loaded, err := repository.Load(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return verify.Projection(loaded, "1.4.0")
+	return root
 }
 
 // bound is the repository the cases below vary: a Manifest with `header:` auth
@@ -138,16 +152,28 @@ func TestProjection_TheEnvBlockIsTheBindingsOwnSlot(t *testing.T) {
 	}
 }
 
-// TestProjection_TheDigestComesFromTheDeclaration is where §11 puts it: the
-// version is the binary's and the digest is the reviewed declaration's, and the
-// file a runner fetches is verified against what a human read in a diff.
-func TestProjection_TheDigestComesFromTheDeclaration(t *testing.T) {
+// TestProjection_TheVersionAndDigestAreTheOnesItWasProjectedAt is where §11
+// puts the two facts a workflow's install step carries: the version the binary
+// derived and the checksum frozen for it, literal in the file, with nothing
+// resolved when the job runs.
+//
+// They are asserted against what the **caller** handed over rather than against
+// what the declaration on disk says, which is the whole of what makes one
+// `project` one edit: the file below still pins the version being replaced, and
+// a projection that read either fact off it would generate the workflow of the
+// binary that is being upgraded away from (issue #178).
+func TestProjection_TheVersionAndDigestAreTheOnesItWasProjectedAt(t *testing.T) {
 	files := bound(map[string]string{"procedures/beat.yaml": procedure("beat", "0 3 * * 1")})
-	files["hyper.yaml"] = "kind: repository-declaration\nversion: 1.4.0\ndigest: sha256:" + strings.Repeat("ab", 32) + "\n"
+	files["hyper.yaml"] = "kind: repository-declaration\nversion: 1.3.0\ndigest: sha256:" + strings.Repeat("00", 32) + "\n"
 
-	generated := string(projected(t, files)[0].Bytes)
+	loaded, err := repository.Load(write(t, files))
+	if err != nil {
+		t.Fatal(err)
+	}
+	generated := string(verify.Projection(loaded, "1.4.0", "sha256:"+strings.Repeat("ab", 32))[0].Bytes)
+
 	if !strings.Contains(generated, "echo '"+strings.Repeat("ab", 32)+"  hyper.tar.gz'") {
-		t.Errorf("the checksum line does not carry the declaration's digest:\n%s", generated)
+		t.Errorf("the checksum line does not carry the digest it was projected at:\n%s", generated)
 	}
 	if !strings.Contains(generated, "install hyper 1.4.0") {
 		t.Errorf("the install step does not name the version it was projected at:\n%s", generated)

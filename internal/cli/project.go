@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +10,11 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/TheLoomLabs/hyper/internal/artefact"
+	"github.com/TheLoomLabs/hyper/internal/capability"
+	"github.com/TheLoomLabs/hyper/internal/pin"
 	"github.com/TheLoomLabs/hyper/internal/problem"
+	"github.com/TheLoomLabs/hyper/internal/release"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/verify"
@@ -41,16 +46,34 @@ import (
 // `cadence-malformed` existing precisely so that an expression no grammar admits
 // never reaches an executor's clock (§4, §10, issue #174).
 //
-// **This one reads the pin and does not write it.** The version and the digest
-// come from the binary and from `hyper.yaml`, which the gate has already proved
-// is this binary's — so `project` is still gated here like every other command.
-// Writing the pin, freezing the digest and standing outside the gate are the
-// next ticket's (§11, ADR-0020).
-func RunProject(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
+// **It writes the pin, and nothing else in the tool does.** The version is the
+// binary's own, derived rather than authored, and the digest beside it is the
+// checksum published for that version — so changing the version is *install a
+// binary, run one command, read the diff*, three acts in the open, each leaving
+// something behind (§11, ADR-0020).
+//
+// **`hyper.yaml` is edited, never regenerated**, and created where the
+// repository holds none. What that costs and why it is not the whole-file rule
+// the workflows are written under is internal/pin's to state; what is this
+// command's is that the edit happens in the same act the workflows do.
+//
+// **And this one stands outside the pin gate**, the only command in §9's tree
+// that does. It is exempt not for being read-only, which §11 refuses as a ground
+// for anything, but for being **the pin's only writer**: a gated `project` on an
+// unpinned repository would Refuse naming itself, and a gated `project` under a
+// newer binary would Refuse naming itself, which makes the upgrade ritual
+// unperformable at step two — a writer gated on what it writes is a bootstrap
+// with no bootstrap. ADR-0001 is untouched: `project` does not proceed under a
+// pin it disagrees with, it replaces the pin and writes the replacement into a
+// tracked file whose diff is the review (§9, §11, ADR-0020).
+//
+// That sentence is this command's, and the surfaces that assert the exemption
+// point back at it rather than restating it (golden_test.go).
+func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
 	// No --limit: `project` names no namespace to range over — it writes
 	// what the repository asks for, all of it, and a cap on that would be a
 	// projection nobody could review against the artefacts (§9).
-	parsed, code := parseArgs("project", args, parameters{limit: takesNoLimit}, lookupenv, stderr)
+	parsed, code := parseArgs("project", args, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
 	if code != 0 {
 		return code
 	}
@@ -62,18 +85,15 @@ func RunProject(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot("project", parsed.repoDir, lookupenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("project", parsed.repoDir, process.LookupEnv, wd, stderr)
 	if code != 0 {
 		return code
 	}
 
-	// The gate, before the repository is loaded and long before the first
-	// write: a Refusal here leaves the tree exactly as it stands (§9, §11,
-	// ADR-0020).
-	if code, _ := gateOnVersionPin("project", repoRoot, binaryVersion, stderr); code != 0 {
-		return code
-	}
-
+	// No gate. Every other command in the tree compares itself against the
+	// pin here, before it reads a second file; this one is about to write
+	// that pin, and a repository with no pin at all is exactly the
+	// repository it exists to give one to (§9, §11, ADR-0020).
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
 		fmt.Fprintf(stderr, "hyper project: %s\n", err)
@@ -90,11 +110,30 @@ func RunProject(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 		return ExitProblems
 	}
 
-	// Nothing is written until everything is computed: every wanted file's
-	// bytes, and every standing file the namespace holds, both in hand
-	// before the first byte lands. A refusal or a failure before this point
-	// leaves the tree untouched (§10).
-	wanted := verify.Projection(loaded, binaryVersion)
+	// The declaration as it stands, read once: the bytes about to be edited
+	// and the two facts about to be replaced.
+	declared := readDeclaration(loaded)
+
+	// The one network read, where there is one at all: the version this
+	// invocation is about to pin, and the checksum published for it. A
+	// Refusal or a failure here happens before anything is computed and long
+	// before anything is written (§11).
+	digest, code := frozenDigest(process.Dial, declared, binaryVersion, stderr)
+	if code != 0 {
+		return code
+	}
+
+	// Nothing is written until everything is computed: the declaration's new
+	// bytes, every wanted file's, and every standing file the namespace
+	// holds, all in hand before the first byte lands. A refusal or a failure
+	// before this point leaves the tree untouched (§10).
+	//
+	// The two derived facts go to the projection as arguments rather than
+	// through the file: `loaded` still carries the pin being replaced, so a
+	// workflow generated off it would install the version this invocation is
+	// upgrading away from.
+	pinned := pin.Written(declared.bytes, declared.present, binaryVersion, digest)
+	wanted := verify.Projection(loaded, binaryVersion, digest)
 	standing, err := standingWorkflows(repoRoot)
 	if err != nil {
 		fmt.Fprintf(stderr, "hyper project: %s\n", err)
@@ -102,7 +141,7 @@ func RunProject(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 	}
 	unwanted := unwantedWorkflows(wanted, standing)
 
-	if path, err := writeProjection(repoRoot, wanted, unwanted); err != nil {
+	if path, err := writeDerived(repoRoot, pinned, wanted, unwanted); err != nil {
 		// The file it died on, named, and the tree left as it stands.
 		// git is the undo, the tree is under review, and a rollback path
 		// is code that runs only when something has already gone wrong
@@ -173,9 +212,14 @@ func unwantedWorkflows(wanted []verify.ProjectedWorkflow, standing []string) []s
 	return unwanted
 }
 
-// writeProjection is the one act: every wanted file written whole, then every
-// unwanted one removed. It answers the path it died on and the reason, and the
-// empty path where it wrote everything.
+// writeDerived is the one act: the Repository declaration, then every wanted
+// file written whole, then every unwanted one removed. It answers the path it
+// died on and the reason, and the empty path where it wrote everything.
+//
+// It is named for what it writes rather than for the namespace, because the
+// declaration is not part of the projection: it is a reviewed artefact carrying
+// two derived facts, and what these two writes have in common is that `hyper`
+// derived both (§9, §11).
 //
 // **The order is write-then-remove and it matters at one point only**: nothing
 // is both, `removed` having subtracted one set from the other, so what the order
@@ -185,7 +229,17 @@ func unwantedWorkflows(wanted []verify.ProjectedWorkflow, standing []string) []s
 // The directory is created where a file goes into it and never otherwise: a
 // repository that projects nothing gets no empty `.github/workflows/`, an empty
 // directory being a thing git will not carry anyway.
-func writeProjection(repoRoot string, wanted []verify.ProjectedWorkflow, unwanted []string) (string, error) {
+func writeDerived(repoRoot string, pinned []byte, wanted []verify.ProjectedWorkflow, unwanted []string) (string, error) {
+	// The declaration first, because it is the fact the rest of this act
+	// derives from: a tree interrupted after it names the version its
+	// workflows are converging on, where the other order leaves a repository
+	// pinning a binary its own files no longer install. Both are
+	// `projection-stale` and both are repaired by running this again, which
+	// is why the choice is about which half-written tree reads truthfully
+	// rather than about which one is safe (§10, §11).
+	if err := os.WriteFile(filepath.Join(repoRoot, repository.DeclarationPath), pinned, 0o644); err != nil {
+		return repository.DeclarationPath, err
+	}
 	if len(wanted) > 0 {
 		if err := os.MkdirAll(filepath.Join(repoRoot, filepath.FromSlash(workflow.Dir)), 0o755); err != nil {
 			return workflow.Dir, err
@@ -202,6 +256,91 @@ func writeProjection(repoRoot string, wanted []verify.ProjectedWorkflow, unwante
 		}
 	}
 	return "", nil
+}
+
+// standingDeclaration is the Repository declaration as it stands before
+// `project` writes: the bytes it will edit, whether the repository holds the
+// file at all, and the two derived facts already in it.
+//
+// It is named for standing as standingWorkflows below is, and for that
+// function's reason: what this command does is compare what a repository asks
+// for against what is already there, and both halves of *what is already there*
+// read alike.
+//
+// It is a type rather than four values threaded singly because they are one
+// read of one file, and because two of them decide whether the third is
+// replaced: a pin equal to the binary's version keeps the digest beside it, and
+// any other pin resolves a new one. What separates it from
+// artefact.RepositoryFacts is `retention:` — the declaration's one authored
+// fact, which `project` neither reads nor writes (§3, §11).
+type standingDeclaration struct {
+	bytes   []byte
+	present bool
+	version string
+	digest  string
+}
+
+// readDeclaration reads all four off one loaded repository.
+//
+// **The two facts come through two doors and that is the pin's own shape.** The
+// version is internal/pin's, because the gate reads it off `hyper.yaml`'s bytes
+// before a repository is loaded at all and there must not be a second reading of
+// it; the digest is internal/artefact's, because it is one of the things the
+// declaration *says* and every such fact is read there (§9, §11, ADR-0020). What
+// this does is put the two answers in one value, so that nothing downstream has
+// to know there were two doors.
+func readDeclaration(loaded repository.Loaded) standingDeclaration {
+	bytes, present := loaded.DeclarationBytes()
+	return standingDeclaration{
+		bytes:   bytes,
+		present: present,
+		version: pin.Declared(bytes),
+		digest:  artefact.ReadRepositoryFacts(loaded.Declaration()).Digest,
+	}
+}
+
+// frozenDigest is the checksum the declaration this invocation writes will
+// carry, and the exit code where there is none to write.
+//
+// **Where the pin already equals the binary's version, nothing is resolved at
+// all.** Re-projection reaches no network: the digest already in the declaration
+// is a reviewed fact, and it is copied into every workflow exactly as it stands.
+// Only a version change fetches, which is what makes the fetch a thing that
+// happens on the upgrade a human is performing rather than on every invocation
+// (§11).
+//
+// **What it fetches is a few hundred bytes, attended, at review time**, and what
+// that buys is internal/release's to say.
+//
+// The two ways it can fail are two exits, and what sorts them is whether the
+// answer is *that there is nothing to pin*. A release naming no artefact for
+// this version is a check declining, and it Refuses at `77` — rendered in the
+// two-line form with no caret, the fault having no artefact coordinate and the
+// remedy being a released binary rather than an edit (§8, §12). Everything else
+// is the world resisting and exits `1`: a host that did not respond, a
+// resolution that timed out, and equally a release host that answered a rate
+// limit — all of them can differ between two invocations of an identical command
+// line, which is exactly what `77` promises they cannot, and `1` is where
+// `install` already puts them (§11, §12, ADR-0060). Which statuses fall on which
+// side is internal/release's. Nothing is written on either path.
+func frozenDigest(dial capability.Dial, declared standingDeclaration, binaryVersion string, stderr io.Writer) (string, int) {
+	if declared.version == binaryVersion {
+		return declared.digest, 0
+	}
+
+	digest, err := release.Digest(context.Background(), dial, binaryVersion)
+	var absent *release.Absent
+	switch {
+	case errors.As(err, &absent):
+		// An unreleased binary runs and checks and cannot project, which
+		// is the same statement as: every pin in every repository names a
+		// version somebody can download (§11).
+		return "", refuse(stderr, release.CodeArtefactAbsent, absent.Error()+" — publish a release for "+binaryVersion+", or install a released hyper")
+	case err != nil:
+		fmt.Fprintf(stderr, "hyper project: the checksum for %s did not arrive: %s\n", binaryVersion, err)
+		return "", ExitProblems
+	}
+	return digest, 0
 }
 
 // reasonFor is what a file operation failed with, less the path it already

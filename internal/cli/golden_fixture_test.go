@@ -626,6 +626,11 @@ func (fx gitFixture) render(t *testing.T, gitdir string) string {
 // and a golden that rendered both as nothing could not tell them apart (§10).
 const absentWorkflows = "no " + workflow.Dir + "/ directory\n"
 
+// absentDeclaration is what a tree golden holds where the repository carries no
+// `hyper.yaml` at all — the state `project` creates one out of, and therefore
+// one a golden has to be able to say (§11, issue #178).
+const absentDeclaration = "no " + repository.DeclarationPath + "\n"
+
 // renderTree is the working tree's `.github/workflows/` as a tree golden holds
 // it, on render's own shape: every path under it, in path order, each under a
 // header line naming it and its length, with the bytes verbatim beneath.
@@ -641,11 +646,39 @@ const absentWorkflows = "no " + workflow.Dir + "/ directory\n"
 // then reviews in a diff, and a golden read off HEAD would be reading the commit
 // the fixture made before the command ran (§10).
 //
-// Nothing outside `.github/workflows/` is rendered. That is the criterion the
-// golden is here to hold — `project` creates that directory where absent and
-// touches nothing beside it — and a golden over the whole tree would be one that
-// moved every time a case's own artefacts did.
+// **`hyper.yaml` is rendered beside them**, and it is the second half of what
+// `project` writes: the pin and the digest go into the declaration in the same
+// act the workflows are written in, and a golden that showed only the workflows
+// would assert half of one edit (§11, issue #178). It is what says the two
+// derived facts moved and that `retention:`, the comments and the layout did
+// not.
+//
+// Nothing else is rendered. That is the criterion the golden is here to hold —
+// `project` writes those two places and touches nothing beside them — and a
+// golden over the whole tree would be one that moved every time a case's own
+// artefacts did.
 func (fx gitFixture) renderTree(t *testing.T) string {
+	return fx.renderWorkflows(t) + fx.renderDeclaration(t)
+}
+
+// renderDeclaration is `hyper.yaml` as a tree golden holds it: the same header
+// line and verbatim bytes the workflows are rendered under, or the stated line
+// where the repository carries none.
+func (fx gitFixture) renderDeclaration(t *testing.T) string {
+	t.Helper()
+
+	data, err := os.ReadFile(filepath.Join(fx.root, repository.DeclarationPath))
+	if os.IsNotExist(err) {
+		return absentDeclaration
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fmt.Sprintf("=== %s (%d bytes)\n%s", repository.DeclarationPath, len(data), data)
+}
+
+// renderWorkflows is the namespace `project` owns, in path order.
+func (fx gitFixture) renderWorkflows(t *testing.T) string {
 	t.Helper()
 
 	dir := filepath.Join(fx.root, filepath.FromSlash(workflow.Dir))

@@ -293,6 +293,53 @@ func goldensUnder(t *testing.T, corpus string) []byte {
 	return haystack
 }
 
+// projectCorpus is `project`'s own slice of testdata/, and the third corpus this
+// file asks the same question of.
+const projectCorpus = "testdata/project"
+
+// codesRefusedByProject is the closed set's members `hyper project` contributes:
+// one, and it is distribution's rather than §4's.
+//
+// `release-artefact-absent` is `project` unable to resolve a published artefact
+// for the version it is recording — no release under the tag, no checksums file
+// beside it, or no line in that file for the artefact the compiled-in template
+// names (§11, §12, issue #178). The three shapes are one code because the remedy
+// for each is a released binary rather than an edit, and because two of them
+// arrive as one answer: a tag with no release and a release with no checksums
+// file are both a request for something that is not there.
+//
+// The pin gate's two codes are deliberately not members. `project` is the one
+// command in §9's tree that calls no gate, for the reason RunProject states, so
+// this corpus holds no Refusal under either — which is what the guard beside
+// TestGolden asserts (§9, ADR-0020).
+// They are spelled out rather than imported from the package that fires them,
+// on this file's own footing: what every assertion here reads is what the
+// checked-in goldens say, and a constant imported from the code under test would
+// move with it.
+var codesRefusedByProject = []string{
+	"release-artefact-absent",
+}
+
+// TestCodesRefusedByProject_EveryMemberHasARefusingFixture holds that set
+// against `project`'s corpus, on the footing the two tests above state: what is
+// read is what the checked-in goldens say, and a code with no fixture is a claim
+// nothing drives.
+func TestCodesRefusedByProject_EveryMemberHasARefusingFixture(t *testing.T) {
+	haystack := goldensUnder(t, projectCorpus)
+
+	var missing []string
+	for _, code := range codesRefusedByProject {
+		pattern := `(^|[^a-z-])` + regexp.QuoteMeta(code) + `([^a-z-]|$)`
+		if !regexp.MustCompile(pattern).Match(haystack) {
+			missing = append(missing, code)
+		}
+	}
+	if len(missing) > 0 {
+		sort.Strings(missing)
+		t.Errorf("%d of %d codes have no Refusing fixture under %s/: %v", len(missing), len(codesRefusedByProject), projectCorpus, missing)
+	}
+}
+
 // comparingCode is the one member of the closed `error_code` set that compares
 // two values, and therefore the only one that ever writes `declared` and
 // `observed`: an Expansion's count against the Bound the Step's author declared

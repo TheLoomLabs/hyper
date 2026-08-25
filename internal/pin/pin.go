@@ -1,8 +1,23 @@
-// Package pin implements the version pin gate every command compares itself
-// against before reading a second file (§9, §11, ADR-0020). Milestone 1 needs
-// only the version: member the gate reads — the Repository declaration's full
-// schema, and its digest: and retention: members, land with the artefact
-// schemas in a later ticket.
+// Package pin is the version pin: the gate fifteen of §9's sixteen commands
+// compare themselves against before reading a second file, and the edit the
+// sixteenth makes to the file they read (§9, §11, ADR-0020).
+//
+// The two live together because they are one fact read from its two ends. Check
+// answers *may this binary act on this repository*; Declaration answers *what
+// does the file say once `hyper project` has written what it derived*. A gate
+// reading one spelling of `version:` and a writer producing another is the day a
+// `project` leaves behind a repository its own binary Refuses, so the schema of
+// the thing is stated once, here.
+//
+// **Nothing here reads or writes a file.** Both doors take the declaration's
+// bytes and answer a value: what a command does with the answer is
+// internal/cli's, and where the bytes came from is internal/repository's. That
+// is what lets the gate run before the repository is loaded at all, and what
+// lets the writer be exercised over a byte string rather than a temp directory.
+//
+// The Repository declaration's full schema — its `kind:`, its `retention:`, and
+// unknown-key rejection — is internal/artefact's, which is where every artefact's
+// schema is (§3, §4).
 package pin
 
 import "gopkg.in/yaml.v3"
@@ -21,9 +36,11 @@ type Result struct {
 	Message string
 }
 
-// repositoryDeclaration reads only the one member this gate needs. The full
-// schema — kind:, digest:, retention:, unknown-key rejection — belongs to the
-// artefact-schema ticket that follows this one.
+// repositoryDeclaration reads only the one member this package needs: the pin
+// itself, which the gate compares and the writer replaces. Everything else the
+// declaration says is read where that member is checked or reported —
+// artefact.RepositoryDeclaration for the schema, artefact.ReadRepositoryFacts
+// for the two facts a command acts on.
 type repositoryDeclaration struct {
 	Version string `yaml:"version"`
 }

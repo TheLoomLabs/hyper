@@ -9,17 +9,19 @@ import (
 	"testing"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
+	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/workflow"
 )
 
-// The two things about `hyper project` that no case directory can state (§10,
-// issue #177).
+// The things about `hyper project` that no case directory can state (§10, §11,
+// issues #177 and #178).
 //
 // Everything else it does is a golden: what it wrote is testdata/project's
 // `tree.golden`, what it reported is the two streams beside it. What is here is
-// the path a corpus cannot reach — a write the filesystem refuses part-way
-// through — because a case directory says what a repository holds and not what
-// the disk will do with it.
+// what a corpus cannot reach — a write the filesystem refuses part-way through,
+// and a **read that never happened** — because a case directory says what a
+// repository holds and not what the disk will do with it, and an absence of
+// egress is not a byte anything renders.
 
 // projectRepository writes the least a Procedure needs to project: one
 // Procedure declaring a Cadence, and the artefacts its one Step resolves
@@ -99,16 +101,25 @@ func TestRunProject_AWriteThatFailsNamesTheFileItDiedOn(t *testing.T) {
 	}
 }
 
-// TestRunProject_TouchesNothingOutsideTheNamespace is the criterion the tree
-// goldens can only half state: they render `.github/workflows/` and say nothing
-// about the rest of the repository, so what says the rest is untouched is a
-// weighing of it either side of the command.
+// TestRunProject_TouchesNothingOutsideTheNamespaceAndTheDeclaration is the
+// criterion the tree goldens can only half state: they render
+// `.github/workflows/` and `hyper.yaml` and say nothing about the rest of the
+// repository, so what says the rest is untouched is a weighing of it either side
+// of the command.
 //
 // It weighs the artefacts rather than trusting the paths, because *which paths
 // this command composes* is exactly what the criterion is about — a projection
 // that resolved a Procedure's name into a path with a `..` in it would compose
 // its way out of the directory it is confined to.
-func TestRunProject_TouchesNothingOutsideTheNamespace(t *testing.T) {
+//
+// `hyper.yaml` is weighed with the rest rather than exempted from it, and that
+// is deliberate: the repository below already pins the version this binary is,
+// so the two facts `project` writes into it are the two facts already there and
+// the file it writes is byte-identical to the file it read. **Re-projection
+// changes no byte of the declaration**, which is the property that makes a
+// `project` on a current repository an empty diff rather than a whitespace one
+// (§11).
+func TestRunProject_TouchesNothingOutsideTheNamespaceAndTheDeclaration(t *testing.T) {
 	root := projectRepository(t)
 	before := treeOutsideTheNamespace(t, root)
 
@@ -124,7 +135,7 @@ func TestRunProject_TouchesNothingOutsideTheNamespace(t *testing.T) {
 	}
 	for path, content := range before {
 		if after[path] != content {
-			t.Errorf("%s moved; `project` writes inside %s and nowhere else", path, workflow.Dir)
+			t.Errorf("%s moved; `project` writes inside %s and into %s, and nowhere else", path, workflow.Dir, repository.DeclarationPath)
 		}
 	}
 }
@@ -190,5 +201,108 @@ func TestRunProject_ARepositoryThatDoesNotCheckIsLeftUntouched(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(workflow.Dir))); !os.IsNotExist(err) {
 		t.Errorf("stat %s = %v, want it never created: nothing is written where `check` would report anything", workflow.Dir, err)
+	}
+}
+
+// TestRunProject_APinThatAlreadyAgreesResolvesNothing is §11's own sentence
+// about the one network read the pin ever makes: it happens **only where the
+// version differs from the pin already in the declaration**. Re-projection
+// resolves nothing, and the digest already there is copied into every workflow.
+//
+// It is asserted by counting the dials, which is the only way an absence of
+// egress can be asserted rather than assumed: a `project` that fetched on every
+// invocation would write exactly the same bytes and say exactly the same thing,
+// and the only trace of it is a connection nobody needed.
+func TestRunProject_APinThatAlreadyAgreesResolvesNothing(t *testing.T) {
+	root := projectRepository(t)
+
+	p := &process{wd: root}
+	var stdout, stderr bytes.Buffer
+	if exit := cli.Main([]string{"project", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want %d: %s", exit, cli.ExitClean, stderr.String())
+	}
+
+	if p.dial != 0 {
+		t.Errorf("a host was dialled %d times, want none: the pin already names this binary", p.dial)
+	}
+	notARun(t, p)
+}
+
+// notARun holds the reads `project` never makes, whichever path it took: it
+// mints no Run id, starts no child, watches no signal and never reads the
+// environment whole for one.
+//
+// It is asserted on **both** sides of the fetch, which is where it earns its
+// keep. The fetch is `hyper`'s own and not an Operation — no Capability, no
+// Target, no credential, no Journal entry, no Store — and the invocation that
+// makes one must be as small as the invocation that does not (§9, §11,
+// ADR-0009).
+//
+// The Store is held by the repository rather than by a counter: neither case
+// stands a git fixture at all, so a Store opened would be a Store found absent
+// and the command would have declined instead of doing what it did.
+func notARun(t *testing.T, p *process) {
+	t.Helper()
+
+	for _, read := range []struct {
+		what  string
+		count int
+	}{
+		{"a Run id was minted", p.mint},
+		{"a child process was started", p.exec},
+		{"the signals were watched", p.notify},
+		{"the environment was read whole", p.environ},
+	} {
+		if read.count != 0 {
+			t.Errorf("%s %d times, want it left alone: `project` is not a Run", read.what, read.count)
+		}
+	}
+}
+
+// TestRunProject_APinThatDisagreesReachesForTheChecksum is the other side of it,
+// and the smallest statement of the exemption: the repository below pins a
+// version this binary is not, which every other command in the tree Refuses on
+// before it reads a second file — and this one loads the repository, checks it,
+// and goes looking for the checksum it would freeze (§9, §11, ADR-0020).
+//
+// The dial fails, because the stand-in process has no network under it, so what
+// is asserted is the reach rather than the answer: the corpus is where a served
+// checksum is read and written down.
+func TestRunProject_APinThatDisagreesReachesForTheChecksum(t *testing.T) {
+	root := projectRepository(t)
+	declaration := filepath.Join(root, repository.DeclarationPath)
+	pinned, err := os.ReadFile(declaration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(declaration, bytes.Replace(pinned, []byte("1.4.0"), []byte("1.3.0"), 1), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &process{wd: root}
+	var stdout, stderr bytes.Buffer
+	exit := cli.Main([]string{"project", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts)
+
+	if strings.Contains(stderr.String(), "version-pin") {
+		t.Errorf("stderr = %q, want no pin Refusal: `project` is the pin's only writer and calls no gate", stderr.String())
+	}
+	if p.dial == 0 {
+		t.Error("no host was dialled, want the checksum for the version this invocation would pin")
+	}
+	notARun(t, p)
+	if exit != cli.ExitProblems {
+		t.Errorf("exit = %d, want %d — the fetch did not complete, which is the world resisting", exit, cli.ExitProblems)
+	}
+	// And nothing was written on the way out: the declaration still pins the
+	// version it pinned, and the namespace was never created.
+	after, err := os.ReadFile(declaration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(after, []byte("1.3.0")) {
+		t.Errorf("%s = %q, want the pin untouched: nothing is written where the checksum did not arrive", repository.DeclarationPath, after)
+	}
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(workflow.Dir))); !os.IsNotExist(err) {
+		t.Errorf("stat %s = %v, want it never created", workflow.Dir, err)
 	}
 }
