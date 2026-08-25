@@ -646,9 +646,9 @@ func TestRunReview_TheWireCarriesTheGlossesPartsAndNeverTheComposedString(t *tes
 	}
 }
 
-// TestRunReview_AnUnreadableCadenceRendersNoGloss holds what this milestone
-// does not do: `cadence-malformed` is §12's static check and is not implemented
-// here, so an expression outside §10's grammar is not refused. The review
+// TestRunReview_AnUnreadableCadenceRendersNoGloss holds the division of labour
+// between the two offline surfaces: `cadence-malformed` is `check`'s, over a
+// repository whole, and a review of one artefact refuses nothing. The review
 // renders the artefact and exits clean, with no gloss to render and no line
 // taken for one.
 func TestRunReview_AnUnreadableCadenceRendersNoGloss(t *testing.T) {

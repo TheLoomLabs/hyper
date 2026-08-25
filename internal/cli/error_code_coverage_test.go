@@ -19,10 +19,12 @@ import (
 // set of error codes and not about how a command runs.
 const checkCorpus = "testdata/check"
 
-// milestoneOneErrorCodes is the closed set issue #87 fixes for this
-// milestone: thirty-seven error_code members, and no others, reach `hyper
+// milestoneOneErrorCodes is the closed set issue #87 fixes for that
+// milestone: the thirty-seven error_code members milestone 1 brings to `hyper
 // check` (docs/build/milestones.md's milestone 1, "Which codes land, and
-// which do not"). It is:
+// which do not"). It was every code reaching `check` until milestone 9 added
+// one, and it is milestone 1's contribution rather than the whole set now —
+// what `check` owes a fixture for is checkCorpusErrorCodes below. It is:
 //
 //   - §4's thirty-two static codes, in full. The last of them,
 //     procedure-cycle, is a member this milestone was written without: §6
@@ -83,14 +85,38 @@ var milestoneOneErrorCodes = []string{
 	"procedure-cycle",
 }
 
-// TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture walks every golden
-// file in the check corpus and confirms each of the thirty-seven error_code
-// members this milestone contributes appears in at least one of them — the
-// human table's ERROR_CODE column or the --json stream's "error_code" field,
-// either rendering being fine since both come from one renderer (ADR-0026).
-// It fails naming every code an uncovered member, so the closed set and the
-// fixture set can never drift apart silently (issue #99).
-func TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
+// milestoneNineCheckCodes is what milestone 9 adds to the same set: §10's
+// static Cadence code that is a Procedure's own (docs/build/milestones.md's
+// milestone 9). `cadence-malformed` is here rather than in the list above
+// because the grammar was stated and unenforced until the milestone that
+// projects a Cadence into a workflow — an expression outside it loaded clean
+// and rendered no gloss, which is the one surface built to show a reviewer the
+// blast radius of a recurrence saying nothing about the recurrence it could not
+// read (§10, §12, issue #174).
+//
+// `projection-stale` is §10's other static code and is not a member yet: it
+// compares a generated workflow against a fresh regeneration, and nothing
+// generates one until `hyper project` lands.
+var milestoneNineCheckCodes = []string{
+	"cadence-malformed",
+}
+
+// checkCorpusErrorCodes is every error_code the check corpus owes a failing
+// fixture: the two milestones' contributions, concatenated. They are two lists
+// and one assertion because which milestone a code arrived with is worth
+// recording and is not worth a second walk of the corpus.
+func checkCorpusErrorCodes() []string {
+	return append(append([]string{}, milestoneOneErrorCodes...), milestoneNineCheckCodes...)
+}
+
+// TestCheckCorpusErrorCodes_EveryMemberHasAFailingFixture walks every golden
+// file in the check corpus and confirms each error_code member `check`
+// contributes appears in at least one of them — the human table's ERROR_CODE
+// column or the --json stream's "error_code" field, either rendering being fine
+// since both come from one renderer (ADR-0026). It fails naming every code an
+// uncovered member, so the closed set and the fixture set can never drift apart
+// silently (issue #99).
+func TestCheckCorpusErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
 	var haystack []byte
 	for _, c := range goldenCases(t) {
 		if filepath.Dir(c.dir) != checkCorpus {
@@ -102,8 +128,10 @@ func TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
 		}
 	}
 
+	codes := checkCorpusErrorCodes()
+
 	var missing []string
-	for _, code := range milestoneOneErrorCodes {
+	for _, code := range codes {
 		// Bounded on both sides by something other than a lowercase letter
 		// or a hyphen, so a code is never credited by appearing as a
 		// substring of a longer, different one — every member of this set
@@ -117,7 +145,7 @@ func TestMilestoneOneErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
 
 	if len(missing) > 0 {
 		sort.Strings(missing)
-		t.Errorf("%d of %d milestone-1 error_code members have no failing fixture under %s/: %v", len(missing), len(milestoneOneErrorCodes), checkCorpus, missing)
+		t.Errorf("%d of %d error_code members have no failing fixture under %s/: %v", len(missing), len(codes), checkCorpus, missing)
 	}
 }
 
@@ -158,6 +186,11 @@ const runCorpus = "testdata/run"
 // all: what decides it is what the Journal holds for the Step, which is a fact
 // no artefact in the repository states and `check` therefore cannot read (§6,
 // §12, issue #153). It is a member here and in no list above for that reason.
+//
+// cadence-malformed is the one member milestone 9 adds, and it is here on the
+// ordinary footing: §10's grammar is closed so that an expression no executor's
+// clock could read never reaches one, and a rule that held for `check` and not
+// for a Run would let the Run be the way past it (§6, issue #174).
 var codesReachingARun = []string{
 	"unknown-key",
 	"credential-slot-malformed",
@@ -171,6 +204,7 @@ var codesReachingARun = []string{
 	"secret-sink-absent",
 	"bound-exceeded",
 	"run-once-recorded",
+	"cadence-malformed",
 }
 
 // artefactKindsCitedByARefusal is the five reviewed artefacts by where each one

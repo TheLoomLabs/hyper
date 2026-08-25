@@ -1,0 +1,11 @@
+kind: procedure
+procedure: a-nickname
+targets: [local]
+cadence: "@daily"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

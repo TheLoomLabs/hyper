@@ -1,0 +1,11 @@
+kind: procedure
+procedure: a-field-spelling-its-span
+targets: [local]
+cadence: "0-59 * * * *"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

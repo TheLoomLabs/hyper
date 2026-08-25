@@ -1,0 +1,11 @@
+kind: procedure
+procedure: a-sixth-field
+targets: [local]
+cadence: "0 0 * * * *"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

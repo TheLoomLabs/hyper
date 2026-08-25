@@ -1,0 +1,11 @@
+kind: procedure
+procedure: a-backwards-range
+targets: [local]
+cadence: "5-2 * * * *"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

@@ -1,10 +1,12 @@
 package artefact
 
 import (
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/schema"
 )
 
@@ -103,12 +105,19 @@ func TestCheckProcedure_NameMismatch(t *testing.T) {
 	}
 }
 
-func TestCheckProcedure_CadenceIsAStringAndUnvalidated(t *testing.T) {
+// TestCheckProcedure_CadenceIsAStringAndItsGrammarIsClosed is the schema and
+// the check reading one key in that order: the schema stops at *is this a
+// string*, and what the five fields have to be is checkCadence's (§10, §12).
+// Free text was once admitted here, the grammar being stated and unenforced;
+// it is cadence-malformed now.
+func TestCheckProcedure_CadenceIsAStringAndItsGrammarIsClosed(t *testing.T) {
 	doc := "kind: procedure\nprocedure: deploy\ntargets: [local]\ncadence: \"whatever hyper likes\"\nsteps: []\n"
 	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
-	if len(got) != 0 {
-		t.Fatalf("CheckProcedure() = %+v, want no problems — cadence:'s grammar is not validated this milestone", got)
+	p := mustCode(t, got, CodeCadenceMalformed)
+	if p.Field != "cadence" {
+		t.Errorf("Field = %q, want cadence", p.Field)
 	}
+	mustNoCode(t, got, schema.CodeMismatch)
 }
 
 func TestCheckProcedure_UnknownTopLevelKeyIsUnknownKey(t *testing.T) {
@@ -1270,4 +1279,108 @@ steps:
 	if p.Field != "steps[0]" {
 		t.Errorf("Field = %q, want steps[0]", p.Field)
 	}
+}
+
+// --- cadence-malformed ---
+
+// procedureDeclaringCadence is minimalProcedure with a Cadence on it, written
+// as the artefact writes one: a quoted scalar on its own line, the fourth, so
+// every case below cites one line and one column.
+func procedureDeclaringCadence(expression string) string {
+	return "kind: procedure\nprocedure: deploy\ntargets: [local]\ncadence: \"" + expression + "\"\n" +
+		"steps:\n  - id: probe\n    definition: uptime\n    operation: read\n    target: local\n    args:\n      command: [uptime]\n"
+}
+
+func checkProcedureDeclaring(t *testing.T, expression string) []problem.Problem {
+	t.Helper()
+	return CheckProcedure("procedures/deploy.yaml", parse(t, procedureDeclaringCadence(expression)),
+		shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
+}
+
+// TestCheckProcedure_WhatTheGrammarShutsOutIsCadenceMalformed is §10's own list
+// of what is not in the grammar, each one earning the one code: a nickname, a
+// month or day name, a sixth field and a fourth, a timezone, `?`, `L`, `W`,
+// `#`, a value outside its field's span and a backwards range.
+func TestCheckProcedure_WhatTheGrammarShutsOutIsCadenceMalformed(t *testing.T) {
+	for _, expression := range []string{
+		"@hourly", "@daily", "@reboot",
+		"0 3 * * MON", "0 0 1 JAN *",
+		"0 0 * * * *", "0 0 * *",
+		"0 3 * * 1 America/New_York", "0 3 * * 1 UTC", "0 3 * * 1+05:00",
+		"0 0 ? * *", "0 0 L * *", "0 0 15W * *", "0 0 * * 1#2",
+		"60 * * * *", "0 24 * * *", "0 0 0 * *", "0 0 32 * *", "0 0 1 13 *", "0 0 * * 7",
+		"5-2 * * * *",
+	} {
+		got := checkProcedureDeclaring(t, expression)
+		var found bool
+		for _, p := range got {
+			if p.ErrorCode == CodeCadenceMalformed {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("cadence: %q drew %+v, want cadence-malformed", expression, got)
+		}
+	}
+}
+
+// TestCheckProcedure_AMalformedCadenceIsCitedAtItsOwnLine holds the citation: a
+// reader is sent to the `cadence:` line and its column, and the message names
+// what was wrong rather than only that something was.
+func TestCheckProcedure_AMalformedCadenceIsCitedAtItsOwnLine(t *testing.T) {
+	got := checkProcedureDeclaring(t, "0 3 * * MON")
+	p := mustCode(t, got, CodeCadenceMalformed)
+	if p.File != "procedures/deploy.yaml" {
+		t.Errorf("File = %q, want procedures/deploy.yaml", p.File)
+	}
+	if p.Line != 4 {
+		t.Errorf("Line = %d, want 4 — the cadence: line", p.Line)
+	}
+	if p.Column != 10 {
+		t.Errorf("Column = %d, want 10 — where the scalar opens", p.Column)
+	}
+	if p.Field != "cadence" {
+		t.Errorf("Field = %q, want cadence", p.Field)
+	}
+	if !strings.Contains(p.Message, `day of week "MON"`) {
+		t.Errorf("Message = %q, want one naming the field and the item at fault", p.Message)
+	}
+}
+
+// TestCheckProcedure_EveryExpressionTheGrammarAdmitsDrawsNoCode is the closure
+// held the other way. The awkward ones are here for the reason §10 states about
+// the phrase: what glosses awkwardly is still in the grammar, and a check that
+// refused it would refuse an artefact nobody can repair.
+func TestCheckProcedure_EveryExpressionTheGrammarAdmitsDrawsNoCode(t *testing.T) {
+	for _, expression := range []string{
+		"0 3 * * 1", "*/5 * * * *", "0 0 29 2 *", "0 9,17 * * 1-5",
+		"0-59 * * * *", "*/7 * * * *", "9-11,14-16/2 * * * *", "*/1 * * * *", "1-1 * * * *",
+	} {
+		got := checkProcedureDeclaring(t, expression)
+		for _, p := range got {
+			if p.ErrorCode == CodeCadenceMalformed {
+				t.Errorf("cadence: %q drew %s: %s", expression, p.ErrorCode, p.Message)
+			}
+		}
+	}
+}
+
+// TestCheckProcedure_NoCadenceDrawsNothing holds the absence: a Cadence is
+// optional, and a Procedure run by hand declares none (§10).
+func TestCheckProcedure_NoCadenceDrawsNothing(t *testing.T) {
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, minimalProcedure),
+		shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
+	mustNoCode(t, got, CodeCadenceMalformed)
+}
+
+// TestCheckProcedure_ACadenceThatIsNotAScalarDrawsNothing holds ADR-0064's rule
+// one more time: a `cadence:` that is a list or a mapping is the schema's own
+// schema-mismatch, and a second row here would put two problems on the page for
+// one fault.
+func TestCheckProcedure_ACadenceThatIsNotAScalarDrawsNothing(t *testing.T) {
+	doc := "kind: procedure\nprocedure: deploy\ntargets: [local]\ncadence:\n  - \"0 3 * * 1\"\nsteps: []\n"
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc),
+		shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
+	mustNoCode(t, got, CodeCadenceMalformed)
+	mustCode(t, got, schema.CodeMismatch)
 }

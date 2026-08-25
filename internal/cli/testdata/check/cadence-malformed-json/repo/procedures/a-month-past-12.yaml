@@ -1,0 +1,11 @@
+kind: procedure
+procedure: a-month-past-12
+targets: [local]
+cadence: "0 0 1 13 *"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

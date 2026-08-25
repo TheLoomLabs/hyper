@@ -1,0 +1,11 @@
+kind: procedure
+procedure: a-day-of-week-past-6
+targets: [local]
+cadence: "0 0 * * 7"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

@@ -61,6 +61,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/TheLoomLabs/hyper/internal/cadence"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/schema"
 )
@@ -173,14 +174,32 @@ const CodeBoundExceeded = "bound-exceeded"
 // host-not-granted.
 const CodeHostNotGranted = "host-not-granted"
 
+// CodeCadenceMalformed is the code a `cadence:` outside §10's five-field
+// grammar earns — the closure that grammar has always stated and nothing
+// enforced (§10, §12). A nickname, a month or a day *name*, a sixth seconds
+// field, a timezone or an offset, `?`, `L`, `W`, `#`, a value outside its
+// field's span and a range that runs backwards are each this one code: the
+// grammar is closed by what it admits rather than by a list of what it
+// rejects, and a name is refused on the ground the nickname is, being a second
+// spelling of a Cadence the numeric form already states.
+//
+// It is a Procedure's own check — one scalar in one file — so it lands here
+// beside name-mismatch and the Step checks rather than in the transitive graph
+// walk, where the two Cadence *composition* rules live because those read other
+// files (procedure_graph.go). Both codes on one artefact is two problems on the
+// page: cadence-run-once and cadence-secret-output turn on a Cadence being
+// declared and never on its being legible, and `check` reports every problem
+// rather than the first (§4).
+const CodeCadenceMalformed = "cadence-malformed"
+
 // KindProcedure is the one kind: value a file in procedures/ may carry
 // (§12's kind table).
 const KindProcedure = "procedure"
 
 // ProcedureDeclaration is a Procedure's own top-level schema (§3): the
 // procedure: this file's name is checked against, the targets: envelope
-// authored rather than derived, an optional cadence: whose grammar is not
-// validated in this milestone (§10), and the ordered steps: list. Each
+// authored rather than derived, an optional cadence: whose five-field grammar
+// checkCadence holds it to (§10), and the ordered steps: list. Each
 // steps: entry is read at its own position, against whichever of
 // stepDeclaration or invocationDeclaration it turns out to be — an Open
 // object here is deliberately coarse, catching only "is this an object" so
@@ -292,6 +311,7 @@ func CheckProcedure(file string, root *yaml.Node, providers ProviderIndex, defin
 	problems := schema.Check(root, ProcedureDeclaration, file)
 	problems = append(problems, checkKind(file, root, KindProcedure)...)
 	problems = append(problems, checkName(file, root, "procedure")...)
+	problems = append(problems, checkCadence(file, root)...)
 
 	declaredTargets, declaredKinds := procedureEnvelope(root, targets)
 	stepsVal := topLevelFields(root, "steps")["steps"]
@@ -299,6 +319,41 @@ func CheckProcedure(file string, root *yaml.Node, providers ProviderIndex, defin
 		problems = append(problems, checkSteps(file, stepsVal, providers, definitions, procedures, declaredTargets, declaredKinds)...)
 	}
 	return problems
+}
+
+// checkCadence reads the top-level cadence: scalar, where one is present and
+// legible, and reports an expression §10's grammar does not admit under
+// cadence-malformed — cited at the `cadence:` line and column, with the
+// reason internal/cadence answered naming what was wrong.
+//
+// **No second parser is written.** The reader is internal/cadence's and stays
+// there: the package already answers whether an expression is one the grammar
+// admits, and what is added here is the problem that answer earns. A grammar
+// read in two places is one where the day comes that a `check` refuses an
+// artefact a review glosses.
+//
+// It says nothing where cadence: is absent — a Procedure run by hand declares
+// none — and nothing where it is present but not a plain scalar, on checkKind's
+// own rule: the schema check has already named that fault under
+// schema-mismatch, and a reader does not need two rows pointing at one line for
+// one cause (ADR-0064).
+func checkCadence(file string, root *yaml.Node) []problem.Problem {
+	val := topLevelFields(root, "cadence")["cadence"]
+	if val == nil || val.Kind != yaml.ScalarNode {
+		return nil
+	}
+	reason, malformed := cadence.Fault(val.Value)
+	if !malformed {
+		return nil
+	}
+	return []problem.Problem{{
+		File:      file,
+		Line:      val.Line,
+		Column:    val.Column,
+		Field:     "cadence",
+		ErrorCode: CodeCadenceMalformed,
+		Message:   fmt.Sprintf("cadence: %q is not an expression the grammar admits — %s", val.Value, reason),
+	}}
 }
 
 // procedureEnvelope reads a Procedure's own top-level targets: list — the

@@ -566,11 +566,12 @@ type lastRunRow struct {
 // file, the name the absence pipeline ranked, and — where the artefact declares
 // a Cadence §10's grammar admits — the gloss's parts.
 //
-// An expression outside that grammar carries no gloss and is not refused:
-// `cadence-malformed` is §12's static check and lands with the milestone that
-// projects a Cadence into a workflow. Until it does, a review renders such an
-// artefact like any other and says nothing about it — the gloss is a reading of
-// the grammar, and what is not in the grammar has no reading (§10, ADR-0064).
+// An expression outside that grammar carries no gloss, and this surface does
+// not refuse it: `cadence-malformed` is §12's static check and it is `check`'s,
+// reported over a repository whole (internal/artefact). A review renders such
+// an artefact like any other and says nothing about the recurrence — the gloss
+// is a reading of the grammar, and what is not in the grammar has no reading
+// (§10, ADR-0064).
 // The range and the entry it was read off arrive together, because they are one
 // lookup: the revision goes on the range's line and the age beside the gloss,
 // which is one Journal entry rendered twice rather than two entries once each

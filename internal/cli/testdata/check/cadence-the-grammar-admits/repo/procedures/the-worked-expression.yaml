@@ -1,0 +1,11 @@
+kind: procedure
+procedure: the-worked-expression
+targets: [local]
+cadence: "0 3 * * 1"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

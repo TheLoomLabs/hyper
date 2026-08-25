@@ -92,6 +92,12 @@ names one in a **`repo-from`** file instead, and the ones here are:
   rather than a `repo-from` reaching across into it: a `check` case's `repo/` is
   that case's own, and a corpus reaching into another's fixture is one where an
   edit made for one command breaks a golden of a different one.
+- [`repo-cadence-malformed/`](repo-cadence-malformed) — a Procedure declaring a
+  Cadence outside §10's five-field grammar, `0 3 * * MON` (issue #174). It is
+  `repo-cadence-run-once/` with the nested Procedure dropped and the Definition
+  narrowed to `read`, so the Run refuses on **one** code: what this case drives
+  is a Procedure's own per-file check reaching a Run's pre-flight, and a second
+  code on the page would leave which of the two got it there unsaid.
 - [`repo-relative-bound/`](repo-relative-bound) — §8's Refusal in full (issue
   #169): `repo-destroy`'s Manifest, Definition and Target unchanged, over one
   Procedure whose `destroy` Step carries a **relative** predicate — `created_on
@@ -381,6 +387,7 @@ drives.
 | `a-store-file-this-binary-cannot-read` | the first gate past `run.json`: a Record head written at schema version 2, `store-schema-unsupported`, and the one Refusal that cites a file with no line and no field |
 | `check-refuses-the-run`, `-json` | `check` re-run in full: five codes across the five artefact kinds, one `refusal` row each, in `check`'s own order |
 | `a-cadence-over-a-run-once-step` | §8's Refusal over a code the walk found and the citation came back from (issue #169): a Procedure declaring a Cadence that reaches a run-once Step through a nested invocation. The fault is the invoked Procedure's Manifest, and the caret sits on the **`cadence:` line** of the Procedure declaring the recurrence — the artefact whose author can act on it. It is the one code here whose file, line and message all come from a walk that ended somewhere else |
+| `a-malformed-cadence`, `-json` | §10's grammar closed, one command over (issue #174): a `cadence:` naming a day of the week rather than numbering it, `cadence-malformed` at the Run-start `check`, `77`, and the Refusal on the entry. It is here as well as under `check/` because the whole point of the closure is that an expression no executor's clock could read never reaches one — a rule that held for `check` and not for a Run would make the Run the way past it |
 | `a-cyclic-procedure-refuses-the-run` | the invocation graph that closes on itself: `procedure-cycle` at the Run-start `check`, `77`, and the Refusal on the entry. A cycle is `check`'s to refuse — the engine's own arm for one is a precondition no Run reaches (§4, §6, issue #146) |
 | `a-destroy-with-no-selector-refuses-the-run` | the `destroy` Step carrying no `over:`: `destroy-unscoped` at the Run-start `check`, `77`, and the Refusal on the entry. It is here rather than under `check/` alone because what issue #157 found was a Run — the call went out and the process died in the Store afterwards — so the case that proves it fixed has to be one that would have made the call (§4, §5, ADR-0085) |
 | `a-working-tree-edited-since-check-passed` | the same gate driven the way an operator meets it — one `uncommitted/` line narrows `local`'s `kinds:`, and the Run refuses with the codes the edit earns |

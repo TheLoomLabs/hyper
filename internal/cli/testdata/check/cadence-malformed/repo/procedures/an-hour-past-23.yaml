@@ -1,0 +1,11 @@
+kind: procedure
+procedure: an-hour-past-23
+targets: [local]
+cadence: "0 24 * * *"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

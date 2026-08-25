@@ -1,0 +1,11 @@
+kind: procedure
+procedure: an-l
+targets: [local]
+cadence: "0 0 L * *"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

@@ -1,0 +1,11 @@
+kind: procedure
+procedure: a-w
+targets: [local]
+cadence: "0 0 15W * *"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]

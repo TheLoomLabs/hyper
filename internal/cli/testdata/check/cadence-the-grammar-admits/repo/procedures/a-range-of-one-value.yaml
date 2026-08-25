@@ -1,0 +1,11 @@
+kind: procedure
+procedure: a-range-of-one-value
+targets: [local]
+cadence: "1-1 * * * *"
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]
