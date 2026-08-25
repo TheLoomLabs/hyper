@@ -631,9 +631,22 @@ const absentWorkflows = "no " + workflow.Dir + "/ directory\n"
 // one a golden has to be able to say (§11, issue #178).
 const absentDeclaration = "no " + repository.DeclarationPath + "\n"
 
-// renderTree is the working tree's `.github/workflows/` as a tree golden holds
-// it, on render's own shape: every path under it, in path order, each under a
-// header line naming it and its length, with the bytes verbatim beneath.
+// providersDir is the namespace an installed Manifest lands in (§12).
+// The name is written out here rather than reached for because there is nothing
+// to reach for: internal/repository carries it as one element of an unexported
+// slice and internal/verify as a path literal of its own, and a tree golden is
+// not reason enough to give it an exported home (issue #184).
+const providersDir = "providers"
+
+// absentProviders is what a tree golden holds where the repository carries no
+// `providers/` at all — the state the four `usage-*` cases stand in, and the one
+// `install` creates the directory out of (§12, issue #184).
+const absentProviders = "no " + providersDir + "/ directory\n"
+
+// renderTree is the working tree as a tree golden holds it: the places `hyper`
+// writes into, each on render's own shape — every path under them in path
+// order, each under a header line naming it and its length, with the bytes
+// verbatim beneath.
 //
 // It is the third golden a case can hold and it exists because `store init`'s
 // own rule says so: the two text streams say what a command **reported**, and
@@ -646,19 +659,24 @@ const absentDeclaration = "no " + repository.DeclarationPath + "\n"
 // then reviews in a diff, and a golden read off HEAD would be reading the commit
 // the fixture made before the command ran (§10).
 //
-// **`hyper.yaml` is rendered beside them**, and it is the second half of what
-// `project` writes: the pin and the digest go into the declaration in the same
-// act the workflows are written in, and a golden that showed only the workflows
-// would assert half of one edit (§11, issue #178). It is what says the two
-// derived facts moved and that `retention:`, the comments and the layout did
-// not.
+// **Three places are rendered, on one criterion rather than a list that grew by
+// exception.** `.github/workflows/` and `hyper.yaml` are the two halves of a
+// single `project` edit — the pin and the digest go into the declaration in the
+// same act the workflows are written in, and a golden that showed only the
+// workflows would assert half of one edit (§11, issue #178). `providers/` is
+// the third because `install` writes there (§12): a corpus that could not see
+// it would assert what that command reported and never what it did, which is
+// the axis this golden exists for (issue #184). Rendering it also makes the
+// `project` cases say something they could not before — that `project` writes
+// the workflows and the declaration and does **not** touch a Manifest.
 //
-// Nothing else is rendered. That is the criterion the golden is here to hold —
-// `project` writes those two places and touches nothing beside them — and a
-// golden over the whole tree would be one that moved every time a case's own
-// artefacts did.
+// Nothing else is rendered, and a golden over the whole tree still is not what
+// this is: it would move every time a case's own artefacts did. `providers/` is
+// no counterexample to that. It is rendered for being a place `hyper` writes,
+// and a case whose `providers/` fixture changes is a case whose golden *should*
+// move.
 func (fx gitFixture) renderTree(t *testing.T) string {
-	return fx.renderWorkflows(t) + fx.renderDeclaration(t)
+	return fx.renderWorkflows(t) + fx.renderDeclaration(t) + fx.renderProviders(t)
 }
 
 // renderDeclaration is `hyper.yaml` as a tree golden holds it: the same header
@@ -680,14 +698,34 @@ func (fx gitFixture) renderDeclaration(t *testing.T) string {
 // renderWorkflows is the namespace `project` owns, in path order.
 func (fx gitFixture) renderWorkflows(t *testing.T) string {
 	t.Helper()
+	return fx.renderDirectory(t, workflow.Dir, absentWorkflows)
+}
 
-	dir := filepath.Join(fx.root, filepath.FromSlash(workflow.Dir))
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return absentWorkflows
+// renderProviders is the namespace `install` writes into, in path order and on
+// renderWorkflows' own shape: one namespace is rendered the way the other is
+// because both are rendered for the same reason (§12, issue #184).
+func (fx gitFixture) renderProviders(t *testing.T) string {
+	t.Helper()
+	return fx.renderDirectory(t, providersDir, absentProviders)
+}
+
+// renderDirectory is the walk both namespaces are rendered by: every file under
+// dir, in path order, each under its header line with its bytes verbatim, or
+// absent where dir is not there at all.
+//
+// Paths are named relative to the fixture root rather than to dir, so that a
+// golden names a file the way the repository does and a reader can go straight
+// from the header line to the file it read.
+func (fx gitFixture) renderDirectory(t *testing.T, dir, absent string) string {
+	t.Helper()
+
+	abs := filepath.Join(fx.root, filepath.FromSlash(dir))
+	if _, err := os.Stat(abs); os.IsNotExist(err) {
+		return absent
 	}
 
 	var paths []string
-	err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(abs, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil || entry.IsDir() {
 			return err
 		}

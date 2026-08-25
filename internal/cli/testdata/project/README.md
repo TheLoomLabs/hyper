@@ -7,10 +7,15 @@ and only the tree says what it **did** — a case checking its stdout alone woul
 pass on a command that printed the right table and wrote nothing, or wrote it
 somewhere else.
 
-A `tree.golden` renders `.github/workflows/` **and `hyper.yaml`**, which are the
-two places `project` writes. The declaration is where the pin and the frozen
-digest land, and a golden that showed only the workflows would assert half of
-one edit.
+A `tree.golden` renders the places `hyper` writes: `.github/workflows/`,
+`hyper.yaml` and `providers/`. The first two are the ones `project` writes — the
+declaration is where the pin and the frozen digest land, and a golden that
+showed only the workflows would assert half of one edit. The third is where an
+installed Manifest lands (issue #184), and it is on the list for that criterion
+rather than as an exception for one command; rendering it here is also what
+makes these cases say a thing they could not before, that `project` writes those
+two places and does **not** touch a Manifest. A repository holding none of a
+place renders a stated absence line rather than nothing.
 
 Each case carries its own `repo/` rather than sharing one. A `tree.golden` is
 read against the working tree the case was driven in, so a shared repository
@@ -75,7 +80,8 @@ refusal or a failure before the first write leaves the tree byte-identical.** Ea
 repository whose projection is *wanted and absent* and whose pin is one this
 binary is not, so a `project` that got past the fetch would have created the
 namespace and moved the pin; their `tree.golden` is `no .github/workflows/
-directory` and a declaration still pinning `1.3.0`.
+directory`, a declaration still pinning `1.3.0`, and the Manifest they were
+given, untouched.
 
 ## The pin, and the one network read
 

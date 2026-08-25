@@ -159,10 +159,12 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //   - actor and hostname, optional: who is running hyper and on which machine,
 //     which a Journal entry's Trigger carries — `actor` on both executors and
 //     `host` on `local`. Absent, the harness's stated constants.
-//   - tree.golden, optional: the working tree's `.github/workflows/` after the
-//     run, every path under it with its exact bytes. It is what says a command
-//     that writes files wrote the ones it reported and no others, and what says
-//     a command that reported nothing wrote nothing (issue #177).
+//   - tree.golden, optional: the places `hyper` writes as they stand after the
+//     run — `.github/workflows/`, `hyper.yaml` and `providers/` — every path
+//     under them with its exact bytes, and a stated line where one of the three
+//     is not there at all. It is what says a command that writes files wrote the
+//     ones it reported and no others, and what says a command that reported
+//     nothing wrote nothing (issue #177, issue #178, issue #184).
 //   - git, store/, store-unpushed/, remote, remote-store/, remote-ahead/,
 //     reject-pushes, unfetchable-remote, find-root, no-git-root, optional: the
 //     git fixture, which golden_fixture_test.go states in full. A case

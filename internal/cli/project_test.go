@@ -102,10 +102,15 @@ func TestRunProject_AWriteThatFailsNamesTheFileItDiedOn(t *testing.T) {
 }
 
 // TestRunProject_TouchesNothingOutsideTheNamespaceAndTheDeclaration is the
-// criterion the tree goldens can only half state: they render
-// `.github/workflows/` and `hyper.yaml` and say nothing about the rest of the
-// repository, so what says the rest is untouched is a weighing of it either side
-// of the command.
+// criterion the tree goldens can only half state: they render the three places
+// `hyper` writes — `.github/workflows/`, `hyper.yaml` and `providers/` — and say
+// nothing about the rest of the repository, so what says the rest is untouched
+// is a weighing of it either side of the command.
+//
+// One of the three used to be part of what this test alone said. Since the
+// goldens render `providers/`, every `project` case in the corpus states that a
+// Manifest is not touched (issue #184); what is left here is `definitions/`,
+// `procedures/`, `targets/` and everything else the repository holds.
 //
 // It weighs the artefacts rather than trusting the paths, because *which paths
 // this command composes* is exactly what the criterion is about — a projection
