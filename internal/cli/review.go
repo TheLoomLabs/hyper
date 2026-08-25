@@ -543,6 +543,18 @@ type artefactRow struct {
 	// and on the row for the same one: the instant the row carries and the
 	// age the page renders come out of one subtraction against one clock.
 	lastRanText string
+	// facts are §10's two facts about how the executor will treat the
+	// declaration — the default-branch one always, the hour-boundary one
+	// where the minute field selects `0` (internal/cadence).
+	//
+	// They are off the wire because §9 closes this row at the gloss's three
+	// parts, and both are derived from `cadence` and `phrase`, which the
+	// row already carries: a consumer derives them exactly as this page
+	// does, so widening the row would be one derived fact carried twice
+	// (§8, §10). They are on the row for rateText's reason — the page is
+	// written from the rows (ADR-0026) — and they are a member of their own
+	// rather than folded into rateText, neither being part of the gloss.
+	facts []string
 	// revisionText is the range as the page renders it, the revision
 	// abbreviated — a fact to recognise, which is what ADR-0047 abbreviates
 	// and what the wire's whole value beside it does not. It is "" wherever
@@ -592,6 +604,7 @@ func newArtefactRow(reviewed reviewedArtefact, opened reviewRange, absent string
 		row.Phrase = gloss.Phrase
 		row.Rate = &gloss.Rate
 		row.rateText = gloss.RateText
+		row.facts = cadence.Facts(reviewed.cadence)
 		// *last ran* is a member of the gloss and renders where the
 		// gloss does. §8 gives the header *the artefact's kind, its
 		// path, the range the review is read across, and — **on a
@@ -1010,6 +1023,15 @@ func headerFacts(header artefactRow, sentence string) []string {
 	gloss := header.Phrase + " · " + header.rateText
 	if header.lastRanText != "" {
 		gloss += " · " + header.lastRanText
+	}
+	// §10's two facts close the line, in the order the package derives
+	// them. They go last because the parts before them are the ones a
+	// reader recognises at a glance — a phrase, a number, an age — where
+	// these are sentences, and a sentence set among them would push the age
+	// off the eye's path to reach it. What they are is not this surface's
+	// to decide and where they sit is (§10).
+	for _, fact := range header.facts {
+		gloss += " · " + fact
 	}
 	return []string{first, gloss}
 }

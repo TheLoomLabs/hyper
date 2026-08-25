@@ -501,7 +501,7 @@ func TestReviewRange_NotInCloneRendersTheRevisionWholeAndNamesNoAct(t *testing.T
 	// The exception §8 states, and the one absence that does not travel: the
 	// entry was found and only its bytes were not, so *last ran* renders in
 	// full beside a range that cannot open.
-	if got := headerOf(t, stdout)[1]; !strings.HasSuffix(got, "· last ran 41 days ago") {
+	if got := headerOf(t, stdout)[1]; !strings.Contains(got, "· last ran 41 days ago ·") {
 		t.Errorf("the gloss line reads %q, want *last ran* rendering beside a range that could not open", got)
 	}
 }
@@ -583,7 +583,10 @@ func TestReviewRange_TheHeaderRendersOneJournalEntryTwiceFromOneLookup(t *testin
 	if got, want := rangeOf(t, stdout), "5639c68 → working tree"; got != want {
 		t.Errorf("the range states %q, want %q", got, want)
 	}
-	if got, want := header[1], "03:00 UTC every Monday · ≈4.3 runs/month · last ran 41 days ago"; got != want {
+	// §10's two facts close the line, after the age: the parts a reader
+	// recognises at a glance come first, and the two sentences follow.
+	if got, want := header[1], "03:00 UTC every Monday · ≈4.3 runs/month · last ran 41 days ago · "+
+		defaultBranchFact+" · "+hourBoundaryFact; got != want {
 		t.Errorf("the gloss line reads %q, want %q", got, want)
 	}
 
@@ -648,7 +651,8 @@ func TestReviewRange_AnOpenEntrySuppliesARangeAndNoAge(t *testing.T) {
 	if got, want := rangeOf(t, stdout), "5639c68 → working tree"; got != want {
 		t.Errorf("the range states %q, want the open entry's own procedure_revision %q", got, want)
 	}
-	if got, want := headerOf(t, stdout)[1], "03:00 UTC every Monday · ≈4.3 runs/month"; got != want {
+	if got, want := headerOf(t, stdout)[1], "03:00 UTC every Monday · ≈4.3 runs/month · "+
+		defaultBranchFact+" · "+hourBoundaryFact; got != want {
 		t.Errorf("the gloss line reads %q, want %q — an open entry has no end to render an age from", got, want)
 	}
 }

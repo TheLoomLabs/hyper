@@ -1,0 +1,21 @@
+  PROCEDURE      │  procedures/on-the-hour.yaml             no baseline — no Store
+                 │  03:00 UTC every Monday · ≈4.3 runs/month · scheduled runs happen on the default branch only · :00 is the executor's busiest minute — delivery there is likeliest to be delayed or dropped
+  ───────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                 │ kind: procedure
+                 │ procedure: on-the-hour
+  envelope ✓     │ targets: [staging]
+                 │ cadence: "0 3 * * 1"
+                 │ steps:
+  read  staging  │   - id: beat
+                 │     definition: heartbeat
+                 │     operation: check_http
+                 │     target: staging
+                 │     args:
+                 │       host: status.hyper.dev
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS
+  heartbeat   staging  read              read          r          —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  ENVELOPE  line 3  ok  no step reaches a target outside [staging]

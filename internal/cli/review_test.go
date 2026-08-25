@@ -560,8 +560,14 @@ func TestRunReview_TheWorkedExpressionsRenderOnTheHeadersSecondLine(t *testing.T
 		if len(header) != 2 {
 			t.Fatalf("%s: the header is %q, want two lines", worked.cadence, header)
 		}
-		if header[1] != worked.gloss {
-			t.Errorf("%s glossed\n %q\nwant\n %q", worked.cadence, header[1], worked.gloss)
+		// Every one of the eleven opens its minute field on `0`, on
+		// `*` or on a step over the whole span, so all eleven carry
+		// both of §10's facts beside the gloss. What this case asserts
+		// is the gloss; the facts are held where they are derived and
+		// on each surface that renders them (review_facts_test.go).
+		want := worked.gloss + " · " + defaultBranchFact + " · " + hourBoundaryFact
+		if header[1] != want {
+			t.Errorf("%s glossed\n %q\nwant\n %q", worked.cadence, header[1], want)
 		}
 	}
 }

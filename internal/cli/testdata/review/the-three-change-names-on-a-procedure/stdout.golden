@@ -1,6 +1,6 @@
   PROCEDURE                 │  procedures/retire-preview-dns.yaml      63e064a → working tree
-                            │  every 5 minutes · ≈8800 runs/month · last ran 41 days ago
-  ──────────────────────────┼────────────────────────────────────────────────────────────────
+                            │  every 5 minutes · ≈8800 runs/month · last ran 41 days ago · scheduled runs happen on the default branch only · :00 is the executor's busiest minute — delivery there is likeliest to be delayed or dropped
+  ──────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
                             │   kind: procedure
                             │   procedure: retire-preview-dns
   envelope ✓                │   targets: [cloudflare-prod]
@@ -54,7 +54,11 @@
   FLAGS   index into the gutter above — no flag states anything the gutter does not
   CHANGED    line 4   cadence               0 3 * * 1 → */5 * * * * since 63e064a
                                             03:00 UTC every Monday · ≈4.3 runs/month
+                                            scheduled runs happen on the default branch only
+                                            :00 is the executor's busiest minute — delivery there is likeliest to be delayed or dropped
                                           → every 5 minutes · ≈8800 runs/month
+                                            scheduled runs happen on the default branch only
+                                            :00 is the executor's busiest minute — delivery there is likeliest to be delayed or dropped
   UNBOUNDED  line 6   step publish          mutate with no declared bound
   NARROWED   line 30  step publish-aliases  bound 3 → 2 since 63e064a
   DESTROY    line 32  step retire           delete_dns_record, bound 9

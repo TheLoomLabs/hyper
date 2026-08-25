@@ -1,6 +1,6 @@
   PROCEDURE      │  procedures/watch.yaml                   no baseline — 1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01 is not in this clone
-                 │  03:00 UTC every Monday · ≈4.3 runs/month · last ran 41 days ago
-  ───────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                 │  03:00 UTC every Monday · ≈4.3 runs/month · last ran 41 days ago · scheduled runs happen on the default branch only · :00 is the executor's busiest minute — delivery there is likeliest to be delayed or dropped
+  ───────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
                  │ kind: procedure
                  │ procedure: watch
   envelope ✓     │ targets: [staging]

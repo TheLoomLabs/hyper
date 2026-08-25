@@ -1,0 +1,6 @@
+{"type":"artefact","kind":"procedure","path":"procedures/on-the-hour.yaml","baseline_absent":"no-store","cadence":"0 3 * * 1","phrase":"03:00 UTC every Monday","rate":4.3}
+{"type":"gutter","line":3,"marker":"envelope ok"}
+{"type":"gutter","line":6,"marker":"read staging"}
+{"type":"authority","definition":"heartbeat","target":"staging","definition_kinds":["read"],"target_kinds":["read"],"effective":["read"],"destroy_operations":[]}
+{"type":"flag","flag":"envelope","cites_line":3}
+{"type":"result","truncated":false}

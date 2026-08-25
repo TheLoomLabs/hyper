@@ -1,0 +1,21 @@
+  PROCEDURE      │  procedures/past-the-hour.yaml           no baseline — no Store
+                 │  04:30 UTC every day · ≈30 runs/month · scheduled runs happen on the default branch only
+  ───────────────┼─────────────────────────────────────────────────────────────────────────────────────────
+                 │ kind: procedure
+                 │ procedure: past-the-hour
+  envelope ✓     │ targets: [staging]
+                 │ cadence: "30 4 * * *"
+                 │ steps:
+  read  staging  │   - id: beat
+                 │     definition: heartbeat
+                 │     operation: check_http
+                 │     target: staging
+                 │     args:
+                 │       host: status.hyper.dev
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION  TARGET   DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS
+  heartbeat   staging  read              read          r          —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  ENVELOPE  line 3  ok  no step reaches a target outside [staging]

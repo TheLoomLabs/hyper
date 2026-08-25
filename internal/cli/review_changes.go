@@ -348,8 +348,10 @@ func sideText(fact artefact.ChangeFact) string {
 // for humans and agents alike and a reviewer reading `0 0 1 * *` → `*/5 * * * *`
 // would otherwise read the rate that matters for one side of the edit and cron
 // for the other, on the screen the mandatory gloss was written for (§10,
-// ADR-0005, ADR-0063). A **selector** carries its members, in the Comparison's
-// own notation: a ` · `-separated run of names for a `values:` selector, whose
+// ADR-0005, ADR-0063) — and it carries the two facts §10 places beside a gloss
+// wherever one renders, which is a rule of §10's own and not of the gloss's
+// licence. A **selector** carries its members, in the Comparison's own
+// notation: a ` · `-separated run of names for a `values:` selector, whose
 // order is the fact, and one `field operator operand` line per conjunct for a
 // predicate one. One notation across both surfaces and not two — it is the same
 // fault read off a file here and off two Runs there (§8).
@@ -365,7 +367,19 @@ func stackedSide(fact artefact.ChangeFact) []string {
 		if !readable {
 			return nil
 		}
-		return []string{gloss.Phrase + " · " + gloss.RateText}
+		// §10's two facts stack under the rate, one line each, on the
+		// side they are a reading of. Each side carries its own pair
+		// rather than the cell carrying one: the hour-boundary fact is
+		// a reading of that expression's minute field, so a Cadence
+		// moving onto or off the hour is a line appearing or
+		// disappearing beside the arrow — which is the whole of what
+		// this row exists to render. The default-branch fact is the
+		// same sentence on both sides and stands on both for the rule
+		// rather than for the news: it renders wherever a gloss does,
+		// and a side glossed with nothing beside it would be the one
+		// place a reviewer reads a Cadence and learns less about it
+		// than one line above (§10).
+		return append([]string{gloss.Phrase + " · " + gloss.RateText}, cadence.Facts(fact.Value)...)
 	case artefact.FactSelector:
 		if fact.Value == "values" {
 			return []string{strings.Join(fact.Members, factMemberGap)}

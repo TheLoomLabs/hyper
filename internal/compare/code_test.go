@@ -1,6 +1,7 @@
 package compare_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -183,7 +184,8 @@ func TestCodeRows_ASideWithNothingRendersTheDashIncludingWhereTheFormatStatesAVa
 		[]compare.CodeArtefact{procedureAt(t, after)},
 	))
 	want := []string{
-		"procedure sync-ci-keys | cadence | 0 0 1 * *\n00:00 UTC on the 1st of the month\n1 run/month | –",
+		"procedure sync-ci-keys | cadence | 0 0 1 * *\n00:00 UTC on the 1st of the month\n1 run/month\n" +
+			defaultBranchFact + "\n" + hourBoundaryFact + " | –",
 		"procedure sync-ci-keys | step retire · bound | 3 | –",
 		"procedure sync-ci-keys | step retire · over | values\na | –",
 	}
@@ -391,5 +393,57 @@ func TestCodeRows_NoSelectorRendersChanged(t *testing.T) {
 	got := facts(rows)
 	if len(got) != 1 || got[0] != want {
 		t.Errorf("the table draws\n%q\n\nwant\n%q", strings.Join(got, "\n"), want)
+	}
+}
+
+// §10's two facts, copied byte for byte from issue #175 — the specification
+// that writes the two sentences out, §10 itself stating them as prose.
+const (
+	defaultBranchFact = "scheduled runs happen on the default branch only"
+	hourBoundaryFact  = ":00 is the executor's busiest minute — delivery there is likeliest to be delayed or dropped"
+)
+
+// TestCodeRows_TheCadenceCellStacksTheTwoFactsUnderTheRate is §10's rule on the
+// third surface that renders a gloss: a `cadence` cell carries the expression,
+// the phrase, the rate and the two facts, stacked, and nothing in it is
+// shortened — the column widens to the longest line it holds (§8).
+//
+// **The hour-boundary fact is a reading of one side's minute field**, so a
+// Cadence moving off the hour renders it in the `FROM` cell and not in the `TO`
+// one, which is the difference this row exists to show. The default-branch fact
+// stands in both, being a fact about every Cadence there is.
+func TestCodeRows_TheCadenceCellStacksTheTwoFactsUnderTheRate(t *testing.T) {
+	procedure := func(cadence string) []compare.CodeArtefact {
+		return []compare.CodeArtefact{procedureAt(t,
+			"kind: procedure\nprocedure: sync-ci-keys\ncadence: \""+cadence+"\"\n")}
+	}
+	rows := compare.CodeRows(steady(), codeOf(procedure("0 0 1 * *"), procedure("30 4 * * *")))
+	want := []string{"procedure sync-ci-keys | cadence | " +
+		strings.Join([]string{"0 0 1 * *", "00:00 UTC on the 1st of the month", "1 run/month", defaultBranchFact, hourBoundaryFact}, "\n") +
+		" | " +
+		strings.Join([]string{"30 4 * * *", "04:30 UTC every day", "≈30 runs/month", defaultBranchFact}, "\n")}
+	if got := facts(rows); strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("the row is\n%s\n\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+// TestCodeRows_TheCadenceRowsWireCarriesNoFact is the closure §9 states: the
+// `code` row is closed at the gloss's three parts, and both facts are derived
+// from `cadence` and `phrase`, which the row already carries. A consumer
+// derives them exactly as the page does (§8, §10).
+func TestCodeRows_TheCadenceRowsWireCarriesNoFact(t *testing.T) {
+	procedure := func(cadence string) []compare.CodeArtefact {
+		return []compare.CodeArtefact{procedureAt(t,
+			"kind: procedure\nprocedure: sync-ci-keys\ncadence: \""+cadence+"\"\n")}
+	}
+	rows := compare.CodeRows(steady(), codeOf(procedure("0 0 1 * *"), procedure("*/5 * * * *")))
+	for _, row := range rows {
+		wire, err := json.Marshal(row)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(wire), defaultBranchFact) || strings.Contains(string(wire), hourBoundaryFact) {
+			t.Errorf("the wire carried a fact the page renders: %s", wire)
+		}
 	}
 }

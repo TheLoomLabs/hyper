@@ -201,6 +201,20 @@ type CodeValue struct {
 	// read, and this row is the one place the whole tool renders a Cadence
 	// *moving* (§10, ADR-0005, ADR-0063).
 	Phrase, RateText string
+	// CadenceFacts are §10's two facts about how the executor will treat
+	// this side's declaration, which stand beside the gloss wherever it
+	// renders and stack under the rate in a cell (internal/cadence). The
+	// name is qualified because a CodeArtefact's `Facts` are §12's code
+	// facts, and one file naming two things `Facts` is one file with two
+	// vocabularies in it.
+	//
+	// They are this side's own rather than the row's, which is what makes
+	// the hour-boundary one legible: it is a reading of one expression's
+	// minute field, so a Cadence moving off the hour renders it in `FROM`
+	// and not in `TO`. They reach no member of the wire — the row is closed
+	// at the gloss's three parts and both are derived from `cadence` and
+	// `phrase`, which it already carries (§8, §9, §10).
+	CadenceFacts []string
 	// Rate is the number the page rounded into RateText, carried for the
 	// wire: the parts and never the composed cell, which is the `artefact`
 	// row's rule one command over (§8, §10).
@@ -263,7 +277,7 @@ func (v CodeValue) cell(abbreviate bool) string {
 		// rule, and the guard beneath catches the one written at
 		// nothing at all.
 		if v.Text != "" && v.Phrase != "" {
-			return strings.Join([]string{v.Text, v.Phrase, v.RateText}, codeStack)
+			return strings.Join(append([]string{v.Text, v.Phrase, v.RateText}, v.CadenceFacts...), codeStack)
 		}
 	}
 	if v.Text == "" {
@@ -811,6 +825,7 @@ func artefactEnd(held CodeArtefact, fact artefact.ChangeFact) codeEnd {
 		if gloss, readable := cadence.Read(fact.Value); readable {
 			rate := gloss.Rate
 			end.value.Phrase, end.value.RateText, end.value.Rate = gloss.Phrase, gloss.RateText, &rate
+			end.value.CadenceFacts = cadence.Facts(fact.Value)
 		}
 	}
 	return end
