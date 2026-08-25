@@ -106,12 +106,29 @@ var milestoneNineCheckCodes = []string{
 	"projection-stale",
 }
 
+// milestoneTenErrorCodes is what milestone 10 adds: §11's Extension codes,
+// each one a thing a Manifest in providers/ may never be (docs/build/
+// milestones.md's milestone 10).
+//
+// `provider-name-collision` is a Manifest taking a built-in Provider's name. It
+// is here rather than in the milestone-1 list because it is the one code in the
+// set whose subject is a **namespace** rather than an artefact — *this name is
+// taken* is a fact no single file's checks can see — and because until this
+// milestone the fold answered it the one way §11 forbids: the later Manifest
+// won, and the built-in's Operations left the namespace with no row to say so
+// (§11, §12, issue #185).
+var milestoneTenErrorCodes = []string{
+	"provider-name-collision",
+}
+
 // checkCorpusErrorCodes is every error_code the check corpus owes a failing
-// fixture: the two milestones' contributions, concatenated. They are two lists
-// and one assertion because which milestone a code arrived with is worth
+// fixture: the three milestones' contributions, concatenated. They are three
+// lists and one assertion because which milestone a code arrived with is worth
 // recording and is not worth a second walk of the corpus.
 func checkCorpusErrorCodes() []string {
-	return append(append([]string{}, milestoneOneErrorCodes...), milestoneNineCheckCodes...)
+	codes := append([]string{}, milestoneOneErrorCodes...)
+	codes = append(codes, milestoneNineCheckCodes...)
+	return append(codes, milestoneTenErrorCodes...)
 }
 
 // TestCheckCorpusErrorCodes_EveryMemberHasAFailingFixture walks every golden
@@ -198,6 +215,13 @@ const runCorpus = "testdata/run"
 // `check` and not for a Run would let the Run be the way past it (§6, issue
 // #174).
 //
+// provider-name-collision is milestone 10's first arrival, and it is here on
+// the same footing as the two above: what an Extension may never be is decided
+// at load, and a rule that held for `check` and not for a Run would make the
+// Run the way past it — a Definition reviewed against the built-in running
+// against whatever took its name being exactly the failure §11 refuses (§6,
+// §11, issue #185).
+//
 // projection-stale is the other, and it is the member this list was hardest to
 // leave out: a Run started by a projected workflow is a Run started by a file
 // that must be what the artefacts ask for, and a rule that held on a laptop and
@@ -219,6 +243,7 @@ var codesReachingARun = []string{
 	"run-once-recorded",
 	"cadence-malformed",
 	"projection-stale",
+	"provider-name-collision",
 }
 
 // artefactKindsCitedByARefusal is the five reviewed artefacts by where each one

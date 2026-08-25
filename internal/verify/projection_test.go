@@ -224,11 +224,20 @@ func current(t *testing.T, files map[string]string) map[string]string {
 func checked(t *testing.T, files map[string]string) []problem.Problem {
 	t.Helper()
 
+	return verify.Repository(load(t, files))
+}
+
+// load is checked's other half: one repository written into a temp directory
+// and loaded, for the cases whose subject is the namespace the load folded
+// rather than the problems the pass found (collision_test.go).
+func load(t *testing.T, files map[string]string) repository.Loaded {
+	t.Helper()
+
 	loaded, err := repository.Load(write(t, files))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return verify.Repository(loaded)
+	return loaded
 }
 
 // stale is the projection problems one pass found, and nothing else it found.

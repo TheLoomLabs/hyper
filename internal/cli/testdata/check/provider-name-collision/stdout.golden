@@ -1,0 +1,2 @@
+FILE                  LINE  FIELD     ERROR_CODE               MESSAGE
+providers/shell.yaml  2     provider  provider-name-collision  provider: shell is a built-in Provider's name — the built-in stands and this file names nothing in the Provider namespace

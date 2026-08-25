@@ -1,0 +1,17 @@
+nothing ran. no step was reached.
+
+refused: provider-name-collision
+
+  providers/shell.yaml:2
+    1 │ kind: provider
+    2 │ provider: shell
+      │           ^ provider: shell is a built-in Provider's name — the built-in stands and this file names nothing in the Provider namespace
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                  LINE  FIELD
+providers/shell.yaml  2     provider
+
+refused · exit 77 · run 0199206d-4e15-7c30-9b8a-52d9ea01f7d2

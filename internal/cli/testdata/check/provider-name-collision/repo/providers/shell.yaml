@@ -1,0 +1,20 @@
+kind: provider
+provider: shell
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  ping:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
+    input:
+      type: object
+      properties: {}
+    record:
+      identity: $.status
+      fields:
+        status: $.status

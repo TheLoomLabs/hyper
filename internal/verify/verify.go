@@ -11,18 +11,20 @@
 // is two readings of §4, and the day comes that a Run admits a repository
 // `check` refuses.
 //
-// It owns one rule and no more. Every other problem it reports comes from the
+// It owns two rules and no more. Every other problem it reports comes from the
 // load (internal/repository, over internal/yamlsubset's own grammar) and from
 // an artefact's own schema and checks (internal/artefact); what is here is the
 // walk — which checks run over which artefact, and the one graph-wide pass that
 // needs every procedures/ file at once.
 //
-// The rule that is its own is the one whose subject is not an artefact, and so
-// could belong to no artefact's checks: §10's `projection-stale`, the generated
-// workflows the load found against the projection this repository's artefacts
-// ask for (projection.go).
+// The rules that are its own are the two whose subject is not an artefact, and
+// so could belong to no artefact's checks: §11's `provider-name-collision`, a
+// Manifest in providers/ taking a name a built-in Provider already means
+// (collision.go), and §10's `projection-stale`, the generated workflows the load
+// found against the projection this repository's artefacts ask for
+// (projection.go).
 //
-// Two derivations stand beside that pass and are exported for one reason: a
+// Two derivations stand beside those rules and are exported for one reason: a
 // surface renders what this pass checks, and two builders of one thing is where
 // the day comes that they disagree. ProcedureGraph is the invocation graph a
 // review's roster quantifies over; Projection is the set of workflow files
@@ -68,6 +70,12 @@ func Repository(loaded repository.Loaded) []problem.Problem {
 	// every procedures/ file at once, so it runs once here rather than per
 	// file inside artefactChecks (issue #96).
 	problems = append(problems, artefact.CheckProcedureGraph(ProcedureGraph(loaded))...)
+
+	// The second pass whose subject is a set: a Manifest in providers/
+	// taking a built-in Provider's name. *This name is taken* is a fact
+	// about the Provider namespace, which no one file's checks can see, so
+	// it runs here rather than inside artefactChecks (§11, issue #185).
+	problems = append(problems, collisionProblems(loaded)...)
 
 	// And the one rule whose subject is not an artefact at all: the
 	// generated workflows the load found, against the projection this

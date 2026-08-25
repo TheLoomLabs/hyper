@@ -1,0 +1,5 @@
+kind: target-declaration
+target: box
+class: local
+kinds: [read]
+capabilities: [shell]

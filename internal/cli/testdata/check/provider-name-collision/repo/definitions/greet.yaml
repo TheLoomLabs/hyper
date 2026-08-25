@@ -1,0 +1,5 @@
+kind: definition
+definition: greet
+provider: shell
+kinds: [read]
+targets: [box]

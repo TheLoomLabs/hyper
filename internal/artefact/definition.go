@@ -248,8 +248,15 @@ type TargetIndex map[string]TargetInfo
 // other artefacts resolve against — the same rule ADR-0064 states for a
 // file that will not parse at all, applied to a file that parses but names
 // itself badly.
+//
+// It is handed roots the load has already folded, and that is what keeps a
+// built-in's name a built-in's: the fold is where an Extension taking one is
+// declined, so no colliding root reaches this walk to overwrite the entry
+// above it (§11, internal/repository's manifestsByName). Nothing here decides
+// a collision, and a caller that passed the providers/ roots raw would be
+// asking this to answer a question §11 answers elsewhere.
 func BuildProviderIndex(manifestRoots []*yaml.Node) ProviderIndex {
-	idx := ProviderIndex{"shell": builtinShellProviderInfo()}
+	idx := ProviderIndex{BuiltinShellProviderName: builtinShellProviderInfo()}
 	for _, root := range manifestRoots {
 		name := ManifestProviderName(root)
 		if name == "" {
@@ -269,6 +276,20 @@ func BuildProviderIndex(manifestRoots []*yaml.Node) ProviderIndex {
 // the namespace and not on the list.
 func ManifestProviderName(root *yaml.Node) string {
 	return DeclaredName(root, "provider")
+}
+
+// ManifestProviderNamePosition is where that name is written — the line and
+// column of the `provider:` scalar — for the one check that reports against a
+// Manifest it did not itself read: `provider-name-collision`, whose subject is
+// the Provider namespace and whose row still lands on the scalar its author has
+// to edit (§4, §11, internal/verify).
+//
+// It stands beside ManifestProviderName rather than at its caller for that
+// reader's own stated reason: the key a Provider names itself under is spelled
+// once, here, so a caller asking where the name is written is asking about a
+// Provider's name rather than about a key's scalar (issue #118).
+func ManifestProviderNamePosition(root *yaml.Node) (line, column int) {
+	return declaredNamePosition(root, "provider")
 }
 
 // BuildTargetIndex adds one entry per targets/ root whose target: is a

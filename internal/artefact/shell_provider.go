@@ -15,6 +15,33 @@ import (
 // use (§3, §9, §11).
 const BuiltinShellProviderPath = "<built-in>/shell"
 
+// BuiltinShellProviderName is the name the compiled-in Manifest below declares
+// for itself, and the one member of §12's built-in Provider set.
+//
+// It is spelled once because three things read it: the Provider namespace,
+// which starts from it; the fold, which declines an Extension that takes it;
+// and the check that names the taking (§11, §12, IsBuiltinProviderName).
+const BuiltinShellProviderName = "shell"
+
+// IsBuiltinProviderName says whether name is a built-in Provider's, which is
+// §12's built-in set read as the thing it doubles as: **the list of names no
+// Extension may take** (provider-name-collision, §11).
+//
+// One member today, and the set grows only where the reserved half of the
+// Capability set grows — hyper ships a Provider only where the Capability it
+// needs is one nobody else may declare (ADR-0039). It is enumerated against the
+// binary's own constants rather than derived from the loaded repository because
+// that is what the set is: a fact about what this binary compiles in, answerable
+// before any tree is walked.
+//
+// **It is one predicate because two readers of the set would be two answers.**
+// The fold declines a colliding Manifest and the check names it, and a name the
+// fold declined and the check said nothing about is a file that vanished from
+// the namespace with no row to explain it.
+func IsBuiltinProviderName(name string) bool {
+	return name == BuiltinShellProviderName
+}
+
 // BuiltinShellProviderYAML is hyper's own shell Provider, compiled into the
 // binary exactly as §12 states it: six Operations, Kind crossed with the
 // Repeatability values each Kind may declare, sharing one request — an

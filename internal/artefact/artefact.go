@@ -161,6 +161,22 @@ func DeclaredName(root *yaml.Node, key string) string {
 	return named.Value
 }
 
+// declaredNamePosition is where the name DeclaredName reads is written: the
+// line and column of that scalar, and the file's own first character where the
+// key is absent or carries something other than a plain scalar.
+//
+// It is DeclaredName's other half and is unexported for DeclaredName's own
+// stated reason: a caller outside this package asks a named reader for a
+// Provider's name rather than this one for a key's scalar, so what stands at
+// the package boundary is ManifestProviderNamePosition (issue #118).
+func declaredNamePosition(root *yaml.Node, key string) (line, column int) {
+	named := topLevelFields(root, key)[key]
+	if named == nil || named.Kind != yaml.ScalarNode {
+		return position(nil)
+	}
+	return position(named)
+}
+
 // position reports where to point a problem that has no node of its own to
 // point at. (1, 1) is the file itself, the same fallback schema.Check's own
 // position uses for the same reason.

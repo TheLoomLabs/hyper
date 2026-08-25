@@ -322,6 +322,43 @@ func TestLoad_ManifestsAreTheProviderNamespacesOtherHalf(t *testing.T) {
 	}
 }
 
+// TestLoad_AnExtensionTakingABuiltinsNameContributesNothing is §11's own rule
+// at the fold that used to answer the other way: a providers/ file declaring a
+// built-in Provider's name is no member of the Provider namespace, and the name
+// still means the compiled-in Manifest.
+//
+// It is the load's half of `provider-name-collision`. The row that says so is
+// the static pass's (internal/verify), and what is asserted here is the thing a
+// row cannot state: **the namespace did not move**, so a Definition reviewed
+// against the built-in resolves through the built-in.
+func TestLoad_AnExtensionTakingABuiltinsNameContributesNothing(t *testing.T) {
+	root := fiveArtefacts(t)
+	write(t, root, "providers/shell.yaml", "kind: provider\nprovider: shell\nclass: local\n")
+
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	held := loaded.Manifests[artefact.BuiltinShellProviderName]
+	if held.Origin != artefact.OriginBuiltIn || held.Path != artefact.BuiltinShellProviderPath {
+		t.Errorf("shell loaded as %+v, want the compiled-in Manifest at %s with origin %s",
+			held, artefact.BuiltinShellProviderPath, artefact.OriginBuiltIn)
+	}
+	if string(held.Bytes) != artefact.BuiltinShellProviderYAML {
+		t.Error("shell's bytes are the colliding file's; the built-in stands and the Extension contributes nothing")
+	}
+	if operations := loaded.Providers[artefact.BuiltinShellProviderName].Operations; len(operations) != 6 {
+		t.Errorf("shell declares %d Operations, want the built-in's six", len(operations))
+	}
+	for _, a := range loaded.Artefacts {
+		if a.Path == "providers/shell.yaml" {
+			return
+		}
+	}
+	t.Error("the colliding file is in no load at all; it contributes no name and is still an artefact check reports against")
+}
+
 // TestLoad_TargetDeclarationsAreTheTargetNamespacesOtherHalf is the fold issue
 // #112 needs, on the shape #111 gave the Provider namespace: every name in
 // Targets has the declaration it was read from here, which is what `hyper

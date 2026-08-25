@@ -293,11 +293,13 @@ type Source struct {
 // and the same built-in Provider — which no walk found and no caller can hand
 // over, its bytes being compiled in (§3, ADR-0039).
 //
-// **The order handed in is the order it folds.** Where two files declare one
-// name the later one wins, which is the fold's rule rather than a precedence
-// this package is entitled to (manifestsByName), so the sequence is the
+// **The order handed in is the order it folds**, so the sequence is the
 // caller's to fix: a walk answers its directories' order and a revision answers
-// git's, and both are one answer for two reads.
+// git's, and both are one answer for two reads. What the order decides is not
+// which Manifest a name means — that is answered by rule rather than by
+// sequence, an Extension never taking a built-in's name (manifestsByName) — but
+// the order the artefacts themselves are carried in, which is what every pass
+// over them walks.
 //
 // It answers no error. Everything a single file can do wrong — bytes that will
 // not parse, a name it does not declare — is carried on that file's own
@@ -379,13 +381,14 @@ func build(read []LoadedArtefact) Loaded {
 // absent or is not a plain scalar — ADR-0064's rule, the same one
 // manifestsByName folds the Provider namespace on.
 //
-// It is the one place a Target's name is decided to mean a declaration. Where
-// two files declare one name the later one wins, which is not a precedence rule
-// the tool is entitled to and which check will name once §11's collision code
-// reaches this artefact; until then the fold has to answer something, and
-// answering it once means the declaration `hyper targets` writes a row off and
-// the declaration a Definition's targets: resolves to are the same file rather
-// than two readings of one repository.
+// It is the one place a Target's name is decided to mean a declaration, and
+// there is no collision for it to answer: `hyper` ships no built-in Target, so
+// §11's `provider-name-collision` has no half at this artefact, and the
+// construction argument that leaves one collision rule for Providers leaves
+// none here (internal/verify's collisionProblems). Deciding it once is what
+// makes the declaration `hyper targets` writes a row off and the declaration a
+// Definition's targets: resolves to the same file rather than two readings of
+// one repository.
 func targetDeclarationsByName(artefacts []LoadedArtefact) map[string]*yaml.Node {
 	declarations := map[string]*yaml.Node{}
 	for _, a := range artefacts {
@@ -429,14 +432,23 @@ func definitionDeclarationsByName(artefacts []LoadedArtefact) map[string]*yaml.N
 // a plain scalar — ADR-0064's rule, that an authored name resolving to nothing
 // is a check rather than a load failure.
 //
-// It is the one place a name is decided to mean a file. Where two Manifests
-// declare one name the later one wins, which is not a precedence rule the tool
-// is entitled to — an Extension may never shadow a built-in Provider's name,
-// and a collision is a load failure §11 fixes under provider-name-collision.
-// Until that check exists the fold has to answer something, and answering it
-// once means the Manifest `hyper providers` reports for a name and the Manifest
-// a Definition's provider: resolves to are the same file rather than two
-// readings of one repository.
+// It is the one place a name is decided to mean a file, and **it answers no
+// precedence rule at all**. An Extension declaring a built-in Provider's name
+// contributes nothing: the compiled-in Manifest is what the name means, so a
+// Definition resolving through it resolves through the built-in, which is what
+// it was reviewed against. That is `provider-name-collision`, a load failure
+// §11 states and never a *the later one wins* — precedence being how a
+// Definition reviewed as one thing runs as another. The declining is here and
+// the row that explains it is in the pass whose subject is the namespace
+// (internal/verify), one predicate answering both (artefact.IsBuiltinProviderName).
+//
+// Two Extensions colliding is impossible by construction, which is why one rule
+// covers every collision this fold can see. That argument is written at the
+// check rather than repeated here (internal/verify's collisionProblems).
+//
+// Deciding it once is what makes the Manifest `hyper providers` reports for a
+// name and the Manifest a Definition's provider: resolves to the same file
+// rather than two readings of one repository.
 func manifestsByName(artefacts []LoadedArtefact) map[string]LoadedManifest {
 	manifests := map[string]LoadedManifest{}
 	for _, a := range artefacts {
@@ -445,6 +457,9 @@ func manifestsByName(artefacts []LoadedArtefact) map[string]LoadedManifest {
 		}
 		name := artefact.ManifestProviderName(a.Root)
 		if name == "" {
+			continue
+		}
+		if artefact.ProviderOrigin(a.Path) == artefact.OriginExtension && artefact.IsBuiltinProviderName(name) {
 			continue
 		}
 		manifests[name] = LoadedManifest{

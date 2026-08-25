@@ -1,0 +1,45 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/08/06/0199206d-4e15-7c30-9b8a-52d9ea01f7d2/outcome.json (396 bytes)
+{
+  "ended_at": "2026-08-06T11:03:18.000Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "error_code": "provider-name-collision",
+      "field": "provider",
+      "file": "providers/shell.yaml",
+      "line": 2,
+      "message": "provider: shell is a built-in Provider's name — the built-in stands and this file names nothing in the Provider namespace"
+    }
+  ],
+  "schema_version": 1
+}
+=== journal/2026/08/06/0199206d-4e15-7c30-9b8a-52d9ea01f7d2/run.json (470 bytes)
+{
+  "dry_run": false,
+  "procedure": "check-disk",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "865f3e156d80007881936d7c2aad1bb1cb624e36",
+    "repo_revision": "769ade67337d90bbc5b97e2dbb8147f3efe3511e"
+  },
+  "run_id": "0199206d-4e15-7c30-9b8a-52d9ea01f7d2",
+  "schema_version": 1,
+  "started_at": "2026-08-06T11:03:18.000Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
