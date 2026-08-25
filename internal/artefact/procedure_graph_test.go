@@ -1,6 +1,7 @@
 package artefact
 
 import (
+	"slices"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -573,5 +574,218 @@ func TestCheckProcedureGraph_NoInvocationsAndNoCadenceIsClean(t *testing.T) {
 	got := CheckProcedureGraph(graph)
 	if len(got) != 0 {
 		t.Fatalf("CheckProcedureGraph() = %+v, want no problems", got)
+	}
+}
+
+// --- Reached: the two facts the projection reads off the same walk (issue #176) ---
+
+// twoStepsOneBinding is a Procedure whose two Steps bind one (Definition,
+// Target) pair between them — the shape that proves Reached answers what a
+// Procedure *binds* rather than what it does.
+const twoStepsOneBinding = `kind: procedure
+procedure: watch
+targets: [local]
+cadence: "*/15 * * * *"
+steps:
+  - id: first
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]
+  - id: second
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]
+`
+
+func TestProcedureGraph_ReachedNamesEachBindingOnce(t *testing.T) {
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/watch.yaml", twoStepsOneBinding),
+	}, shellProviders(), uptimeDefinitions())
+
+	got := graph.Reached("watch")
+	want := []Binding{{Definition: "uptime", Target: "local"}}
+	if !slices.Equal(got.Bindings, want) {
+		t.Errorf("Bindings = %+v, want %+v — two Steps against one pair bind it once", got.Bindings, want)
+	}
+}
+
+// outerReadsInnerEffects is the pair the concurrency group turns on: an outer
+// Procedure whose own Steps are all `read`, reaching a `mutate` only through
+// the Procedure it invokes.
+const outerReadsInnerEffects = `kind: procedure
+procedure: outer
+targets: [local, other]
+cadence: "0 3 * * 1"
+steps:
+  - id: look
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]
+  - id: call-inner
+    procedure: inner
+`
+
+const innerMutates = `kind: procedure
+procedure: inner
+targets: [other]
+steps:
+  - id: touch
+    definition: uptime
+    operation: mutate
+    target: other
+    args:
+      command: [touch, /tmp/x]
+`
+
+func TestProcedureGraph_ReachedEveryStepReadsIsTrueWhereEveryReachableStepIsRead(t *testing.T) {
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/watch.yaml", twoStepsOneBinding),
+	}, shellProviders(), uptimeDefinitions())
+
+	if !graph.Reached("watch").EveryStepReads {
+		t.Error("EveryStepReads = false, want true — every reachable Step declares kind: read")
+	}
+}
+
+func TestProcedureGraph_ReachedEveryStepReadsIsFalseWhereANestedInvocationEffects(t *testing.T) {
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/outer.yaml", outerReadsInnerEffects),
+		procedureRoot(t, "procedures/inner.yaml", innerMutates),
+	}, shellProviders(), uptimeDefinitions())
+
+	if graph.Reached("outer").EveryStepReads {
+		t.Error("EveryStepReads = true, want false — reachability decides, and the invoked Procedure mutates")
+	}
+}
+
+func TestProcedureGraph_ReachedFollowsANestedInvocationsBindings(t *testing.T) {
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/outer.yaml", outerReadsInnerEffects),
+		procedureRoot(t, "procedures/inner.yaml", innerMutates),
+	}, shellProviders(), uptimeDefinitions())
+
+	got := graph.Reached("outer")
+	want := []Binding{
+		{Definition: "uptime", Target: "local"},
+		{Definition: "uptime", Target: "other"},
+	}
+	if !slices.Equal(got.Bindings, want) {
+		t.Errorf("Bindings = %+v, want %+v — an invocation binds nothing of its own and its Steps' pairs are the caller's", got.Bindings, want)
+	}
+}
+
+// twoTargetsOneDefinition is what orders the walk's answer: two Steps binding
+// one Definition against two Targets, in the order the Steps are written.
+const twoTargetsOneDefinition = `kind: procedure
+procedure: sweep
+targets: [local, other]
+steps:
+  - id: second-written
+    definition: uptime
+    operation: read
+    target: other
+    args:
+      command: [uptime]
+  - id: first-written
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]
+`
+
+func TestProcedureGraph_ReachedHoldsBindingsInTheStepsOwnOrder(t *testing.T) {
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/sweep.yaml", twoTargetsOneDefinition),
+	}, shellProviders(), uptimeDefinitions())
+
+	got := graph.Reached("sweep")
+	want := []Binding{
+		{Definition: "uptime", Target: "other"},
+		{Definition: "uptime", Target: "local"},
+	}
+	if !slices.Equal(got.Bindings, want) {
+		t.Errorf("Bindings = %+v, want %+v — the Steps' own order, so one repository answers one way", got.Bindings, want)
+	}
+}
+
+// bindsNothingLegible is the Step whose binding does not resolve: its
+// Operation carries no Kind for this walk to read.
+const bindsNothingLegible = `kind: procedure
+procedure: broken
+targets: [local]
+steps:
+  - id: unresolved
+    definition: no-such-definition
+    operation: read
+    target: local
+`
+
+func TestProcedureGraph_ReachedCountsAnUnresolvedStepAsEffecting(t *testing.T) {
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/broken.yaml", bindsNothingLegible),
+	}, shellProviders(), uptimeDefinitions())
+
+	if graph.Reached("broken").EveryStepReads {
+		t.Error("EveryStepReads = true, want false — an Operation that does not resolve declares no read for this walk to read")
+	}
+}
+
+func TestProcedureGraph_ReachedOfANameTheGraphDoesNotHoldIsEmpty(t *testing.T) {
+	graph := BuildProcedureGraph(nil, shellProviders(), uptimeDefinitions())
+
+	got := graph.Reached("absent")
+	if len(got.Bindings) != 0 {
+		t.Errorf("Bindings = %+v, want none", got.Bindings)
+	}
+	if !got.EveryStepReads {
+		t.Error("EveryStepReads = false, want true — a Procedure with no Steps reaches no Step that effects")
+	}
+}
+
+// twoDefinitionsOneTarget is what §10's dedup rule is quantified over: two
+// Definitions binding one Target. The pairs stay two here — a slot belongs to
+// the Target declaration, and it is the slots the two resolve to that come to
+// one entry in the `env:` block, which is the caller's reading and not this
+// walk's.
+const twoDefinitionsOneTarget = `kind: procedure
+procedure: pair
+targets: [local]
+steps:
+  - id: first
+    definition: uptime
+    operation: read
+    target: local
+    args:
+      command: [uptime]
+  - id: second
+    definition: heartbeat
+    operation: read
+    target: local
+    args:
+      command: [uptime]
+`
+
+func TestProcedureGraph_ReachedKeepsTwoDefinitionsAgainstOneTargetAsTwoPairs(t *testing.T) {
+	definitions := uptimeDefinitions()
+	definitions["heartbeat"] = definitions["uptime"]
+
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/pair.yaml", twoDefinitionsOneTarget),
+	}, shellProviders(), definitions)
+
+	got := graph.Reached("pair")
+	want := []Binding{
+		{Definition: "uptime", Target: "local"},
+		{Definition: "heartbeat", Target: "local"},
+	}
+	if !slices.Equal(got.Bindings, want) {
+		t.Errorf("Bindings = %+v, want %+v — the pair is what a Run binds, and both are pairs", got.Bindings, want)
 	}
 }
