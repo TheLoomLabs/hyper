@@ -3,11 +3,13 @@ package mcp
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/TheLoomLabs/hyper/internal/exit"
 	"github.com/TheLoomLabs/hyper/internal/render"
 )
 
@@ -45,9 +47,8 @@ type Envelope struct {
 	StructuredContent Structured `json:"structuredContent"`
 	// IsError means only *you did not get what you asked for*, which is true
 	// of a Refusal and of a failure alike; it is not the outcome
-	// discriminator, one bit not carrying three states (§9). It is false
-	// throughout this ticket — the paths that decline are issue #196's — and
-	// it is written whichever it is.
+	// discriminator, one bit not carrying three states (§9). Which exit code
+	// sets it is the mapping's to say, and it is written whichever it is.
 	IsError bool `json:"isError"`
 }
 
@@ -91,26 +92,139 @@ type Structured struct {
 	Truncated json.RawMessage `json:"truncated"`
 }
 
-// envelopeOf composes the envelope from one command's answer.
+// envelopeOf is §9's mapping in full: the exit code one command returned, and
+// the envelope this surface answers with (§9, issue #196).
+//
+// **It is stated once and reached by every tool**, through the one handler
+// behind all of them (server.go). A surface with no exit code has to say four
+// things the exit code said, and §9 states thirteen tools: a tool reading the
+// code for itself would be one of thirteen readings of §12's closed set where
+// the surface has exactly one. The table, in full:
+//
+//	 0   the answer; isError: false
+//	 1   the answer; isError: true — a Run the world resisted, or a command
+//	     reporting problems it found
+//	 2   no envelope: a JSON-RPC error carrying what the command wrote
+//	75   the answer; isError: true — the Store lost, and the one code a
+//	     caller may retry
+//	77   the answer; isError: true — a Refusal rendered in full as text
+//
+// **The structured half is composed the same way whichever arm is taken**, and
+// what the exit code decides is the text block and the bit. That is not a
+// shortcut: a command that Refuses may still have written a terminal row — §8
+// puts `run` on the `outcome` side on every path on which a Run was attempted,
+// the two that decline before a Run is identified included — and an arm that
+// composed an empty structured half for `77` would drop the one fact §9 moves
+// up into it.
+//
+// **`130` and `143` are unreachable**: the server installs no signal watch, so
+// a command answering one is a fault in the server rather than an envelope this
+// surface knows how to compose. It travels as a protocol error, which is where
+// §9 puts a fault in the server, and it is stated rather than dressed as a
+// domain answer — a wrong envelope is harder to notice than a missing one.
+func envelopeOf(answered Answer) (Envelope, error) {
+	structured, kinds, err := structuredOf(answered)
+	if err != nil {
+		return Envelope{}, err
+	}
+	summarised := []TextBlock{{Type: "text", Text: summary(kinds, wasCut(structured.Truncated))}}
+
+	switch answered.Exit {
+	case exit.Clean:
+		return Envelope{Content: summarised, StructuredContent: structured}, nil
+
+	case exit.Problems, exit.StoreLost:
+		// The answer, with the bit set. `isError` means only *you did
+		// not get what you asked for*, which is true of a failure as
+		// much as of a Refusal, and nothing in the structured content
+		// restates it (§9).
+		//
+		// **The two codes answer one shape and are not one piece of
+		// news**: `75` is the code a caller may retry and `1` is not,
+		// and neither the bit nor this arm says which happened. What
+		// says it is the answer itself — §12's `outcome`, and the text
+		// block naming it — and both arrive with `run`, the one command
+		// that reaches `75` at all (§9, issue #199).
+		return Envelope{Content: summarised, StructuredContent: structured, IsError: true}, nil
+
+	case exit.Refused:
+		if answered.Refusal == "" {
+			return Envelope{}, fmt.Errorf("the command exited %d and rendered no Refusal, which is a fault in the server: the rendering is the entire way past (ADR-0001)", answered.Exit)
+		}
+		return Envelope{
+			Content:           []TextBlock{{Type: "text", Text: refusalText(answered.Refusal)}},
+			StructuredContent: structured,
+			IsError:           true,
+		}, nil
+
+	case exit.Usage:
+		// **A domain outcome is never a protocol error, and a usage
+		// error is not a domain outcome.** A positional that matches
+		// nothing satisfies every schema and still names nothing, and
+		// returning it as an answer would give it `isError: true` with
+		// no `outcome` key — which is exactly the shape a guardrail
+		// declining already returns, on the one surface with no exit
+		// code to tell the two apart (§9, ADR-0060).
+		//
+		// The message is what the command wrote where the CLI writes a
+		// human sentence, so an agent reads the sentence a person would
+		// have read. An exit code with nothing beside it is a command
+		// that declined and said why to nobody, which is this
+		// repository's bug rather than a caller's.
+		if written := strings.TrimRight(answered.Narration, "\n"); written != "" {
+			return Envelope{}, errors.New(written)
+		}
+		return Envelope{}, fmt.Errorf("the command exited %d and wrote nothing to say why, which is a fault in the server", answered.Exit)
+
+	default:
+		return Envelope{}, fmt.Errorf("the command exited %d, which is not a code §9's mapping holds: this server installs no signal watch, and §12 closes the set at seven", answered.Exit)
+	}
+}
+
+// structuredOf is the machine half of the envelope, composed from what the
+// command produced and from nothing the exit code says.
 //
 // The rows are marshalled by render's own writer, so a row in an envelope and
 // the same row on the `--json` stream are the same bytes: the two surfaces
 // cannot state different things because there is one row set and one encoder
 // behind both (ADR-0026).
-func envelopeOf(answered Answer) (Envelope, error) {
+func structuredOf(answered Answer) (Structured, []string, error) {
 	rows, kinds, err := marshalRows(answered.Rows)
 	if err != nil {
-		return Envelope{}, err
+		return Structured{}, nil, err
 	}
 	truncated, err := truncatedOf(answered.Terminal)
 	if err != nil {
-		return Envelope{}, err
+		return Structured{}, nil, err
 	}
+	return Structured{Rows: rows, Truncated: truncated}, kinds, nil
+}
 
-	return Envelope{
-		Content:           []TextBlock{{Type: "text", Text: summary(kinds, wasCut(truncated))}},
-		StructuredContent: Structured{Rows: rows, Truncated: truncated},
-	}, nil
+// retrySentence is what §9 requires **every** Refusal's text block to end with,
+// and it is load-bearing rather than manners: `isError: true` conventionally
+// invites a retry, and this surface has no exit code `77` with which to say
+// otherwise (§9, ADR-0001). The rendering is the only place the protocol leaves
+// for saying it.
+//
+// It names no artefact of its own and points at the rendering above it, because
+// that is where the artefacts are named: §8's `EDIT ONE OF` table where the
+// Refusal cites a coordinate, and the remedy the message states where it is a
+// fact about the invocation — `hyper project`, `hyper store init`, a binary the
+// declaration pins. A sentence that composed a second list would be a second
+// account of a remedy the check already knows (refusal.go).
+const retrySentence = "a verbatim retry refuses identically: no argument to this tool, and no flag anywhere, " +
+	"overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."
+
+// refusalText is §9's third text block: **the full rendered Refusal**, and the
+// retry sentence after it.
+//
+// The rendering arrives whole and is not touched. It is §8's, composed where
+// every other surface's Refusal is composed, and this surface reads it rather
+// than restating it: with no bypass anywhere the Refusal rendering is the
+// entire remediation path, and a second composition here is where the two would
+// come to say different things (ADR-0001, ADR-0026).
+func refusalText(rendering string) string {
+	return strings.TrimRight(rendering, "\n") + "\n\n" + retrySentence
 }
 
 // marshalRows is the row set as it goes on the wire, and the discriminators in
@@ -154,6 +268,15 @@ func marshalRows(rows []render.Row) ([]json.RawMessage, []string, error) {
 // carries the bare boolean and the marker object alike, and carries whatever
 // §9 adds to it next without this file changing.
 func truncatedOf(terminal render.Row) (json.RawMessage, error) {
+	// **No terminal row is `null` and not an error**, and the path that
+	// reaches it is a command that opened no row stream at all: a usage
+	// error, and a guardrail declining from a command that is not a Run
+	// (§9, ADR-0060). There is nothing there to have been cut, so there is
+	// nothing for `false` to claim was complete — the member says the
+	// truncation marker or nothing, and nothing is what this is.
+	if terminal == nil {
+		return json.RawMessage("null"), nil
+	}
 	encoded, err := render.MarshalRow(terminal)
 	if err != nil {
 		return nil, err
@@ -170,15 +293,21 @@ func truncatedOf(terminal render.Row) (json.RawMessage, error) {
 	return carried.Truncated, nil
 }
 
-// wasCut answers whether a result was truncated, from the member itself: anything
-// that is not the literal `false` is a cut result, the bare true and the marker
-// object being the two other shapes §9 admits and both of them meaning one.
+// wasCut answers whether a result was truncated, from the member itself: the
+// bare true and the marker object are the two shapes §9 admits for a cut
+// result, and `false` and `null` are the two ways of carrying none — the first
+// a stream that returned everything, the second a command that opened no stream
+// at all (truncatedOf). Those four are the whole of what the member can be.
 //
 // It reads the JSON rather than the value it came from because the value is not
 // in hand here — what crossed the boundary is the member — and because the
 // question this answers is the one a consumer asks of the same bytes.
 func wasCut(truncated json.RawMessage) bool {
-	return !bytes.Equal(bytes.TrimSpace(truncated), []byte("false"))
+	switch string(bytes.TrimSpace(truncated)) {
+	case "false", "null":
+		return false
+	}
+	return true
 }
 
 // summary is the ordinary return's text block: **one summary line, outcome

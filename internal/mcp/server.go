@@ -63,15 +63,28 @@ type Dispatch func(argv []string) Answer
 // milestone 11 was prefactored for: the rows a page is written from and the
 // rows an envelope carries are one list (destination.go, ADR-0026, issue #194).
 //
-// Rendering is the page the command wrote into the destination's buffer. This
-// ticket's two tools do not put it on the wire — an ordinary return's text
-// block is one summary line (§9) — and it is carried anyway because it is what
-// `review`'s full rendering and a Refusal's are, and a buffer that only some
-// answers filled would be one a later tool had to ask twice for.
+// Rendering is the page the command wrote into the destination's buffer. The
+// tools this milestone builds do not put it on the wire — an ordinary return's
+// text block is one summary line (§9) — and it is carried anyway because it is
+// what `review`'s full rendering is, and a buffer that only some answers filled
+// would be one a later tool had to ask twice for.
+//
+// **Refusal and Narration are what a surface with no exit code needs the exit
+// code's two other halves for** (§9, issue #196). A command that Refuses
+// renders §8's Refusal where the CLI would have written it on stderr, and that
+// rendering *is* the text block on this surface, exactly where the command
+// exits `77`. A command that reports a usage error writes one human sentence
+// where the CLI would have written it on stderr, and that sentence is the
+// message of the protocol error a malformed call comes back as — so an agent
+// reads the sentence a person would have read. Neither is narration this
+// surface forwards: what is not read by the mapping is dropped, a tool's
+// narration going nowhere (destination.go).
 type Answer struct {
 	Rows      []render.Row
 	Terminal  render.Row
 	Rendering string
+	Refusal   string
+	Narration string
 	Exit      int
 }
 
@@ -167,15 +180,19 @@ func (s *Server) server() *sdk.Server {
 // that will not unmarshal or that the schema does not admit is a malformed
 // call, and §9 reserves the protocol's errors for exactly those (§9, ADR-0060).
 //
-// A command that did not exit clean is the one path this ticket leaves
-// unshaped, and half of it is already where §9 puts it: a usage error — a name
-// that satisfies every schema and resolves to nothing — is a malformed call
-// there too, and arrives as the protocol error the CLI spends exit `2` to draw.
-// What is not yet shaped is the **Refusal**, which §9 answers with `isError:
-// true` and the rendering in full, exactly where the command exits `77`; issue
-// #196 builds it, and until then such an exit is reported as a fault in the
-// server rather than dressed as a domain answer this ticket has not built. A
-// wrong envelope is harder to notice than a missing one.
+// **What the command exited with is read in one place and not here**: the
+// mapping §9 fixes from an exit code to an envelope is envelopeOf's, stated
+// once and reached by every tool through this one handler (envelope.go, issue
+// #196). Two of its arms answer an error rather than an envelope — the usage
+// error a malformed call arrives as, and a code the mapping does not hold —
+// and both travel the way an argument error travels, because both are the same
+// thing to the protocol.
+//
+// The error is answered unwrapped, which is the one asymmetry in this function.
+// An argument never reached a command, so the tool names itself; a message the
+// command wrote is the sentence a person would have read, and a tool name
+// pasted in front of it would be this surface editorialising over prose that is
+// already addressed to a caller (§9, ADR-0026).
 func (s *Server) handler(t tool) sdk.ToolHandler {
 	return func(_ context.Context, request *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
 		argv, err := t.argv(request.Params.Arguments)
@@ -183,14 +200,9 @@ func (s *Server) handler(t tool) sdk.ToolHandler {
 			return nil, fmt.Errorf("%s: %w", t.name, err)
 		}
 
-		answered := s.dispatch(argv)
-		if answered.Exit != 0 {
-			return nil, fmt.Errorf("%s: the command exited %d; the paths that decline are issue #196's", t.name, answered.Exit)
-		}
-
-		envelope, err := envelopeOf(answered)
+		envelope, err := envelopeOf(s.dispatch(argv))
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", t.name, err)
+			return nil, err
 		}
 		return envelope.result(), nil
 	}
@@ -236,6 +248,16 @@ func (s *Server) Call(ctx context.Context, tool string, arguments json.RawMessag
 	defer client.Close()
 
 	if _, err := client.CallTool(ctx, &sdk.CallToolParams{Name: tool, Arguments: arguments}); err != nil {
+		// **The protocol error is read off the frame too**, for the reason
+		// the envelope is: what the client raises is the wire's message
+		// wrapped in a sentence of its own — `calling "tools/call": …` —
+		// and what a case holds should be the message hyper sent. The
+		// client's own error stands only where no frame carries one at
+		// all, which is a transport that failed before an answer arrived
+		// (issue #196).
+		if failed := arriving.failure(); failed != nil {
+			return Envelope{}, failed
+		}
 		return Envelope{}, err
 	}
 	return arriving.envelope()
@@ -268,16 +290,45 @@ func (f *frames) Write(p []byte) (int, error) {
 
 // envelope is the last answer among the recorded frames, read into hyper's own
 // shape.
-//
-// The **last** result is the tool call's: a session sends one response to
-// `initialize` and one to the `tools/call` that follows it, and the
-// notifications between them carry no result at all. Call makes exactly one
-// tool call, so there is no third.
 func (f *frames) envelope() (Envelope, error) {
+	answered, _, err := f.answered()
+	switch {
+	case err != nil:
+		return Envelope{}, err
+	case answered == nil:
+		return Envelope{}, errors.New("no frame the client read carries a result")
+	}
+	return envelopeFrom(answered)
+}
+
+// failure is the message of the last JSON-RPC error among the recorded frames,
+// and nil where no frame carries one. It is the half of a call that has no
+// envelope at all: a malformed call, and a fault in the server (§9).
+//
+// The message alone is read, and not the code beside it. What a client shows a
+// person is the message — hyper's own sentence, composed by the command that
+// declined — where the code is the SDK's mapping of a handler error onto
+// JSON-RPC's own set and is not a number this surface chooses.
+func (f *frames) failure() error {
+	_, failed, err := f.answered()
+	if err != nil || failed == nil {
+		return nil
+	}
+	return errors.New(failed.Message)
+}
+
+// answered is the last result and the last error among the recorded frames.
+//
+// The **last** of either is the tool call's: a session sends one response to
+// `initialize` and one to the `tools/call` that follows it, and the
+// notifications between them carry neither. Call makes exactly one tool call,
+// so there is no third.
+func (f *frames) answered() (json.RawMessage, *wireError, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	var answered json.RawMessage
+	var result json.RawMessage
+	var failed *wireError
 	// SplitAfter rather than Split, so that a **complete** line is the test:
 	// the transport is newline-delimited JSON, and what the recording ends in
 	// where the SDK's reader stopped mid-frame is a fragment rather than a
@@ -289,18 +340,25 @@ func (f *frames) envelope() (Envelope, error) {
 		}
 		var frame struct {
 			Result json.RawMessage `json:"result"`
+			Error  *wireError      `json:"error"`
 		}
 		if err := json.Unmarshal([]byte(line), &frame); err != nil {
-			return Envelope{}, fmt.Errorf("a frame the client read is not JSON: %w", err)
+			return nil, nil, fmt.Errorf("a frame the client read is not JSON: %w", err)
 		}
 		if len(frame.Result) > 0 {
-			answered = frame.Result
+			result = frame.Result
+		}
+		if frame.Error != nil {
+			failed = frame.Error
 		}
 	}
-	if answered == nil {
-		return Envelope{}, errors.New("no frame the client read carries a result")
-	}
-	return envelopeFrom(answered)
+	return result, failed, nil
+}
+
+// wireError is a JSON-RPC error object as it arrived, read for the one member
+// a caller of this surface acts on.
+type wireError struct {
+	Message string `json:"message"`
 }
 
 // readCloser is a reader and a closer that are not the same value: the tee

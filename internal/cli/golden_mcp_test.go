@@ -62,22 +62,49 @@ func readCall(t *testing.T, path string) *toolCall {
 }
 
 // compareEnvelope drives the case's one call and holds what came back against
-// its envelope.golden, byte for byte and behind the same one flag every other
-// golden is.
+// its envelope.golden — or against its error.golden, where the call was
+// malformed and came back as a protocol error rather than as an answer. Both
+// are compared byte for byte and behind the same one flag every other golden
+// is.
 //
 // The server is assembled the way the binary assembles it — cli.MCPServer over
 // the case's process and facts — so the version it announces, the repository
 // each tool resolves and the gate each one passes are the case's own inputs and
 // not the harness's.
+//
+// **Which of the two goldens a case holds is decided by what came back and not
+// by what the case declares**, which is the reading every other golden already
+// gets: a case states its inputs and the corpus holds the answer. A case that
+// changed sides is caught by the fence rather than by this driver, a stale
+// golden left beside a new one being the failure a comparison cannot see
+// (TestGoldenCorpora_ACallCaseHoldsOneGoldenAndNotTheOther).
 func (c goldenCase) compareEnvelope(t *testing.T, run goldenRun) {
 	t.Helper()
 
 	envelope, err := cli.MCPServer(c.process(t, run), c.facts(t)).
 		Call(t.Context(), c.call.Tool, c.call.Arguments)
 	if err != nil {
-		t.Fatalf("case %s: %v", c.name, err)
+		// The message and nothing else: what a JSON-RPC error carries to a
+		// caller is the sentence the command wrote where a person would
+		// have read it on stderr, and the code beside it is the SDK's own
+		// mapping of a handler error rather than a number hyper chooses
+		// (§9, mcp.Server.Call).
+		compareRendering(t, filepath.Join(c.dir, "error.golden"), err.Error()+"\n")
+		return
 	}
 	compareRendering(t, filepath.Join(c.dir, "envelope.golden"), renderEnvelope(t, envelope))
+}
+
+// answersAProtocolError says whether the case holds an error.golden: a call §9
+// answers with a JSON-RPC error rather than with an envelope — an argument the
+// schema does not admit, and a positional that matches nothing (§9, issue
+// #196).
+//
+// It reads the disk rather than a member of the case, for the reason every
+// other input is read off the disk: a corpus is directories, and what a case
+// holds is what is in it.
+func (c goldenCase) answersAProtocolError() bool {
+	return isFile(filepath.Join(c.dir, "error.golden"))
 }
 
 // renderEnvelope is how the corpus holds an envelope: the envelope itself
@@ -185,7 +212,7 @@ func TestGoldenCorpora_EveryEnvelopeGoldenIsDrivenBySomething(t *testing.T) {
 func TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue(t *testing.T) {
 	var read int
 	for _, c := range goldenCases(t) {
-		if c.call == nil {
+		if c.call == nil || c.answersAProtocolError() {
 			continue
 		}
 		read++
@@ -217,6 +244,176 @@ func TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue(t *testing.T) {
 	if read == 0 {
 		t.Fatal("no case under testdata/ holds a call; the rule was held over nothing")
 	}
+}
+
+// TestGoldenCorpora_EveryErrorGoldenIsDrivenBySomething is
+// TestGoldenCorpora_EveryEnvelopeGoldenIsDrivenBySomething for the half of this
+// surface that answers no envelope at all, and it exists for the same reason: a
+// case whose `call` went missing would stop being driven and its golden would
+// sit there green and unexercised.
+func TestGoldenCorpora_EveryErrorGoldenIsDrivenBySomething(t *testing.T) {
+	driven := map[string]bool{}
+	for _, c := range goldenCases(t) {
+		if c.call != nil {
+			driven[c.dir] = true
+		}
+	}
+
+	var held int
+	walkTestdata(t, "error.golden", func(dir string) {
+		held++
+		if !driven[dir] {
+			t.Errorf("%s holds an error.golden and is not a case the harness drives; it needs a call", dir)
+		}
+	})
+	if held == 0 {
+		t.Fatal("no case under testdata/ holds an error.golden; the malformed half of §9's surface is covered by nothing")
+	}
+}
+
+// TestGoldenCorpora_ACallCaseHoldsOneGoldenAndNotTheOther is the fence the
+// driver needs, and the failure it is for is the quiet one: a case that came to
+// answer a protocol error where it used to answer an envelope would have its
+// error.golden written under -update and leave the envelope.golden beside it,
+// checked in, unexercised, and stating an answer this surface no longer gives.
+//
+// **A domain outcome is never a protocol error, and the corpus says which a
+// case is by which file it holds** (§9). Holding both would be a case claiming
+// both at once, and holding neither is a call driven against nothing.
+func TestGoldenCorpora_ACallCaseHoldsOneGoldenAndNotTheOther(t *testing.T) {
+	for _, c := range goldenCases(t) {
+		if c.call == nil {
+			continue
+		}
+		envelope := isFile(filepath.Join(c.dir, "envelope.golden"))
+		switch {
+		case envelope && c.answersAProtocolError():
+			t.Errorf("case %s holds both an envelope.golden and an error.golden; a call is answered one way or the other", c.name)
+		case !envelope && !c.answersAProtocolError():
+			t.Errorf("case %s holds neither an envelope.golden nor an error.golden; its call is driven against nothing", c.name)
+		}
+	}
+}
+
+// TestGoldenCorpora_WhatDeclinesInAnEnvelopeIsWhatTheCLIWroteOnStderr is
+// ADR-0026 held over the second half of §9's mapping, the way the row fence
+// below holds it over the first: a Refusal and a usage error are one rendering
+// apiece, and the two surfaces carry the same one (§9, issue #196).
+//
+// **What it does not hold is an ordinary return**, and that is the rule rather
+// than an omission: what a twin wrote beside an answer is narration — a
+// truncation line, a warning — and narration is what this surface drops, the
+// envelope saying in both halves what the CLI said in the line beside its table
+// (§9, destination.go). So the pairing is over the calls that **declined**, and
+// each half of that has a pairing of its own.
+//
+// A **Refusal** is paired against the whole corpus, exactly as a row is: §8's
+// rendering opens `refused: <error_code>` in both its forms, so the renderings
+// the CLI writes are collectable, and the claim is that a text block that opens
+// one of them opens it **whole**. What follows it is the retry sentence this
+// surface adds, which is the only place the protocol leaves for saying that a
+// verbatim retry refuses identically (ADR-0001, refusal.go). Pairing by the
+// corpus rather than by directory is what lets a case filed with the
+// invocations it is contrasted with be held too — `exemption/provider` is a
+// tool against the repository `exemption/check` Refuses on, and it is not under
+// `mcp/` to have a twin one directory up (testdata/exemption).
+//
+// A **usage error** is paired by name, because there is nothing in a sentence
+// to collect it by: `mcp/<tool>/<case>` against `<command>/<case>`, one fixture
+// driven two ways. The message is the sentence itself, byte for byte — an agent
+// reads what a person would have read.
+func TestGoldenCorpora_WhatDeclinesInAnEnvelopeIsWhatTheCLIWroteOnStderr(t *testing.T) {
+	refused := refusalsWritten(t)
+
+	var compared int
+	for _, c := range goldenCases(t) {
+		if c.call == nil {
+			continue
+		}
+
+		if c.answersAProtocolError() {
+			named, under := strings.CutPrefix(c.name, "mcp/")
+			if !under {
+				continue
+			}
+			twin := filepath.Join("testdata", named)
+			wrote := strings.TrimRight(readFile(t, filepath.Join(twin, "stderr.golden")), "\n")
+			if wrote == "" {
+				continue
+			}
+			compared++
+			if got := strings.TrimRight(readFile(t, filepath.Join(c.dir, "error.golden")), "\n"); got != wrote {
+				t.Errorf("case %s: the protocol error carries\n  %q\nand %s wrote\n  %q", c.name, got, twin, wrote)
+			}
+			continue
+		}
+
+		text := textBlock(t, c.dir)
+		if !strings.HasPrefix(text, refusalOpening) {
+			continue
+		}
+		compared++
+		if !slices.ContainsFunc(refused, func(rendering string) bool { return strings.HasPrefix(text, rendering) }) {
+			t.Errorf("case %s: its text block is\n  %q\nand no case in the corpus writes that Refusal on stderr", c.name, text)
+		}
+	}
+	if compared == 0 {
+		t.Fatal("no call case declined against a case that wrote on stderr; the rule was held over nothing")
+	}
+}
+
+// refusalOpening is what every §8 Refusal rendering begins with, in both of its
+// forms: the word and the code that declined (refusal.go). It is what tells a
+// Refusal from the narration a command writes beside an answer, on stderr and
+// in a text block alike.
+const refusalOpening = "refused: "
+
+// refusalsWritten is every Refusal the CLI writes, as the corpus holds it: the
+// stderr golden of each case that Refused, trimmed of its trailing newline.
+//
+// It is collected off the disk rather than composed, which is the same reading
+// the row fence takes: what a case checked in is what the command wrote, and a
+// rendering assembled here would be this file's account of §8 rather than the
+// corpus's.
+func refusalsWritten(t *testing.T) []string {
+	t.Helper()
+
+	var refused []string
+	walkTestdata(t, "stderr.golden", func(dir string) {
+		if wrote := strings.TrimRight(readFile(t, filepath.Join(dir, "stderr.golden")), "\n"); strings.HasPrefix(wrote, refusalOpening) {
+			refused = append(refused, wrote)
+		}
+	})
+	if len(refused) == 0 {
+		t.Fatal("no case under testdata/ writes a Refusal on stderr; the pairing has nothing to hold against")
+	}
+	return refused
+}
+
+// textBlock is the text of a case's first content block, read out of its
+// checked-in envelope.golden.
+//
+// It is the one member of an envelope a fence has to decode rather than
+// compare: the block is a JSON string carrying a rendering whose own newlines
+// are escaped, and what is compared against it is those newlines as they stand.
+// The shape is spelled here rather than taken from internal/mcp because a fence
+// reading the corpus reads what is **checked in** — a shape borrowed from the
+// package it is fencing would agree with that package by construction.
+func textBlock(t *testing.T, dir string) string {
+	t.Helper()
+
+	var held struct {
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, "envelope.golden"))), &held); err != nil {
+		t.Fatalf("%s: its envelope.golden is not one JSON value: %v", dir, err)
+	}
+	if len(held.Content) == 0 {
+		t.Fatalf("%s: its envelope carries no content block", dir)
+	}
+	return held.Content[0].Text
 }
 
 // TestGoldenCorpora_NoCallCaseNamesARepository is §9's own line held over the
@@ -282,7 +479,7 @@ func TestGoldenCorpora_ARowInAnEnvelopeIsTheRowTheStreamWrites(t *testing.T) {
 
 	var compared int
 	for _, c := range goldenCases(t) {
-		if c.call == nil {
+		if c.call == nil || c.answersAProtocolError() {
 			continue
 		}
 		for _, line := range strings.Split(readFile(t, filepath.Join(c.dir, "envelope.golden")), "\n") {

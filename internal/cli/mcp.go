@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/TheLoomLabs/hyper/internal/mcp"
 	"github.com/TheLoomLabs/hyper/internal/version"
@@ -81,14 +82,24 @@ func MCPServer(process Process, facts version.Facts) *mcp.Server {
 			// assumed: every tool is named for one of §9's sixteen and
 			// builds that command's own line, so a name arriving here
 			// that the table does not hold is this repository's bug and
-			// not a caller's. It travels as a non-zero exit, which the
-			// handler already reports as a fault in the server.
-			return mcp.Answer{Exit: ExitUsage}
+			// not a caller's. It is written where a usage error is
+			// written and carried the way one is — the message reaches
+			// a caller as the protocol error §9 answers a malformed
+			// call with, which is the nearest true thing to say about a
+			// tool that named nothing (issue #196).
+			fmt.Fprintf(to.narrate(), "hyper mcp: %q is not one of §9's sixteen commands; the tool set names a command this binary does not dispatch\n", strings.Join(argv, " "))
+			code = ExitUsage
 		}
+		// One construction of the Answer whichever way the call went, so
+		// that every buffer the destination kept crosses the boundary and
+		// the mapping on the other side decides which of them the envelope
+		// is composed from (mcp.Answer, envelopeOf).
 		return mcp.Answer{
 			Rows:      to.rows,
 			Terminal:  to.terminal,
 			Rendering: to.rendering.String(),
+			Refusal:   to.refusalRendering.String(),
+			Narration: to.narration.String(),
 			Exit:      code,
 		}
 	})

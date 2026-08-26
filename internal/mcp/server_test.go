@@ -3,6 +3,7 @@ package mcp
 import (
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -279,12 +280,21 @@ func TestCall_ATruncationMarkerTravelsWholeAndUnretyped(t *testing.T) {
 // registration would answer a `CallToolResult` with `IsError: true` here, which
 // is the shape a Refusal has — and this surface has no exit code with which to
 // tell the two apart.
+//
+// **Every case here is refused by hyper's own reading and not by the SDK's**,
+// which is the property rather than a gap in the cases: a schema is a claim a
+// client may or may not check, and the server is where the claim is made true
+// (tools.go). The empty name is the case that says so — the schema's
+// `minLength` and the tool's own reading refuse the same argument — and what
+// the table catches is an SDK that begins validating and answers a **result**
+// where these expect an error, whichever of the two would have refused it.
 func TestCall_AnArgumentTheSchemaDoesNotAdmitIsAProtocolError(t *testing.T) {
 	for _, called := range []struct{ name, tool, arguments string }{
 		{"a member no schema declares", "providers", `{"limit":10}`},
 		{"an override under a name of its own", "provider", `{"name":"shell","repo_dir":"/elsewhere"}`},
 		{"a member of the wrong type", "provider", `{"name":7}`},
 		{"a required member left off", "provider", `{}`},
+		{"a name the schema's minLength refuses", "provider", `{"name":""}`},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, _ := answering(nil, render.NewResultRow(false))
@@ -351,5 +361,181 @@ func TestSummary_CountsTheRowsByTheirOwnDiscriminator(t *testing.T) {
 				t.Errorf("summary = %q, want %q", got, one.want)
 			}
 		})
+	}
+}
+
+// The mapping: §9's table from the exit code a command returned to the envelope
+// this surface answers with (issue #196).
+//
+// Every case here drives a server whose dispatch answers one exit code, because
+// that is the axis: what a command found is the corpus's to state, and what
+// happens to `77` is this file's. Three of the seven codes are reachable from
+// the two tools m11.3 built — the corpus drives those against fixture
+// repositories — and the rest are reachable from tools their own tickets build,
+// so the rule is held here over a dispatch that answers them directly.
+//
+// **The codes are spelled as numbers and not read off internal/exit**, which is
+// the rule TestExitCodes_AreTheClosedSetOfSeven already keeps one package over:
+// a case that took its wanted value from the constant under test would agree
+// with whatever that constant happened to be. §12 fixes the numbers, and these
+// are the numbers.
+
+// returning is a server whose every tool answers this Answer, whatever argv it
+// was handed. It stands beside `answering` for the cases that are about the
+// exit code rather than about the rows.
+func returning(answer Answer) *Server {
+	return NewServer("1.4.0", func([]string) Answer { return answer })
+}
+
+// TestCall_APositionalThatMatchesNothingIsAProtocolError is §9's third member
+// of the malformed set, and the one this surface has in place of exit code `2`:
+// `provider("nope")` satisfies every schema and still names nothing.
+//
+// **The message is what the command wrote to stderr**, so an agent reads the
+// sentence a person would have read. Returning it as a domain answer would give
+// it `isError: true` with no `outcome` key — which is exactly the shape a
+// guardrail declining already returns, and the distinction the CLI half spends
+// `2` to draw (§9, ADR-0060).
+func TestCall_APositionalThatMatchesNothingIsAProtocolError(t *testing.T) {
+	wrote := "hyper provider: no Provider named \"nope\" in this repository's Provider namespace\n" +
+		"  hyper providers lists every Provider in it\n"
+	server := returning(Answer{Exit: 2, Narration: wrote})
+
+	envelope, err := server.Call(t.Context(), "provider", json.RawMessage(`{"name":"nope"}`))
+	if err == nil {
+		t.Fatalf("the call answered %+v, want a protocol error", envelope)
+	}
+	if got, want := err.Error(), strings.TrimRight(wrote, "\n"); got != want {
+		t.Errorf("the error carries %q, want the sentence the command wrote: %q", got, want)
+	}
+}
+
+// TestCall_ACallToANameOutsideTheToolSetIsAProtocolError is the first member of
+// §9's malformed set. It is the SDK's own answer rather than hyper's, and it is
+// held anyway: what the set says is that *every* malformed call arrives as a
+// protocol error, and an SDK that answered an unknown tool with a result
+// carrying the bit would put a usage error where a Refusal lives.
+func TestCall_ACallToANameOutsideTheToolSetIsAProtocolError(t *testing.T) {
+	server := returning(Answer{Terminal: render.NewResultRow(false)})
+
+	envelope, err := server.Call(t.Context(), "run", json.RawMessage(`{}`))
+	if err == nil {
+		t.Fatalf("the call answered %+v, want a protocol error", envelope)
+	}
+}
+
+// TestCall_AGuardrailDecliningIsTheRefusalRenderedWhole is §9's `77`: the two
+// codes the version pin gate Refuses under are reachable from every tool, and
+// what comes back is the whole rendering as `text`, `isError: true`, and **no
+// `outcome` key at all** — a tool that is not a Run carries none, and the gate
+// is not a Run refusing.
+func TestCall_AGuardrailDecliningIsTheRefusalRenderedWhole(t *testing.T) {
+	for _, refused := range []struct{ name, rendering string }{
+		{"version-pin-absent", "refused: version-pin-absent\n  hyper.yaml carries no version pin — run: hyper project\n"},
+		{"version-pin-mismatch", "refused: version-pin-mismatch\n  this binary is 1.4.0; the repository pins 9.9.9 — run: hyper project, or install 9.9.9\n"},
+	} {
+		t.Run(refused.name, func(t *testing.T) {
+			server := returning(Answer{Exit: 77, Refusal: refused.rendering})
+
+			envelope, err := server.Call(t.Context(), "providers", json.RawMessage(`{}`))
+			if err != nil {
+				t.Fatalf("a Refusal is an answer to a well-formed call, not a protocol error: %v", err)
+			}
+			if !envelope.IsError {
+				t.Error("isError is false on a Refusal; it means only that you did not get what you asked for")
+			}
+			if got := envelope.Content[0].Text; !strings.HasPrefix(got, refused.rendering) {
+				t.Errorf("the text block is %q, want the whole rendering first", got)
+			}
+			structured, err := json.Marshal(envelope.StructuredContent)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, want := string(structured), `{"rows":[],"truncated":null}`; got != want {
+				t.Errorf("the structured content is %s, want %s: no rows, no outcome key, and nothing restating the bit", got, want)
+			}
+		})
+	}
+}
+
+// TestCall_EveryRefusalSaysAVerbatimRetryRefusesIdentically is load-bearing
+// rather than manners: `isError: true` conventionally invites a retry, and this
+// surface has no exit code `77` with which to say otherwise (§9, ADR-0001). The
+// rendering is the only place the protocol leaves for saying it.
+func TestCall_EveryRefusalSaysAVerbatimRetryRefusesIdentically(t *testing.T) {
+	server := returning(Answer{Exit: 77, Refusal: "refused: version-pin-absent\n  hyper.yaml carries no version pin — run: hyper project\n"})
+
+	envelope, err := server.Call(t.Context(), "providers", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimRight(envelope.Content[0].Text, "\n"); !strings.HasSuffix(got, retrySentence) {
+		t.Errorf("the text block ends %q, want it to end with %q", got, retrySentence)
+	}
+}
+
+// TestCall_AnAnswerTheWorldResistedCarriesTheBitAndTheRows is the other half of
+// §9's `isError`: `1` and `75` are answers, not protocol errors, and the rows a
+// command found travel exactly as they do on a clean return. Neither code is
+// reachable from a Discovery tool — `check` exercises `1` and `run` exercises
+// `75`, in their own tickets — which is why the rule is held here.
+func TestCall_AnAnswerTheWorldResistedCarriesTheBitAndTheRows(t *testing.T) {
+	for _, code := range []struct {
+		name string
+		exit int
+	}{
+		{"problems the command found", 1},
+		{"the Store lost", 75},
+	} {
+		t.Run(code.name, func(t *testing.T) {
+			rows := []render.Row{stubRow{Type: "provider", Name: "alpha"}}
+			server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(false), Exit: code.exit})
+
+			envelope, err := server.Call(t.Context(), "providers", json.RawMessage(`{}`))
+			if err != nil {
+				t.Fatalf("exit %d is an answer, not a protocol error: %v", code.exit, err)
+			}
+			if !envelope.IsError {
+				t.Errorf("isError is false on exit %d; you did not get what you asked for", code.exit)
+			}
+			if got, want := len(envelope.StructuredContent.Rows), 1; got != want {
+				t.Errorf("the envelope carries %d rows, want %d", got, want)
+			}
+			if got, want := envelope.Content[0].Text, "1 Provider"; got != want {
+				t.Errorf("the text block is %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// TestCall_AnExitTheMappingDoesNotHoldIsAFaultInTheServer is what is left of
+// §12's seven once §9's table has taken five: `130` and `143` are unreachable
+// here — the server installs no signal watch — so a command answering one is a
+// fault in the server rather than an envelope this surface knows how to
+// compose. A wrong envelope is harder to notice than a missing one.
+func TestCall_AnExitTheMappingDoesNotHoldIsAFaultInTheServer(t *testing.T) {
+	for _, code := range []int{130, 143, 3} {
+		t.Run(strconv.Itoa(code), func(t *testing.T) {
+			server := returning(Answer{Terminal: render.NewResultRow(false), Exit: code})
+
+			envelope, err := server.Call(t.Context(), "providers", json.RawMessage(`{}`))
+			if err == nil {
+				t.Fatalf("the call answered %+v, want a fault in the server", envelope)
+			}
+		})
+	}
+}
+
+// TestCall_AGuardrailDecliningWithNothingRenderedIsAFaultInTheServer is the
+// same rule read the other way: `77` is *the Refusal rendered in full*, so an
+// answer carrying the code and no rendering is a path through a command that
+// left the remediation nowhere — and with no bypass anywhere the rendering is
+// the entire way past (ADR-0001).
+func TestCall_AGuardrailDecliningWithNothingRenderedIsAFaultInTheServer(t *testing.T) {
+	server := returning(Answer{Exit: 77})
+
+	envelope, err := server.Call(t.Context(), "providers", json.RawMessage(`{}`))
+	if err == nil {
+		t.Fatalf("the call answered %+v, want a fault in the server", envelope)
 	}
 }

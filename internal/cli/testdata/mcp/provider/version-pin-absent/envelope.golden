@@ -1,0 +1,10 @@
+{
+  "content": [
+    {"type":"text","text":"refused: version-pin-absent\n  hyper.yaml carries no version pin — run: hyper project\n\na verbatim retry refuses identically: no argument to this tool, and no flag anywhere, overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."}
+  ],
+  "structuredContent": {
+    "rows": [],
+    "truncated": null
+  },
+  "isError": true
+}

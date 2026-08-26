@@ -146,19 +146,35 @@ func (s streams) form(asJSON bool) destination {
 // would corrupt a frame rather than merely mislead a reader — so the structural
 // guarantee is not a rule a command is asked to keep but the absence of
 // anything to write to: what this retains is the rows and the terminal row as
-// **values**, io.Discard for narration, and a buffer for the renderings. A
-// command behind it can no more reach the wire than it can reach the network.
+// **values**, and three buffers for the prose. A command behind it can no more
+// reach the wire than it can reach the network.
 //
 // It retains the rows rather than a rendering of them because that is what the
 // envelope carries: §8's row set served as an array, one object per row (§9).
-// The page is rendered into the buffer beside them because a Refusal's full
+// The page is rendered into a buffer beside them because a Refusal's full
 // rendering and `review`'s are what §9's text block carries on two of its three
 // paths, and a destination that only sometimes rendered would be one the tool
 // had to ask twice.
+//
+// **The three buffers are three destinations and not one**, because the mapping
+// that reads them back tells them apart: the page is what `review`'s text block
+// carries, the Refusal rendering is what a declining guardrail's carries, and
+// the narration is the message a malformed call's protocol error carries (§9,
+// mcp.Answer, issue #196). One buffer would hand a Run that Refuses its own
+// terminal row's page and its Refusal concatenated, and §9 asks for the second
+// alone.
 type collected struct {
-	rows      []render.Row
-	terminal  render.Row
-	rendering bytes.Buffer
+	rows     []render.Row
+	terminal render.Row
+	// rendering is the command's page and refusalRendering is §8's
+	// Refusal. The second is spelled long because the method that writes
+	// it is `refusal`, and a type cannot hold a field and a method under
+	// one name.
+	rendering        bytes.Buffer
+	refusalRendering bytes.Buffer
+	// narration is everything the CLI would have written on stderr, kept
+	// against the one arm of the mapping that reads it (narrate).
+	narration bytes.Buffer
 }
 
 // answer retains the answer whole: the rows and the terminal row as values, and
@@ -174,30 +190,42 @@ func (c *collected) answer(rows []render.Row, terminal render.Row, page func(io.
 	return page(&c.rendering, rows)
 }
 
-// refusal renders §8's Refusal into the same buffer.
+// refusal renders §8's Refusal into a buffer of its own.
 //
-// It goes to the buffer rather than to a second place because on this surface a
-// Refusal *is* the answer's text: §9 puts the full rendering in the `text`
-// block, with `isError: true` beside it, exactly where the command exits 77.
-// The tool that reads it back is issue #196's; what is here is that the
-// rendering happens and is kept, so that no path through a command leaves it
-// written to nowhere.
+// It is kept rather than written anywhere because on this surface a Refusal
+// *is* the answer's text: §9 puts the full rendering in the `text` block, with
+// `isError: true` beside it, exactly where the command exits 77 — and with no
+// bypass anywhere that rendering is the entire way past (ADR-0001, mcp's
+// envelopeOf).
+//
+// It is not the page's buffer, and the command that says why is `run`: a Run
+// that Refuses writes its own terminal row through answer as well, §8 putting
+// it on the `outcome` side on every path on which a Run was attempted. Both
+// renderings would then be in one buffer, in whatever order the command
+// happened to produce them, and the text block asks for one of them.
 func (c *collected) refusal(form refusalForm, members []refusalRow) error {
-	return writeRefusalMembers(&c.rendering, form, members)
+	return writeRefusalMembers(&c.refusalRendering, form, members)
 }
 
-// narrate is io.Discard, which is §9's own reading of what narration is: a Run
-// naming its Steps, a warning beside a tolerated sync failure, a truncation
-// line, the human rendering of a usage error — *none of it is the answer, and
+// narrate is a buffer, and **nothing in an envelope is ever composed from it**:
+// narration is §9's own reading of a Run naming its Steps, a warning beside a
+// tolerated sync failure, a truncation line — *none of it is the answer, and
 // none of it is a row*. The CLI has a second stream for it and this surface has
-// none, so it is dropped rather than folded into an answer it is not part of.
+// none, so what is not read below is dropped.
 //
-// What a caller would have read on stderr is not lost where it matters: a
-// truncated result says so in the envelope, in both halves; a usage error
-// arrives as a protocol error; and a Refusal is rendered in full into the
-// buffer above. Progress narration is §9's notification at a Step boundary,
-// which arrives with the tool that has Steps to narrate.
-func (c *collected) narrate() io.Writer { return io.Discard }
+// What is read below is one thing: **the human rendering of a usage error**,
+// which is the message the protocol error a malformed call comes back as
+// carries, so that an agent reads the sentence a person would have read (§9,
+// ADR-0060, mcp's envelopeOf). It was io.Discard until that sentence had a
+// reader; a usage error whose narration went nowhere would arrive as a
+// protocol error with nothing in it but a number.
+//
+// The rest of what a caller would have read on stderr is not lost where it
+// matters: a truncated result says so in the envelope, in both halves, and a
+// Refusal is rendered in full into the buffer above. Progress narration is
+// §9's notification at a Step boundary, which arrives with the tool that has
+// Steps to narrate.
+func (c *collected) narrate() io.Writer { return &c.narration }
 
 // form answers this destination whichever form was named, which is what
 // destination.form exists to let a destination do: **decline the request by
