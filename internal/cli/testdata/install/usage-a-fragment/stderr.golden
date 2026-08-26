@@ -1,0 +1,1 @@
+hyper install: "https://providers.example.com/acme/dns.yaml#origin" is not a ref: a ref carries no query and no fragment — a ref is recorded, rendered and typed again, and either would let two callers name one set of bytes two ways

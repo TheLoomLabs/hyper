@@ -1,0 +1,1 @@
+hyper install: "/etc/hyper/dns.yaml" is not a ref: the scheme is https and there is no second one

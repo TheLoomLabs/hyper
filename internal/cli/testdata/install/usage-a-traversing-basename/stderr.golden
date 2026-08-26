@@ -1,0 +1,1 @@
+hyper install: "https://providers.example.com/acme/.." is not a ref: a ref's last path segment is a providers/ filename, and . and .. are not filenames

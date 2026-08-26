@@ -1,0 +1,16 @@
+{
+  "status": 200,
+  "answers": [
+    {
+      "status": 302,
+      "headers": {
+        "Location": "https://cdn.example.net/blobs/dns.yaml"
+      },
+      "body": ""
+    },
+    {
+      "status": 200,
+      "body": "d2ed2c9148d3065e57b2fed8023ea46b46f291d98cc7eff13f8fc59cc434351f  dns.yaml\n"
+    }
+  ]
+}

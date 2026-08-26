@@ -57,12 +57,17 @@ type Absent struct{ fault string }
 
 func (a *Absent) Error() string { return a.fault }
 
-// maxChecksums is how much of the checksums file is read. It is a few hundred
+// MaxChecksums is how much of a checksums file is read. It is a few hundred
 // bytes by construction — one `sha256sum` line per published file — and the cap
 // is here because nothing about a URL guarantees what is behind it: a body that
 // is not the file it should be must fail as `release-artefact-absent`, not as a
 // laptop reading a gigabyte into memory.
-const maxChecksums = 1 << 20
+//
+// It is exported for DigestIn's own reason: `install` reads a checksums file
+// published beside a Manifest, which is the same kind of file this reads
+// published beside a release artefact, and a second number for one fact is
+// where the day comes that the two disagree (ADR-0087, internal/registry).
+const MaxChecksums = 1 << 20
 
 // Digest is the published checksum of the release artefact for version, as the
 // Repository declaration spells it — the algorithm inline, `sha256:` and the hex
@@ -86,7 +91,7 @@ func Digest(ctx context.Context, dial capability.Dial, version string) (string, 
 	if err != nil {
 		return "", err
 	}
-	response, err := client(dial).Do(request)
+	response, err := Client(dial).Do(request)
 	if err != nil {
 		return "", err
 	}
@@ -98,13 +103,13 @@ func Digest(ctx context.Context, dial capability.Dial, version string) (string, 
 		return "", fmt.Errorf("%s answered %d", url, response.StatusCode)
 	}
 
-	published, err := io.ReadAll(io.LimitReader(response.Body, maxChecksums))
+	published, err := io.ReadAll(io.LimitReader(response.Body, MaxChecksums))
 	if err != nil {
 		return "", err
 	}
 
 	name := workflow.ArtefactName(version)
-	if digest, named := digestIn(string(published), name); named {
+	if digest, named := DigestIn(string(published), name); named {
 		return digest, nil
 	}
 	return "", &Absent{fmt.Sprintf("%s names no %s", url, name)}
@@ -131,7 +136,7 @@ func absentAt(status int) (absent, answered bool) {
 	return false, false
 }
 
-// digestIn is the checksum one `sha256sum` line records for name, and false
+// DigestIn is the checksum one `sha256sum` line records for name, and false
 // where no line in the file names it.
 //
 // The two spellings `sha256sum` writes are read alike — two spaces for a text
@@ -139,7 +144,14 @@ func absentAt(status int) (absent, answered bool) {
 // not a fact about the release, and a digest missed for a space would be
 // `release-artefact-absent` reported against a file that names the artefact
 // perfectly well.
-func digestIn(published, name string) (string, bool) {
+//
+// **It is exported because it is one grammar and not this package's own.** A
+// checksum published beside a file, read by a tool about to trust the bytes, is
+// the same fact whether the file is a release artefact or a Manifest a ref
+// names — so `install` reads its `checksums.txt` through this rather than
+// through a second parse of one format, which is where two readings of one line
+// eventually drift apart (ADR-0087, internal/registry).
+func DigestIn(published, name string) (string, bool) {
 	for _, line := range strings.Split(published, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) == 2 && strings.TrimPrefix(fields[1], "*") == name {
@@ -149,9 +161,16 @@ func digestIn(published, name string) (string, bool) {
 	return "", false
 }
 
-// client is what this one read is made with, and it is the `http` Capability's
-// own client less everything a Capability needs: the threaded dialer wired as
-// DialTLSContext, and keep-alives off because one read is one connection.
+// Client is what a read of a published file is made with, and it is the `http`
+// Capability's own client less everything a Capability needs: the threaded
+// dialer wired as DialTLSContext, and keep-alives off because one read is one
+// connection.
+//
+// **It is exported for DigestIn's own reason and no other.** `install` reads a
+// Manifest and the checksums file beside it over exactly these terms — ADR-0087
+// states them one by one and states them as this package's — so a second
+// constructor spelling them again is where the day comes that one of them
+// follows a redirect into plaintext and the other does not (internal/registry).
 //
 // **Redirects are followed**, which is where it parts company with a
 // Capability's call. There a redirect is reach arriving from data and the grant
@@ -167,7 +186,7 @@ func digestIn(published, name string) (string, bool) {
 // There is no timeout. No artefact declared one, and a bound written here would
 // be one nobody agreed to; what a fetch that never completes costs is a command
 // a human is sitting in front of, and the interrupt is theirs (§3, ADR-0014).
-func client(dial capability.Dial) *http.Client {
+func Client(dial capability.Dial) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
 			DialTLSContext:    dial,

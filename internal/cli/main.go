@@ -207,4 +207,12 @@ var repositoryCommands = map[string]repositoryCommand{
 	// stating it here would put it a layer above the reason for it (§9,
 	// ADR-0020).
 	"project": RunProject,
+	// The sixteenth and last of §9's sixteen, and the single point at which
+	// third-party data enters the repository. It takes the whole value for
+	// `project`'s reason and for one of `probe`'s: it dials, and Dial is the
+	// member that says so. It reads no clock, mints no id and starts no
+	// child — the fetch is hyper's own and not an Operation — and the file it
+	// writes is a tracked one a human reads in a diff (§9, §11, ADR-0087,
+	// issue #187).
+	"install": RunInstall,
 }

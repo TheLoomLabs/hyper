@@ -1,0 +1,1 @@
+hyper install: "https://providers.example.com/acme/dns.yml" is not a ref: a ref's path ends in .yaml — the loader reads providers/*.yaml and nothing else, so bytes landing anywhere else would never be read

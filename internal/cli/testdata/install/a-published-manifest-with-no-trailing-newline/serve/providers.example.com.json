@@ -1,0 +1,19 @@
+{
+  "status": 200,
+  "answers": [
+    {
+      "status": 200,
+      "headers": {
+        "Content-Type": "application/yaml"
+      },
+      "body": "kind: provider\nprovider: dns\nschema-version: 1\nclass: cloudflare\ncapabilities: [http]\nauth:\n  header: {name: Authorization, prefix: \"Bearer \"}\noperations:\n  list_records:\n    kind: read\n    repeatability: repeatable\n    deadline: 30s\n    http:\n      method: GET\n      host: \"{from-target}\"\n      path: /client/v4/zones/{zone_id}/dns_records\n    input:\n      type: object\n      properties:\n        zone_id: {type: string}\n    record:\n      over: $.body.result\n      identity: $.id\n      fields: {id: $.id, name: $.name}"
+    },
+    {
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/plain"
+      },
+      "body": "5fd6deb9059143d61db7f83b35699dee2f71fe025ed0b342b901c753b3bb2c07  other.yaml\n9b0df992b15ecfdbd1d7e3c78fd8e9dd654b3dad562f12a6c48d5e3de6fde9f1  dns.yaml\n"
+    }
+  ]
+}

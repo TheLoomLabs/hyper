@@ -1,0 +1,9 @@
+kind: provider
+provider: dns
+schema-version: 1
+class: cloudflare
+capabilities: [http]
+operations: {}
+origin:
+  ref: https://providers.example.com/acme/dns.yaml
+  digest: sha256:1111111111111111111111111111111111111111111111111111111111111111

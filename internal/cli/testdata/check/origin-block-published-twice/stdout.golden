@@ -1,0 +1,2 @@
+FILE                LINE  FIELD   ERROR_CODE             MESSAGE
+providers/dns.yaml  28    origin  strict-yaml-violation  a mapping names each key once, and "origin" is named again here

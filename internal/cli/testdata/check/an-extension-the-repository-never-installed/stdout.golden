@@ -1,0 +1,2 @@
+FILE                           LINE  FIELD     ERROR_CODE       MESSAGE
+definitions/zone-records.yaml  3     provider  artefact-absent  provider: dns resolves to nothing — no built-in Provider and no providers/dns.yaml

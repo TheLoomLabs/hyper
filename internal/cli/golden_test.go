@@ -813,18 +813,32 @@ func corpusNames(command string) []string {
 	return names
 }
 
+// writesTheWorkingTree is the commands in §9's tree that write a file into it:
+// `project`, which regenerates the projection and edits the declaration, and
+// `install`, which writes a Manifest into `providers/` (§10, §11).
+//
+// They are named rather than inferred because no shape of a case directory says
+// so — a case is found by having an argv, and what its command does is exactly
+// what the harness deliberately does not know. So the fact is stated in one
+// place, and the writer that lands in a later milestone joins it here on purpose
+// rather than by being forgotten. `store init` is not one of them: the branch it
+// creates is built from objects and nothing about it is ever checked out, so it
+// runs against a dirty tree like any read command (§7, ADR-0075).
+var writesTheWorkingTree = []string{"project", "install"}
+
 // TestGoldenCorpora_EveryCaseThatWritesTheWorkingTreeHoldsATreeGolden is the
 // other direction of the guard fixtureInputs.fault holds: a tree.golden with no
 // repository to write into is a case that means nothing, and a case that writes
 // the working tree with no tree.golden is a case that asserts half of what it
 // drives (issue #177).
 //
-// `project` is named here rather than inferred because it is the one command in
-// §9's tree that writes a file into the working tree, and no shape of a case
-// directory says so — a case is found by having an argv, and what its command
-// does is exactly what the harness deliberately does not know. So the fact is
-// stated in one place, and a second writer landing in a later milestone joins it
-// here on purpose rather than by being forgotten.
+// **The rule reaches the cases that stand in a repository, and it is the same
+// guard read from the other end.** A case that materialises none is one whose
+// command exits before there is a working tree to write — every one of
+// `install`'s ref-grammar cases, decided from the argument list alone with no
+// repository resolved and no network reached (ADR-0087) — and fault refuses a
+// tree.golden on exactly those, so demanding one here would be the two halves of
+// one guard contradicting each other (issue #187).
 //
 // What it holds is `store init`'s own rule read across: the two text streams say
 // what a command **reported** and only the tree says what it **did**, so a case
@@ -833,7 +847,7 @@ func corpusNames(command string) []string {
 func TestGoldenCorpora_EveryCaseThatWritesTheWorkingTreeHoldsATreeGolden(t *testing.T) {
 	var held int
 	for _, c := range goldenCases(t) {
-		if c.argv[0] != "project" {
+		if !slices.Contains(writesTheWorkingTree, c.argv[0]) || !c.fixtureInputs().materialised() {
 			continue
 		}
 		held++
@@ -1070,7 +1084,14 @@ const pinGatePrefix = "refused: version-pin-"
 // rather than inferred from an empty corpus, because *no case drives this
 // command* is exactly what a corpus deleted by accident looks like (§9, issue
 // #104).
-var notYetBuilt = []string{"install"}
+//
+// **It is empty, and that is the surface closed.** `install` was its one member
+// until milestone 10 built it, so all sixteen of §9's tree are now driven by a
+// corpus of their own and held to the gate here (issue #187). The list stays
+// rather than going with its last member: the switch below reads it, an empty
+// one costs nothing, and the day §9 fixes a seventeenth name is the day
+// something has to hold the corpus that does not exist yet.
+var notYetBuilt = []string{}
 
 // TestGoldenCorpora_EveryCommandButProjectGatesOnThePin is §9's gate held over
 // the whole surface at once, and the one exemption inside the tree held with it

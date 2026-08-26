@@ -29,9 +29,16 @@ func FindGitRoot(start string) (root string, ok bool) {
 	}
 }
 
+// ProvidersDir is where a Manifest lives, §12's own name for it. It is
+// exported because it is the one artefact location anything **writes**:
+// `install` is the single point at which third-party data enters the
+// repository, and the directory it writes into is the directory the loader
+// reads back (§11, §12, issue #187).
+const ProvidersDir = "providers"
+
 // artefactDirs are four of the five artefact locations §12 fixes. The fifth,
 // hyper.yaml, lives at the repository root rather than in a directory.
-var artefactDirs = []string{"definitions", "procedures", "targets", "providers"}
+var artefactDirs = []string{"definitions", "procedures", "targets", ProvidersDir}
 
 // artefactFiles returns every artefact file's path, relative to repoRoot with
 // forward slashes, across the five artefact locations (§9). A directory that

@@ -1,0 +1,2 @@
+FILE                LINE  FIELD     ERROR_CODE     MESSAGE
+providers/dns.yaml  2     provider  name-mismatch  provider: acme-dns does not agree with providers/dns.yaml's basename — want dns

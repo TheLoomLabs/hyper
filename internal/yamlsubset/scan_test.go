@@ -224,3 +224,45 @@ func mustOneViolation(t *testing.T, got []problem.Problem, line, column int, fie
 		t.Errorf("ErrorCode = %q, want %q", p.ErrorCode, ErrorCode)
 	}
 }
+
+// TestScan_ADuplicateKeyIsAViolation is the rule §3 states as a property rather
+// than as a check — *a mapping makes a name unique by construction* — held
+// against the one file in the tool that can acquire a second copy of a key
+// nobody typed twice: a published Manifest carrying its own origin: block, over
+// which `install` appends the block it verified (§4, ADR-0023, ADR-0087).
+func TestScan_ADuplicateKeyIsAViolation(t *testing.T) {
+	data := []byte("kind: provider\norigin:\n  ref: a\n  digest: b\norigin:\n  ref: c\n  digest: d\n")
+	got := Scan("providers/dns.yaml", data)
+	mustOneViolation(t, got, 5, 1, "origin")
+}
+
+// TestScan_ADuplicateKeyIsReportedWhereItIsWritten is the position rule the
+// rest of this package keeps: the problem stands on the **second** spelling,
+// which is the line an author deletes, rather than on the first, which is the
+// one they meant.
+func TestScan_ADuplicateKeyIsReportedWhereItIsWritten(t *testing.T) {
+	data := []byte("operations:\n  read_it:\n    kind: read\n    kind: mutate\n")
+	got := Scan("providers/dns.yaml", data)
+	mustOneViolation(t, got, 4, 5, "operations.read_it.kind")
+}
+
+// TestScan_OneKeyPerMappingIsNotADuplicate is the other direction: the same
+// name under two different parents is two names, and a rule that read them as
+// one would refuse every Manifest whose Operations each declare a kind:.
+func TestScan_OneKeyPerMappingIsNotADuplicate(t *testing.T) {
+	data := []byte("first:\n  kind: read\nsecond:\n  kind: mutate\n")
+	got := Scan("providers/dns.yaml", data)
+	if len(got) != 0 {
+		t.Fatalf("Scan() = %v, want no problems", got)
+	}
+}
+
+// TestScan_ADuplicateInASequenceOfMappingsIsNotADuplicate holds the same
+// boundary one shape over: each member of a sequence is a mapping of its own.
+func TestScan_ADuplicateInASequenceOfMappingsIsNotADuplicate(t *testing.T) {
+	data := []byte("steps:\n  - id: one\n  - id: two\n")
+	got := Scan("procedures/p.yaml", data)
+	if len(got) != 0 {
+		t.Fatalf("Scan() = %v, want no problems", got)
+	}
+}

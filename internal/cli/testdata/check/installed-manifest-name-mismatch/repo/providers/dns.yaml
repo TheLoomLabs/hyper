@@ -1,0 +1,27 @@
+kind: provider
+provider: acme-dns
+schema-version: 1
+class: cloudflare
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  list_records:
+    kind: read
+    repeatability: repeatable
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /client/v4/zones/{zone_id}/dns_records
+    input:
+      type: object
+      properties:
+        zone_id: {type: string}
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id, name: $.name}
+origin:
+  ref: https://providers.example.com/acme/dns.yaml
+  digest: sha256:12797e8ad2db787550d98efd25e99f05a4b5a393500fa0e4092df2a44779ee67

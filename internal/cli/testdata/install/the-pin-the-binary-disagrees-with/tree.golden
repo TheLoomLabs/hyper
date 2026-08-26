@@ -1,0 +1,6 @@
+no .github/workflows/ directory
+=== hyper.yaml (124 bytes)
+kind: repository-declaration
+version: 9.9.9
+digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+no providers/ directory

@@ -150,6 +150,25 @@ func walk(n *yaml.Node, field, file string, problems *[]problem.Problem) {
 
 	switch n.Kind {
 	case yaml.MappingNode:
+		// The names this mapping has already given, and the whole of the
+		// duplicate-key rule.
+		//
+		// It is the one rejected construct that is a property of a
+		// **mapping** rather than of a node, which is why it is walked
+		// here rather than listed in violations below. §3 states it as a
+		// property and names no check for it — *a mapping makes a name
+		// unique by construction, so there is no duplicate-name rule to
+		// state* — and go-yaml decoding into a node keeps both spellings
+		// and resolves the mapping to the last, which is exactly the
+		// shape the strict subset exists to refuse: one line's meaning
+		// depending on another line (§3, ADR-0023).
+		//
+		// It is per mapping and never per file: the same name under two
+		// parents is two names, and every Manifest whose Operations each
+		// declare a `kind:` has several. And it is reported on the
+		// **second** spelling, which is the line an author deletes; the
+		// first is the one they meant.
+		named := make(map[string]bool, len(n.Content)/2)
 		for i := 0; i+1 < len(n.Content); i += 2 {
 			key := n.Content[i]
 			val := n.Content[i+1]
@@ -159,6 +178,12 @@ func walk(n *yaml.Node, field, file string, problems *[]problem.Problem) {
 			} else {
 				for _, msg := range violations(key) {
 					emit(problems, file, field, key, msg)
+				}
+				if key.Kind == yaml.ScalarNode {
+					if named[key.Value] {
+						emit(problems, file, join(field, key.Value), key, fmt.Sprintf("a mapping names each key once, and %q is named again here", key.Value))
+					}
+					named[key.Value] = true
 				}
 			}
 

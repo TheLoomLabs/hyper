@@ -1,0 +1,1 @@
+hyper install: "https://acme:token@providers.example.com/acme/dns.yaml" is not a ref: a ref carries no userinfo — it is written into a tracked file and read in a diff, and a credential in it is the one place hyper would write a secret down

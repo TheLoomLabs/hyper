@@ -1,0 +1,5 @@
+kind: definition
+definition: zone-records
+provider: dns
+kinds: [read]
+targets: [cloudflare-prod]

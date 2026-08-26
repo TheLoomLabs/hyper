@@ -1,0 +1,4 @@
+{
+  "status": 200,
+  "body": "kind: provider\nprovider: dns\nschema-version: 1\nclass: cloudflare\ncapabilities: [http]\nauth:\n  header: {name: Authorization, prefix: \"Bearer \"}\noperations:\n  list_records:\n    kind: read\n    repeatability: repeatable\n    deadline: 30s\n    http:\n      method: GET\n      host: \"{from-target}\"\n      path: /client/v4/zones/{zone_id}/dns_records\n    input:\n      type: object\n      properties:\n        zone_id: {type: string}\n    record:\n      over: $.body.result\n      identity: $.id\n      fields: {id: $.id, name: $.name}\n"
+}
