@@ -142,10 +142,26 @@ var milestoneNineCheckCodes = []string{
 // reading the repository**, which is the claim §11 rests the whole distribution
 // mechanism on and which nothing enforced until this milestone (§11, §12,
 // issue #189).
+//
+// `manifest-schema-unsupported` is the fourth, and it closes the sentence the
+// three above leave open: what an Extension may never be and what an installed
+// one must still be both presuppose a file this binary can read at all. A
+// Manifest is the one artefact carrying an explicit schema version, being the
+// one authored outside this repository's pin (ADR-0023), and until this
+// milestone that integer was decoration — a Manifest declaring `schema-version:
+// 7` was read as though it declared `1`, with its declared-equals-derived
+// Capability check run against keys the reader could not see, which is the one
+// guess §11 calls expensive by name (§11, §12, ADR-0028, issue #190).
+//
+// It is also the one member of this list whose remedy is **not an artefact
+// edit**: *a hyper that reads this schema version — nothing in the repository is
+// the fault*. So its Refusal renders a named remedy where the three above render
+// an `EDIT ONE OF` table.
 var milestoneTenErrorCodes = []string{
 	"provider-name-collision",
 	"capability-reserved",
 	"origin-digest-mismatch",
+	"manifest-schema-unsupported",
 }
 
 // checkCorpusErrorCodes is every error_code the check corpus owes a failing
@@ -238,6 +254,16 @@ const runCorpus = "testdata/run"
 // being exactly what §11's origin: block exists to prevent (§6, §11, issue
 // #189).
 //
+// manifest-schema-unsupported is milestone 10's fourth, and it is here on the
+// footing the three above it are and one of its own: what a Run would otherwise
+// do is read a Manifest on a partial understanding of its own shape, which is
+// the failure §11 calls expensive by name — the declared-equals-derived
+// Capability check run against keys the reader could not see (§6, §11, issue
+// #190). Its Refusal is also the second place §8's named-remedy rendering is
+// asserted against an **artefact** citation — `a-credential-the-environment-
+// does-not-hold` is the first — a caret on the `schema-version:` scalar, and a
+// remedy that is a binary to install rather than an `EDIT ONE OF` table.
+//
 // projection-stale is the other, and it is the member this list was hardest to
 // leave out: a Run started by a projected workflow is a Run started by a file
 // that must be what the artefacts ask for, and a rule that held on a laptop and
@@ -262,6 +288,7 @@ var codesReachingARun = []string{
 	"provider-name-collision",
 	"capability-reserved",
 	"origin-digest-mismatch",
+	"manifest-schema-unsupported",
 }
 
 // artefactKindsCitedByARefusal is the five reviewed artefacts by where each one

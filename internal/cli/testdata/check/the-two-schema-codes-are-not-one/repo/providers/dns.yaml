@@ -1,0 +1,12 @@
+kind: provider
+provider: dns
+schema-version: 2
+class: cloudflare
+capabilities: [http]
+operations:
+  list_records:
+    kind: read
+    deadline: 45s
+    http: {method: GET, host: "{from-target}", path: /client/v4/zones}
+    input: {type: object, properties: {}}
+    record: {identity: $.id, fields: {id: $.id}}

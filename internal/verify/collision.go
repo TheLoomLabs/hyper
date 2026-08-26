@@ -66,6 +66,18 @@ func collisionProblems(loaded repository.Loaded) []problem.Problem {
 		if !a.OK || !strings.HasPrefix(a.Path, "providers/") {
 			continue
 		}
+		// A Manifest written in a shape this binary does not know
+		// contributes nothing to the Provider namespace either
+		// (internal/repository's manifestsByName), and this check's
+		// subject is that namespace — so a file that is not in it takes
+		// no name inside it and there is no collision to report. It is
+		// the check's own subject deciding and not a suppression laid
+		// over it: reading `provider:` off a shape nobody defined is the
+		// guess `manifest-schema-unsupported` exists to refuse, and the
+		// file already carries the one row it earns (§11, ADR-0028).
+		if artefact.ManifestSchemaUnsupported(a.Root) {
+			continue
+		}
 		name := artefact.ManifestProviderName(a.Root)
 		if !artefact.IsBuiltinProviderName(name) {
 			continue

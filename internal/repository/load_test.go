@@ -359,6 +359,39 @@ func TestLoad_AnExtensionTakingABuiltinsNameContributesNothing(t *testing.T) {
 	t.Error("the colliding file is in no load at all; it contributes no name and is still an artefact check reports against")
 }
 
+// TestLoad_AManifestAboveTheSchemaCeilingContributesNothing is the same
+// declining one rule over, and for the reason that makes it the sharper of the
+// two: an Extension taking a built-in's name is a file this binary understands
+// and may not admit, and this is a file this binary does not understand at all.
+// Folding a name off it would be reading one key of a shape nobody defined.
+//
+// It is the load's half of `manifest-schema-unsupported`. The row that says so
+// is the file's own check (internal/artefact), and what is asserted here is what
+// a row cannot state: the name means nothing, so a Definition that names it
+// resolves to nothing and earns `artefact-absent` (§11, ADR-0028).
+func TestLoad_AManifestAboveTheSchemaCeilingContributesNothing(t *testing.T) {
+	root := fiveArtefacts(t)
+	write(t, root, "providers/hetzner.yaml", "kind: provider\nprovider: hetzner\nschema-version: 2\n")
+
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if held, named := loaded.Manifests["hetzner"]; named {
+		t.Errorf("hetzner loaded as %+v; a Manifest written in a shape this hyper does not know names nothing", held)
+	}
+	if _, named := loaded.Providers["hetzner"]; named {
+		t.Error("hetzner is in the Provider namespace; a Definition naming it would resolve through a shape nobody defined")
+	}
+	for _, a := range loaded.Artefacts {
+		if a.Path == "providers/hetzner.yaml" {
+			return
+		}
+	}
+	t.Error("the file is in no load at all; it contributes no name and is still an artefact check reports against")
+}
+
 // TestLoad_TargetDeclarationsAreTheTargetNamespacesOtherHalf is the fold issue
 // #112 needs, on the shape #111 gave the Provider namespace: every name in
 // Targets has the declaration it was read from here, which is what `hyper

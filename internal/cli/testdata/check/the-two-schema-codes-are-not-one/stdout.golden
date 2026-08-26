@@ -1,0 +1,3 @@
+FILE                   LINE  FIELD                                                  ERROR_CODE                   MESSAGE
+providers/dns.yaml     3     schema-version                                         manifest-schema-unsupported  schema-version: 2 is above the 1 this hyper reads — a Manifest shape this binary does not know, so nothing else about this file is checked
+providers/uptime.yaml  11    operations.check_http.input.properties.host.minLength  schema-unsupported           "minLength" reaches outside the input-schema subset — type, enum, properties and items are the whole of it

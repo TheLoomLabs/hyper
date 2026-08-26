@@ -1,0 +1,3 @@
+FILE                           LINE  FIELD           ERROR_CODE                   MESSAGE
+definitions/zone-records.yaml  3     provider        artefact-absent              provider: dns resolves to nothing — no built-in Provider and no providers/dns.yaml
+providers/dns.yaml             3     schema-version  manifest-schema-unsupported  schema-version: 2 is above the 1 this hyper reads — a Manifest shape this binary does not know, so nothing else about this file is checked

@@ -313,7 +313,19 @@ var fieldNoRootPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-
 // the parse tree rather than a second spelling of it — the digest an installed
 // Manifest records covers a byte range of the file, which is not a thing a
 // parse tree holds (§11, manifest_origin.go).
+//
+// **One check stands ahead of all of them and replaces them.** A Manifest
+// declaring a schema version above the one this binary reads is one code and
+// nothing else, this reader having no claim on the shape of the keys beneath it
+// (§11, ADR-0028, manifest_schema.go). It is written as a return rather than as
+// a suppression each check consults, which is the same argument the drop in
+// withReservedCapability makes one row at a time: a check that has to know it is
+// reading a partially understood file is the shape §11 warns about.
 func CheckManifest(file string, root *yaml.Node, manifest []byte) []problem.Problem {
+	if unsupported := checkManifestSchemaVersion(file, root); unsupported != nil {
+		return unsupported
+	}
+
 	problems := withReservedCapability(checkManifestBody(file, root), file, root)
 	problems = append(problems, checkKind(file, root, KindProvider)...)
 	problems = append(problems, checkName(file, root, "provider")...)

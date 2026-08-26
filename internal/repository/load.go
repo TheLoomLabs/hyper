@@ -446,13 +446,23 @@ func definitionDeclarationsByName(artefacts []LoadedArtefact) map[string]*yaml.N
 // covers every collision this fold can see. That argument is written at the
 // check rather than repeated here (internal/verify's collisionProblems).
 //
+// **A Manifest written in a shape this binary does not know contributes nothing
+// either**, on the same mechanism and for a sharper reason: a colliding file is
+// one this reader understands and may not admit, and this is one it does not
+// understand at all, so folding a name off it would be reading a single key of a
+// shape nobody defined. That is `manifest-schema-unsupported`, decided by the
+// one predicate its check reads too (artefact.ManifestSchemaUnsupported), and a
+// Definition naming what it would have declared earns `artefact-absent` —
+// ADR-0064's shape for a file that says nothing this load can use (§11,
+// ADR-0028).
+//
 // Deciding it once is what makes the Manifest `hyper providers` reports for a
 // name and the Manifest a Definition's provider: resolves to the same file
 // rather than two readings of one repository.
 func manifestsByName(artefacts []LoadedArtefact) map[string]LoadedManifest {
 	manifests := map[string]LoadedManifest{}
 	for _, a := range artefacts {
-		if !a.OK || !isManifest(a.Path) {
+		if !a.OK || !isManifest(a.Path) || artefact.ManifestSchemaUnsupported(a.Root) {
 			continue
 		}
 		name := artefact.ManifestProviderName(a.Root)

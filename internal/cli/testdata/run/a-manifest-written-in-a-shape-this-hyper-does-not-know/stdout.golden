@@ -1,0 +1,14 @@
+nothing ran. no step was reached.
+
+refused: manifest-schema-unsupported
+
+  providers/inventory.yaml:3
+    1 │ kind: provider
+    2 │ provider: inventory
+    3 │ schema-version: 2
+      │                 ^ schema-version: 2 is above the 1 this hyper reads — a Manifest shape this binary does not know, so nothing else about this file is checked
+      │
+      = checked at run start, before the first step
+      = a hyper that reads this schema version — nothing in the repository is the fault
+
+refused · exit 77 · run 01992102-6a30-7c41-bb2f-4e5d8a1c9e78

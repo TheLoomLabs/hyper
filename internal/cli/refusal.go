@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/pin"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/run"
@@ -118,41 +119,38 @@ func refusalPhase(member refusalRow) string {
 // operator can take without leaving the shell — and the only one no generated
 // workflow can take at all (§4, ADR-0077).
 var refusalRemedies = map[string]string{
-	run.CodeCredentialAbsent:    "set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --",
-	run.CodeSecretSinkAbsent:    "the same invocation again with --secret-out <path>",
-	verify.CodeProjectionStale:  "hyper project",
-	storeAbsentCode:             "hyper store init",
-	store.SchemaUnsupportedCode: "a hyper that reads this schema version — nothing in the repository is the fault",
-	manifestSchemaUnsupported:   "a hyper that reads this schema version — nothing in the repository is the fault",
-	pin.CodeMismatch:            "the hyper the Repository declaration pins",
+	run.CodeCredentialAbsent:               "set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --",
+	run.CodeSecretSinkAbsent:               "the same invocation again with --secret-out <path>",
+	verify.CodeProjectionStale:             "hyper project",
+	storeAbsentCode:                        "hyper store init",
+	store.SchemaUnsupportedCode:            "a hyper that reads this schema version — nothing in the repository is the fault",
+	artefact.CodeManifestSchemaUnsupported: "a hyper that reads this schema version — nothing in the repository is the fault",
+	pin.CodeMismatch:                       "the hyper the Repository declaration pins",
 }
 
-// **Three of the seven are not reachable through this renderer today**, and
-// they are in the map anyway. `store-absent` and `version-pin-mismatch` decline
+// **Two of the seven are not reachable through this renderer today**, and they
+// are in the map anyway. `store-absent` and `version-pin-mismatch` decline
 // before a Run is identified at all and render as the two-line form gate.go
-// states, and `manifest-schema-unsupported` arrives with the digest-verified
-// install. The map is §8's own list of *the remedies that are not an edit*, and
+// states. The map is §8's own list of *the remedies that are not an edit*, and
 // a list that dropped a member because the check that fires it is not built is
-// a partial copy of a closed set — the day one lands, the default is a
-// remediation table pointing at a Manifest verified by digest, which is the one
-// thing §8 says this surface must not draw.
+// a partial copy of a closed set.
 //
-// `projection-stale` was the fourth until issue #179 built the check, and its
-// arrival is what the ground above was held for: a Run's pre-flight declines on
-// it like any other static code, and what a reader gets is a command to run
-// rather than a table pointing at a generated file (§10).
-
-// The one code named in refusalRemedies that no package this one imports spells
-// as a constant. It is the string §12 fixes, reached here the way internal/run
-// reaches the codes it shares with internal/artefact: the string is the
-// contract, and a second site declaring it is not a second definition.
+// `projection-stale` was the fourth until issue #179 built the check, and
+// `manifest-schema-unsupported` the third until issue #190 built this one.
+// Their arrival is what the ground above was held for: a Run's pre-flight
+// declines on each like any other static code, and what a reader gets is a
+// command to run, or a binary to install, rather than a table pointing at a
+// generated file or at a Manifest whose shape this binary does not know (§10,
+// §11).
 //
-// `manifest-schema-unsupported` is **not** internal/artefact's
-// `schema-unsupported`, which the tool already emits: that one is an input
-// schema reaching outside §4's four-keyword subset and its remedy is an
-// ordinary artefact edit. The two are different checks that read alike, which
-// is why this one is spelled out rather than reached for.
-const manifestSchemaUnsupported = "manifest-schema-unsupported"
+// The Manifest's code is read from the check that decides it
+// (artefact.CodeManifestSchemaUnsupported) rather than spelled again here, on
+// the rule every member of the closed set now keeps: one declaration site. It
+// is **not** internal/artefact's `schema-unsupported`, which the tool also
+// emits — that one is an input schema reaching outside §4's four-keyword subset
+// and its remedy is an ordinary artefact edit, which is why it earns no entry
+// in this map at all. The two read alike and land on opposite sides of the one
+// question this map answers.
 
 // relativeOperand is `older_than:` or `newer_than:` written against a duration,
 // found in the text an excerpt renders.

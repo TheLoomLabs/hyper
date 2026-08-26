@@ -1,0 +1,23 @@
+kind: provider
+provider: dns
+schema-version: 2
+class: cloudflare
+capabilities: []
+retries: 3
+operations:
+  list_records:
+    kind: read
+    repeatability: repeatable
+    deadline: 45s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /client/v4/zones/{zone_id}/dns_records
+    input:
+      type: object
+      properties:
+        zone_id: {type: string}
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id, name: $.name}
