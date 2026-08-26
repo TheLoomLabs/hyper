@@ -300,16 +300,24 @@ var fieldNoRootPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-
 // where the file parsed to no document at all; the schema check still runs
 // and reports every required key the file never supplied.
 //
-// It is also where §11's reserved-Capability rule runs, and the placement is
-// the criterion: what capability-reserved is about is a Manifest **loaded
-// from providers/**, which is what calling this function already means —
-// artefactChecks routes the built-in to CheckBuiltinShellProvider and every
-// providers/ file here (issue #186).
-func CheckManifest(file string, root *yaml.Node) []problem.Problem {
+// It is also where §11's two rules about a Manifest **loaded from providers/**
+// run, and the placement is the criterion: what capability-reserved and
+// origin-digest-mismatch are about is where the file came from, which is what
+// calling this function already means — artefactChecks routes the built-in to
+// CheckBuiltinShellProvider and every providers/ file here (issues #186, #189).
+//
+// manifest is the exact bytes root parsed from, which the load keeps beside
+// every artefact for manifest_digest's reason and for `operation`'s (§7, §9,
+// internal/repository). It stands where every sibling check's extra arguments
+// stand, after the artefact's own two: it is what this check needs **beyond**
+// the parse tree rather than a second spelling of it — the digest an installed
+// Manifest records covers a byte range of the file, which is not a thing a
+// parse tree holds (§11, manifest_origin.go).
+func CheckManifest(file string, root *yaml.Node, manifest []byte) []problem.Problem {
 	problems := withReservedCapability(checkManifestBody(file, root), file, root)
 	problems = append(problems, checkKind(file, root, KindProvider)...)
 	problems = append(problems, checkName(file, root, "provider")...)
-	return problems
+	return append(problems, checkOriginDigest(file, root, manifest)...)
 }
 
 // withReservedCapability layers the reserved-Capability check over the

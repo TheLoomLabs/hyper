@@ -163,7 +163,7 @@ func checkHostcoStep(t *testing.T, operation, target, args, over string, targets
 }
 
 func TestCheckManifest_HostcoIsClean(t *testing.T) {
-	mustNone(t, CheckManifest("providers/hostco.yaml", parse(t, hostco)))
+	mustNone(t, checkManifest(t, "providers/hostco.yaml", hostco))
 }
 
 // --- The candidate set ---

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/registry"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
@@ -143,7 +144,7 @@ func RunInstall(args []string, stdout, stderr io.Writer, process Process, wd, bi
 func declineFetch(err error, stderr io.Writer) int {
 	var mismatch *registry.Mismatch
 	if errors.As(err, &mismatch) {
-		return refuse(stderr, registry.CodeOriginDigestMismatch, mismatch.Error())
+		return refuse(stderr, artefact.CodeOriginDigestMismatch, mismatch.Error())
 	}
 	fmt.Fprintf(stderr, "hyper install: %s\n", err)
 	return ExitProblems
@@ -167,6 +168,13 @@ func declineFetch(err error, stderr io.Writer) int {
 // The ref is written as a plain scalar, which the grammar is what makes safe: a
 // ref carries no space and no control character, so there is no spelling of one
 // that needs quoting (ADR-0087).
+//
+// The other end of this seam is artefact.checkOriginDigest, which takes the
+// same range back out of the tracked file and recomputes the digest over it —
+// including the two candidates the newline above makes necessary. What is
+// written here and what is read there are one rule, and the round trip is
+// driven in one process rather than asserted as a constant typed twice
+// (§11, issue #189, install_test.go).
 func withOrigin(published []byte, ref, digest string) []byte {
 	written := make([]byte, 0, len(published)+len(ref)+len(digest)+32)
 	written = append(written, published...)

@@ -1,0 +1,45 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/08/06/01992102-6a30-7c41-bb2f-4e5d8a1c9e88/outcome.json (597 bytes)
+{
+  "ended_at": "2026-08-06T11:14:02.000Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "error_code": "origin-digest-mismatch",
+      "field": "origin.digest",
+      "file": "providers/dns.yaml",
+      "line": 27,
+      "message": "origin: digest: this Manifest's published bytes are sha256:d43748e282ea369ff24a8a3ca894c53abea23343533bb7757b6ee9c3bf36b735 and the block records sha256:d2ed2c9148d3065e57b2fed8023ea46b46f291d98cc7eff13f8fc59cc434351f — an edited Manifest is re-installed or has its origin: block dropped, never a digest retyped by hand"
+    }
+  ],
+  "schema_version": 1
+}
+=== journal/2026/08/06/01992102-6a30-7c41-bb2f-4e5d8a1c9e88/run.json (470 bytes)
+{
+  "dry_run": false,
+  "procedure": "check-disk",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "865f3e156d80007881936d7c2aad1bb1cb624e36",
+    "repo_revision": "2ca81b317fcc4e584994dffe3540883ee9102e41"
+  },
+  "run_id": "01992102-6a30-7c41-bb2f-4e5d8a1c9e88",
+  "schema_version": 1,
+  "started_at": "2026-08-06T11:14:02.000Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

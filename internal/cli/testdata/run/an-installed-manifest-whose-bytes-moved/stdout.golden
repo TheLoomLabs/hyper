@@ -1,0 +1,18 @@
+nothing ran. no step was reached.
+
+refused: origin-digest-mismatch
+
+  providers/dns.yaml:27
+   25 │ origin:
+   26 │   ref: https://providers.example.com/acme/dns.yaml
+   27 │   digest: sha256:d2ed2c9148d3065e57b2fed8023ea46b46f291d98cc7eff13f8fc59cc434351f
+      │           ^ origin: digest: this Manifest's published bytes are sha256:d43748e282ea369ff24a8a3ca894c53abea23343533bb7757b6ee9c3bf36b735 and the block records sha256:d2ed2c9148d3065e57b2fed8023ea46b46f291d98cc7eff13f8fc59cc434351f — an edited Manifest is re-installed or has its origin: block dropped, never a digest retyped by hand
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                LINE  FIELD
+providers/dns.yaml  27    origin.digest
+
+refused · exit 77 · run 01992102-6a30-7c41-bb2f-4e5d8a1c9e88

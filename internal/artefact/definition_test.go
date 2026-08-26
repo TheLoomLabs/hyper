@@ -144,7 +144,7 @@ func TestCheckDefinition_TargetsLocalWithNoDeclarationIsArtefactAbsent(t *testin
 // Definition's.
 func TestCheckDefinition_ProviderWithAFaultOfItsOwnStillResolves(t *testing.T) {
 	faultyManifest := cloudflareDNS + "nickname: dns\n"
-	manifestProblems := CheckManifest("providers/cloudflare-dns.yaml", parse(t, faultyManifest))
+	manifestProblems := checkManifest(t, "providers/cloudflare-dns.yaml", faultyManifest)
 	mustCode(t, manifestProblems, schema.CodeUnknownKey)
 
 	providers := BuildProviderIndex([]*yaml.Node{parse(t, faultyManifest)})

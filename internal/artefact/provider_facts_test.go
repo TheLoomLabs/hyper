@@ -170,7 +170,7 @@ func TestProviderSummary_NamesEveryCapabilityAManifestRequires(t *testing.T) {
 // other key the schema does not define. What `providers` renders is derived,
 // and there is nowhere to author it instead.
 func TestManifest_GainsNoSummaryKey(t *testing.T) {
-	root := parse(t, `kind: provider
+	problems := checkManifest(t, "providers/widget.yaml", `kind: provider
 provider: widget
 schema-version: 1
 class: widgetco
@@ -182,8 +182,6 @@ operations:
     http: {method: GET, host: "{from-target}", path: /widgets}
     record: {identity: $.id, fields: {id: $.id}}
 `)
-
-	problems := CheckManifest("providers/widget.yaml", root)
 	for _, p := range problems {
 		if p.Field == "summary" && p.ErrorCode == schema.CodeUnknownKey {
 			return

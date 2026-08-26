@@ -181,10 +181,27 @@ into-a-repository-that-does-not-check   → check/an-extension-the-repository-ne
                                         → check/an-installed-extension-checks-clean (after)
 ```
 
+The same seam runs the other way for the digest. What `install` writes here,
+`check` recomputes over the tracked file — `check/origin-digest-mismatch` is
+that Manifest with one byte of its published half moved, and
+`check/a-published-manifest-with-no-trailing-newline` is the second candidate
+the recomputation admits, which exists because `install` writes one newline of
+its own where the published bytes do not end in one (issue #189).
+
 ## What no case here can state
 
-Two things, and they sit beside `project`'s own two in
-[`install_test.go`](../../install_test.go). A **write the filesystem refuses
+Three things now, and they sit beside `project`'s own two in
+[`install_test.go`](../../install_test.go).
+
+The first is the **round trip**, and it is the one thing a corpus is
+structurally unable to hold: `install` writes a digest, `check` recomputes it,
+and a case can only assert a constant a human typed into two files. A constant
+typed twice agrees with itself, which is not the same claim as two readers of
+one file agreeing about it — so the round trip is driven in one process, and
+the byte that moves afterwards is what makes the second `check` about drift
+rather than about a malformed file (issue #189).
+
+The other two are the corpus's own blind spots. A **write the filesystem refuses
 part-way** — arranged by standing a directory where the file goes, which needs
 no permission bit set and behaves the same for every account the suite might run
 as — naming the path it died on at exit `1`, with the tree left as it stands. And

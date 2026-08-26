@@ -1,0 +1,2 @@
+FILE                LINE  FIELD       ERROR_CODE       MESSAGE
+providers/dns.yaml  26    origin.ref  schema-mismatch  the schema at this position declares "ref", and this file does not supply it

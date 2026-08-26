@@ -123,7 +123,7 @@ func artefactChecks(a repository.LoadedArtefact, loaded repository.Loaded) []pro
 	case strings.HasPrefix(a.Path, "targets/"):
 		return artefact.CheckTargetDeclaration(a.Path, a.Root)
 	case strings.HasPrefix(a.Path, "providers/"):
-		return artefact.CheckManifest(a.Path, a.Root)
+		return artefact.CheckManifest(a.Path, a.Root, a.Bytes)
 	case strings.HasPrefix(a.Path, "definitions/"):
 		return artefact.CheckDefinition(a.Path, a.Root, loaded.Providers, loaded.Targets)
 	case strings.HasPrefix(a.Path, "procedures/"):

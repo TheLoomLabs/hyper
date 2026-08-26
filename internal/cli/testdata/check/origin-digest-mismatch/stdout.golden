@@ -1,0 +1,2 @@
+FILE                LINE  FIELD          ERROR_CODE              MESSAGE
+providers/dns.yaml  27    origin.digest  origin-digest-mismatch  origin: digest: this Manifest's published bytes are sha256:d43748e282ea369ff24a8a3ca894c53abea23343533bb7757b6ee9c3bf36b735 and the block records sha256:d2ed2c9148d3065e57b2fed8023ea46b46f291d98cc7eff13f8fc59cc434351f — an edited Manifest is re-installed or has its origin: block dropped, never a digest retyped by hand

@@ -145,16 +145,16 @@ operations:
 `
 
 func TestCheckManifest_CloudflareDNSIsClean(t *testing.T) {
-	mustNone(t, CheckManifest("providers/cloudflare-dns.yaml", parse(t, cloudflareDNS)))
+	mustNone(t, checkManifest(t, "providers/cloudflare-dns.yaml", cloudflareDNS))
 }
 
 func TestCheckManifest_UptimeIsClean(t *testing.T) {
-	mustNone(t, CheckManifest("providers/uptime.yaml", parse(t, uptime)))
+	mustNone(t, checkManifest(t, "providers/uptime.yaml", uptime))
 }
 
 func TestCheckManifest_KindMismatch(t *testing.T) {
 	doc := "kind: definition\nprovider: uptime\nschema-version: 1\nclass: local\ncapabilities: [http]\noperations: {}\n"
-	got := CheckManifest("providers/uptime.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/uptime.yaml", doc)
 	p := mustCode(t, got, CodeKindMismatch)
 	if p.Field != "kind" {
 		t.Errorf("Field = %q, want kind", p.Field)
@@ -162,7 +162,7 @@ func TestCheckManifest_KindMismatch(t *testing.T) {
 }
 
 func TestCheckManifest_NameMismatch(t *testing.T) {
-	got := CheckManifest("providers/other.yaml", parse(t, uptime))
+	got := checkManifest(t, "providers/other.yaml", uptime)
 	p := mustCode(t, got, CodeNameMismatch)
 	if p.Field != "provider" {
 		t.Errorf("Field = %q, want provider", p.Field)
@@ -170,10 +170,15 @@ func TestCheckManifest_NameMismatch(t *testing.T) {
 }
 
 func TestCheckManifest_TopLevelSchemaAdmitsExactlyTheDocumentedKeys(t *testing.T) {
-	doc := uptime + "origin: {ref: registry/uptime@1, digest: sha256:00}\n"
-	mustNone(t, CheckManifest("providers/uptime.yaml", parse(t, doc)))
+	// The digest is the one over `uptime`'s own bytes rather than a token
+	// value, because the block is a claim the schema admits and a check
+	// recomputes: a Manifest carrying an origin: block whose digest does not
+	// hold earns origin-digest-mismatch, and a case asserting *no problems*
+	// has to carry a claim that is true (§11, manifest_origin.go).
+	doc := uptime + "origin: {ref: registry/uptime@1, digest: " + ManifestDigest([]byte(uptime)) + "}\n"
+	mustNone(t, checkManifest(t, "providers/uptime.yaml", doc))
 
-	got := CheckManifest("providers/uptime.yaml", parse(t, uptime+"extra: 1\n"))
+	got := checkManifest(t, "providers/uptime.yaml", uptime+"extra: 1\n")
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "extra" {
 		t.Errorf("Field = %q, want extra", p.Field)
@@ -194,7 +199,7 @@ operations:
       host: "{from-target}"
       path: /
 `
-	got := CheckManifest("providers/uptime.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/uptime.yaml", doc)
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "operations.check_http.deadline" {
 		t.Errorf("Field = %q, want operations.check_http.deadline", p.Field)
@@ -218,7 +223,7 @@ operations:
       properties:
         command: {type: array, items: {type: string}}
 `
-	got := CheckManifest("providers/shell-ish.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/shell-ish.yaml", doc)
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "operations.read.opaque" {
 		t.Errorf("Field = %q, want operations.read.opaque", p.Field)
@@ -236,7 +241,7 @@ operations:
     kind: read
     deadline: 1h
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "operations.noop" {
 		t.Errorf("Field = %q, want operations.noop", p.Field)
@@ -259,7 +264,7 @@ operations:
       host: "{from-target}"
       path: /
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "operations.both" {
 		t.Errorf("Field = %q, want operations.both", p.Field)
@@ -282,7 +287,7 @@ operations:
       properties:
         command: {type: array, items: {type: string}}
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "operations.run.shell.command" {
 		t.Errorf("Field = %q, want operations.run.shell.command", p.Field)
@@ -358,7 +363,7 @@ operations:
       properties:
         header_name: {type: string}
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeHoleIllegal)
 	if p.Field != "auth.header.name" {
 		t.Errorf("Field = %q, want auth.header.name", p.Field)
@@ -390,7 +395,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeHoleIllegal)
 	if p.Field != "operations.noop.http.body.{name}" {
 		t.Errorf("Field = %q, want operations.noop.http.body.{name}", p.Field)
@@ -420,7 +425,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeHoleIllegal)
 	if p.Field != "operations.list.http.host" {
 		t.Errorf("Field = %q, want operations.list.http.host", p.Field)
@@ -453,7 +458,7 @@ operations:
       fields:
         id: $.id
 `
-	mustNone(t, CheckManifest("providers/aws-s3.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/aws-s3.yaml", doc))
 }
 
 func TestCheckManifest_HoleInAnyOtherPositionMustResolveToAnInput(t *testing.T) {
@@ -478,7 +483,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeHoleIllegal)
 	if p.Field != "operations.noop.http.path" {
 		t.Errorf("Field = %q, want operations.noop.http.path", p.Field)
@@ -513,7 +518,7 @@ operations:
       fields:
         id: $.id
 `
-			got := CheckManifest("providers/broken.yaml", parse(t, doc))
+			got := checkManifest(t, "providers/broken.yaml", doc)
 			p := mustCode(t, got, schema.CodeMismatch)
 			if p.Field != "operations.noop.record.identity" {
 				t.Errorf("Field = %q, want operations.noop.record.identity", p.Field)
@@ -542,7 +547,7 @@ operations:
         rate-limit: $["rate-limit"]
         nested: $.headers["x-request-id"]
 `
-	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 }
 
 func TestCheckManifest_SeriesOperationOverAndIdentityBothRootAtDollar(t *testing.T) {
@@ -566,7 +571,7 @@ operations:
         id: $.id
         name: $.name
 `
-	mustNone(t, CheckManifest("providers/widgets.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/widgets.yaml", doc))
 }
 
 func TestCheckManifest_EnumerationsIsAMappingOfNameToBareScalars(t *testing.T) {
@@ -586,7 +591,7 @@ operations:
       host: "s3.{region}.amazonaws.com"
       path: /
 `
-	got := CheckManifest("providers/aws-s3.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/aws-s3.yaml", doc)
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "enumerations.region" {
 		t.Errorf("Field = %q, want enumerations.region", p.Field)
@@ -594,7 +599,7 @@ operations:
 }
 
 func TestCheckManifest_PatternsAdmitsExactlyTheThreeAndTheirClosedForms(t *testing.T) {
-	got := CheckManifest("providers/broken.yaml", parse(t, patternsDoc(`throttle: {}`)))
+	got := checkManifest(t, "providers/broken.yaml", patternsDoc(`throttle: {}`))
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "operations.list.patterns.throttle" {
 		t.Errorf("Field = %q, want operations.list.patterns.throttle", p.Field)
@@ -602,28 +607,28 @@ func TestCheckManifest_PatternsAdmitsExactlyTheThreeAndTheirClosedForms(t *testi
 }
 
 func TestCheckManifest_PaginationExactlyOneOfCursorOrPage(t *testing.T) {
-	got := CheckManifest("providers/broken.yaml", parse(t, patternsDoc(`pagination: {}`)))
+	got := checkManifest(t, "providers/broken.yaml", patternsDoc(`pagination: {}`))
 	mustCode(t, got, schema.CodeMismatch)
 
 	doc := patternsDoc(`pagination: {cursor: {from: $.body.cursor, into: {query: cursor}}, page: {from: 1, into: {query: page}}}`)
-	got = CheckManifest("providers/broken.yaml", parse(t, doc))
+	got = checkManifest(t, "providers/broken.yaml", doc)
 	mustCode(t, got, schema.CodeMismatch)
 }
 
 func TestCheckManifest_PaginationCursorIsClean(t *testing.T) {
 	doc := patternsDoc(`pagination: {cursor: {from: $.body.cursor, into: {query: cursor}}}`)
-	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 }
 
 func TestCheckManifest_IntoNamesExactlyOneOfQueryOrHeader(t *testing.T) {
 	doc := patternsDoc(`pagination: {page: {from: 1, into: {query: page, header: X}}}`)
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	mustCode(t, got, schema.CodeMismatch)
 }
 
 func TestCheckManifest_PollingIsClean(t *testing.T) {
 	doc := patternsDoc(`polling: {interval: 5s, until: [{field: status, equals: running}]}`)
-	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 }
 
 // TestCheckManifest_PollingUntilFieldIsAPathWithoutRoot proves until:'s own
@@ -632,7 +637,7 @@ func TestCheckManifest_PollingIsClean(t *testing.T) {
 // names (§12, issue #97).
 func TestCheckManifest_PollingUntilFieldWithRootMarkerIsSchemaMismatch(t *testing.T) {
 	doc := patternsDoc(`polling: {interval: 5s, until: [{field: $.status, equals: running}]}`)
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, schema.CodeMismatch)
 	if p.Field != "operations.list.patterns.polling.until[0].field" {
 		t.Errorf("Field = %q, want operations.list.patterns.polling.until[0].field", p.Field)
@@ -645,7 +650,7 @@ func TestCheckManifest_PollingUntilFieldWithRootMarkerIsSchemaMismatch(t *testin
 // wherever a predicate stands (§4, §5, §12, issue #97).
 func TestCheckManifest_PollingUntilOperandFaultIsTypeMismatch(t *testing.T) {
 	doc := patternsDoc(`polling: {interval: 5s, until: [{field: status, exists: false}]}`)
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	mustCode(t, got, CodePredicateTypeMismatch)
 }
 
@@ -655,7 +660,7 @@ func TestCheckManifest_PollingUntilOperandFaultIsTypeMismatch(t *testing.T) {
 // closed shape a condition's own field: reads under (§12, issue #97).
 func TestCheckManifest_PollingUntilCarriesNoStep(t *testing.T) {
 	doc := patternsDoc(`polling: {interval: 5s, until: [{field: status, step: whatever, equals: running}]}`)
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "operations.list.patterns.polling.until[0].step" {
 		t.Errorf("Field = %q, want operations.list.patterns.polling.until[0].step", p.Field)
@@ -664,7 +669,7 @@ func TestCheckManifest_PollingUntilCarriesNoStep(t *testing.T) {
 
 func TestCheckManifest_RetryTakesOnlyAttempts(t *testing.T) {
 	doc := patternsDoc(`retry: {attempts: 3, backoff: 5s}`)
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, schema.CodeUnknownKey)
 	if p.Field != "operations.list.patterns.retry.backoff" {
 		t.Errorf("Field = %q, want operations.list.patterns.retry.backoff", p.Field)
@@ -713,7 +718,7 @@ operations:
       host: "{from-target}"
       path: /
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	mustCode(t, got, schema.CodeMismatch)
 
 	doc = `kind: provider
@@ -731,7 +736,7 @@ operations:
       host: "{from-target}"
       path: /
 `
-	got = CheckManifest("providers/broken.yaml", parse(t, doc))
+	got = checkManifest(t, "providers/broken.yaml", doc)
 	mustCode(t, got, schema.CodeMismatch)
 }
 
@@ -755,7 +760,7 @@ operations:
       fields:
         id: $.id
 `
-	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 }
 
 func TestCheckManifest_SecretIsAListOfFieldsNames(t *testing.T) {
@@ -779,7 +784,7 @@ operations:
         token: $.token
     secret: [token]
 `
-	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 
 	doc2 := `kind: provider
 provider: broken
@@ -800,7 +805,7 @@ operations:
         id: $.id
     secret: {token: true}
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc2))
+	got := checkManifest(t, "providers/broken.yaml", doc2)
 	mustCode(t, got, schema.CodeMismatch)
 }
 
@@ -832,7 +837,7 @@ operations:
       fields:
         id: $.id
 `
-			got := CheckManifest("providers/broken.yaml", parse(t, doc))
+			got := checkManifest(t, "providers/broken.yaml", doc)
 			p := mustCode(t, got, schema.CodeMismatch)
 			if p.Field != "operations.noop.http.body" {
 				t.Errorf("Field = %q, want operations.noop.http.body", p.Field)
@@ -875,7 +880,7 @@ class: local
 capabilities: [http]
 operations: {}
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeCapabilityMismatch)
 	if p.Field != "capabilities" {
 		t.Errorf("Field = %q, want capabilities", p.Field)
@@ -901,7 +906,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeCapabilityMismatch)
 	if p.Field != "operations.noop.http" {
 		t.Errorf("Field = %q, want operations.noop.http", p.Field)
@@ -930,7 +935,7 @@ class: local
 capabilities: [shell]
 operations: {}
 `
-	got := CheckManifest("providers/local-shell.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/local-shell.yaml", doc)
 	p := mustCode(t, got, CodeCapabilityReserved)
 	if p.Field != "capabilities" || p.Line != 5 {
 		t.Errorf("Field = %q, Line = %d, want capabilities at line 5", p.Field, p.Line)
@@ -969,7 +974,7 @@ operations:
       fields:
         exit_code: $.exit_code
 `
-	got := CheckManifest("providers/local-shell.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/local-shell.yaml", doc)
 	p := mustCode(t, got, CodeCapabilityReserved)
 	if p.Field != "operations.run.shell" || p.Line != 10 {
 		t.Errorf("Field = %q, Line = %d, want operations.run.shell at line 10", p.Field, p.Line)
@@ -1006,7 +1011,7 @@ operations:
       fields:
         exit_code: $.exit_code
 `
-	got := CheckManifest("providers/local-shell.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/local-shell.yaml", doc)
 	mustNoCode(t, got, CodeCapabilityMismatch)
 	if cited := fieldsOfCode(got, CodeCapabilityReserved); !slices.Equal(cited, []string{"capabilities", "operations.run.shell"}) {
 		t.Errorf("cited %q, want a reserved row at each of the two sites", cited)
@@ -1017,8 +1022,8 @@ operations:
 // the set: §12 reserves exactly one member, so a Manifest declaring and using
 // http is untouched by this check whatever else it does.
 func TestCheckManifest_CapabilityReservedDoesNotReachHTTP(t *testing.T) {
-	mustNoCode(t, CheckManifest("providers/uptime.yaml", parse(t, uptime)), CodeCapabilityReserved)
-	mustNoCode(t, CheckManifest("providers/cloudflare-dns.yaml", parse(t, cloudflareDNS)), CodeCapabilityReserved)
+	mustNoCode(t, checkManifest(t, "providers/uptime.yaml", uptime), CodeCapabilityReserved)
+	mustNoCode(t, checkManifest(t, "providers/cloudflare-dns.yaml", cloudflareDNS), CodeCapabilityReserved)
 }
 
 // TestCheckManifest_ARenamedForkOfTheBuiltinMayNotDeclareShell is §11's
@@ -1030,7 +1035,7 @@ func TestCheckManifest_CapabilityReservedDoesNotReachHTTP(t *testing.T) {
 // (§11, ADR-0039).
 func TestCheckManifest_ARenamedForkOfTheBuiltinMayNotDeclareShell(t *testing.T) {
 	doc := strings.Replace(BuiltinShellProviderYAML, "provider: shell\n", "provider: local-shell\n", 1)
-	got := CheckManifest("providers/local-shell.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/local-shell.yaml", doc)
 	mustNoCode(t, got, CodeNameMismatch)
 	mustNoCode(t, got, CodeCapabilityMismatch)
 	if n := countCode(got, CodeCapabilityReserved); n != 7 {
@@ -1056,7 +1061,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeIdentityUndeclared)
 	if p.Field != "operations.noop.record" {
 		t.Errorf("Field = %q, want operations.noop.record", p.Field)
@@ -1085,7 +1090,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "operations.list.patterns.pagination" {
 		t.Errorf("Field = %q, want operations.list.patterns.pagination", p.Field)
@@ -1117,7 +1122,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "operations.list.http.host-input" {
 		t.Errorf("Field = %q, want operations.list.http.host-input", p.Field)
@@ -1150,7 +1155,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "operations.noop.http.headers.authorization" {
 		t.Errorf("Field = %q, want operations.noop.http.headers.authorization", p.Field)
@@ -1179,7 +1184,7 @@ operations:
       fields:
         exit_code: $.exit_code
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "auth" {
 		t.Errorf("Field = %q, want auth", p.Field)
@@ -1209,7 +1214,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "operations.noop.http.path" {
 		t.Errorf("Field = %q, want operations.noop.http.path", p.Field)
@@ -1239,7 +1244,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "operations.noop.input.properties.unused" {
 		t.Errorf("Field = %q, want operations.noop.input.properties.unused", p.Field)
@@ -1263,7 +1268,7 @@ operations:
       host: "{from-target}"
       path: /
 `
-			got := CheckManifest("providers/broken.yaml", parse(t, doc))
+			got := checkManifest(t, "providers/broken.yaml", doc)
 			p := mustCode(t, got, CodeManifestInconsistent)
 			if p.Field != "operations.noop" {
 				t.Errorf("Field = %q, want operations.noop", p.Field)
@@ -1295,7 +1300,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "operations.noop.record" {
 		t.Errorf("Field = %q, want operations.noop.record", p.Field)
@@ -1326,7 +1331,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "operations.noop.repeatability" {
 		t.Errorf("Field = %q, want operations.noop.repeatability", p.Field)
@@ -1340,7 +1345,7 @@ operations:
 // enum. Rendering a fact no artefact declares is exactly what `opaque` already
 // does, and it stays that way only while writing it is refused (§3, §12).
 func TestCheckManifest_RunOnceIsNotAValueAnArtefactMayWrite(t *testing.T) {
-	got := CheckManifest("providers/broken.yaml", parse(t, `kind: provider
+	got := checkManifest(t, "providers/broken.yaml", `kind: provider
 provider: broken
 schema-version: 1
 class: local
@@ -1358,7 +1363,7 @@ operations:
     record:
       identity: "{name}"
       fields: {id: $.body.id}
-`))
+`)
 
 	if p := mustCode(t, got, schema.CodeMismatch); p.Field != "operations.create_widget.repeatability" {
 		t.Errorf("Field = %q, want operations.create_widget.repeatability", p.Field)
@@ -1385,7 +1390,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "operations.noop.concurrency" {
 		t.Errorf("Field = %q, want operations.noop.concurrency", p.Field)
@@ -1412,7 +1417,7 @@ operations:
       fields:
         id: $.id
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	got := checkManifest(t, "providers/broken.yaml", doc)
 	p := mustCode(t, got, CodeManifestInconsistent)
 	if p.Field != "operations.noop.record.identity" {
 		t.Errorf("Field = %q, want operations.noop.record.identity", p.Field)
@@ -1448,7 +1453,7 @@ operations:
       fields:
         id: $.id
 `
-		mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+		mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 	})
 	// The shell half runs checkManifestBody, a Manifest of that shape being
 	// the built-in's and not a file in providers/ — see the note at the head
@@ -1509,7 +1514,7 @@ operations:
       fields:
         id: $.id
 `
-				got := CheckManifest("providers/broken.yaml", parse(t, doc))
+				got := checkManifest(t, "providers/broken.yaml", doc)
 				p := mustCode(t, got, CodeHeaderReserved)
 				if p.Field != "auth.header.name" {
 					t.Errorf("Field = %q, want auth.header.name", p.Field)
@@ -1540,7 +1545,7 @@ operations:
       fields:
         id: $.id
 `
-				got := CheckManifest("providers/broken.yaml", parse(t, doc))
+				got := checkManifest(t, "providers/broken.yaml", doc)
 				p := mustCode(t, got, CodeHeaderReserved)
 				if p.Field != "operations.noop.http.headers."+name {
 					t.Errorf("Field = %q, want operations.noop.http.headers.%s", p.Field, name)
@@ -1570,7 +1575,7 @@ operations:
       fields:
         id: $.id
 `
-	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 }
 
 func TestCheckManifest_EmptyInputSchemaIsLegal(t *testing.T) {
@@ -1593,7 +1598,7 @@ operations:
       fields:
         id: $.id
 `
-	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 }
 
 func TestCheckManifest_DestroyWithNoRecordAndNoIdentityDrawsNoCode(t *testing.T) {
@@ -1615,5 +1620,5 @@ operations:
       properties:
         id: {type: string}
 `
-	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 }

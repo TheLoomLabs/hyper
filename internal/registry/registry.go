@@ -47,14 +47,6 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/release"
 )
 
-// CodeOriginDigestMismatch is the one error_code this package's answers reach
-// (§12). §11 gives the same code to `check`, over the same fact recomputed
-// offline against the tracked file — which is what will make the verification
-// performed here repeatable by anyone reading the repository, long after the
-// machine that performed it is gone. That half is not built (issue #189); this
-// constant is named for the answer this package produces and not for it.
-const CodeOriginDigestMismatch = "origin-digest-mismatch"
-
 // MaxManifest is how much of a Manifest is read. A Manifest is a reviewed
 // artefact a human reads in a diff, so the cap is generous enough that no
 // honest one reaches it — and it is here for internal/release's own reason:
@@ -208,8 +200,14 @@ type Fetched struct {
 }
 
 // Mismatch is bytes that arrived and are not the bytes the publisher published:
-// `origin-digest-mismatch`, and the one answer this package tells apart from
-// every other.
+// artefact.CodeOriginDigestMismatch, and the one answer this package tells
+// apart from every other.
+//
+// The code is spelled at the check that recomputes it offline rather than
+// again here, the two being one fact at the two ends of one mechanism: this
+// package verifies published bytes once, and `check` makes that verification
+// repeatable by anyone reading the repository long afterwards (§11,
+// internal/artefact/manifest_origin.go).
 //
 // It is a check declining rather than the world resisting, which is what puts
 // it at a different exit code from everything else here: the read completed,

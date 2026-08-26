@@ -21,6 +21,19 @@ func parse(t *testing.T, doc string) *yaml.Node {
 	return n.Content[0]
 }
 
+// checkManifest is CheckManifest over a document held as a string, which is how
+// every case in this package states one.
+//
+// The helper exists because the check reads the artefact **twice** — the parse
+// tree for what it declares, and the exact bytes for the range an installed
+// Manifest's recorded digest covers (§7, §11) — and a case handing over two
+// halves that disagree is a case the check under test could pass by reading the
+// wrong one. One argument in, both derived here.
+func checkManifest(t *testing.T, file, doc string) []problem.Problem {
+	t.Helper()
+	return CheckManifest(file, parse(t, doc), []byte(doc))
+}
+
 func mustNone(t *testing.T, got []problem.Problem) {
 	t.Helper()
 	if len(got) != 0 {

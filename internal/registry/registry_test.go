@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/registry"
 	"github.com/TheLoomLabs/hyper/internal/release"
@@ -156,7 +157,7 @@ func TestFetch_BytesThatDoNotMatchArePutBack(t *testing.T) {
 
 	var mismatch *registry.Mismatch
 	if !errors.As(err, &mismatch) {
-		t.Fatalf("Fetch() = %v, want a %s", err, registry.CodeOriginDigestMismatch)
+		t.Fatalf("Fetch() = %v, want a %s", err, artefact.CodeOriginDigestMismatch)
 	}
 	for _, want := range []string{digestOf(publishedYAML), digestOf("something else entirely\n")} {
 		if !strings.Contains(mismatch.Error(), want) {
@@ -196,7 +197,7 @@ func TestFetch_ARefTheRegistryDoesNotHoldIsNotAMismatch(t *testing.T) {
 			}
 			var mismatch *registry.Mismatch
 			if errors.As(err, &mismatch) {
-				t.Errorf("Fetch() = %v, want it not to claim %s: no bytes were put beside a published digest", err, registry.CodeOriginDigestMismatch)
+				t.Errorf("Fetch() = %v, want it not to claim %s: no bytes were put beside a published digest", err, artefact.CodeOriginDigestMismatch)
 			}
 		})
 	}
@@ -224,7 +225,7 @@ func TestFetch_ABodyOverTheCapIsAFetchThatDidNotComplete(t *testing.T) {
 			}
 			var mismatch *registry.Mismatch
 			if errors.As(err, &mismatch) {
-				t.Errorf("Fetch() = %v, want it not to claim %s", err, registry.CodeOriginDigestMismatch)
+				t.Errorf("Fetch() = %v, want it not to claim %s", err, artefact.CodeOriginDigestMismatch)
 			}
 		})
 	}

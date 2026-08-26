@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/repository"
@@ -283,5 +284,73 @@ func TestInstallCorpus_ItsWholeCodeSetIsThree(t *testing.T) {
 		if reached[code] == 0 {
 			t.Errorf("no case under %s/ exits %d; that answer is asserted by nothing", installCorpus, code)
 		}
+	}
+}
+
+// TestRunInstall_TheRoundTripIsOneCase is the mechanism end to end, in one
+// process and with no fixture standing in for either half: `install` fetches,
+// verifies and writes; `check` recomputes the digest it recorded and finds
+// nothing; one byte of the published half moves and `check` reports
+// origin-digest-mismatch on it (§11, issues #187, #189).
+//
+// **It is one case rather than three because the claim is a round trip.** The
+// two halves are asserted apart already — the write is testdata/install's
+// `tree.golden` and the check is testdata/check/origin-digest-mismatch, each
+// with a digest checked in beside it — and what neither of them can say is that
+// the digest one wrote is the digest the other recomputes. A corpus can only
+// hold a constant a human typed; a constant typed twice agrees with itself,
+// which is not the same thing as two readers of one file agreeing about it.
+//
+// **The edit is one byte and it is inside the published half**, which is what
+// makes the second `check` about drift rather than about a malformed file: the
+// Manifest still parses, still names itself, still declares what it declared,
+// and the only thing wrong with it is that it is not what was fetched.
+func TestRunInstall_TheRoundTripIsOneCase(t *testing.T) {
+	root := installRepository(t)
+	installed := filepath.Join(root, filepath.FromSlash(repository.ProvidersDir+"/"+installBasename))
+
+	p := &process{wd: root}
+	invocation := p.value()
+	invocation.Dial = standRegistry(t)
+	var stdout, stderr bytes.Buffer
+	if exit := cli.Main([]string{"install", "--repo-dir", root, installRef}, &stdout, &stderr, invocation, testFacts); exit != cli.ExitClean {
+		t.Fatalf("install exit = %d, want %d: %s", exit, cli.ExitClean, stderr.String())
+	}
+
+	// Untouched, the file checks clean — and it is a `check` over the whole
+	// repository rather than a call into the check, so what is asserted is
+	// the pass a reader of this repository would run (§9).
+	stdout.Reset()
+	stderr.Reset()
+	if exit := cli.Main([]string{"check", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitClean {
+		t.Fatalf("check exit = %d, want %d — an installed Manifest nobody has touched: %s", exit, cli.ExitClean, stdout.String())
+	}
+
+	held, err := os.ReadFile(installed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := bytes.Replace(held, []byte("deadline: 30s"), []byte("deadline: 90s"), 1)
+	if bytes.Equal(held, moved) {
+		t.Fatal("the edit changed nothing; the published Manifest no longer holds the line this case moves")
+	}
+	if err := os.WriteFile(installed, moved, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout.Reset()
+	stderr.Reset()
+	exit := cli.Main([]string{"check", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts)
+	if exit != cli.ExitProblems {
+		t.Fatalf("check exit = %d, want %d — the file moved after its block was written", exit, cli.ExitProblems)
+	}
+	if got := stdout.String(); !strings.Contains(got, artefact.CodeOriginDigestMismatch) {
+		t.Errorf("check reported %q, want %s", got, artefact.CodeOriginDigestMismatch)
+	}
+	// The digest `install` verified, named whole by the check that declined
+	// it: the two ends of the round trip spelling one value.
+	if got := stdout.String(); !strings.Contains(got, artefact.ManifestDigest([]byte(installManifest))) {
+		t.Errorf("check reported %q, want it to name the digest install verified, %s, whole",
+			got, artefact.ManifestDigest([]byte(installManifest)))
 	}
 }

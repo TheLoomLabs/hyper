@@ -132,9 +132,20 @@ var milestoneNineCheckCodes = []string{
 // ships a Provider only where the Capability it needs is one nobody else may
 // declare (ADR-0039) — so the roster this list's first member reads and the
 // reserved set its second reads grow together or not at all.
+//
+// `origin-digest-mismatch` is the third, and it closes a different sentence:
+// not what an Extension may never be, but what an installed one must still be —
+// the bytes `install` verified against the digest recorded beside them. It is
+// the one member of this list `check` shares with another command, `install`
+// answering the same code over the same fact at the moment of the fetch; what
+// this half adds is that the verification is **repeatable offline, by anyone
+// reading the repository**, which is the claim §11 rests the whole distribution
+// mechanism on and which nothing enforced until this milestone (§11, §12,
+// issue #189).
 var milestoneTenErrorCodes = []string{
 	"provider-name-collision",
 	"capability-reserved",
+	"origin-digest-mismatch",
 }
 
 // checkCorpusErrorCodes is every error_code the check corpus owes a failing
@@ -219,6 +230,14 @@ const runCorpus = "testdata/run"
 // the machine — which is the guarantee §11 states in words and this milestone
 // enforces (§6, §11, issue #186).
 //
+// origin-digest-mismatch is milestone 10's third, and it is here on the footing
+// the two above it are: an installed Manifest whose bytes have moved since
+// `install` verified them is a Manifest under review that is not the one that
+// was reviewed, and a rule that held for `check` and not for a Run would make
+// the Run the way past it — a Run against an Extension nobody's digest covers
+// being exactly what §11's origin: block exists to prevent (§6, §11, issue
+// #189).
+//
 // projection-stale is the other, and it is the member this list was hardest to
 // leave out: a Run started by a projected workflow is a Run started by a file
 // that must be what the artefacts ask for, and a rule that held on a laptop and
@@ -242,6 +261,7 @@ var codesReachingARun = []string{
 	"projection-stale",
 	"provider-name-collision",
 	"capability-reserved",
+	"origin-digest-mismatch",
 }
 
 // artefactKindsCitedByARefusal is the five reviewed artefacts by where each one
