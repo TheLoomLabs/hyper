@@ -1,0 +1,12 @@
+{
+  "content": [
+    {"type":"text","text":"1 Target"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"target","name":"cloudflare-prod","hosts":["api.cloudflare.com"],"accepts_kinds":["read","mutate","destroy"],"grants_capabilities":["http"],"credentials":[{"slot":"token","env":"CLOUDFLARE_API_TOKEN","present":true}]}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

@@ -190,6 +190,12 @@ shows all of them — a candidate set, a grant and their intersection is how a h
 grant reduced to its first member is not a grant (ADR-0029). The MCP tool below names the field the
 same: one fact reaching two wires reaches them under one name (§12).
 
+**A slot naming no variable carries neither the variable nor a presence.** There is nothing to ask the
+environment about, so `false` would answer a question nothing asked: an `env:` absent or unreadable is
+`credential-slot-malformed`, which `check` reports, and no zero value here may stand in for it (§7,
+ADR-0064). Where a variable is named, presence is written whichever it is. Both surfaces carry the row
+that way.
+
 Presence is reported for every slot the declaration carries, which is wider than what a Run checks. A
 Run resolves the slots its bindings require (§6), and this command has no Procedure in hand to narrow
 by — so the row answers *what does this Target have in place*, and an absence here is not by itself a
@@ -854,12 +860,23 @@ format at the moment the caller needs it.
 targets()
 // → rows: [{ type: "target", name, hosts: [ … ],
 //            accepts_kinds: [ … ], grants_capabilities: [ … ],
-//            credential_env: [ "PROD_TOKEN" ],   // variable names, never values
-//            credentials_present }]
+//            credentials: [{ slot, env: "PROD_TOKEN", present }] }]   // names, never values
+//                                                                    // absent where the declaration
+//                                                                    // carries no auth: block
 ```
 
-`credential_env` is exactly what an agent must write into a Target declaration while never seeing a
-value, which is the shape §3 fixed when it made a literal in a credential position a load error.
+`env` is exactly what an agent must write into a Target declaration while never seeing a value, which
+is the shape §3 fixed when it made a literal in a credential position a load error. Presence is
+computed when the tool runs; the value behind a present name is never read here and never rendered
+anywhere.
+
+**The credential grant renders as `credentials`, one member per slot, each pairing the slot with its
+variable and that variable's presence.** An earlier sketch of this row named two flat members,
+`credential_env` beside a `credentials_present`, and the CLI half above has always required the pair:
+a declaration may carry slots for more than one scheme, and a list of names alone does not say which
+fills what. §12's opening rule — one fact reaching two wires reaches them under one name — decides it
+in favour of the shape that can state the fact, exactly as it decided `hosts` above. `env` and
+`present` are absent together on a slot naming no variable, on the rule the CLI half states.
 
 ### Authoring
 

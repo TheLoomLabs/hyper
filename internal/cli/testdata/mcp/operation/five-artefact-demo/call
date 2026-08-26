@@ -1,0 +1,1 @@
+{"tool": "operation", "arguments": {"provider": "cloudflare-dns", "operation": "delete_dns_record"}}

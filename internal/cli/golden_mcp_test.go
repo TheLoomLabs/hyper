@@ -464,15 +464,27 @@ func TestGoldenCorpora_NoCallCaseNamesARepository(t *testing.T) {
 // It holds only over the rows that appear in both corpora, and says nothing
 // about a row only one surface has a case for; what it fences is the claim that
 // where both have one, it is one row.
+//
+// **One identity can have more than one rendering across the corpus, and the
+// pairing is against all of them** (issue #197). A row's identity is what names
+// it within its type, and two cases can name one row and state different facts
+// about it: `targets` computes credential presence when it runs, so
+// `cloudflare-prod` is one row with `present: true` in a case whose `env` sets
+// the variable and `present: false` in one that does not. Keeping a single
+// rendering per identity would silently pair an envelope against whichever case
+// the walk read last. So the claim held is that the envelope's row **is one of
+// the renderings the stream writes** for that identity, byte-compatible in
+// values and identical in key order — which is the strongest thing a
+// corpus-wide pairing can say, and says it soundly.
 func TestGoldenCorpora_ARowInAnEnvelopeIsTheRowTheStreamWrites(t *testing.T) {
-	streamed := map[string]string{}
+	streamed := map[string][]string{}
 	for _, c := range goldenCases(t) {
 		if !c.opensARowStream() {
 			continue
 		}
 		for _, line := range strings.Split(strings.TrimSuffix(readFile(t, filepath.Join(c.dir, "stdout.golden")), "\n"), "\n") {
-			if key := rowIdentity(line); key != "" {
-				streamed[key] = line
+			if key := rowIdentity(line); key != "" && !slices.Contains(streamed[key], line) {
+				streamed[key] = append(streamed[key], line)
 			}
 		}
 	}
@@ -493,11 +505,18 @@ func TestGoldenCorpora_ARowInAnEnvelopeIsTheRowTheStreamWrites(t *testing.T) {
 				continue
 			}
 			compared++
-			if got, want := keysInOrder(t, line), keysInOrder(t, written); !slices.Equal(got, want) {
-				t.Errorf("case %s carries a %s row keyed %q; the --json stream writes it keyed %q", c.name, key, got, want)
+			carried := decodedRow(t, line)
+			matched := slices.IndexFunc(written, func(w string) bool { return reflect.DeepEqual(decodedRow(t, w), carried) })
+			if matched < 0 {
+				states := make([]map[string]any, 0, len(written))
+				for _, w := range written {
+					states = append(states, decodedRow(t, w))
+				}
+				t.Errorf("case %s carries the row\n  %v\nand no --json stream writes it; the stream writes\n  %v", c.name, carried, states)
+				continue
 			}
-			if got, want := decodedRow(t, line), decodedRow(t, written); !reflect.DeepEqual(got, want) {
-				t.Errorf("case %s carries the row\n  %v\nand the --json stream writes it\n  %v", c.name, got, want)
+			if got, want := keysInOrder(t, line), keysInOrder(t, written[matched]); !slices.Equal(got, want) {
+				t.Errorf("case %s carries a %s row keyed %q; the --json stream writes it keyed %q", c.name, key, got, want)
 			}
 		}
 	}
@@ -549,10 +568,18 @@ func decodedRow(t *testing.T, line string) map[string]any {
 }
 
 // rowIdentity is what makes two renderings of one row the same row: its `type`,
-// and the two members that name a row within a type — the `name` a listing's
-// rows carry and the `digest` that identifies the artefact a header row is
-// about. Both are needed: a Manifest header row carries no name, so two
-// Manifests would otherwise be one row seen twice.
+// and the members that name a row within a type — the `name` a listing's rows
+// carry, the `digest` that identifies the artefact a header row is about, and
+// the `source` an Operation's detail row stands for. All three are needed: a
+// Manifest header row carries no name, so two Manifests would otherwise be one
+// row seen twice, and an `operation_detail` row carries neither name nor digest,
+// so every Operation in the corpus would collapse onto one key and each case
+// would be compared against whichever row was read last (issue #197).
+//
+// The source is the declaring lines themselves, which is a long key and the
+// honest one: the row has no shorter member that says **which** Operation it is
+// about, and a key that named less would be a fence quietly holding one row
+// against another.
 //
 // It is the empty string for a line that is not a row at all — a brace, a text
 // block, and the terminal row a stream carries and an envelope does not.
@@ -561,6 +588,7 @@ func rowIdentity(line string) string {
 		Type   string `json:"type"`
 		Name   string `json:"name"`
 		Digest string `json:"digest"`
+		Source string `json:"source"`
 	}
 	if err := json.Unmarshal([]byte(line), &row); err != nil {
 		return ""
@@ -569,5 +597,5 @@ func rowIdentity(line string) string {
 	case "", "result", "outcome", "text":
 		return ""
 	}
-	return strings.Join([]string{row.Type, row.Name, row.Digest}, "\x00")
+	return strings.Join([]string{row.Type, row.Name, row.Digest, row.Source}, "\x00")
 }

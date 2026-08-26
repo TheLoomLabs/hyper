@@ -1,0 +1,12 @@
+{
+  "content": [
+    {"type":"text","text":"1 Operation"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"operation_detail","source":"  list_widgets:\n    kind: read\n    repeatability: repeatable\n    deadline: 30s\n    patterns:\n      pagination:\n        cursor: {from: $.body.result_info.cursor, into: {query: cursor}}\n      retry: {attempts: 3}\n    http: {method: GET, host: \"{from-target}\", path: /widgets}\n    record:\n      over: $.body.result\n      identity: $.id\n      fields: {id: $.id, name: $.name}\n","derived":{"capabilities":["http"],"bound":"none","patterns_resolved":["pagination","retry"],"record_cardinality":"series","record_identity":"$.id","repeatability":"repeatable","deadline_seconds":30,"concurrency_limit":1}}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

@@ -36,7 +36,13 @@ A tool is named for the command it carries, so `providers/` here and
 `../providers/` are the two surfaces over one command and are meant to be read
 against each other: the rows in an `envelope.golden` are the rows in the
 `--json` twin's `stdout.golden`, and a fence holds them to it
-(`TestGoldenCorpora_ARowInAnEnvelopeIsTheRowTheStreamWrites`).
+(`TestGoldenCorpora_ARowInAnEnvelopeIsTheRowTheStreamWrites`). The pairing is
+by the row's own identity across the whole corpus rather than by directory, and
+one identity can have more than one rendering: `targets` computes credential
+presence when it runs, so `cloudflare-prod` is `present: true` in a case whose
+`env` sets the variable and `present: false` in one that does not. What the
+fence holds is that an envelope's row is **one of** the renderings the stream
+writes for that identity — keys in order, values as stated.
 
 **A case that declines holds an `error.golden` where the others hold an
 `envelope.golden`**, and which of the two it is says which half of §9's mapping
@@ -71,6 +77,49 @@ is therefore the default's. What comes back is fifty rows, `truncated: true`
 carrying the bare boolean — a namespace listing having no axis to name — and a
 text block that says so, there being no stderr on this surface for the line the
 CLI writes beside its table.
+
+`operation/` is §9's third discovery question on this surface, and its cases are
+the derived block's own rules rather than the command's (issue #197).
+`five-artefact-demo` is a `destroy`: `bound: "mandatory"`, `patterns_resolved`
+as `[]` where the Operation declares none, and the Record pair absent
+altogether, a `destroy` projecting no Record of its own.
+`a-paginated-read-over-a-series` is the other side of each — `bound: "none"`,
+two Patterns named, `record_cardinality` and `record_identity` beside them —
+and `a-builtin-shell-destroy` is the third member of a fact that is not a
+boolean: an opaque `destroy`, whose Bound is `illegal` rather than absent.
+`a-mutate-declaring-no-repeatability` is the effective value with no spelling in
+the source at all, `run-once` derived from a Kind that omitted the key, and
+`a-mutate-declaring-skip-if-recorded` is the third member of the same set, this
+one authored. `deadline_seconds` is a number on every one of them, the wire
+fixing the unit so that nothing downstream parses a suffix.
+
+**Either positional naming nothing is a protocol error**, which is why there are
+two of them: `operation/provider-matching-nothing` and
+`operation/operation-matching-nothing` resolve against two different namespaces
+— the repository's, and that Manifest's own — so each carries the sentence its
+own lookup wrote, and the pairing above holds both against the case one
+directory up.
+
+`targets/` is the repository's own row, and what its cases are about is the
+credential half. `five-artefact-demo-credentialed` carries both shapes at once:
+`cloudflare-prod`, whose one slot names a variable the case's `env` sets, and
+`local`, which declares no `auth:` block and so carries no `credentials` member
+at all. It is also where `hosts` is read as an array in the declaration's own
+order — `local` grants two, and both are there. `empty-string-variable` is the
+line between a name and a value: the variable is set to the empty string and
+`present` is `true`, whether an empty credential works being the endpoint's
+business and not hyper's. No case anywhere holds a credential value, because
+nothing on this surface ever reads one. `two-slot-declaration` is why the pair
+is a pair: one declaration carrying two slots, one of them set and one not,
+which a flat list of names could not have said. `no-targets-directory` is the
+shape §9 states and Go makes easy to get wrong — `rows: []` where the command
+found nothing, and a text block that says `no rows`.
+
+There is no truncated `targets` case, and that is the tool rather than a gap:
+`targets()` takes no arguments, so the only cut it could reach is the default's,
+where the `../targets/truncated` case one directory up reaches its own with a
+`--limit` this surface does not offer. `providers/truncated` is where the cut
+result is held.
 
 What a declining case is held against beyond its own golden is the rendering
 the CLI writes, and one fence holds both halves

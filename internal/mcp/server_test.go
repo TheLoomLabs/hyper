@@ -208,10 +208,12 @@ func TestCall_TheEnvelopeCarriesTheRowsTheTerminalFactAndTheBit(t *testing.T) {
 // and Go makes easy to get wrong: `rows` is `[]` where the command found
 // nothing **rather than absent**, and a nil slice marshals as `null`.
 //
-// It is here rather than in the corpus because neither tool this milestone
-// builds can answer no rows — `providers` always finds the built-in and
-// `provider` always writes its Manifest's header row — so the rule has no
-// fixture repository to be driven from and would otherwise be held by nothing.
+// The corpus now drives it too — `targets` against a repository that declares
+// none answers `[]` (testdata/mcp/targets/no-targets-directory) — and this case
+// stays because it holds the rule where the composition is rather than where a
+// fixture happens to reach it: `providers` always finds the built-in and
+// `provider` always writes its Manifest's header row, so for two of the four
+// tools the shape has no repository to be driven from at all.
 func TestCall_RowsIsAnEmptyArrayWhereTheCommandFoundNothing(t *testing.T) {
 	server, _ := answering(nil, render.NewResultRow(false))
 
@@ -295,6 +297,10 @@ func TestCall_AnArgumentTheSchemaDoesNotAdmitIsAProtocolError(t *testing.T) {
 		{"a member of the wrong type", "provider", `{"name":7}`},
 		{"a required member left off", "provider", `{}`},
 		{"a name the schema's minLength refuses", "provider", `{"name":""}`},
+		{"one of two positionals left off", "operation", `{"provider":"shell"}`},
+		{"the second positional named nothing at all", "operation", `{"provider":"shell","operation":""}`},
+		{"the first positional named nothing at all", "operation", `{"provider":"","operation":"destroy"}`},
+		{"a cap on a tool that takes no arguments", "targets", `{"limit":10}`},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, _ := answering(nil, render.NewResultRow(false))
@@ -325,6 +331,9 @@ func TestCall_TheArgvIsTheCommandLineItsCommandWouldHaveReceived(t *testing.T) {
 		{"a tool taking no arguments", "providers", `{}`, []string{"providers"}},
 		{"a tool taking a name", "provider", `{"name":"shell"}`, []string{"provider", "--", "shell"}},
 		{"a name spelled like a flag", "provider", `{"name":"--json"}`, []string{"provider", "--", "--json"}},
+		{"a tool taking two names", "operation", `{"provider":"shell","operation":"destroy"}`, []string{"operation", "--", "shell", "destroy"}},
+		{"two names spelled like flags", "operation", `{"provider":"--json","operation":"--limit"}`, []string{"operation", "--", "--json", "--limit"}},
+		{"a second tool taking no arguments", "targets", `{}`, []string{"targets"}},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, argv := answering(nil, render.NewResultRow(false))
@@ -352,6 +361,8 @@ func TestSummary_CountsTheRowsByTheirOwnDiscriminator(t *testing.T) {
 		{"a listing", []string{"provider", "provider", "provider"}, false, "3 Providers"},
 		{"one of a kind", []string{"provider"}, false, "1 Provider"},
 		{"a header and the rows beneath it", []string{"manifest", "operation", "operation"}, false, "1 Manifest, 2 Operations"},
+		{"one Operation seen up close", []string{"operation_detail"}, false, "1 Operation"},
+		{"the repository's grants", []string{"target", "target"}, false, "2 Targets"},
 		{"a cut listing", []string{"provider", "provider"}, true, "2 Providers, truncated"},
 		{"nothing found", nil, false, "no rows"},
 		{"a row type the table does not name", []string{"widget"}, false, "1 widget"},

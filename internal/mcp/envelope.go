@@ -367,6 +367,13 @@ var nouns = map[string]string{
 	"provider":  "Provider",
 	"manifest":  "Manifest",
 	"operation": "Operation",
+	// `operation_detail` is one Operation seen up close, and the glossary has
+	// one word for the thing however it is rendered: a caller who asked
+	// about one Operation is told they got one, in the noun they asked in.
+	// The row type's own name is the wire's discriminator and not a second
+	// noun (§8, issue #197).
+	"operation_detail": "Operation",
+	"target":           "Target",
 }
 
 // noun is one row type in prose, pluralised by count. The plural is the English

@@ -1,0 +1,2 @@
+{"type":"target","name":"hostco","hosts":["api.hostco.dev"],"accepts_kinds":["read","mutate"],"grants_capabilities":["http"],"credentials":[{"slot":"username","env":"HOSTCO_USERNAME","present":true},{"slot":"password","env":"HOSTCO_PASSWORD","present":false}]}
+{"type":"result","truncated":false}

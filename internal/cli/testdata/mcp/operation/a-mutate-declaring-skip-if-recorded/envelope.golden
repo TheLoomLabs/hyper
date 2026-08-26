@@ -1,0 +1,12 @@
+{
+  "content": [
+    {"type":"text","text":"1 Operation"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"operation_detail","source":"  create_widget:\n    kind: mutate\n    repeatability: skip-if-recorded\n    deadline: 1h\n    input:\n      type: object\n      properties:\n        name: {type: string}\n    http: {method: POST, host: \"{from-target}\", path: /widgets, body: {name: \"{name}\"}}\n    record:\n      identity: \"{name}\"\n      fields: {id: $.body.id}\n","derived":{"capabilities":["http"],"bound":"none","patterns_resolved":[],"record_cardinality":"one","record_identity":"{name}","repeatability":"skip-if-recorded","deadline_seconds":3600,"concurrency_limit":1}}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}
