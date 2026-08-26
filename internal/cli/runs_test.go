@@ -31,7 +31,7 @@ func TestParseArgs_ReadsRunsTypedParameters(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var stderr bytes.Buffer
-			parsed, code := parseArgs(runsCommand, args, runsParameters, environment(nil), &stderr)
+			parsed, _, code := parseArgs(runsCommand, args, runsParameters, environment(nil), streams{stderr: &stderr})
 
 			if code != 0 {
 				t.Fatalf("parseArgs() = %d, want 0; stderr said %q", code, stderr.String())
@@ -70,7 +70,7 @@ func TestParseArgs_RefusesAnOutcomeOutsideTheTriple(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var stderr bytes.Buffer
-			_, code := parseArgs(runsCommand, []string{"--outcome", value}, runsParameters, environment(nil), &stderr)
+			_, _, code := parseArgs(runsCommand, []string{"--outcome", value}, runsParameters, environment(nil), streams{stderr: &stderr})
 
 			if code != ExitUsage {
 				t.Fatalf("parseArgs() = %d, want %d", code, ExitUsage)
@@ -97,7 +97,7 @@ func TestParseArgs_RefusesAnOutcomeOutsideTheTriple(t *testing.T) {
 func TestParseArgs_LeavesRunsParametersUnknownToACommandThatTakesNone(t *testing.T) {
 	for _, flag := range []string{"--procedure", "--target", "--outcome"} {
 		var stderr bytes.Buffer
-		_, code := parseArgs("providers", []string{flag, "whatever"}, parameters{limit: defaultListLimit}, environment(nil), &stderr)
+		_, _, code := parseArgs("providers", []string{flag, "whatever"}, parameters{limit: defaultListLimit}, environment(nil), streams{stderr: &stderr})
 
 		if code != ExitUsage {
 			t.Errorf("parseArgs(%s) = %d, want %d", flag, code, ExitUsage)

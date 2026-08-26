@@ -53,38 +53,38 @@ const localTarget = "local"
 // It surfaces the raw response beside the projection, which no credentialled
 // surface does (ADR-0017): a Probe binds `local`, which carries no credential
 // slot, so the wire is visible by construction rather than by a flag.
-func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
+func RunProbe(args []string, to destination, process Process, wd, binaryVersion string) int {
 	// --input is read off the argument list before the globals, because
 	// parseArgs refuses a flag it does not know and this is the one command
 	// that carries one. Everything past a `--` is left untouched, so a
 	// positional spelled like a flag is still reachable.
 	supplied, rest, fault := splitInputs(args)
 	if fault != "" {
-		fmt.Fprintf(stderr, "hyper probe: %s\n", fault)
+		fmt.Fprintf(to.narrate(), "hyper probe: %s\n", fault)
 		return ExitUsage
 	}
 
-	parsed, code := parseArgs("probe", rest, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
+	parsed, to, code := parseArgs("probe", rest, parameters{limit: takesNoLimit}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
 	if len(parsed.positional) != 2 {
-		fmt.Fprintf(stderr, "hyper probe: %s\n", arityFault(parsed.positional, "Provider", "Operation"))
+		fmt.Fprintf(to.narrate(), "hyper probe: %s\n", arityFault(parsed.positional, "Provider", "Operation"))
 		return ExitUsage
 	}
 	providerName, operationName := parsed.positional[0], parsed.positional[1]
 
-	repoRoot, code := resolveRepoRoot("probe", parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("probe", parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
-	if code, _ := gateOnVersionPin("probe", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("probe", repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper probe: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper probe: %s\n", err)
 		return ExitUsage
 	}
 
@@ -93,24 +93,24 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 	// in the same words (§9, ADR-0060).
 	manifest, resolved := loaded.Manifests[providerName]
 	if !resolved {
-		fmt.Fprint(stderr, unresolvedProviderName("probe", providerName))
+		fmt.Fprint(to.narrate(), unresolvedProviderName("probe", providerName))
 		return ExitUsage
 	}
 	operation, declared := loaded.Providers[providerName].Operations[operationName]
 	if !declared {
-		fmt.Fprint(stderr, unresolvedOperationName("probe", providerName, operationName))
+		fmt.Fprint(to.narrate(), unresolvedOperationName("probe", providerName, operationName))
 		return ExitUsage
 	}
 
 	if fault := probeInvokes(providerName, operationName, operation); fault != "" {
-		fmt.Fprintf(stderr, "hyper probe: %s\n", fault)
+		fmt.Fprintf(to.narrate(), "hyper probe: %s\n", fault)
 		return ExitUsage
 	}
 
 	inputs, faults := readInputs(operation, supplied)
 	if len(faults) > 0 {
 		for _, fault := range faults {
-			fmt.Fprintf(stderr, "hyper probe: %s\n", fault)
+			fmt.Fprintf(to.narrate(), "hyper probe: %s\n", fault)
 		}
 		return ExitUsage
 	}
@@ -121,7 +121,7 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 
 	host, decline := probeHost(loaded, providerName, operationName, operation, inputs)
 	if decline != nil {
-		return decline.render(stderr, repoRoot)
+		return decline.render(to, repoRoot)
 	}
 
 	// One lookup for the two readers below: where an Operation is declared
@@ -131,13 +131,13 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 
 	request, read := capability.ReadRequest(declaration)
 	if !read {
-		fmt.Fprintf(stderr, "hyper probe: %s %s declares no legible http: block; hyper check reports what is wrong with it\n",
+		fmt.Fprintf(to.narrate(), "hyper probe: %s %s declares no legible http: block; hyper check reports what is wrong with it\n",
 			providerName, operationName)
 		return ExitUsage
 	}
 	call, err := request.Build(host, inputs)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper probe: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper probe: %s\n", err)
 		return ExitUsage
 	}
 
@@ -164,9 +164,9 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 		// word for it, because it is the one of these an artefact declared
 		// and therefore the one a reader can edit (§3).
 		if errors.Is(err, context.DeadlineExceeded) {
-			fmt.Fprintf(stderr, "hyper probe: the Operation's deadline of %s was reached and no response arrived\n", detail.Deadline)
+			fmt.Fprintf(to.narrate(), "hyper probe: the Operation's deadline of %s was reached and no response arrived\n", detail.Deadline)
 		} else {
-			fmt.Fprintf(stderr, "hyper probe: no response arrived: %s\n", err)
+			fmt.Fprintf(to.narrate(), "hyper probe: no response arrived: %s\n", err)
 		}
 	}
 
@@ -182,7 +182,7 @@ func RunProbe(args []string, stdout, stderr io.Writer, process Process, wd, bina
 	// outcome triple to report (§8, §9, ADR-0009). It carries no truncation
 	// marker either — one Probe is one answer, and there is no result set
 	// for a limit to cut.
-	if code := writeAnswer("probe", stdout, stderr, parsed.json, rows, render.NewResultRow(false), writeProbePage); code != 0 {
+	if code := writeAnswer("probe", to, rows, render.NewResultRow(false), writeProbePage); code != 0 {
 		return code
 	}
 	return ExitClean
@@ -390,15 +390,15 @@ type probeDecline struct {
 // three shapes are one dispatch rather than three call sites, so which of them
 // a decline takes is decided where the decline is built and stated nowhere
 // else.
-func (d probeDecline) render(stderr io.Writer, repoRoot string) int {
+func (d probeDecline) render(to destination, repoRoot string) int {
 	switch {
 	case d.usage != "":
-		fmt.Fprintf(stderr, "hyper probe: %s\n", d.usage)
+		fmt.Fprintf(to.narrate(), "hyper probe: %s\n", d.usage)
 		return ExitUsage
 	case d.positioned != nil:
-		return refuseProblems(stderr, repoRoot, []problem.Problem{*d.positioned})
+		return refuseProblems(to, repoRoot, []problem.Problem{*d.positioned})
 	default:
-		return refuse(stderr, d.code, d.message)
+		return refuse(to, d.code, d.message)
 	}
 }
 

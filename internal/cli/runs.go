@@ -60,8 +60,8 @@ var runsParameters = parameters{
 // It is not a Run: it writes nothing, terminates its stream with `result`
 // rather than `outcome`, and exits 0 whatever outcomes the entries it listed
 // record — the exit code is this invocation's and never any Run's.
-func RunRuns(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
-	parsed, code := parseArgs(runsCommand, args, runsParameters, process.LookupEnv, stderr)
+func RunRuns(args []string, to destination, process Process, wd, binaryVersion string) int {
+	parsed, to, code := parseArgs(runsCommand, args, runsParameters, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
@@ -78,20 +78,20 @@ func RunRuns(args []string, stdout, stderr io.Writer, process Process, wd, binar
 	// them at `--procedure` suggests a listing, and a caller who wanted the
 	// Run reads the same line and types the command they meant.
 	if len(parsed.positional) > 0 {
-		fmt.Fprintf(stderr, "hyper %s: takes no positional argument, got %s — the Procedure is a parameter here, --procedure %s\n",
+		fmt.Fprintf(to.narrate(), "hyper %s: takes no positional argument, got %s — the Procedure is a parameter here, --procedure %s\n",
 			runsCommand, parsed.positional[0], parsed.positional[0])
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot(runsCommand, parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot(runsCommand, parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
-	if code, _ := gateOnVersionPin(runsCommand, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(runsCommand, repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
-	held, code := openStoreForReading(runsCommand, repoRoot, process.Now(), stderr)
+	held, code := openStoreForReading(runsCommand, repoRoot, process.Now(), to)
 	if code != 0 {
 		return code
 	}
@@ -105,7 +105,7 @@ func RunRuns(args []string, stdout, stderr io.Writer, process Process, wd, binar
 	narrowing := narrowingsOf(parsed)
 	listed, err := held.Listing(narrowing.keeps)
 	if err != nil {
-		return reportReadStoreFault(runsCommand, stderr, err)
+		return reportReadStoreFault(runsCommand, to, err)
 	}
 
 	rows := journalRows(listed, narrowing)
@@ -116,16 +116,16 @@ func RunRuns(args []string, stdout, stderr io.Writer, process Process, wd, binar
 	// stream state the same facts because they are built from one row set,
 	// cut in one place.
 	page := func(w io.Writer, rows []render.Row) error { return runsPage(w, rows, narrowing.any()) }
-	if code := writeAnswer(runsCommand, stdout, stderr, parsed.json, kept, runsTerminal(kept, dropped), page); code != 0 {
+	if code := writeAnswer(runsCommand, to, kept, runsTerminal(kept, dropped), page); code != 0 {
 		return code
 	}
 
-	// The human counterpart of the marker is a line on stderr, in both
-	// modes, because it is narration rather than an answer (§9). A
-	// truncated result must never look complete, and a table that simply
-	// stopped after the last row it was allowed would.
+	// The human counterpart of the marker goes to the narration whichever
+	// form the answer took, because it is narration rather than an answer
+	// (§9, destination.go). A truncated result must never look complete, and
+	// a table that simply stopped after the last row it was allowed would.
 	if dropped > 0 {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", runsCommand, truncationLine("Runs", len(kept), len(rows), parsed, runsNarrowing))
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", runsCommand, truncationLine("Runs", len(kept), len(rows), parsed, runsNarrowing))
 	}
 
 	return ExitClean

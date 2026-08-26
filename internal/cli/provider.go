@@ -35,8 +35,8 @@ import (
 //
 // It takes no --limit: it names a Manifest rather than ranging over a
 // namespace, so there is no result set for a cap to cut (§9).
-func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("provider", args, parameters{limit: takesNoLimit}, lookupenv, stderr)
+func RunProvider(args []string, to destination, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
+	parsed, to, code := parseArgs("provider", args, parameters{limit: takesNoLimit}, lookupenv, to)
 	if code != 0 {
 		return code
 	}
@@ -46,12 +46,12 @@ func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string)
 	// gives its own arity, and the same fault the shared spelling names
 	// (ADR-0060).
 	if len(parsed.positional) != 1 {
-		fmt.Fprintf(stderr, "hyper provider: %s\n", arityFault(parsed.positional, "Provider"))
+		fmt.Fprintf(to.narrate(), "hyper provider: %s\n", arityFault(parsed.positional, "Provider"))
 		return ExitUsage
 	}
 	name := parsed.positional[0]
 
-	repoRoot, code := resolveRepoRoot("provider", parsed.repoDir, lookupenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("provider", parsed.repoDir, lookupenv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
@@ -60,13 +60,13 @@ func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string)
 	// resolved: a mismatched pin plus a name matching nothing is 77 and not
 	// 2, because the gate fires first for fifteen of the sixteen (§9, §11,
 	// ADR-0020, ADR-0060).
-	if code, _ := gateOnVersionPin("provider", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("provider", repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper provider: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper provider: %s\n", err)
 		return ExitUsage
 	}
 
@@ -78,7 +78,7 @@ func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string)
 	// exit 2 in CI (§9, ADR-0060).
 	manifest, resolved := loaded.Manifests[name]
 	if !resolved {
-		fmt.Fprint(stderr, unresolvedProviderName("provider", name))
+		fmt.Fprint(to.narrate(), unresolvedProviderName("provider", name))
 		return ExitUsage
 	}
 
@@ -87,7 +87,7 @@ func RunProvider(args []string, stdout, stderr io.Writer, lookupenv func(string)
 	// The terminal row is written with no marker: nothing here ranges over a
 	// namespace and no --limit exists to cut a result short, so a stream
 	// this command opens always carried everything it found (§9).
-	if code := writeAnswer("provider", stdout, stderr, parsed.json, rows, render.NewResultRow(false), writeProviderPage); code != 0 {
+	if code := writeAnswer("provider", to, rows, render.NewResultRow(false), writeProviderPage); code != 0 {
 		return code
 	}
 

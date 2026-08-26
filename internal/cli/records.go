@@ -81,8 +81,8 @@ const versionsPerSeries = 20
 //
 // It is not a Run: it writes nothing, terminates its stream with `result`
 // rather than `outcome`, and exits 0 whatever the Records it listed hold.
-func RunRecords(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
-	parsed, code := parseArgs(recordsCommand, args, recordsParameters, process.LookupEnv, stderr)
+func RunRecords(args []string, to destination, process Process, wd, binaryVersion string) int {
+	parsed, to, code := parseArgs(recordsCommand, args, recordsParameters, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
@@ -92,7 +92,7 @@ func RunRecords(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// the message names it — a caller who typed the name bare reads the
 	// flag that takes it rather than a bare refusal.
 	if len(parsed.positional) > 0 {
-		fmt.Fprintf(stderr, "hyper %s: takes no positional argument, got %s — a Record's name is a parameter here, --name %s\n",
+		fmt.Fprintf(to.narrate(), "hyper %s: takes no positional argument, got %s — a Record's name is a parameter here, --name %s\n",
 			recordsCommand, parsed.positional[0], parsed.positional[0])
 		return ExitUsage
 	}
@@ -108,15 +108,15 @@ func RunRecords(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// positional, before a repository root is resolved: there is nothing to
 	// load before this invocation can be judged wrong.
 	if parsed.sinceNamed && !parsed.history {
-		fmt.Fprintf(stderr, "hyper %s: --since is legal only with --history — a Head has no window to bound, and naming one would not open a history\n", recordsCommand)
+		fmt.Fprintf(to.narrate(), "hyper %s: --since is legal only with --history — a Head has no window to bound, and naming one would not open a history\n", recordsCommand)
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot(recordsCommand, parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot(recordsCommand, parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
-	if code, _ := gateOnVersionPin(recordsCommand, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(recordsCommand, repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
@@ -127,11 +127,11 @@ func RunRecords(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// artefact at all.
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", recordsCommand, err)
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", recordsCommand, err)
 		return ExitUsage
 	}
 
-	held, code := openStoreForReading(recordsCommand, repoRoot, process.Now(), stderr)
+	held, code := openStoreForReading(recordsCommand, repoRoot, process.Now(), to)
 	if code != 0 {
 		return code
 	}
@@ -146,7 +146,7 @@ func RunRecords(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// order on the identity and never on the listing (ADR-0044).
 	records, err := held.Records()
 	if err != nil {
-		return reportReadStoreFault(recordsCommand, stderr, err)
+		return reportReadStoreFault(recordsCommand, to, err)
 	}
 
 	narrowing := recordNarrowingsOf(parsed)
@@ -155,7 +155,7 @@ func RunRecords(args []string, stdout, stderr io.Writer, process Process, wd, bi
 
 	rows, err := recordRows(held, kept)
 	if err != nil {
-		return reportReadStoreFault(recordsCommand, stderr, err)
+		return reportReadStoreFault(recordsCommand, to, err)
 	}
 
 	// The two renderings are one list of rows written twice (ADR-0026), and
@@ -163,19 +163,20 @@ func RunRecords(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// stream state the same facts because they are built from one row set,
 	// cut in one place.
 	page := func(w io.Writer, rows []render.Row) error { return recordsPage(w, rows, narrowing.any()) }
-	if code := writeAnswer(recordsCommand, stdout, stderr, parsed.json, rows, recordsTerminal(left), page); code != 0 {
+	if code := writeAnswer(recordsCommand, to, rows, recordsTerminal(left), page); code != 0 {
 		return code
 	}
 
-	// The human counterparts of the marker, all three on stderr in both
-	// modes, because they are narration rather than an answer (§9). A
-	// truncated result must never look complete, and a page that simply
-	// stopped where it was allowed to would be one.
+	// The human counterparts of the marker, all three on the narration
+	// whichever form the answer took, because they are narration rather than
+	// an answer (§9, destination.go). A truncated result must never look
+	// complete, and a page that simply stopped where it was allowed to would
+	// be one.
 	if left.identitiesDropped > 0 {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", recordsCommand, truncationLine("Records", left.identities, len(selected), parsed, recordsNarrowing))
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", recordsCommand, truncationLine("Records", left.identities, len(selected), parsed, recordsNarrowing))
 	}
 	if left.versionsDropped > 0 {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", recordsCommand, cappedSeriesLine(left))
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", recordsCommand, cappedSeriesLine(left))
 	}
 	// A Definition file that did not load is in no namespace, so an Asset it
 	// owns would read as Orphaned on a fault in the file that owns it. The
@@ -183,7 +184,7 @@ func RunRecords(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// the reading `review`'s AUTHORITY table already takes over the same
 	// absence (§8, ADR-0069).
 	if notLoaded := definitionsNotLoaded(loaded); notLoaded > 0 {
-		fmt.Fprintf(stderr, "hyper %s: %s; ORPHANED is read against the Definitions that did\n", recordsCommand, definitionsNotLoadedLine(notLoaded))
+		fmt.Fprintf(to.narrate(), "hyper %s: %s; ORPHANED is read against the Definitions that did\n", recordsCommand, definitionsNotLoadedLine(notLoaded))
 	}
 
 	return ExitClean

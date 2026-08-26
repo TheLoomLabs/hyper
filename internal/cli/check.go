@@ -25,14 +25,14 @@ import (
 // NO_COLOR; binaryVersion is what the pin gate compares against hyper.yaml's
 // pin. All four are passed in rather than read from the process directly, so
 // the whole command is exercisable without a subprocess.
-func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("check", args, parameters{limit: takesNoLimit}, lookupenv, stderr)
+func RunCheck(args []string, to destination, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
+	parsed, to, code := parseArgs("check", args, parameters{limit: takesNoLimit}, lookupenv, to)
 	if code != 0 {
 		return code
 	}
 	paths := parsed.positional
 
-	repoRoot, code := resolveRepoRoot("check", parsed.repoDir, lookupenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("check", parsed.repoDir, lookupenv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
@@ -41,7 +41,7 @@ func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (s
 	// compares itself against hyper.yaml's version: pin before reading a
 	// second file, and Refuses on mismatch in either direction (§9, §11,
 	// ADR-0020). check calls it rather than carrying it.
-	if code, _ := gateOnVersionPin("check", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("check", repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
@@ -49,7 +49,7 @@ func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (s
 	// (§9): a path naming no file exits 2 and reports no problems at all.
 	for _, p := range paths {
 		if _, err := os.Stat(absPath(wd, p)); err != nil {
-			fmt.Fprintf(stderr, "hyper check: %s: no such file or directory\n", p)
+			fmt.Fprintf(to.narrate(), "hyper check: %s: no such file or directory\n", p)
 			return ExitUsage
 		}
 	}
@@ -61,7 +61,7 @@ func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (s
 	// milestone need the same read and every command after them will.
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper check: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper check: %s\n", err)
 		return ExitUsage
 	}
 
@@ -97,7 +97,7 @@ func RunCheck(args []string, stdout, stderr io.Writer, lookupenv func(string) (s
 	// #110).
 	rows := checkRows(problems)
 	page := func(w io.Writer, rows []render.Row) error { return writeCheckTable(w, rows, checked) }
-	if code := writeAnswer("check", stdout, stderr, parsed.json, rows, render.NewResultRow(false), page); code != 0 {
+	if code := writeAnswer("check", to, rows, render.NewResultRow(false), page); code != 0 {
 		return code
 	}
 

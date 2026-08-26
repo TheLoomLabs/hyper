@@ -605,6 +605,59 @@ func remediationsFor(member refusalRow, narrowed *run.Narrowing, started time.Ti
 	return append(rows, proposal)
 }
 
+// refusalForm is which of §8's two Refusal renderings a set of members takes.
+//
+// **It is carried and never inferred**, which is the one rule this type exists
+// to hold. What sorts the two is what the check had to point at, and that is a
+// fact the caller holds rather than one a member's own fields can be read for:
+// a `problem.Problem` may carry no file, and a positioned Refusal read back as
+// the two-line form would silently drop the caret excerpt and the `EDIT ONE OF`
+// table that are the whole path back to a passing review (§8, gate.go).
+type refusalForm int
+
+const (
+	// aboutTheInvocation is the two-line form: a fact about **this
+	// invocation** — a binary the Repository declaration does not pin, a
+	// Store branch neither side holds — with no artefact coordinate in it.
+	// A caret excerpt needs a file and a line and an `EDIT ONE OF` needs a
+	// field, and inventing one to reach the richer rendering would point a
+	// reader at an edit that is not the remedy.
+	aboutTheInvocation refusalForm = iota
+	// citingAnArtefact is §8's caret excerpt, its `=` notes and its `EDIT
+	// ONE OF` table: the fault has a file, a line and a field, and the
+	// remedy is an edit there.
+	citingAnArtefact
+)
+
+// writeRefusalMembers writes §8's Refusal for the members a Refusal arrives as,
+// in the form its caller named, and it is the whole of what the CLI's
+// destination does with one (destination.go).
+//
+// The members arrive already read against the working tree, because the root an
+// excerpt is read against is the caller's (excerpted). What is derived here is
+// each member's remediations, which are a function of the member alone.
+func writeRefusalMembers(w io.Writer, form refusalForm, members []refusalRow) error {
+	if form == aboutTheInvocation {
+		for _, member := range members {
+			if _, err := fmt.Fprintf(w, "refused: %s\n  %s\n", member.ErrorCode, member.Message); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	rows := make([]render.Row, 0, 2*len(members))
+	for _, member := range members {
+		rows = append(rows, member)
+		rows = append(rows, remediationsFor(member, nil, time.Time{})...)
+	}
+	// phased is false: a phase note says which of §6's phases a check
+	// declined in, and a Run is what has phases. Neither form written here
+	// is one — a fact about an invocation has no Step to have preceded, and
+	// a Probe is not a Run (refusalPhase).
+	return writeRefusal(w, rows, false)
+}
+
 // writeRefusal writes §8's Refusal: every member of the array, each with its
 // own caret excerpt and its own remediation table where it has one, in the
 // array's order.

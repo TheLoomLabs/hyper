@@ -47,7 +47,7 @@ func TestRunCheck_HYPER_REPO_DIR_IsUsedWhenNoFlagGiven(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck(nil, &stdout, &stderr, lookupenv, elsewhere, "1.4.0")
+	exit := cli.RunCheck(nil, cli.Streams(&stdout, &stderr), lookupenv, elsewhere, "1.4.0")
 	if exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitClean, stderr.String())
 	}
@@ -66,7 +66,7 @@ func TestRunCheck_RepoDirFlagOverridesEnv(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck([]string{"--repo-dir", root}, &stdout, &stderr, lookupenv, t.TempDir(), "1.4.0")
+	exit := cli.RunCheck([]string{"--repo-dir", root}, cli.Streams(&stdout, &stderr), lookupenv, t.TempDir(), "1.4.0")
 	if exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want %d (flag should win over HYPER_REPO_DIR); stderr=%q", exit, cli.ExitClean, stderr.String())
 	}
@@ -78,10 +78,10 @@ func TestRunCheck_NoColorFlagAndEnvProduceIdenticalBytes(t *testing.T) {
 	lookupenv := emptyEnvironment
 
 	var plain bytes.Buffer
-	cli.RunCheck([]string{"--repo-dir", root}, &plain, &plain, lookupenv, root, "1.4.0")
+	cli.RunCheck([]string{"--repo-dir", root}, cli.Streams(&plain, &plain), lookupenv, root, "1.4.0")
 
 	var flagged bytes.Buffer
-	cli.RunCheck([]string{"--repo-dir", root, "--no-color"}, &flagged, &flagged, lookupenv, root, "1.4.0")
+	cli.RunCheck([]string{"--repo-dir", root, "--no-color"}, cli.Streams(&flagged, &flagged), lookupenv, root, "1.4.0")
 
 	lookupenvNoColor := func(k string) (string, bool) {
 		if k == "NO_COLOR" {
@@ -90,7 +90,7 @@ func TestRunCheck_NoColorFlagAndEnvProduceIdenticalBytes(t *testing.T) {
 		return "", false
 	}
 	var envd bytes.Buffer
-	cli.RunCheck([]string{"--repo-dir", root}, &envd, &envd, lookupenvNoColor, root, "1.4.0")
+	cli.RunCheck([]string{"--repo-dir", root}, cli.Streams(&envd, &envd), lookupenvNoColor, root, "1.4.0")
 
 	if plain.String() != flagged.String() {
 		t.Errorf("--no-color changed the bytes:\n plain: %q\nflagged: %q", plain.String(), flagged.String())
@@ -106,7 +106,7 @@ func TestRunCheck_MultiplePathsOneMissingExitsTwoAndReportsNothing(t *testing.T)
 	lookupenv := emptyEnvironment
 
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck([]string{"--repo-dir", root, "definitions/broken.yaml", "definitions/typo.yaml"}, &stdout, &stderr, lookupenv, root, "1.4.0")
+	exit := cli.RunCheck([]string{"--repo-dir", root, "definitions/broken.yaml", "definitions/typo.yaml"}, cli.Streams(&stdout, &stderr), lookupenv, root, "1.4.0")
 
 	if exit != cli.ExitUsage {
 		t.Fatalf("exit = %d, want %d", exit, cli.ExitUsage)
@@ -126,7 +126,7 @@ func TestRunCheck_DirectoryPathFiltersToThatDirectory(t *testing.T) {
 	lookupenv := emptyEnvironment
 
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck([]string{"--repo-dir", root, "--json", "definitions"}, &stdout, &stderr, lookupenv, root, "1.4.0")
+	exit := cli.RunCheck([]string{"--repo-dir", root, "--json", "definitions"}, cli.Streams(&stdout, &stderr), lookupenv, root, "1.4.0")
 
 	if exit != cli.ExitProblems {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitProblems, stderr.String())
@@ -154,7 +154,7 @@ func TestRunCheck_UnreadableArtefactDoesNotAbortThePass(t *testing.T) {
 
 	lookupenv := emptyEnvironment
 	var stdout, stderr bytes.Buffer
-	exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, &stdout, &stderr, lookupenv, root, "1.4.0")
+	exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, cli.Streams(&stdout, &stderr), lookupenv, root, "1.4.0")
 
 	if exit != cli.ExitProblems {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitProblems, stderr.String())

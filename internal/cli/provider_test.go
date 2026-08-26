@@ -61,7 +61,7 @@ operations:
 func runProvider(t *testing.T, root string, args ...string) (stdout, stderr string, exit int) {
 	t.Helper()
 	var out, errs bytes.Buffer
-	exit = cli.RunProvider(append([]string{"--repo-dir", root}, args...), &out, &errs, emptyEnvironment, root, "1.4.0")
+	exit = cli.RunProvider(append([]string{"--repo-dir", root}, args...), cli.Streams(&out, &errs), emptyEnvironment, root, "1.4.0")
 	return out.String(), errs.String(), exit
 }
 
@@ -554,7 +554,7 @@ func TestRunProvider_TheThreeGlobalsAreTheOnesSectionNineCloses(t *testing.T) {
 		}
 		return "", false
 	}
-	if exit := cli.RunProvider([]string{"widget"}, &viaEnv, &viaEnv, lookupenv, elsewhere, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunProvider([]string{"widget"}, cli.Streams(&viaEnv, &viaEnv), lookupenv, elsewhere, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("HYPER_REPO_DIR: exit = %d, want %d; output=%q", exit, cli.ExitClean, viaEnv.String())
 	}
 
@@ -569,7 +569,7 @@ func TestRunProvider_TheThreeGlobalsAreTheOnesSectionNineCloses(t *testing.T) {
 	}
 
 	var noColorEnv bytes.Buffer
-	cli.RunProvider([]string{"--repo-dir", root, "widget"}, &noColorEnv, &noColorEnv, func(key string) (string, bool) {
+	cli.RunProvider([]string{"--repo-dir", root, "widget"}, cli.Streams(&noColorEnv, &noColorEnv), func(key string) (string, bool) {
 		if key == "NO_COLOR" {
 			return "1", true
 		}
@@ -604,7 +604,7 @@ auth:
 	}
 
 	var stdout, stderr bytes.Buffer
-	if exit := cli.RunProvider([]string{"--repo-dir", root, "widget"}, &stdout, &stderr, lookupenv, root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunProvider([]string{"--repo-dir", root, "widget"}, cli.Streams(&stdout, &stderr), lookupenv, root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitClean, stderr.String())
 	}
 	for _, key := range asked {

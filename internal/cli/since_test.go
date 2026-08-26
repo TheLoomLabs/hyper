@@ -50,7 +50,7 @@ func TestParseArgs_ReadsAnRFC3339Since(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var stderr bytes.Buffer
-			parsed, code := parseArgs(sinceCommand, c.args, parameters{limit: defaultListLimit, since: true}, environment(nil), &stderr)
+			parsed, _, code := parseArgs(sinceCommand, c.args, parameters{limit: defaultListLimit, since: true}, environment(nil), streams{stderr: &stderr})
 
 			if code != 0 {
 				t.Fatalf("parseArgs() = %d, want 0; stderr said %q", code, stderr.String())
@@ -89,7 +89,7 @@ func TestParseArgs_RefusesASinceThatIsNotATimestamp(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var stderr bytes.Buffer
-			parsed, code := parseArgs(sinceCommand, []string{"--since", value}, parameters{limit: defaultListLimit, since: true}, environment(nil), &stderr)
+			parsed, _, code := parseArgs(sinceCommand, []string{"--since", value}, parameters{limit: defaultListLimit, since: true}, environment(nil), streams{stderr: &stderr})
 
 			if code != ExitUsage {
 				t.Fatalf("parseArgs() = %d, want %d", code, ExitUsage)
@@ -113,7 +113,7 @@ func TestParseArgs_RefusesASinceThatIsNotATimestamp(t *testing.T) {
 
 func TestParseArgs_SinceRequiresAValue(t *testing.T) {
 	var stderr bytes.Buffer
-	_, code := parseArgs(sinceCommand, []string{"--since"}, parameters{limit: defaultListLimit, since: true}, environment(nil), &stderr)
+	_, _, code := parseArgs(sinceCommand, []string{"--since"}, parameters{limit: defaultListLimit, since: true}, environment(nil), streams{stderr: &stderr})
 
 	if code != ExitUsage {
 		t.Fatalf("parseArgs() = %d, want %d", code, ExitUsage)
@@ -129,7 +129,7 @@ func TestParseArgs_SinceRequiresAValue(t *testing.T) {
 // that narrows nothing.
 func TestParseArgs_ACommandThatTakesNoSinceRefusesTheFlag(t *testing.T) {
 	var stderr bytes.Buffer
-	_, code := parseArgs("providers", []string{"--since", "2026-08-04T09:12:00Z"}, parameters{limit: defaultListLimit}, environment(nil), &stderr)
+	_, _, code := parseArgs("providers", []string{"--since", "2026-08-04T09:12:00Z"}, parameters{limit: defaultListLimit}, environment(nil), streams{stderr: &stderr})
 
 	if code != ExitUsage {
 		t.Fatalf("parseArgs() = %d, want %d", code, ExitUsage)
@@ -147,7 +147,7 @@ func TestParseArgs_ACommandThatTakesNoSinceRefusesTheFlag(t *testing.T) {
 // be filtering rather than not filtering.
 func TestParseArgs_AnUnnamedSinceIsNoWindow(t *testing.T) {
 	var stderr bytes.Buffer
-	parsed, code := parseArgs(sinceCommand, []string{"--limit", "3"}, parameters{limit: defaultListLimit, since: true}, environment(nil), &stderr)
+	parsed, _, code := parseArgs(sinceCommand, []string{"--limit", "3"}, parameters{limit: defaultListLimit, since: true}, environment(nil), streams{stderr: &stderr})
 
 	if code != 0 {
 		t.Fatalf("parseArgs() = %d, want 0; stderr said %q", code, stderr.String())
@@ -165,7 +165,7 @@ func TestParseArgs_AnUnnamedSinceIsNoWindow(t *testing.T) {
 // beginning with a hyphen is reachable.
 func TestParseArgs_SinceAfterTheDoubleHyphenIsAPositional(t *testing.T) {
 	var stderr bytes.Buffer
-	parsed, code := parseArgs(sinceCommand, []string{"--", "--since"}, parameters{limit: defaultListLimit, since: true}, environment(nil), &stderr)
+	parsed, _, code := parseArgs(sinceCommand, []string{"--", "--since"}, parameters{limit: defaultListLimit, since: true}, environment(nil), streams{stderr: &stderr})
 
 	if code != 0 {
 		t.Fatalf("parseArgs() = %d, want 0; stderr said %q", code, stderr.String())

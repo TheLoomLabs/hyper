@@ -46,9 +46,18 @@ import (
 // facts is threaded whole rather than the bare version string it carries:
 // RunVersion needs all of it, the gate needs the version out of it, and passing
 // the value keeps Main deterministic under test.
+//
+// The two writers are assembled into the CLI's destination here and threaded
+// down as one value: every command behind the dispatch is handed where its
+// answer goes rather than the streams that answer is made of, which is what
+// leaves room for a second destination that is not a pair of streams at all
+// (destination.go, issue #194). Which form it takes is not decided here — the
+// flag that names one is read by the shared parser, which is the only reader of
+// it there is (flags.go).
 func Main(args []string, stdout, stderr io.Writer, process Process, facts version.Facts) int {
+	to := Streams(stdout, stderr)
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "usage: hyper <command> [args...]")
+		fmt.Fprintln(to.narrate(), "usage: hyper <command> [args...]")
 		return ExitUsage
 	}
 
@@ -71,10 +80,10 @@ func Main(args []string, stdout, stderr io.Writer, process Process, facts versio
 			// than as a bare literal, on exit.go's own rule that a
 			// milestone reaching a code inherits the name instead of
 			// minting a second spelling for the number (issue #102).
-			fmt.Fprintf(stderr, "hyper: %s\n", err)
+			fmt.Fprintf(to.narrate(), "hyper: %s\n", err)
 			return ExitProblems
 		}
-		return run(args[1:], stdout, stderr, process, wd, facts.Version)
+		return run(args[1:], to, process, wd, facts.Version)
 	}
 
 	switch args[0] {
@@ -82,7 +91,11 @@ func Main(args []string, stdout, stderr io.Writer, process Process, facts versio
 		// Neither the environment nor a working directory is passed, and no
 		// repository root is resolved: `version` is one of the three
 		// commands outside the tree of sixteen and exempt from the pin gate
-		// (§9, ADR-0020).
+		// (§9, ADR-0020). The destination is the third thing not passed,
+		// and for the same reason: `version` and `completions` write no
+		// answer through one — a version block and a shell script are the
+		// whole of what each has to say, in one form, with no `--json` to
+		// name a second (destination.go).
 		return RunVersion(args[1:], stdout, stderr, facts)
 	case "completions":
 		// The second command outside the tree, and exempt for the same
@@ -102,11 +115,17 @@ func Main(args []string, stdout, stderr io.Writer, process Process, facts versio
 }
 
 // repositoryCommand is the shape of a command that reads a repository: the
-// arguments past its own name, the two streams, the process it is handed rather
-// than reaches for, the working directory already resolved out of it, and the
-// version the pin gate compares. Every one of §9's sixteen takes it — the gate
-// is stated once for all of them, and nothing else about a command is Main's
-// business.
+// arguments past its own name, the destination its answer goes to, the process
+// it is handed rather than reaches for, the working directory already resolved
+// out of it, and the version the pin gate compares. Every one of §9's sixteen
+// takes it — the gate is stated once for all of them, and nothing else about a
+// command is Main's business.
+//
+// **The destination stands where the two writers stood**, and it carries a
+// third thing they never could: which form the answer takes. A command is
+// handed one place to put its answer, one place to put a Refusal and one place
+// to narrate, and none of the three is a stream it chose (destination.go, issue
+// #194).
 //
 // The working directory rides beside the process rather than being left to
 // Getwd because resolving it is the dispatch's act and not a command's: it is
@@ -115,7 +134,7 @@ func Main(args []string, stdout, stderr io.Writer, process Process, facts versio
 // Getwd it could call and has no reason to — the answer is already in its
 // hand — which is a rule this signature states rather than a shape it enforces,
 // the enforcement being that the exempt arm never gets here.
-type repositoryCommand func(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int
+type repositoryCommand func(args []string, to destination, process Process, wd, binaryVersion string) int
 
 // environmentOnly adapts a command that reads nothing of the process but the
 // environment to the dispatch's one shape.
@@ -130,9 +149,9 @@ type repositoryCommand func(args []string, stdout, stderr io.Writer, process Pro
 // write, and take the whole value; `review` grew a clock and left this arm for
 // the table below, which is the property doing its work rather than failing it
 // (issue #164).
-func environmentOnly(run func(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int) repositoryCommand {
-	return func(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
-		return run(args, stdout, stderr, process.LookupEnv, wd, binaryVersion)
+func environmentOnly(run func(args []string, to destination, lookupenv func(string) (string, bool), wd, binaryVersion string) int) repositoryCommand {
+	return func(args []string, to destination, process Process, wd, binaryVersion string) int {
+		return run(args, to, process.LookupEnv, wd, binaryVersion)
 	}
 }
 

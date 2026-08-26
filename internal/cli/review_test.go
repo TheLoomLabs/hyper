@@ -18,7 +18,7 @@ import (
 func runReview(t *testing.T, root string, args ...string) (stdout, stderr string, exit int) {
 	t.Helper()
 	var out, errs bytes.Buffer
-	exit = cli.RunReview(append([]string{"--repo-dir", root}, args...), &out, &errs, reviewProcess(emptyEnvironment), root, "1.4.0")
+	exit = cli.RunReview(append([]string{"--repo-dir", root}, args...), cli.Streams(&out, &errs), reviewProcess(emptyEnvironment), root, "1.4.0")
 	return out.String(), errs.String(), exit
 }
 
@@ -443,10 +443,10 @@ func TestRunReview_TheThreeGlobalsBehaveAsTheyDoEverywhereElse(t *testing.T) {
 		return "", false
 	}
 	var named, environed bytes.Buffer
-	if exit := cli.RunReview([]string{"--repo-dir", root, "hyper.yaml"}, &named, &named, reviewProcess(emptyEnvironment), root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"--repo-dir", root, "hyper.yaml"}, cli.Streams(&named, &named), reviewProcess(emptyEnvironment), root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("--repo-dir exited %d, want a clean review", exit)
 	}
-	if exit := cli.RunReview([]string{"hyper.yaml"}, &environed, &environed, reviewProcess(fromEnv), elsewhere, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"hyper.yaml"}, cli.Streams(&environed, &environed), reviewProcess(fromEnv), elsewhere, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("HYPER_REPO_DIR exited %d, want a clean review", exit)
 	}
 	if named.String() != environed.String() {
@@ -460,10 +460,10 @@ func TestRunReview_TheThreeGlobalsBehaveAsTheyDoEverywhereElse(t *testing.T) {
 		return "", false
 	}
 	var flagged, environedColour bytes.Buffer
-	if exit := cli.RunReview([]string{"--repo-dir", root, "--no-color", "hyper.yaml"}, &flagged, &flagged, reviewProcess(emptyEnvironment), root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"--repo-dir", root, "--no-color", "hyper.yaml"}, cli.Streams(&flagged, &flagged), reviewProcess(emptyEnvironment), root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("--no-color exited %d, want a clean review", exit)
 	}
-	if exit := cli.RunReview([]string{"--repo-dir", root, "hyper.yaml"}, &environedColour, &environedColour, reviewProcess(noColorSet), root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"--repo-dir", root, "hyper.yaml"}, cli.Streams(&environedColour, &environedColour), reviewProcess(noColorSet), root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("NO_COLOR exited %d, want a clean review", exit)
 	}
 	if flagged.String() != named.String() || environedColour.String() != named.String() {
@@ -489,7 +489,7 @@ func TestRunReview_ResolvesNoCredential(t *testing.T) {
 		return "", false
 	}
 	var out bytes.Buffer
-	if exit := cli.RunReview([]string{"--repo-dir", root, "cloudflare-prod"}, &out, &out, reviewProcess(watching), root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunReview([]string{"--repo-dir", root, "cloudflare-prod"}, cli.Streams(&out, &out), reviewProcess(watching), root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want a clean review", exit)
 	}
 

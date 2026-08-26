@@ -40,14 +40,14 @@ const runCommand = "run"
 // name needs nothing further to resolve and the typo is repaired before the
 // Store is missed (§9, ADR-0060). Past that it is §6's fixed order, which
 // internal/run states.
-func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
+func RunRun(args []string, to destination, process Process, wd, binaryVersion string) int {
 	// `--target` is refused by name rather than as an unknown flag, because
 	// what it means is a decision rather than a typo: a Procedure is fully
 	// bound and declares its own Target envelope, so a Target supplied at
 	// invocation is either redundant with the artefact or it is authority
 	// arriving after review (§5, §9, ADR-0008).
 	if fault := refusedFlags(args); fault != "" {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, fault)
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", runCommand, fault)
 		return ExitUsage
 	}
 
@@ -58,7 +58,7 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	// positional spelled like a flag is still reachable (§9).
 	sink, rest, fault := splitSecretOut(args)
 	if fault != "" {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, fault)
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", runCommand, fault)
 		return ExitUsage
 	}
 
@@ -69,24 +69,24 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 
 	// No --limit: a Run reports what it just did rather than ranging over a
 	// namespace, so there is no result set for a cap to cut (§9).
-	parsed, code := parseArgs(runCommand, rest, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
+	parsed, to, code := parseArgs(runCommand, rest, parameters{limit: takesNoLimit}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
 	if len(parsed.positional) != 1 {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, arityFault(parsed.positional, "Procedure"))
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", runCommand, arityFault(parsed.positional, "Procedure"))
 		return ExitUsage
 	}
 	name := parsed.positional[0]
 
-	repoRoot, code := resolveRepoRoot(runCommand, parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot(runCommand, parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
-	// Where this Run's answer is rendered and in which mode, carried from
-	// here to every path that ends without one being written the ordinary
-	// way (§8, §9, issue #172).
-	rendering := runRendering{stdout: stdout, stderr: stderr, asJSON: parsed.json, dryRun: dryRun}
+	// Where this Run's answer goes and whether the invocation was a
+	// rehearsal, carried from here to every path that ends without an answer
+	// being written the ordinary way (§8, §9, issue #172).
+	rendering := runRendering{to: to, dryRun: dryRun}
 
 	// The gate, and the first of the two paths on which a Run **declines**
 	// before it has an id: the terminal row goes out regardless, carrying
@@ -95,7 +95,7 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	// Its usage arm is not one of them and returns unchanged: a hyper.yaml
 	// that cannot be read at all is the command never starting, and a usage
 	// error opens no stream (§9, ADR-0060).
-	switch code, errorCode := gateOnVersionPin(runCommand, repoRoot, binaryVersion, stderr); {
+	switch code, errorCode := gateOnVersionPin(runCommand, repoRoot, binaryVersion, to); {
 	case code == ExitUsage:
 		return code
 	case code != 0:
@@ -107,17 +107,17 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	// list. It is after the gate for the reason every command's own work is:
 	// the pin gate fires first everywhere (§9, ADR-0020).
 	if fault := sinkInsideTheWorkingTree(sink, repoRoot, wd); fault != "" {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, fault)
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", runCommand, fault)
 		return ExitUsage
 	}
 
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, err)
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", runCommand, err)
 		return ExitUsage
 	}
 	if fault := unresolvedProcedure(loaded, name); fault != "" {
-		fmt.Fprint(stderr, fault)
+		fmt.Fprint(to.narrate(), fault)
 		return ExitUsage
 	}
 
@@ -138,7 +138,7 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 	mode := run.LockMode(loaded, name)
 	lock, err := store.Acquire(repoRoot, mode)
 	if err != nil {
-		return reportLockFault(stderr, err)
+		return reportLockFault(to.narrate(), err)
 	}
 	defer lock.Release()
 
@@ -188,14 +188,14 @@ func RunRun(args []string, stdout, stderr io.Writer, process Process, wd, binary
 		// when a second one kills the process are all this side's
 		// (§6, §9, ADR-0015).
 		Interrupted: watch.interrupted,
-		Narrator:    narration{stderr: stderr},
+		Narrator:    narration{stderr: to.narrate()},
 	})
 
 	// The fault is narration's and stdout carries none of it: a failure
 	// carries no `error_code`, and what tells two failures apart is the exit
 	// code (§9, §12).
 	if answer.Fault != nil {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", runCommand, answer.Fault)
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", runCommand, answer.Fault)
 	}
 
 	// What the signal, if one arrived, exits with. It is read here rather
@@ -517,7 +517,7 @@ func locateStore(repoRoot string, instant time.Time, mode store.LockMode, render
 			return nil, reportRunStoreFault(rendering, err)
 		}
 	} else {
-		syncForReading(runCommand, "this Run", repoRoot, instant, rendering.stderr)
+		syncForReading(runCommand, "this Run", repoRoot, instant, rendering.to.narrate())
 	}
 	held, err := store.Open(repoRoot, instant)
 	if err != nil {
@@ -526,8 +526,7 @@ func locateStore(repoRoot string, instant time.Time, mode store.LockMode, render
 	return held, 0
 }
 
-// runRendering is where a Run's answer is rendered and in which mode: the two
-// streams, whether `--json` was named, and whether the invocation was a
+// runRendering is where a Run's answer goes, and whether the invocation was a
 // rehearsal. It is not the answer — that is `run.Answer`, which the engine
 // returns — it is where one goes.
 //
@@ -536,11 +535,16 @@ func locateStore(repoRoot string, instant time.Time, mode store.LockMode, render
 // has an id are the ones furthest from the renderer that knows how — the pin
 // gate, which fires before the positional is even resolved, and the bootstrap
 // `store-absent`, three calls down inside the Store's own lookup. Threading the
-// four together is what lets each of them write §8's terminal line, or its
+// pair together is what lets each of them write §8's terminal line, or its
 // `outcome` row, where each of them used to write nothing at all.
+//
+// It is two members rather than four because where an answer goes and in which
+// form is one value now (destination.go). What is left beside it is the
+// rehearsal marker, which is a fact about this invocation rather than about its
+// destination.
 type runRendering struct {
-	stdout, stderr io.Writer
-	asJSON, dryRun bool
+	to     destination
+	dryRun bool
 }
 
 // write is a Run's answer in whichever mode was asked for, and the exit code
@@ -555,7 +559,7 @@ type runRendering struct {
 // withheld is the Step a rehearsal stopped at, "" where it withheld none: a
 // page fact no row carries (runPage).
 func (r runRendering) write(rows []render.Row, terminal outcomeRow, withheld string) int {
-	if fault := writeAnswer(runCommand, r.stdout, r.stderr, r.asJSON, rows, terminal, runPage(terminal, withheld)); fault != 0 {
+	if fault := writeAnswer(runCommand, r.to, rows, terminal, runPage(terminal, withheld)); fault != 0 {
 		return fault
 	}
 	return terminal.Code
@@ -654,10 +658,10 @@ func reportLockFault(stderr io.Writer, err error) int {
 // name (§12, runRendering.terminate).
 func reportRunStoreFault(rendering runRendering, err error) int {
 	if errors.Is(err, store.ErrAbsent) {
-		refuse(rendering.stderr, storeAbsentCode, "no "+store.BranchName+" branch in this repository — hyper store init")
+		refuse(rendering.to, storeAbsentCode, "no "+store.BranchName+" branch in this repository — hyper store init")
 		return rendering.terminate(store.OutcomeRefused, ExitRefused, storeAbsentCode)
 	}
-	fmt.Fprintf(rendering.stderr, "hyper %s: the Store could not be reached: %s\n", runCommand, err)
+	fmt.Fprintf(rendering.to.narrate(), "hyper %s: the Store could not be reached: %s\n", runCommand, err)
 	return ExitStoreLost
 }
 

@@ -74,11 +74,11 @@ import (
 //
 // That sentence is this command's, and the surfaces that assert the exemption
 // point back at it rather than restating it (golden_test.go).
-func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
+func RunProject(args []string, to destination, process Process, wd, binaryVersion string) int {
 	// No --limit: `project` names no namespace to range over — it writes
 	// what the repository asks for, all of it, and a cap on that would be a
 	// projection nobody could review against the artefacts (§9).
-	parsed, code := parseArgs("project", args, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
+	parsed, to, code := parseArgs("project", args, parameters{limit: takesNoLimit}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
@@ -86,11 +86,11 @@ func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// to name a Procedure, and there is no per-Procedure projection for it
 	// to name (§9, ADR-0060).
 	if len(parsed.positional) > 0 {
-		fmt.Fprintf(stderr, "hyper project: takes no positional argument, got %s — projection is repo-wide and all-or-nothing\n", parsed.positional[0])
+		fmt.Fprintf(to.narrate(), "hyper project: takes no positional argument, got %s — projection is repo-wide and all-or-nothing\n", parsed.positional[0])
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot("project", parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("project", parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
@@ -101,7 +101,7 @@ func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// repository it exists to give one to (§9, §11, ADR-0020).
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper project: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper project: %s\n", err)
 		return ExitUsage
 	}
 
@@ -109,7 +109,7 @@ func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, bi
 		problem.Sort(problems)
 		rows := checkRows(problems)
 		page := func(w io.Writer, rows []render.Row) error { return render.WriteTable(w, checkColumns, rows) }
-		if code := writeAnswer("project", stdout, stderr, parsed.json, rows, render.NewResultRow(false), page); code != 0 {
+		if code := writeAnswer("project", to, rows, render.NewResultRow(false), page); code != 0 {
 			return code
 		}
 		return ExitProblems
@@ -123,7 +123,7 @@ func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// invocation is about to pin, and the checksum published for it. A
 	// Refusal or a failure here happens before anything is computed and long
 	// before anything is written (§11).
-	digest, code := frozenDigest(process.Dial, declared, binaryVersion, stderr)
+	digest, code := frozenDigest(process.Dial, declared, binaryVersion, to)
 	if code != 0 {
 		return code
 	}
@@ -152,12 +152,12 @@ func RunProject(args []string, stdout, stderr io.Writer, process Process, wd, bi
 		// git is the undo, the tree is under review, and a rollback path
 		// is code that runs only when something has already gone wrong
 		// and is therefore the least-tested thing in the command (§10).
-		fmt.Fprintf(stderr, "hyper project: %s: %s\n", path, reasonFor(err))
+		fmt.Fprintf(to.narrate(), "hyper project: %s: %s\n", path, reasonFor(err))
 		return ExitProblems
 	}
 
 	rows := projectionRows(loaded, wanted, unwanted)
-	if code := writeAnswer("project", stdout, stderr, parsed.json, rows, render.NewResultRow(false), writeProjectionTable); code != 0 {
+	if code := writeAnswer("project", to, rows, render.NewResultRow(false), writeProjectionTable); code != 0 {
 		return code
 	}
 	return ExitClean
@@ -293,7 +293,7 @@ func readDeclaration(loaded repository.Loaded) standingDeclaration {
 // line, which is exactly what `77` promises they cannot, and `1` is where
 // `install` already puts them (§11, §12, ADR-0060). Which statuses fall on which
 // side is internal/release's. Nothing is written on either path.
-func frozenDigest(dial capability.Dial, declared standingDeclaration, binaryVersion string, stderr io.Writer) (string, int) {
+func frozenDigest(dial capability.Dial, declared standingDeclaration, binaryVersion string, to destination) (string, int) {
 	if declared.version == binaryVersion {
 		return declared.digest, 0
 	}
@@ -305,9 +305,9 @@ func frozenDigest(dial capability.Dial, declared standingDeclaration, binaryVers
 		// An unreleased binary runs and checks and cannot project, which
 		// is the same statement as: every pin in every repository names a
 		// version somebody can download (§11).
-		return "", refuse(stderr, release.CodeArtefactAbsent, absent.Error()+" — publish a release for "+binaryVersion+", or install a released hyper")
+		return "", refuse(to, release.CodeArtefactAbsent, absent.Error()+" — publish a release for "+binaryVersion+", or install a released hyper")
 	case err != nil:
-		fmt.Fprintf(stderr, "hyper project: the checksum for %s did not arrive: %s\n", binaryVersion, err)
+		fmt.Fprintf(to.narrate(), "hyper project: the checksum for %s did not arrive: %s\n", binaryVersion, err)
 		return "", ExitProblems
 	}
 	return digest, 0

@@ -48,7 +48,7 @@ const showCommand = "show"
 // It is not a Run: it writes nothing, terminates its stream with `result`
 // rather than `outcome`, and exits 0 whatever outcome the entry it read
 // records — the exit code is this invocation's and never the Run's.
-func RunShow(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
+func RunShow(args []string, to destination, process Process, wd, binaryVersion string) int {
 	// `--expansion` comes off before the globals, for `--dry-run`'s reason
 	// one command over: the three globals are every command's and this is
 	// one command's, so a parser that knew about both is one every other
@@ -71,45 +71,45 @@ func RunShow(args []string, stdout, stderr io.Writer, process Process, wd, binar
 	// What a cap would do instead is hand back a Run's account with its last
 	// Steps dropped, which is the partial answer wearing a complete one's
 	// shape that §9 forbids `--history` for in as many words.
-	parsed, code := parseArgs(showCommand, rest, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
+	parsed, to, code := parseArgs(showCommand, rest, parameters{limit: takesNoLimit}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
 	if len(parsed.positional) != 1 {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", showCommand, arityFault(parsed.positional, "Run id"))
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", showCommand, arityFault(parsed.positional, "Run id"))
 		return ExitUsage
 	}
 	named := parsed.positional[0]
 
-	repoRoot, code := resolveRepoRoot(showCommand, parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot(showCommand, parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
-	if code, _ := gateOnVersionPin(showCommand, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(showCommand, repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
-	held, code := openStoreForReading(showCommand, repoRoot, process.Now(), stderr)
+	held, code := openStoreForReading(showCommand, repoRoot, process.Now(), to)
 	if code != 0 {
 		return code
 	}
 
 	entry, dispositions, found, err := readEntry(held, named)
 	if err != nil {
-		return reportReadStoreFault(showCommand, stderr, err)
+		return reportReadStoreFault(showCommand, to, err)
 	}
 	if !found {
-		fmt.Fprint(stderr, unresolvedRun(named))
+		fmt.Fprint(to.narrate(), unresolvedRun(named))
 		return ExitUsage
 	}
 
 	rows, err := showRows(held, entry, dispositions, expansion, repoRoot)
 	if err != nil {
-		return reportReadStoreFault(showCommand, stderr, err)
+		return reportReadStoreFault(showCommand, to, err)
 	}
 	// `truncated` is always false: `show` takes no --limit and cuts
 	// nothing, so the axes §12 closes name nothing here.
-	if code := writeAnswer(showCommand, stdout, stderr, parsed.json, rows, render.NewResultRow(false), showPage); code != 0 {
+	if code := writeAnswer(showCommand, to, rows, render.NewResultRow(false), showPage); code != 0 {
 		return code
 	}
 	return ExitClean

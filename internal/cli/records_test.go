@@ -79,7 +79,7 @@ func TestParseArgs_ReadsRecordsTypedParameters(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			var stderr bytes.Buffer
-			parsed, code := parseArgs(recordsCommand, args, recordsParameters, environment(nil), &stderr)
+			parsed, _, code := parseArgs(recordsCommand, args, recordsParameters, environment(nil), streams{stderr: &stderr})
 
 			if code != 0 {
 				t.Fatalf("parseArgs() = %d, want 0; stderr said %q", code, stderr.String())
@@ -103,7 +103,7 @@ func TestParseArgs_LeavesRecordsParametersOffEveryOtherCommand(t *testing.T) {
 	for _, flag := range []string{"--definition=uptime", "--name=status.hyper.dev", "--history"} {
 		t.Run(flag, func(t *testing.T) {
 			var stderr bytes.Buffer
-			_, code := parseArgs(runsCommand, []string{flag}, runsParameters, environment(nil), &stderr)
+			_, _, code := parseArgs(runsCommand, []string{flag}, runsParameters, environment(nil), streams{stderr: &stderr})
 
 			if code != ExitUsage {
 				t.Fatalf("parseArgs() = %d, want %d — %s is `records`'s and nobody else's", code, ExitUsage, flag)

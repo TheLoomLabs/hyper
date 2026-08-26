@@ -65,8 +65,8 @@ var changesParameters = parameters{
 // It is not a Run: it writes nothing, terminates its stream with `result`
 // rather than `outcome`, and exits 0 whatever outcomes the entries it named
 // record — the exit code is this invocation's and never any Run's.
-func RunChanges(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
-	parsed, code := parseArgs(changesCommand, args, changesParameters, process.LookupEnv, stderr)
+func RunChanges(args []string, to destination, process Process, wd, binaryVersion string) int {
+	parsed, to, code := parseArgs(changesCommand, args, changesParameters, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
@@ -78,14 +78,14 @@ func RunChanges(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// error_code** — an error_code names a check that declined an artefact,
 	// and an argument list is not one (§9, §12, ADR-0060).
 	if parsed.sinceNamed && parsed.betweenNamed {
-		fmt.Fprintf(stderr, "hyper %s: --since and --between name one window two ways; give one of them\n", changesCommand)
+		fmt.Fprintf(to.narrate(), "hyper %s: --since and --between name one window two ways; give one of them\n", changesCommand)
 		return ExitUsage
 	}
 	// At most one positional. **Naming none is not a usage error** — it is
 	// the whole-Store mode, and naming nothing and fetching nothing stay
 	// different things (ADR-0060) — so only a second name is a fault.
 	if len(parsed.positional) > 1 {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", changesCommand, arityFault(parsed.positional, "Procedure"))
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", changesCommand, arityFault(parsed.positional, "Procedure"))
 		return ExitUsage
 	}
 	named := ""
@@ -93,18 +93,18 @@ func RunChanges(args []string, stdout, stderr io.Writer, process Process, wd, bi
 		named = parsed.positional[0]
 	}
 
-	repoRoot, code := resolveRepoRoot(changesCommand, parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot(changesCommand, parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
-	if code, _ := gateOnVersionPin(changesCommand, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(changesCommand, repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
-	if code := resolveProcedureName(named, repoRoot, stderr); code != 0 {
+	if code := resolveProcedureName(named, repoRoot, to.narrate()); code != 0 {
 		return code
 	}
 
-	held, code := openStoreForReading(changesCommand, repoRoot, process.Now(), stderr)
+	held, code := openStoreForReading(changesCommand, repoRoot, process.Now(), to)
 	if code != 0 {
 		return code
 	}
@@ -115,16 +115,16 @@ func RunChanges(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// store.Listing).
 	entries, err := held.Entries()
 	if err != nil {
-		return reportReadStoreFault(changesCommand, stderr, err)
+		return reportReadStoreFault(changesCommand, to, err)
 	}
 
-	windows, code := changeWindows(entries, parsed, named, stderr)
+	windows, code := changeWindows(entries, parsed, named, to.narrate())
 	if code != 0 {
 		return code
 	}
 	rows, err := comparisonRows(held, repoRoot, windows, changeNarrowingsOf(parsed))
 	if err != nil {
-		return reportReadStoreFault(changesCommand, stderr, err)
+		return reportReadStoreFault(changesCommand, to, err)
 	}
 	kept, left := cutChangeRows(rows, parsed.limit)
 
@@ -133,16 +133,17 @@ func RunChanges(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// stream state the same facts because they are built from one row set,
 	// cut in one place.
 	page := func(w io.Writer, rows []render.Row) error { return changesPage(w, rows, noWindowLine(named, parsed)) }
-	if code := writeAnswer(changesCommand, stdout, stderr, parsed.json, kept, changesTerminal(left), page); code != 0 {
+	if code := writeAnswer(changesCommand, to, kept, changesTerminal(left), page); code != 0 {
 		return code
 	}
 
-	// The human counterpart of the marker is a line on stderr, in both
-	// modes, because it is narration rather than an answer (§9). A truncated
-	// result must never look complete, and a table that simply stopped after
-	// the last row it was allowed would be one.
+	// The human counterpart of the marker goes to the narration whichever
+	// form the answer took, because it is narration rather than an answer
+	// (§9, destination.go). A truncated result must never look complete, and
+	// a table that simply stopped after the last row it was allowed would be
+	// one.
 	if left.dropped > 0 {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", changesCommand, truncationLine("Records", left.returned, left.returned+left.dropped, parsed, changesNarrowing))
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", changesCommand, truncationLine("Records", left.returned, left.returned+left.dropped, parsed, changesNarrowing))
 	}
 	return ExitClean
 }

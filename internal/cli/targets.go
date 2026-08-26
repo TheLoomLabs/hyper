@@ -29,8 +29,8 @@ import (
 // variable a credential slot names is set. The value behind a present name is
 // never read, and nothing on this surface has ever held a secret (§3, §9,
 // ADR-0007).
-func RunTargets(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("targets", args, parameters{limit: defaultListLimit}, lookupenv, stderr)
+func RunTargets(args []string, to destination, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
+	parsed, to, code := parseArgs("targets", args, parameters{limit: defaultListLimit}, lookupenv, to)
 	if code != 0 {
 		return code
 	}
@@ -38,36 +38,36 @@ func RunTargets(args []string, stdout, stderr io.Writer, lookupenv func(string) 
 	// takes no positional at all: §9 gives a positional to nine of the
 	// sixteen and this is not one of them.
 	if len(parsed.positional) > 0 {
-		fmt.Fprintf(stderr, "hyper targets: takes no positional argument, got %s\n", parsed.positional[0])
+		fmt.Fprintf(to.narrate(), "hyper targets: takes no positional argument, got %s\n", parsed.positional[0])
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot("targets", parsed.repoDir, lookupenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("targets", parsed.repoDir, lookupenv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
 
 	// The gate, before the repository is loaded and before any row exists
 	// (§9, §11, ADR-0020).
-	if code, _ := gateOnVersionPin("targets", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("targets", repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper targets: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper targets: %s\n", err)
 		return ExitUsage
 	}
 
 	rows := targetRows(loaded, lookupenv)
 	kept, dropped := truncate(rows, parsed.limit)
 
-	if code := writeAnswer("targets", stdout, stderr, parsed.json, kept, render.NewResultRow(dropped > 0), writeTargetTable); code != 0 {
+	if code := writeAnswer("targets", to, kept, render.NewResultRow(dropped > 0), writeTargetTable); code != 0 {
 		return code
 	}
 
 	if dropped > 0 {
-		fmt.Fprintf(stderr, "hyper targets: %s\n", truncationLine("Targets", len(kept), len(rows), parsed, ""))
+		fmt.Fprintf(to.narrate(), "hyper targets: %s\n", truncationLine("Targets", len(kept), len(rows), parsed, ""))
 	}
 
 	return ExitClean

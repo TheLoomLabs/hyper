@@ -70,7 +70,7 @@ func runTargetsIn(t *testing.T, root string, env map[string]string, args ...stri
 		value, present := env[name]
 		return value, present
 	}
-	exit = cli.RunTargets(append([]string{"--repo-dir", root}, args...), &out, &errs, lookupenv, root, "1.4.0")
+	exit = cli.RunTargets(append([]string{"--repo-dir", root}, args...), cli.Streams(&out, &errs), lookupenv, root, "1.4.0")
 	return out.String(), errs.String(), exit
 }
 
@@ -720,7 +720,7 @@ func TestRunTargets_ReadsNothingOfTheEnvironmentButTheGlobalsAndTheNamedVariable
 		return "", false
 	}
 	var stdout, stderr bytes.Buffer
-	if exit := cli.RunTargets([]string{"--repo-dir", root}, &stdout, &stderr, lookupenv, root, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunTargets([]string{"--repo-dir", root}, cli.Streams(&stdout, &stderr), lookupenv, root, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitClean, stderr.String())
 	}
 
@@ -749,7 +749,7 @@ func TestRunTargets_TheThreeGlobalsAreTheOnesSectionNineCloses(t *testing.T) {
 		}
 		return "", false
 	}
-	if exit := cli.RunTargets(nil, &viaEnv, &viaEnv, lookupenv, elsewhere, "1.4.0"); exit != cli.ExitClean {
+	if exit := cli.RunTargets(nil, cli.Streams(&viaEnv, &viaEnv), lookupenv, elsewhere, "1.4.0"); exit != cli.ExitClean {
 		t.Fatalf("HYPER_REPO_DIR: exit = %d, want %d; output=%q", exit, cli.ExitClean, viaEnv.String())
 	}
 

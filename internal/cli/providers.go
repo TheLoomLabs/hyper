@@ -27,8 +27,8 @@ import (
 // Its parameters are RunCheck's, for the reason RunCheck's are what they are:
 // everything the command reads from the process arrives as an argument, so the
 // whole of it is exercisable without a subprocess.
-func RunProviders(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("providers", args, parameters{limit: defaultListLimit}, lookupenv, stderr)
+func RunProviders(args []string, to destination, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
+	parsed, to, code := parseArgs("providers", args, parameters{limit: defaultListLimit}, lookupenv, to)
 	if code != 0 {
 		return code
 	}
@@ -37,11 +37,11 @@ func RunProviders(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// sixteen and this is not one of them, which makes `hyper providers
 	// shell` the neighbouring command mistyped rather than a filter.
 	if len(parsed.positional) > 0 {
-		fmt.Fprintf(stderr, "hyper providers: takes no positional argument, got %s\n", parsed.positional[0])
+		fmt.Fprintf(to.narrate(), "hyper providers: takes no positional argument, got %s\n", parsed.positional[0])
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot("providers", parsed.repoDir, lookupenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("providers", parsed.repoDir, lookupenv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
@@ -50,13 +50,13 @@ func RunProviders(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// fifteen of the sixteen compare themselves against hyper.yaml's
 	// version: pin and Refuse on mismatch in either direction, with stdout
 	// left silent in both modes (§9, §11, ADR-0020).
-	if code, _ := gateOnVersionPin("providers", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("providers", repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper providers: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper providers: %s\n", err)
 		return ExitUsage
 	}
 
@@ -68,16 +68,17 @@ func RunProviders(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// --json stream state the same facts because they are built from one row
 	// set, cut in one place.
 	page := func(w io.Writer, rows []render.Row) error { return render.WriteTable(w, providerColumns, rows) }
-	if code := writeAnswer("providers", stdout, stderr, parsed.json, kept, render.NewResultRow(dropped > 0), page); code != 0 {
+	if code := writeAnswer("providers", to, kept, render.NewResultRow(dropped > 0), page); code != 0 {
 		return code
 	}
 
-	// The human rendering of a truncated result is a line on stderr, in both
-	// modes, because it is narration rather than an answer (§9). A truncated
-	// result must never look complete, and a table that simply stopped after
-	// the last row it was allowed would.
+	// The human rendering of a truncated result goes to the narration
+	// whichever form the answer took, because it is narration rather than an
+	// answer (§9, destination.go). A truncated result must never look
+	// complete, and a table that simply stopped after the last row it was
+	// allowed would.
 	if dropped > 0 {
-		fmt.Fprintf(stderr, "hyper providers: %s\n", truncationLine("Providers", len(kept), len(rows), parsed, ""))
+		fmt.Fprintf(to.narrate(), "hyper providers: %s\n", truncationLine("Providers", len(kept), len(rows), parsed, ""))
 	}
 
 	return ExitClean

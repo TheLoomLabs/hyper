@@ -21,8 +21,12 @@ import (
 // are the same three everywhere and a second copy of their parsing is where the
 // day comes that one command spells --repo-dir= and another does not (§9,
 // ADR-0014).
+//
+// **--json is not a member**, though it is one of the three. What that flag
+// names is a form, a form is a property of the destination an answer goes to,
+// and a member here would be a command holding an opinion about where its own
+// answer is written (destination.go, parseArgs).
 type commandArgs struct {
-	json bool
 	// noColor is resolved and has nothing to affect yet: no page any command
 	// writes carries colour of its own to suppress, which is why the flag and
 	// the variable already produce identical bytes. It is resolved anyway
@@ -200,9 +204,27 @@ const defaultListLimit = 50
 // the presence — but one environment reader is threaded through the whole
 // dispatch, so no two commands can disagree about what reading the environment
 // means, exactly as one repository.Load is what reading a repository means.
-func parseArgs(command string, args []string, takes parameters, lookupenv func(string) (string, bool), stderr io.Writer) (commandArgs, int) {
+//
+// **--json is answered here and nowhere else, and what it answers is the
+// destination.** The flag names a form, a form is a property of where the
+// answer is going, and a command that read the flag for itself would be a
+// command free to disagree with its own destination about which form its answer
+// takes (destination.go, issue #194). So the destination goes in and the
+// destination the caller named comes back, beside the arguments — one parser,
+// one reader of the flag, and no `json` member on the value below for a command
+// to reach for.
+//
+// A usage error is narration and goes where narration goes: it is a human
+// sentence about a command line rather than an answer, so stdout carries none
+// of it in either form (§9, ADR-0060).
+func parseArgs(command string, args []string, takes parameters, lookupenv func(string) (string, bool), to destination) (commandArgs, destination, int) {
+	// The narration, read once and handed to the readers below: every
+	// message this parser writes is a usage error, and every one of them is
+	// the same half of the destination.
+	stderr := to.narrate()
 	noColor, _ := lookupenv("NO_COLOR")
 	parsed := commandArgs{limit: takes.limit, noColor: noColor != ""}
+	asJSON := false
 	takesLimit := takes.limit != takesNoLimit
 	for i := 0; i < len(args); i++ {
 		a := args[i]
@@ -211,13 +233,13 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 			parsed.positional = append(parsed.positional, args[i+1:]...)
 			i = len(args)
 		case a == "--json":
-			parsed.json = true
+			asJSON = true
 		case a == "--no-color":
 			parsed.noColor = true
 		case a == "--repo-dir":
 			value, code := nextValue(command, "--repo-dir", args, &i, stderr)
 			if code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 			parsed.repoDir = value
 		case strings.HasPrefix(a, "--repo-dir="):
@@ -225,31 +247,31 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 		case a == "--limit" && takesLimit:
 			value, code := nextValue(command, "--limit", args, &i, stderr)
 			if code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 			if code := parsed.readLimit(command, value, stderr); code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 		case strings.HasPrefix(a, "--limit=") && takesLimit:
 			if code := parsed.readLimit(command, strings.TrimPrefix(a, "--limit="), stderr); code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 		case a == "--since" && takes.since:
 			value, code := nextValue(command, "--since", args, &i, stderr)
 			if code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 			if code := parsed.readSince(command, value, stderr); code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 		case strings.HasPrefix(a, "--since=") && takes.since:
 			if code := parsed.readSince(command, strings.TrimPrefix(a, "--since="), stderr); code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 		case a == "--procedure" && takes.procedure:
 			value, code := nextValue(command, "--procedure", args, &i, stderr)
 			if code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 			parsed.procedure = value
 		case strings.HasPrefix(a, "--procedure=") && takes.procedure:
@@ -257,7 +279,7 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 		case a == "--target" && takes.target:
 			value, code := nextValue(command, "--target", args, &i, stderr)
 			if code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 			parsed.target = value
 		case strings.HasPrefix(a, "--target=") && takes.target:
@@ -265,7 +287,7 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 		case a == "--definition" && takes.definition:
 			value, code := nextValue(command, "--definition", args, &i, stderr)
 			if code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 			parsed.definition = value
 		case strings.HasPrefix(a, "--definition=") && takes.definition:
@@ -273,7 +295,7 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 		case a == "--name" && takes.name:
 			value, code := nextValue(command, "--name", args, &i, stderr)
 			if code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 			parsed.name = value
 		case strings.HasPrefix(a, "--name=") && takes.name:
@@ -282,7 +304,7 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 			parsed.history = true
 		case a == "--between" && takes.between:
 			if code := parsed.readBetween(command, args, &i, stderr); code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 		case strings.HasPrefix(a, "--between=") && takes.between:
 			// The `=`-joined spelling carries one value and this flag
@@ -292,39 +314,39 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 			// to be told how to name it, not told the flag does not
 			// exist.
 			fmt.Fprintf(stderr, "hyper %s: --between takes two Run ids, spelled with spaces: --between <run-id> <run-id>\n", command)
-			return parsed, ExitUsage
+			return parsed, to, ExitUsage
 		case a == "--kind" && takes.kind:
 			value, code := nextValue(command, "--kind", args, &i, stderr)
 			if code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 			if code := parsed.readRecordKind(command, value, stderr); code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 		case strings.HasPrefix(a, "--kind=") && takes.kind:
 			if code := parsed.readRecordKind(command, strings.TrimPrefix(a, "--kind="), stderr); code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 		case a == "--outcome" && takes.outcome:
 			value, code := nextValue(command, "--outcome", args, &i, stderr)
 			if code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 			if code := parsed.readOutcome(command, value, stderr); code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 		case strings.HasPrefix(a, "--outcome=") && takes.outcome:
 			if code := parsed.readOutcome(command, strings.TrimPrefix(a, "--outcome="), stderr); code != 0 {
-				return parsed, code
+				return parsed, to, code
 			}
 		case strings.HasPrefix(a, "--"):
 			fmt.Fprintf(stderr, "hyper %s: unknown flag %s\n", command, a)
-			return parsed, ExitUsage
+			return parsed, to, ExitUsage
 		default:
 			parsed.positional = append(parsed.positional, a)
 		}
 	}
-	return parsed, 0
+	return parsed, to.form(asJSON), 0
 }
 
 // nextValue is the value of a flag spelled with a space, and the usage error

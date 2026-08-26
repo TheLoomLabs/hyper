@@ -15,9 +15,10 @@ import (
 // everything a command reads from the process is a parameter it is handed
 // rather than a package it reaches for, which is what makes the whole dispatch
 // exercisable without a subprocess. What travels beside this value rather than
-// in it is the argv, which is what the dispatch decides on; the two streams,
-// which a command writes rather than reads; and version.Facts, which the build
-// stamped rather than the process holds.
+// in it is the argv, which is what the dispatch decides on; the destination,
+// which a command writes to rather than reads and which is assembled out of the
+// two streams the process handed in (destination.go); and version.Facts, which
+// the build stamped rather than the process holds.
 //
 // Six loose parameters threaded through repositoryCommand is where that
 // property starts costing more than it buys, so the reads travel as one value:

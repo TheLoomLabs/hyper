@@ -60,8 +60,8 @@ import (
 // what it never reaches for. There is no `--limit`, it naming no namespace to
 // range over, and no `--dry-run`, `check` already reporting digest drift and the
 // diff being the rehearsal; the three globals apply with no fourth (§9).
-func RunInstall(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
-	parsed, code := parseArgs("install", args, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
+func RunInstall(args []string, to destination, process Process, wd, binaryVersion string) int {
+	parsed, to, code := parseArgs("install", args, parameters{limit: takesNoLimit}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
@@ -74,16 +74,16 @@ func RunInstall(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// whether there is a read at all is in front of it (ADR-0060,
 	// ADR-0087).
 	if len(parsed.positional) != 1 {
-		fmt.Fprintf(stderr, "hyper install: %s\n", arityFault(parsed.positional, "ref"))
+		fmt.Fprintf(to.narrate(), "hyper install: %s\n", arityFault(parsed.positional, "ref"))
 		return ExitUsage
 	}
 	ref, err := registry.ParseRef(parsed.positional[0])
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper install: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper install: %s\n", err)
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot("install", parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("install", parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
@@ -92,13 +92,13 @@ func RunInstall(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// request leaves the machine, which is the whole of what standing behind
 	// it means for the one command that reaches the world on somebody else's
 	// coordinate (§9, §11, ADR-0020).
-	if code, _ := gateOnVersionPin("install", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("install", repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
 	fetched, err := registry.Fetch(context.Background(), process.Dial, ref)
 	if err != nil {
-		return declineFetch(err, stderr)
+		return declineFetch(err, to)
 	}
 
 	path := repository.ProvidersDir + "/" + ref.Basename()
@@ -108,7 +108,7 @@ func RunInstall(args []string, stdout, stderr io.Writer, process Process, wd, bi
 		// undo, the tree is under review, and a rollback path is code
 		// that runs only when something has already gone wrong and is
 		// therefore the least-tested thing in the command (§10).
-		fmt.Fprintf(stderr, "hyper install: %s: %s\n", path, reasonFor(err))
+		fmt.Fprintf(to.narrate(), "hyper install: %s: %s\n", path, reasonFor(err))
 		return ExitProblems
 	}
 
@@ -116,7 +116,7 @@ func RunInstall(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// One row over two columns, and no empty form: a command that wrote no
 	// file exited before there was a row to write (§9).
 	page := func(w io.Writer, rows []render.Row) error { return render.WriteTable(w, installedColumns, rows) }
-	if code := writeAnswer("install", stdout, stderr, parsed.json, rows, render.NewResultRow(false), page); code != 0 {
+	if code := writeAnswer("install", to, rows, render.NewResultRow(false), page); code != 0 {
 		return code
 	}
 	return ExitClean
@@ -141,12 +141,12 @@ func RunInstall(args []string, stdout, stderr io.Writer, process Process, wd, bi
 // than another attempt. It is rendered in the two-line form with no caret, the
 // fault having no artefact coordinate: nothing was written, so there is no file
 // and no line to point at (§8, §12).
-func declineFetch(err error, stderr io.Writer) int {
+func declineFetch(err error, to destination) int {
 	var mismatch *registry.Mismatch
 	if errors.As(err, &mismatch) {
-		return refuse(stderr, artefact.CodeOriginDigestMismatch, mismatch.Error())
+		return refuse(to, artefact.CodeOriginDigestMismatch, mismatch.Error())
 	}
-	fmt.Fprintf(stderr, "hyper install: %s\n", err)
+	fmt.Fprintf(to.narrate(), "hyper install: %s\n", err)
 	return ExitProblems
 }
 

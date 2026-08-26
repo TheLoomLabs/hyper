@@ -58,8 +58,8 @@ import (
 // It takes no --limit: nothing on this screen is a result set, an artefact
 // having neither an order nor a cap, so a review that dropped lines would be
 // rendering something other than what is about to be approved (§8, §9).
-func RunReview(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
-	parsed, code := parseArgs("review", args, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
+func RunReview(args []string, to destination, process Process, wd, binaryVersion string) int {
+	parsed, to, code := parseArgs("review", args, parameters{limit: takesNoLimit}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
@@ -68,12 +68,12 @@ func RunReview(args []string, stdout, stderr io.Writer, process Process, wd, bin
 	// `operation` give their own arity, in the spelling all three share
 	// (ADR-0060).
 	if len(parsed.positional) != 1 {
-		fmt.Fprintf(stderr, "hyper review: %s\n", arityFault(parsed.positional, "artefact"))
+		fmt.Fprintf(to.narrate(), "hyper review: %s\n", arityFault(parsed.positional, "artefact"))
 		return ExitUsage
 	}
 	named := parsed.positional[0]
 
-	repoRoot, code := resolveRepoRoot("review", parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("review", parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
@@ -82,17 +82,17 @@ func RunReview(args []string, stdout, stderr io.Writer, process Process, wd, bin
 	// resolved: a mismatched pin plus a name matching nothing is 77 and not
 	// 2, because the gate fires first for fifteen of the sixteen (§9, §11,
 	// ADR-0020, ADR-0060).
-	if code, _ := gateOnVersionPin("review", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("review", repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper review: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper review: %s\n", err)
 		return ExitUsage
 	}
 
-	found, code := resolveArtefact(named, loaded, stderr)
+	found, code := resolveArtefact(named, loaded, to.narrate())
 	if code != 0 {
 		return code
 	}
@@ -106,7 +106,7 @@ func RunReview(args []string, stdout, stderr io.Writer, process Process, wd, bin
 	if len(reviewed.problems) > 0 {
 		rows := checkRows(reviewed.problems)
 		page := func(w io.Writer, rows []render.Row) error { return render.WriteTable(w, checkColumns, rows) }
-		if code := writeAnswer("review", stdout, stderr, parsed.json, rows, render.NewResultRow(false), page); code != 0 {
+		if code := writeAnswer("review", to, rows, render.NewResultRow(false), page); code != 0 {
 			return code
 		}
 		return ExitProblems
@@ -139,7 +139,7 @@ func RunReview(args []string, stdout, stderr io.Writer, process Process, wd, bin
 			authority: reviewed.authority,
 		})
 	}
-	if code := writeAnswer("review", stdout, stderr, parsed.json, rows, render.NewResultRow(false), page); code != 0 {
+	if code := writeAnswer("review", to, rows, render.NewResultRow(false), page); code != 0 {
 		return code
 	}
 

@@ -33,7 +33,7 @@ import (
 // `result` rather than `outcome`, and can never exit 75: that code is a Run
 // that lost the Store, and this command has no outcome triple to map onto (§9,
 // §12).
-func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
+func RunCompact(args []string, to destination, process Process, wd, binaryVersion string) int {
 	// No --limit: `compact` reports what it just did rather than ranging
 	// over a namespace, so there is no result set for a cap to cut (§9).
 	// Every other flag a caller might reach for here — --dry-run,
@@ -41,7 +41,7 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// omission: retention is read-time and lives in one reviewed artefact,
 	// and a flag behind it would let one invocation remove more than the
 	// repository ever agreed to (§7, ADR-0001, ADR-0014).
-	parsed, code := parseArgs("compact", args, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
+	parsed, to, code := parseArgs("compact", args, parameters{limit: takesNoLimit}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
@@ -49,11 +49,11 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// no positional at all: §9 gives one to nine of the sixteen and this is
 	// not one of them.
 	if len(parsed.positional) > 0 {
-		fmt.Fprintf(stderr, "hyper compact: takes no positional argument, got %s\n", parsed.positional[0])
+		fmt.Fprintf(to.narrate(), "hyper compact: takes no positional argument, got %s\n", parsed.positional[0])
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot("compact", parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("compact", parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
@@ -61,13 +61,13 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// The gate, before the branch is read and before any row exists: a
 	// mismatched pin exits 77 without a single git subprocess running (§9,
 	// §11, ADR-0020).
-	if code, _ := gateOnVersionPin("compact", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("compact", repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper compact: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper compact: %s\n", err)
 		return ExitUsage
 	}
 	policy, inForce := retentionPolicy(loaded)
@@ -80,11 +80,11 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// (§7, §12, ADR-0061).
 	instant := process.Now()
 	if err := store.Sync(repoRoot, instant); err != nil {
-		return reportReadStoreFault("compact", stderr, err)
+		return reportReadStoreFault("compact", to, err)
 	}
 	held, err := store.Open(repoRoot, instant)
 	if err != nil {
-		return reportReadStoreFault("compact", stderr, err)
+		return reportReadStoreFault("compact", to, err)
 	}
 
 	// A repository that has not stated a policy has not agreed to lose
@@ -99,7 +99,7 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 	// Refusing. `compact` tests the files it will read, and under no policy
 	// it will read none (§7, ADR-0028, issue #131).
 	if !inForce {
-		if code := writeCompaction(stdout, stderr, parsed.json, store.Compaction{}, unboundedLine(policy)); code != 0 {
+		if code := writeCompaction(to, store.Compaction{}, unboundedLine(policy)); code != 0 {
 			return code
 		}
 		return ExitClean
@@ -107,10 +107,10 @@ func RunCompact(args []string, stdout, stderr io.Writer, process Process, wd, bi
 
 	done, err := held.Compact(policy)
 	if err != nil {
-		return reportReadStoreFault("compact", stderr, err)
+		return reportReadStoreFault("compact", to, err)
 	}
 
-	if code := writeCompaction(stdout, stderr, parsed.json, done, compactedLine(done, policy)); code != 0 {
+	if code := writeCompaction(to, done, compactedLine(done, policy)); code != 0 {
 		return code
 	}
 	return ExitClean
@@ -162,15 +162,22 @@ const storeAbsentCode = "store-absent"
 // `version` row per removed version and the terminal `result`, or the page and
 // the command's own line beneath it.
 //
-// Where nothing was removed, that line also goes to **stderr in --json mode**,
-// which is `targets`' truncation line read once more: a fact that is not a row
-// has no place on stdout, and a stream of no rows terminated by `result` says
-// which nothing happened to nobody. It is written only there, and not beside a
-// stream that carried rows, because the rows *are* the answer where there are
-// any — the reason there are none is the one thing the wire cannot otherwise
-// state, and §9's two empty states have to be told apart in both forms (§9,
-// ADR-0026).
-func writeCompaction(stdout, stderr io.Writer, asJSON bool, done store.Compaction, line string) int {
+// Where nothing was removed, that line also goes to **the narration where no
+// page carried it**, which is `targets`' truncation line read once more: a fact
+// that is not a row has no place on stdout, and a stream of no rows terminated
+// by `result` says which nothing happened to nobody. It is written only there,
+// and not beside a stream that carried rows, because the rows *are* the answer
+// where there are any — the reason there are none is the one thing the wire
+// cannot otherwise state, and §9's two empty states have to be told apart in
+// both forms (§9, ADR-0026).
+//
+// **Whether the page ran is the question, and never whether `--json` was
+// named.** The two answer the same on the CLI and only one of them is this
+// command's to ask: where the answer goes and in which form is the
+// destination's, so what a command may ask is *did you take my page* — which a
+// second surface, rendering no page either, answers the same way
+// (destination.go).
+func writeCompaction(to destination, done store.Compaction, line string) int {
 	rows := make([]render.Row, 0, len(done.Removed))
 	for _, version := range done.Removed {
 		rows = append(rows, versionRow{
@@ -183,16 +190,25 @@ func writeCompaction(stdout, stderr io.Writer, asJSON bool, done store.Compactio
 			WrittenAt:  store.InstantText(version.WrittenAt),
 		})
 	}
-	page := func(w io.Writer, rows []render.Row) error { return writeVersionTable(w, rows, line) }
+	// carried says the line reached a reader, and the page is what sets it
+	// because the page is what carries it: the flag is read below to decide
+	// whether the line still needs a home, and there is no earlier moment at
+	// which that is knowable — a destination is asked for an answer and says
+	// nothing back about what it did with one.
+	carried := false
+	page := func(w io.Writer, rows []render.Row) error {
+		carried = true
+		return writeVersionTable(w, rows, line)
+	}
 	// `truncated` is always false: `compact` takes no --limit and answers no
 	// question with a result set to cut. The truncation axes §12 closes are
 	// the record's two, and a report of what a command just did is on
 	// neither.
-	if code := writeAnswer("compact", stdout, stderr, asJSON, rows, render.NewResultRow(false), page); code != 0 {
+	if code := writeAnswer("compact", to, rows, render.NewResultRow(false), page); code != 0 {
 		return code
 	}
-	if asJSON && len(rows) == 0 {
-		fmt.Fprintf(stderr, "hyper compact: %s\n", line)
+	if !carried && len(rows) == 0 {
+		fmt.Fprintf(to.narrate(), "hyper compact: %s\n", line)
 	}
 	return 0
 }

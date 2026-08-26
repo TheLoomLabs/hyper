@@ -26,14 +26,14 @@ import (
 // `hyper` writes takes both its dates from the clock, so a fixture's branch is
 // reproducible and `git log` on the Store is honest (§7, issue #125, issue
 // #134).
-func RunStore(args []string, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
+func RunStore(args []string, to destination, process Process, wd, binaryVersion string) int {
 	// No --limit: `store` names no namespace and ranges over nothing, so
 	// there is no result set for a cap to cut (§9). The name here is the
 	// noun alone and not the two words a caller typed, because at this point
 	// there is no verb yet: `hyper store init --force` answers `hyper store:
 	// unknown flag --force`, the flags being read before the argument that
 	// would say which verb the fault belongs to.
-	parsed, code := parseArgs("store", args, parameters{limit: takesNoLimit}, process.LookupEnv, stderr)
+	parsed, to, code := parseArgs("store", args, parameters{limit: takesNoLimit}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}
@@ -45,25 +45,25 @@ func RunStore(args []string, stdout, stderr io.Writer, process Process, wd, bina
 	// holds — the set is compiled in — so there is nothing to load before the
 	// invocation can be judged wrong (§9, ADR-0060).
 	if len(parsed.positional) == 0 {
-		fmt.Fprintf(stderr, "hyper store: %s\n  known verbs: %s\n", arityFault(nil, "verb"), strings.Join(storeSubVerbs, ", "))
+		fmt.Fprintf(to.narrate(), "hyper store: %s\n  known verbs: %s\n", arityFault(nil, "verb"), strings.Join(storeSubVerbs, ", "))
 		return ExitUsage
 	}
 	verb := parsed.positional[0]
 	run, built := storeVerbs[verb]
 	if !built {
-		fmt.Fprintf(stderr, "hyper store: unknown verb %q\n  known verbs: %s\n", verb, strings.Join(storeSubVerbs, ", "))
+		fmt.Fprintf(to.narrate(), "hyper store: unknown verb %q\n  known verbs: %s\n", verb, strings.Join(storeSubVerbs, ", "))
 		return ExitUsage
 	}
-	return run(parsed, stdout, stderr, process, wd, binaryVersion)
+	return run(parsed, to, process, wd, binaryVersion)
 }
 
 // storeVerb is the shape of one of the group's verbs: the arguments already
-// read, the streams, the process, the working directory and the version the
+// read, the destination, the process, the working directory and the version the
 // gate compares — the dispatch's own shape past the argv it already consumed.
 // Its own positionals are its business rather than the group's — `init` takes
 // none, and a verb that took one would be judging it against something only it
 // knows.
-type storeVerb func(parsed commandArgs, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int
+type storeVerb func(parsed commandArgs, to destination, process Process, wd, binaryVersion string) int
 
 // storeVerbs is the group's dispatch: which verb runs. It stands to
 // storeSubVerbs exactly as repositoryCommands stands to tree.go's tree — the
@@ -97,26 +97,26 @@ const storeInit = "store init"
 // git subprocess runs, and a repository with no pin at all Refuses naming
 // `hyper project`. That makes the bootstrap sequence for a new repository
 // `hyper project`, then `hyper store init`, then anything else (§11, ADR-0020).
-func runStoreInit(parsed commandArgs, stdout, stderr io.Writer, process Process, wd, binaryVersion string) int {
+func runStoreInit(parsed commandArgs, to destination, process Process, wd, binaryVersion string) int {
 	// `init` takes its verb and nothing else. The arity is judged here rather
 	// than by the group, a verb being the only thing that knows what it takes.
 	if rest := parsed.positional[1:]; len(rest) > 0 {
-		fmt.Fprintf(stderr, "hyper %s: takes no positional argument, got %s\n", storeInit, rest[0])
+		fmt.Fprintf(to.narrate(), "hyper %s: takes no positional argument, got %s\n", storeInit, rest[0])
 		return ExitUsage
 	}
 
-	repoRoot, code := resolveRepoRoot(storeInit, parsed.repoDir, process.LookupEnv, wd, stderr)
+	repoRoot, code := resolveRepoRoot(storeInit, parsed.repoDir, process.LookupEnv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
 
-	if code, _ := gateOnVersionPin(storeInit, repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin(storeInit, repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
 	done, err := store.Init(repoRoot, process.Now())
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", storeInit, err)
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", storeInit, err)
 		// The two ways this command can stop, and the whole of what
 		// separates them. A repository root holding no git repository is
 		// the invocation being wrong — there is no branch to create and no
@@ -137,7 +137,7 @@ func runStoreInit(parsed commandArgs, stdout, stderr io.Writer, process Process,
 		row.Pushed = &done.Pushed
 	}
 
-	if code := writeAnswer(storeInit, stdout, stderr, parsed.json, []render.Row{row}, render.NewResultRow(false), writeBranchPage); code != 0 {
+	if code := writeAnswer(storeInit, to, []render.Row{row}, render.NewResultRow(false), writeBranchPage); code != 0 {
 		return code
 	}
 	return ExitClean

@@ -31,11 +31,15 @@ import (
 // The failure it tolerates and the reason are syncForReading's, one function
 // down; the two failures are two calls because what each costs is the caller's
 // (store.Sync).
-func openStoreForReading(command, repoRoot string, instant time.Time, stderr io.Writer) (*store.Store, int) {
-	syncForReading(command, "this command", repoRoot, instant, stderr)
+//
+// It takes the destination rather than a stream because one of its two answers
+// is a Refusal and a Refusal is the destination's to render; the warning beside
+// it is narration and goes where narration goes (destination.go).
+func openStoreForReading(command, repoRoot string, instant time.Time, to destination) (*store.Store, int) {
+	syncForReading(command, "this command", repoRoot, instant, to.narrate())
 	held, err := store.Open(repoRoot, instant)
 	if err != nil {
-		return nil, reportReadStoreFault(command, stderr, err)
+		return nil, reportReadStoreFault(command, to, err)
 	}
 	return held, 0
 }
@@ -84,18 +88,18 @@ func syncForReading(command, reader, repoRoot string, instant time.Time, stderr 
 // command names the command in the one message that is not a Refusal, which is
 // the whole reason it is a parameter: one renderer, and a caller still reads
 // their own command's name.
-func reportReadStoreFault(command string, stderr io.Writer, err error) int {
+func reportReadStoreFault(command string, to destination, err error) int {
 	var unsupported store.SchemaUnsupported
 	switch {
 	case errors.Is(err, store.ErrAbsent):
-		return refuse(stderr, storeAbsentCode, "no "+store.BranchName+" branch in this repository — hyper store init")
+		return refuse(to, storeAbsentCode, "no "+store.BranchName+" branch in this repository — hyper store init")
 	case errors.As(err, &unsupported):
 		// The message carries the path the store package named, which
 		// is the file the Refusal cites — §8 states that this code
 		// cites a Store file, and it is the one Refusal whose subject
 		// is evidence rather than an artefact.
-		return refuse(stderr, store.SchemaUnsupportedCode, fmt.Sprintf("%s — install a hyper that reads it", err))
+		return refuse(to, store.SchemaUnsupportedCode, fmt.Sprintf("%s — install a hyper that reads it", err))
 	}
-	fmt.Fprintf(stderr, "hyper %s: %s\n", command, err)
+	fmt.Fprintf(to.narrate(), "hyper %s: %s\n", command, err)
 	return ExitProblems
 }

@@ -36,8 +36,8 @@ import (
 // against that Manifest's own Operation namespace, which does not exist until
 // the first has resolved — so a bad Provider is reported and the Operation
 // lookup is never attempted.
-func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
-	parsed, code := parseArgs("operation", args, parameters{limit: takesNoLimit}, lookupenv, stderr)
+func RunOperation(args []string, to destination, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
+	parsed, to, code := parseArgs("operation", args, parameters{limit: takesNoLimit}, lookupenv, to)
 	if code != 0 {
 		return code
 	}
@@ -46,12 +46,12 @@ func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// `completions` give their own arity, in the spelling all three share
 	// (ADR-0060).
 	if len(parsed.positional) != 2 {
-		fmt.Fprintf(stderr, "hyper operation: %s\n", arityFault(parsed.positional, "Provider", "Operation"))
+		fmt.Fprintf(to.narrate(), "hyper operation: %s\n", arityFault(parsed.positional, "Provider", "Operation"))
 		return ExitUsage
 	}
 	providerName, operationName := parsed.positional[0], parsed.positional[1]
 
-	repoRoot, code := resolveRepoRoot("operation", parsed.repoDir, lookupenv, wd, stderr)
+	repoRoot, code := resolveRepoRoot("operation", parsed.repoDir, lookupenv, wd, to.narrate())
 	if code != 0 {
 		return code
 	}
@@ -60,13 +60,13 @@ func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// is resolved: a mismatched pin plus a name matching nothing is 77 and
 	// not 2, because the gate fires first for fifteen of the sixteen (§9,
 	// §11, ADR-0020, ADR-0060).
-	if code, _ := gateOnVersionPin("operation", repoRoot, binaryVersion, stderr); code != 0 {
+	if code, _ := gateOnVersionPin("operation", repoRoot, binaryVersion, to); code != 0 {
 		return code
 	}
 
 	loaded, err := repository.Load(repoRoot)
 	if err != nil {
-		fmt.Fprintf(stderr, "hyper operation: %s\n", err)
+		fmt.Fprintf(to.narrate(), "hyper operation: %s\n", err)
 		return ExitUsage
 	}
 
@@ -77,7 +77,7 @@ func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// command it opens with.
 	manifest, resolved := loaded.Manifests[providerName]
 	if !resolved {
-		fmt.Fprint(stderr, unresolvedProviderName("operation", providerName))
+		fmt.Fprint(to.narrate(), unresolvedProviderName("operation", providerName))
 		return ExitUsage
 	}
 
@@ -89,7 +89,7 @@ func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// exactly this path (§12, ADR-0039).
 	source, declared := artefact.OperationSource(manifest.Bytes, manifest.Root, operationName)
 	if !declared {
-		fmt.Fprint(stderr, unresolvedOperationName("operation", providerName, operationName))
+		fmt.Fprint(to.narrate(), unresolvedOperationName("operation", providerName, operationName))
 		return ExitUsage
 	}
 
@@ -98,7 +98,7 @@ func RunOperation(args []string, stdout, stderr io.Writer, lookupenv func(string
 	// The terminal row is written with no marker: this command names one
 	// Operation, so a stream it opened always carried everything there was
 	// (§9).
-	if code := writeAnswer("operation", stdout, stderr, parsed.json, rows, render.NewResultRow(false), writeOperationPage); code != 0 {
+	if code := writeAnswer("operation", to, rows, render.NewResultRow(false), writeOperationPage); code != 0 {
 		return code
 	}
 

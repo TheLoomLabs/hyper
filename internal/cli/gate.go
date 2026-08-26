@@ -2,14 +2,12 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/TheLoomLabs/hyper/internal/pin"
 	"github.com/TheLoomLabs/hyper/internal/problem"
-	"github.com/TheLoomLabs/hyper/internal/render"
 )
 
 // gateOnVersionPin is the version pin gate, and it is one function because
@@ -32,7 +30,8 @@ import (
 //
 // command names the command for the one message that is not a Refusal: a
 // hyper.yaml that exists and cannot be read at all. repoRoot is the resolved
-// repository root; binaryVersion is what the running binary claims to be.
+// repository root; binaryVersion is what the running binary claims to be; to is
+// where the Refusal and that one message go (destination.go).
 //
 // It answers two things. The first is the exit code: 0 clears the caller to
 // proceed, and anything else is what the caller returns, this having already
@@ -47,16 +46,16 @@ import (
 // the code of the check that declined it, so the one caller that writes a
 // terminal row reads it here rather than deriving a second name for what this
 // already knows.
-func gateOnVersionPin(command, repoRoot, binaryVersion string, stderr io.Writer) (int, string) {
+func gateOnVersionPin(command, repoRoot, binaryVersion string, to destination) (int, string) {
 	data, err := os.ReadFile(filepath.Join(repoRoot, "hyper.yaml"))
 	present := err == nil
 	if err != nil && !os.IsNotExist(err) {
-		fmt.Fprintf(stderr, "hyper %s: %s\n", command, err)
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", command, err)
 		return ExitUsage, ""
 	}
 
 	if result := pin.Check(present, data, binaryVersion); result.Refused {
-		return refuse(stderr, result.Code, result.Message), result.Code
+		return refuse(to, result.Code, result.Message), result.Code
 	}
 
 	return 0, ""
@@ -64,8 +63,9 @@ func gateOnVersionPin(command, repoRoot, binaryVersion string, stderr io.Writer)
 
 // refuse renders a Refusal and answers the exit code its caller returns.
 //
-// It is two lines on stderr with stdout left silent, whichever mode the caller
-// was invoked in: a Refusal is not a row, so --json opens no stream to carry it
+// It is two lines through the destination's Refusal rendering, which the CLI
+// writes to stderr with stdout left silent whichever mode the caller was
+// invoked in: a Refusal is not a row, so --json opens no stream to carry it
 // (§9). What a Run writes to stdout beside it is the Run's own and is written
 // there (run.go's runRendering.terminate), on the same footing as every other
 // path a Run takes: the answer on one stream and the narration on the other.
@@ -85,14 +85,20 @@ func gateOnVersionPin(command, repoRoot, binaryVersion string, stderr io.Writer)
 // second rendering of the first: the pin gate's two codes and `compact`'s
 // store-absent and store-schema-unsupported are four Refusals and one shape
 // (§12, issue #131).
-func refuse(stderr io.Writer, code, message string) int {
-	fmt.Fprintf(stderr, "refused: %s\n  %s\n", code, message)
+//
+// **The write's error is dropped**, which is what a Fprintf to stderr did here
+// before the rendering moved behind the destination: there is nowhere left to
+// report a stderr that will not take two lines, and a Refusal must not turn
+// into a different exit code because its own rendering failed.
+func refuse(to destination, code, message string) int {
+	_ = to.refusal(aboutTheInvocation, []refusalRow{{Type: "refusal", ErrorCode: code, Message: message}})
 	return ExitRefused
 }
 
 // refuseProblems renders a Refusal that has a position, and answers the exit
 // code its caller returns: §8's caret excerpt, its `=` notes and its `EDIT ONE
-// OF` table, on stderr, with stdout silent in both modes.
+// OF` table, on the destination's Refusal rendering — which the CLI writes to
+// stderr, with stdout silent in both modes.
 //
 // It stands beside refuse rather than replacing it because the two are one
 // rendering split by what the fault has to point at. A Refusal with no artefact
@@ -109,24 +115,24 @@ func refuse(stderr io.Writer, code, message string) int {
 //
 // repoRoot is what the excerpt is read against, and the caller has already
 // resolved it: an excerpt is the working tree's lines, and the working tree is
-// where the edit is made.
-func refuseProblems(stderr io.Writer, repoRoot string, problems []problem.Problem) int {
+// where the edit is made. It is read here rather than behind the destination
+// for that reason — the root is the invocation's and the rendering is the
+// destination's (writeRefusalMembers).
+func refuseProblems(to destination, repoRoot string, problems []problem.Problem) int {
 	problem.Sort(problems)
-	rows := make([]render.Row, 0, 2*len(problems))
+	members := make([]refusalRow, 0, len(problems))
 	for _, found := range problems {
-		member := excerpted(refusalRow{
+		members = append(members, excerpted(refusalRow{
 			Type:      "refusal",
 			ErrorCode: found.ErrorCode,
 			File:      found.File,
 			Line:      found.Line,
 			Field:     found.Field,
 			Message:   found.Message,
-		}, repoRoot, time.Time{})
-		rows = append(rows, member)
-		rows = append(rows, remediationsFor(member, nil, time.Time{})...)
+		}, repoRoot, time.Time{}))
 	}
-	if err := writeRefusal(stderr, rows, false); err != nil {
-		fmt.Fprintf(stderr, "hyper: %s\n", err)
+	if err := to.refusal(citingAnArtefact, members); err != nil {
+		fmt.Fprintf(to.narrate(), "hyper: %s\n", err)
 	}
 	return ExitRefused
 }
