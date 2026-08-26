@@ -50,7 +50,7 @@ func jsonStreams(t *testing.T, visit func(name string, rows []map[string]any)) {
 	t.Helper()
 
 	for _, c := range goldenCases(t) {
-		if !slices.Contains(c.argv, "--json") {
+		if !c.opensARowStream() {
 			continue
 		}
 		stdout := readFile(t, filepath.Join(c.dir, "stdout.golden"))
@@ -679,7 +679,7 @@ func TestGoldenCorpora_ARunTerminatesInAnOutcomeRowTheTwoDeclinesIncluded(t *tes
 	var terminated, unidentified int
 
 	for _, c := range goldenCases(t) {
-		if c.argv[0] != "run" || !slices.Contains(c.argv, "--json") {
+		if c.subject() != "run" || !c.opensARowStream() {
 			continue
 		}
 		exit, err := strconv.Atoi(strings.TrimSpace(readFile(t, filepath.Join(c.dir, "exit.golden"))))

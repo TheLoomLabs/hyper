@@ -222,17 +222,52 @@ func (r ResultRow) Cells() []string { return nil }
 // not encode stops the stream where it stands, and the unterminated wire is
 // then the true report: the stream was cut off.
 //
-// HTML escaping is off. The wire carries an artefact's own bytes, and a message
-// quoting a & or a < is a message a consumer reads back as it was written.
+// Each row is MarshalRow's, which is what makes this stream and the MCP
+// surface's array one reading of one row (ADR-0026): what is here is the
+// framing — a newline between the lines — and nothing about what a row says.
 func WriteJSON(w io.Writer, rows []Row, terminal Row) error {
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
+	write := func(row Row) error {
+		encoded, err := MarshalRow(row)
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(append(encoded, '\n'))
+		return err
+	}
 	for _, row := range rows {
-		if err := enc.Encode(row); err != nil {
+		if err := write(row); err != nil {
 			return err
 		}
 	}
-	return enc.Encode(terminal)
+	return write(terminal)
+}
+
+// MarshalRow is one row as it goes on the wire: the compact object §8's stream
+// carries, with no trailing newline and no framing of any kind.
+//
+// It exists because the row stream is no longer the only place a row is
+// serialised. The MCP surface serves §8's row set as an **array** rather than
+// as a line stream, and the two must be one reading of one row: *there is one
+// renderer behind both forms, so the terminal and this surface cannot drift
+// apart* (§9, ADR-0026). One function is what makes that structural rather than
+// a rule two callers are asked to remember: a row in an envelope and the same
+// row on a `--json` stream are one encoding of one row, differing at most in
+// what the transport carrying them escapes on its own account.
+//
+// HTML escaping is off, which is the rule that had to move with it: the wire
+// carries an artefact's own bytes, and a message quoting a & or a < is a
+// message a consumer reads back as it was written. It is stated here now
+// because this is where the encoder is.
+func MarshalRow(row Row) ([]byte, error) {
+	var encoded bytes.Buffer
+	enc := json.NewEncoder(&encoded)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(row); err != nil {
+		return nil, err
+	}
+	// Encode terminates every value with a newline; a row's framing belongs
+	// to whoever writes it down, an array's members carrying none.
+	return bytes.TrimSuffix(encoded.Bytes(), []byte("\n")), nil
 }
 
 // WriteTable writes the stream as the human page: header, then one line per row

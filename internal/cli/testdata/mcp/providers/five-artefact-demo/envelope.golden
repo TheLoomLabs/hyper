@@ -1,0 +1,14 @@
+{
+  "content": [
+    {"type":"text","text":"3 Providers"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"provider","name":"cloudflare-dns","origin":"extension","summary":"class cloudflare; requires http; 1 read, 1 mutate, 1 destroy","operation_count":3,"digest":"sha256:bdcb1f6ca78d449dcebfead665b363e70ca68a80d14fea354ad94af340ead1c8"},
+      {"type":"provider","name":"shell","origin":"built-in","summary":"class local; requires shell; 1 read, 3 mutate, 2 destroy","operation_count":6,"digest":"sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4"},
+      {"type":"provider","name":"uptime","origin":"extension","summary":"class local; requires http; 1 read","operation_count":1,"digest":"sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7"}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

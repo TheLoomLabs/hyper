@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"io"
 
 	"github.com/TheLoomLabs/hyper/internal/render"
@@ -17,10 +18,11 @@ import (
 // values* with the page as text beside them had nowhere to stand (§9, ADR-0026,
 // issue #194).
 //
-// One implementation stands behind it today: the CLI's streams, writing exactly
-// what the three parameters wrote. The second is the milestone this prefactors
-// for, and what makes it possible is that the rows a page is written from and
-// the rows an envelope would carry are one list.
+// Two implementations stand behind it. The CLI's streams write exactly what the
+// three parameters wrote; the MCP server's `collected` writes nowhere at all and
+// retains the rows as values, which is the milestone this was prefactored for
+// (issue #195). What makes the second possible is that the rows a page is
+// written from and the rows an envelope carries are one list.
 //
 // **Nothing a command decides moves behind it.** Which rows, in which order,
 // under what heading, with which terminal row is the command's and stays the
@@ -134,3 +136,77 @@ func (s streams) form(asJSON bool) destination {
 	s.asJSON = asJSON
 	return s
 }
+
+// collected is the second destination, and the one destination.go above was
+// prefactored for: where a tool's answer goes on the MCP surface (§9, issue
+// #195).
+//
+// **It holds no writer onto the process's stdout, and that is the whole point
+// of it.** The server's stdout belongs to the protocol — a stray write there
+// would corrupt a frame rather than merely mislead a reader — so the structural
+// guarantee is not a rule a command is asked to keep but the absence of
+// anything to write to: what this retains is the rows and the terminal row as
+// **values**, io.Discard for narration, and a buffer for the renderings. A
+// command behind it can no more reach the wire than it can reach the network.
+//
+// It retains the rows rather than a rendering of them because that is what the
+// envelope carries: §8's row set served as an array, one object per row (§9).
+// The page is rendered into the buffer beside them because a Refusal's full
+// rendering and `review`'s are what §9's text block carries on two of its three
+// paths, and a destination that only sometimes rendered would be one the tool
+// had to ask twice.
+type collected struct {
+	rows      []render.Row
+	terminal  render.Row
+	rendering bytes.Buffer
+}
+
+// answer retains the answer whole: the rows and the terminal row as values, and
+// the command's own page in the buffer.
+//
+// The page is written here for the same reason the CLI's destination writes one
+// — the rows a page is rendered from and the rows an envelope carries are one
+// list (ADR-0026) — and it goes to a buffer rather than to a stream because
+// there is no stream. A page that will not render is an error like any other
+// and travels back the way writeAnswer already sends one.
+func (c *collected) answer(rows []render.Row, terminal render.Row, page func(io.Writer, []render.Row) error) error {
+	c.rows, c.terminal = rows, terminal
+	return page(&c.rendering, rows)
+}
+
+// refusal renders §8's Refusal into the same buffer.
+//
+// It goes to the buffer rather than to a second place because on this surface a
+// Refusal *is* the answer's text: §9 puts the full rendering in the `text`
+// block, with `isError: true` beside it, exactly where the command exits 77.
+// The tool that reads it back is issue #196's; what is here is that the
+// rendering happens and is kept, so that no path through a command leaves it
+// written to nowhere.
+func (c *collected) refusal(form refusalForm, members []refusalRow) error {
+	return writeRefusalMembers(&c.rendering, form, members)
+}
+
+// narrate is io.Discard, which is §9's own reading of what narration is: a Run
+// naming its Steps, a warning beside a tolerated sync failure, a truncation
+// line, the human rendering of a usage error — *none of it is the answer, and
+// none of it is a row*. The CLI has a second stream for it and this surface has
+// none, so it is dropped rather than folded into an answer it is not part of.
+//
+// What a caller would have read on stderr is not lost where it matters: a
+// truncated result says so in the envelope, in both halves; a usage error
+// arrives as a protocol error; and a Refusal is rendered in full into the
+// buffer above. Progress narration is §9's notification at a Step boundary,
+// which arrives with the tool that has Steps to narrate.
+func (c *collected) narrate() io.Writer { return io.Discard }
+
+// form answers this destination whichever form was named, which is what
+// destination.form exists to let a destination do: **decline the request by
+// answering itself**.
+//
+// There is nothing here for `--json` to switch. A surface carrying every answer
+// as structure has already made the choice the flag names, and the flag itself
+// is unreachable — a tool builds the command line its command would have
+// received and no tool takes a global (§9, flags.go). Answering itself is
+// therefore the truthful reply rather than a shortcut: the form is not the
+// caller's to set here.
+func (c *collected) form(bool) destination { return c }

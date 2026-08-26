@@ -1059,6 +1059,16 @@ func TestGoldenFixture_ANonMaterialisedCaseIsDrivenFromTheCheckedInTree(t *testi
 			if !under(run.wd, testdata) {
 				t.Errorf("wd = %q; a case that materialises nothing stands in the checked-in tree under %q", run.wd, testdata)
 			}
+			if c.call != nil {
+				// A call case has no command line to splice a
+				// --repo-dir into and would be allowed none if it
+				// had: **no tool takes an override argument of any
+				// kind, under any name** (§9), so the repository it
+				// stands in reaches its tools through
+				// HYPER_REPO_DIR instead (golden_mcp_test.go).
+				assertCallStandsIn(t, c, run)
+				return
+			}
 			want := c.argv
 			if in.repo {
 				want = append([]string{c.argv[0], "--repo-dir", c.abs(t, "repo")}, c.argv[1:]...)
@@ -1097,9 +1107,13 @@ func TestGoldenFixture_AMaterialisedCaseIsDrivenAgainstTheCopy(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			run := c.invocation(t)
 
-			want := append([]string{c.argv[0], "--repo-dir", run.fixture.root}, c.argv[1:]...)
-			if !slices.Equal(run.args, want) {
-				t.Errorf("args = %q, want %q", run.args, want)
+			if c.call != nil {
+				assertCallStandsIn(t, c, run)
+			} else {
+				want := append([]string{c.argv[0], "--repo-dir", run.fixture.root}, c.argv[1:]...)
+				if !slices.Equal(run.args, want) {
+					t.Errorf("args = %q, want %q", run.args, want)
+				}
 			}
 			if under(run.fixture.root, testdata) {
 				t.Errorf("the fixture root is %q, inside the checked-in corpora; a materialised case is a copy in a temp directory", run.fixture.root)
@@ -1527,5 +1541,35 @@ func writeInput(t *testing.T, dir, input string) {
 	}
 	if err := os.WriteFile(filepath.Join(dir, input), nil, 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// assertCallStandsIn holds a call case's repository where the two assertions
+// above hold an argv case's --repo-dir: it reaches the tools through
+// HYPER_REPO_DIR, which is the one layer §9 leaves open to a surface where no
+// tool takes an argument naming a repository.
+//
+// The empty argv is asserted beside it. A call case drives no command line of
+// its own — the command line is the tool's, built inside the server — so
+// anything here would be a case driving both surfaces at once.
+func assertCallStandsIn(t *testing.T, c goldenCase, run goldenRun) {
+	t.Helper()
+
+	if len(run.args) != 0 {
+		t.Errorf("args = %q; a call case drives no command line of its own", run.args)
+	}
+
+	// The inputs are read off the run rather than taken as a parameter: the
+	// run already resolved them, and a second reading is a second chance for
+	// the two to disagree about what the case asked for.
+	want := ""
+	switch {
+	case run.inputs.materialised():
+		want = run.fixture.root
+	case run.inputs.repo:
+		want = c.abs(t, "repo")
+	}
+	if run.repoDir != want {
+		t.Errorf("HYPER_REPO_DIR = %q, want %q", run.repoDir, want)
 	}
 }

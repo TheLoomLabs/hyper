@@ -45,8 +45,8 @@ var update = flag.Bool("update", false, "regenerate golden files")
 // sits and to no harness at all — TestGolden walks testdata/ whole and needs no
 // list of the commands it will find there.
 
-// goldenCase is one case directory as the harness reads it: its argv, already
-// parsed, and whatever optional inputs lie beside it on disk.
+// goldenCase is one case directory as the harness reads it: its argv or its
+// call, already parsed, and whatever optional inputs lie beside it on disk.
 //
 // The argv is read once, here, rather than at each place that wants something
 // out of it. The command a case exercises is argv[0] and three things ask for
@@ -54,13 +54,56 @@ var update = flag.Bool("update", false, "regenerate golden files")
 // directory's name against it; and the splice that puts --repo-dir after it —
 // and a case that answered the question differently depending on who asked
 // would be one whose subtree said one thing and whose run did another.
+//
+// **A case is an argv or a call and never both**, which is §9's two surfaces
+// over one core arriving in the corpus: an argv is a command line and a call is
+// a tool and its arguments, and everything else about a case — the fixture
+// repository, the environment, the clock, the mint, the git state — is the same
+// input read the same way (golden_mcp_test.go, issue #195).
 type goldenCase struct {
 	// dir is the case directory, relative to the package, and name is the
 	// same path with testdata/ trimmed off — what the subtest is called.
 	dir, name string
 	// argv is what the entry point receives: the case's complete command
 	// line with the program name off the front, so argv[0] is the command.
+	// It is nil on a case that supplies a call instead.
 	argv []string
+	// call is the tool call a case drives over the MCP surface, where it
+	// supplies one in place of an argv. The two are the two ways into one
+	// core, and a case is one or the other: an argv names a command line and
+	// a call names a tool and its arguments (golden_mcp_test.go, issue
+	// #195).
+	call *toolCall
+}
+
+// subject is what the case exercises, by name: the command its argv invokes, or
+// the tool its call names.
+//
+// It is one accessor rather than two readings of one field because three things
+// ask the question — the fence that holds a case against its directory, the
+// list of commands that write the working tree, and the driver that finds a
+// Run's streams — and none of them cares which of the two ways in a case took.
+// A tool is named for the command it carries (§9), so the answer means the same
+// thing whichever it came from.
+func (c goldenCase) subject() string {
+	if c.call != nil {
+		return c.call.Tool
+	}
+	return c.argv[0]
+}
+
+// opensARowStream says whether the case writes §8's NDJSON row stream to
+// stdout: an argv carrying `--json`, and no call.
+//
+// The second half is what makes it one accessor rather than the check spelled
+// at each of the four drivers that make it. A call case has no argv, so the
+// flag is absent from it and the four would each skip one by accident — right
+// for the wrong reason, and silently wrong the day a driver asks a question
+// the MCP surface has an answer to. What is true of a call case is that its
+// answer is an **array** and not a stream, and this says so once (§9,
+// golden_mcp_test.go).
+func (c goldenCase) opensARowStream() bool {
+	return c.call == nil && slices.Contains(c.argv, "--json")
 }
 
 // goldenCases enumerates every case under testdata/, in walk order. A case is
@@ -71,16 +114,25 @@ func goldenCases(t *testing.T) []goldenCase {
 	t.Helper()
 
 	var cases []goldenCase
+	name := func(dir string) string {
+		return filepath.ToSlash(strings.TrimPrefix(dir, "testdata"+string(filepath.Separator)))
+	}
 	walkTestdata(t, "argv", func(dir string) {
-		cases = append(cases, goldenCase{
-			dir:  dir,
-			name: filepath.ToSlash(strings.TrimPrefix(dir, "testdata"+string(filepath.Separator))),
-			argv: readArgv(t, filepath.Join(dir, "argv")),
-		})
+		if isFile(filepath.Join(dir, "call")) {
+			t.Fatalf("case %s holds both an argv and a call; a case is one way in or the other", name(dir))
+		}
+		cases = append(cases, goldenCase{dir: dir, name: name(dir), argv: readArgv(t, filepath.Join(dir, "argv"))})
+	})
+	walkTestdata(t, "call", func(dir string) {
+		cases = append(cases, goldenCase{dir: dir, name: name(dir), call: readCall(t, filepath.Join(dir, "call"))})
 	})
 	if len(cases) == 0 {
-		t.Fatal("no case under testdata/ holds an argv; the harness would pass having driven nothing")
+		t.Fatal("no case under testdata/ holds an argv or a call; the harness would pass having driven nothing")
 	}
+	// Two walks over one tree, put back into the one order they would have
+	// come in: a case is found by the file it holds, and which of the two
+	// files that is says nothing about where it belongs in the corpus.
+	slices.SortFunc(cases, func(a, b goldenCase) int { return strings.Compare(a.dir, b.dir) })
 	return cases
 }
 
@@ -132,10 +184,19 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 // entry point, taking the complete argv, deciding for itself which command runs
 // (issue #107). A case supplies:
 //
-//   - argv, required: the complete command line as typed, `hyper check --json`.
+//   - argv, required unless the case supplies a call: the complete command line
+//     as typed, `hyper check --json`.
+//   - call, the alternative to an argv: the tool and the arguments one MCP call
+//     is made with, `{"tool": "providers", "arguments": {}}`. Such a case is
+//     driven through the server over the SDK's in-memory transports and its
+//     golden is envelope.golden, beside the existing ones; every other input
+//     below is read exactly as it is for an argv case (golden_mcp_test.go,
+//     issue #195).
 //   - repo/, optional: a fixture repository. A case that supplies one has
-//     --repo-dir resolved to it and stands in it; a case that supplies none is
-//     driven with its argv alone, from the case directory.
+//     --repo-dir resolved to it and stands in it — or, on a call case, has it
+//     named by HYPER_REPO_DIR, no tool taking an argument that names a
+//     repository (§9) — and a case that supplies none is driven with its argv
+//     alone, from the case directory.
 //   - env, optional: the environment the invocation is read against, one
 //     NAME=value line per variable. A variable the file does not list is
 //     absent, and a line whose value is empty is a variable set to the empty
@@ -184,17 +245,25 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //     full.
 //
 // Its stdout.golden, stderr.golden and exit.golden are compared byte for byte,
-// and regenerated in place behind -update; so are store.golden, remote.golden
-// and tree.golden, where the case supplies them.
+// and regenerated in place behind -update — or its envelope.golden, where the
+// case is a call; so are store.golden, remote.golden and tree.golden, where the
+// case supplies them.
 func TestGolden(t *testing.T) {
 	for _, c := range goldenCases(t) {
 		t.Run(c.name, func(t *testing.T) {
 			run := c.invocation(t)
 
-			var stdout, stderr bytes.Buffer
-			exit := cli.Main(run.args, &stdout, &stderr, c.process(t, run), c.facts(t))
+			if c.call != nil {
+				// The second surface, driven over the SDK's
+				// in-memory transports against the same process
+				// value and the same build facts (golden_mcp_test.go).
+				c.compareEnvelope(t, run)
+			} else {
+				var stdout, stderr bytes.Buffer
+				exit := cli.Main(run.args, &stdout, &stderr, c.process(t, run), c.facts(t))
+				compareGolden(t, c.dir, stdout.Bytes(), stderr.Bytes(), exit)
+			}
 
-			compareGolden(t, c.dir, stdout.Bytes(), stderr.Bytes(), exit)
 			run.compareBranches(t, c.dir)
 			run.compareTree(t, c.dir)
 		})
@@ -228,6 +297,14 @@ func (c goldenCase) process(t *testing.T, run goldenRun) cli.Process {
 
 	instant := c.instant(t)
 	env := c.variables(t)
+	if _, named := env["HYPER_REPO_DIR"]; run.repoDir != "" && !named {
+		// The call case's repository, in the layer a tool reads it from.
+		// It is not set over a case that named the variable itself: a case
+		// that writes an env line is stating what the process was started
+		// with, and the harness supplying a second answer would be the
+		// fixture arguing with itself.
+		env["HYPER_REPO_DIR"] = run.repoDir
+	}
 	return cli.Process{
 		LookupEnv: c.environment(env),
 		Environ:   c.environ(env),
@@ -327,6 +404,14 @@ type goldenRun struct {
 	wd      string
 	inputs  fixtureInputs
 	fixture gitFixture
+	// repoDir is the repository a call case's tools resolve, and it reaches
+	// them through HYPER_REPO_DIR because that is the only way a tool can be
+	// told about one: **no tool takes an override argument of any kind,
+	// under any name** (§9), so a call case has no argv to splice a
+	// --repo-dir into and would not be allowed one if it had. It is empty on
+	// every argv case, where the flag is spliced instead
+	// (golden_mcp_test.go, issue #195).
+	repoDir string
 }
 
 // invocation resolves what the process would hand the entry point: the
@@ -377,7 +462,15 @@ func (c goldenCase) invocation(t *testing.T) goldenRun {
 	}
 	if root != "" {
 		run.wd = root
-		if !run.inputs.findRoot {
+		switch {
+		case run.inputs.findRoot:
+			// The walk finds it, which is what that marker means on
+			// either surface.
+		case c.call != nil:
+			// A tool is told about a repository the one way §9 leaves
+			// open: the environment the client started the process in.
+			run.repoDir = root
+		default:
 			run.args = append([]string{c.argv[0], "--repo-dir", root}, c.argv[1:]...)
 		}
 	}
@@ -785,9 +878,9 @@ func TestGoldenCorpora_EveryGoldenTripleIsDrivenBySomething(t *testing.T) {
 // is a rule for readers, and nothing else would notice it lapsing.
 func TestGoldenCorpora_ACasesDirectorySaysWhichCommandItExercises(t *testing.T) {
 	for _, c := range goldenCases(t) {
-		names := corpusNames(c.argv[0])
+		names := corpusNames(c.subject())
 		if !slices.Contains(names, filepath.Base(c.dir)) && !slices.Contains(names, filepath.Base(filepath.Dir(c.dir))) {
-			t.Errorf("case %s exercises %q; want it in a directory named one of %q, or one directly beneath one", c.name, c.argv[0], names)
+			t.Errorf("case %s exercises %q; want it in a directory named one of %q, or one directly beneath one", c.name, c.subject(), names)
 		}
 	}
 }
@@ -847,12 +940,12 @@ var writesTheWorkingTree = []string{"project", "install"}
 func TestGoldenCorpora_EveryCaseThatWritesTheWorkingTreeHoldsATreeGolden(t *testing.T) {
 	var held int
 	for _, c := range goldenCases(t) {
-		if !slices.Contains(writesTheWorkingTree, c.argv[0]) || !c.fixtureInputs().materialised() {
+		if !slices.Contains(writesTheWorkingTree, c.subject()) || !c.fixtureInputs().materialised() {
 			continue
 		}
 		held++
 		if !isFile(filepath.Join(c.dir, "tree.golden")) {
-			t.Errorf("case %s drives %q, which writes the working tree, and holds no tree.golden", c.name, c.argv[0])
+			t.Errorf("case %s drives %q, which writes the working tree, and holds no tree.golden", c.name, c.subject())
 		}
 	}
 	if held == 0 {
@@ -1313,7 +1406,7 @@ func writeGolden(t *testing.T, path string, data []byte) {
 func TestGoldenCorpora_EveryFlagCitesALineTheGutterMarked(t *testing.T) {
 	var judged int
 	for _, c := range goldenCases(t) {
-		if !slices.Contains(c.argv, "--json") {
+		if !c.opensARowStream() {
 			continue
 		}
 		stdout := readFile(t, filepath.Join(c.dir, "stdout.golden"))
@@ -1398,7 +1491,7 @@ func TestGoldenCorpora_AJSONStreamIsTypedRowsEndingInItsTerminalRow(t *testing.T
 
 	var judged int
 	for _, c := range goldenCases(t) {
-		if !slices.Contains(c.argv, "--json") {
+		if !c.opensARowStream() {
 			continue
 		}
 		stdout := readFile(t, filepath.Join(c.dir, "stdout.golden"))

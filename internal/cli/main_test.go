@@ -208,39 +208,54 @@ func TestMain_UnknownCommandNamesWhatWasTyped(t *testing.T) {
 	p.untouched(t)
 }
 
-// TestMain_McpIsANameTheSurfaceFixesAndNothingDispatchesYet is the third
-// command outside the tree, held to what this milestone decided about it and
-// nothing more (issue #193, ADR-0088). §9 names `mcp` and `tree.go` carries it,
-// so the completion scripts offer it; the server it starts is a later
-// milestone's, and until then the name resolves the way every name the spec
-// fixes and the binary has not built resolves — `unknown command`, exit 2,
-// with no repository read on the way there.
+// TestMain_McpStartsTheServerAndTakesNoArguments is the third command outside
+// the tree, held to the two things §9 fixes about the invocation itself
+// (ADR-0088, issue #195).
 //
-// The case is here rather than left to the unknown-command case above because
-// what it pins is not that an unknown word exits 2 but that *this* word does:
-// a dispatch arm added before the server exists would pass that test and fail
-// this one. The membership check ahead of it is a precondition rather than a
-// second assertion of tree_test.go's — without it, a `mcp` deleted from the
-// surface would leave this case passing as an ordinary unknown word, which is
-// a criterion nothing asserts wearing the look of one.
-func TestMain_McpIsANameTheSurfaceFixesAndNothingDispatchesYet(t *testing.T) {
+// **It takes no arguments at all**: no `--repo-dir`, no `--json`, no transport
+// flag and no port, an argument here being a per-server setting and the layer
+// that has none being the point. So anything on the line is a usage error
+// decided from the argument list alone, before a server exists — and stdout is
+// untouched, because on this command stdout belongs to the protocol.
+//
+// **Nothing of the process is read to decide that.** The membership check ahead
+// of it is a precondition rather than a second assertion of tree_test.go's:
+// without it, an `mcp` deleted from the surface would leave this case passing
+// as an ordinary unknown word, which is a criterion nothing asserts wearing the
+// look of one.
+//
+// That the server it starts speaks the protocol on the process's own stdin and
+// stdout is not assertable from here — the transport reaches os.Stdin and
+// os.Stdout itself, which is exactly what leaves no writer for a command to
+// reach — so it is driven where a real process can be started, against the real
+// binary (cmd/hyper/mcp_test.go).
+func TestMain_McpStartsTheServerAndTakesNoArguments(t *testing.T) {
 	if !slices.Contains(cli.OutsideTree(), "mcp") {
 		t.Fatal("mcp is not among the commands outside the tree; §9 names it there")
 	}
 
-	p := &process{wd: t.TempDir()}
-	var stdout, stderr bytes.Buffer
+	for _, refused := range [][]string{
+		{"mcp", "--repo-dir", "/elsewhere"},
+		{"mcp", "--json"},
+		{"mcp", "serve"},
+		{"mcp", "--port", "8080"},
+	} {
+		t.Run(strings.Join(refused, " "), func(t *testing.T) {
+			p := &process{wd: t.TempDir()}
+			var stdout, stderr bytes.Buffer
 
-	if exit := cli.Main([]string{"mcp"}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitUsage {
-		t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
+			if exit := cli.Main(refused, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitUsage {
+				t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
+			}
+			if got := stderr.String(); !strings.Contains(got, "takes no arguments") {
+				t.Errorf("stderr = %q, want it to say the command takes no arguments", got)
+			}
+			if stdout.Len() != 0 {
+				t.Errorf("stdout = %q, want it untouched; on this command stdout belongs to the protocol", stdout.String())
+			}
+			p.untouched(t)
+		})
 	}
-	if got := stderr.String(); !strings.Contains(got, `"mcp"`) || !strings.Contains(got, "unknown command") {
-		t.Errorf("stderr = %q, want `unknown command \"mcp\"`", got)
-	}
-	if stdout.Len() != 0 {
-		t.Errorf("stdout = %q, want it untouched", stdout.String())
-	}
-	p.untouched(t)
 }
 
 // TestMain_ExemptCommandsReadNothingOfTheProcess is the exemption as a property
@@ -249,6 +264,14 @@ func TestMain_McpIsANameTheSurfaceFixesAndNothingDispatchesYet(t *testing.T) {
 // nothing to resolve one either — and the probe makes that unmissable by
 // handing over a working directory that cannot be read at all. A `wd` resolved
 // above the switch would take both these commands down with it.
+//
+// `mcp` is the third branch that resolves none and is not driven here, because
+// what it does with a clean argument list is **start a server**: it writes
+// nothing to stdout — the frames are the transport's — and it returns when its
+// client goes away, which is not a thing this loop can hand it. That it reads
+// nothing of the process on the way to a usage error is held beside it, and
+// what happens on a clean line is held against the real binary
+// (TestMain_McpStartsTheServerAndTakesNoArguments, cmd/hyper/mcp_test.go).
 func TestMain_ExemptCommandsReadNothingOfTheProcess(t *testing.T) {
 	for name, argv := range map[string][]string{
 		"version":     {"version"},

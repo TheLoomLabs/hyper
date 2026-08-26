@@ -35,10 +35,13 @@ import (
 //
 // Getwd is called on the repository commands' arm and nowhere else, because that
 // exemption is a property of this dispatch and not of the commands behind it.
-// `version` and `completions` are the two cases that resolve no working
+// `version`, `completions` and `mcp` are the three cases that resolve no working
 // directory and call no gate — an exemption expressed as a path not taken (§9,
 // ADR-0020) — so a working directory that cannot be read does not stop `hyper
-// version`. `project` calls no gate either and is not one of them: it resolves a
+// version`. `mcp` is the one of the three that is not exempt from the gate at
+// all: it never reaches a repository because starting a server is not an act on
+// one, and every tool it carries gates exactly as its command does (ADR-0088).
+// `project` calls no gate either and is not one of them: it resolves a
 // repository like every other command in the table below and declines to compare
 // itself against the pin it is about to write, which is an exemption the command
 // states rather than one this dispatch grants (§11, issue #178).
@@ -67,23 +70,8 @@ func Main(args []string, stdout, stderr io.Writer, process Process, facts versio
 	// rather than a branch each, so the working directory — resolved for them
 	// and for nobody else — is read in one place however many of the sixteen
 	// land (issue #103, issue #111).
-	if run, gated := repositoryCommands[args[0]]; gated {
-		// The working directory is read here rather than above, so a
-		// command that reads no repository never depends on there being one
-		// to read (issue #103).
-		wd, err := process.Getwd()
-		if err != nil {
-			// The code cmd/hyper returned before the dispatch moved,
-			// unchanged: #107 moves the decision about which command runs
-			// and nothing a command prints or exits with. It is spelled
-			// with the name §12's closed set already fixes for 1 rather
-			// than as a bare literal, on exit.go's own rule that a
-			// milestone reaching a code inherits the name instead of
-			// minting a second spelling for the number (issue #102).
-			fmt.Fprintf(to.narrate(), "hyper: %s\n", err)
-			return ExitProblems
-		}
-		return run(args[1:], to, process, wd, facts.Version)
+	if code, dispatched := runRepositoryCommand(args, to, process, facts); dispatched {
+		return code
 	}
 
 	switch args[0] {
@@ -102,16 +90,62 @@ func Main(args []string, stdout, stderr io.Writer, process Process, facts versio
 		// reason: it reads no repository, so shell setup in a dotfiles
 		// bootstrap works before one exists (§9, ADR-0020, issue #104).
 		return RunCompletions(args[1:], stdout, stderr)
+	case "mcp":
+		// The third command outside the tree, and the one that starts §9's
+		// second surface. It is exempt from the gate for neither of the
+		// other two's reasons and needs no exemption at all: the
+		// invocation is not the act, so the gate fires per tool at the
+		// moment a tool resolves a repository, exactly as it fires for the
+		// command that tool carries (§9, ADR-0088).
+		//
+		// **stdout is not passed**, and that is the arm's whole shape: the
+		// server's stdout belongs to the protocol, so the one thing this
+		// command is handed is the narration a usage error goes to. The
+		// frames are the transport's, which reaches the process's own
+		// streams and hands a writer to nothing behind it (mcp.go, issue
+		// #195).
+		return RunMCP(args[1:], stderr, process, facts)
 	default:
-		// The third — `mcp` — has no arm here, and the absence is
-		// deliberate: §9 names the invocation that starts the server and
-		// tree.go carries it, so the completion scripts offer it, and the
-		// server itself is a later ticket's (ADR-0088, issue #193). Until
-		// it lands `hyper mcp` falls through here, exactly as every other
-		// name the spec fixes and the binary has not built does.
 		fmt.Fprintf(stderr, "hyper: unknown command %q\n", args[0])
 		return ExitUsage
 	}
+}
+
+// runRepositoryCommand runs one of §9's sixteen where args names one, and
+// answers whether it did.
+//
+// It is the dispatch's own arm, lifted out of Main so that a second surface can
+// stand on it: the MCP server's tools build the command line their commands
+// would have received and hand it here, so the tool and the terminal reach one
+// command through one table — *ergonomics is the whole of the difference
+// between the two* (§9, mcp.go, issue #195).
+//
+// **Getwd is called here and nowhere else**, which is the exemption stated as a
+// path not taken: the commands outside the tree never reach this function, so a
+// working directory that cannot be read does not stop `hyper version` (§9,
+// ADR-0020, issue #103). It is called per dispatch rather than once, which is
+// what makes the working directory a fact about the process for both surfaces
+// alike: the server's tools resolve the repository the way every command does,
+// against the directory the client started the process in.
+func runRepositoryCommand(args []string, to destination, process Process, facts version.Facts) (int, bool) {
+	run, gated := repositoryCommands[args[0]]
+	if !gated {
+		return 0, false
+	}
+
+	wd, err := process.Getwd()
+	if err != nil {
+		// The code cmd/hyper returned before the dispatch moved,
+		// unchanged: #107 moves the decision about which command runs and
+		// nothing a command prints or exits with. It is spelled with the
+		// name §12's closed set already fixes for 1 rather than as a bare
+		// literal, on exit.go's own rule that a milestone reaching a code
+		// inherits the name instead of minting a second spelling for the
+		// number (issue #102).
+		fmt.Fprintf(to.narrate(), "hyper: %s\n", err)
+		return ExitProblems, true
+	}
+	return run(args[1:], to, process, wd, facts.Version), true
 }
 
 // repositoryCommand is the shape of a command that reads a repository: the

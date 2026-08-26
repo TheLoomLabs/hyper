@@ -1,0 +1,15 @@
+{
+  "content": [
+    {"type":"text","text":"1 Manifest, 3 Operations"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"manifest","auth_scheme":"Authorization: Bearer \u003csecret\u003e","capabilities_required":["http"],"digest":"sha256:bdcb1f6ca78d449dcebfead665b363e70ca68a80d14fea354ad94af340ead1c8","schema_version":1},
+      {"type":"operation","name":"create_dns_record","kind":"mutate","opaque":false,"summary":"POST /client/v4/zones/{zone_id}/dns_records; skip-if-recorded; projects one Record"},
+      {"type":"operation","name":"delete_dns_record","kind":"destroy","opaque":false,"summary":"DELETE /client/v4/zones/{zone_id}/dns_records/{record_id}; repeatable; projects no Record"},
+      {"type":"operation","name":"list_dns_records","kind":"read","opaque":false,"summary":"GET /client/v4/zones/{zone_id}/dns_records; repeatable; projects a Record series"}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

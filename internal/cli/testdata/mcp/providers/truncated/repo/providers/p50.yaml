@@ -1,0 +1,16 @@
+kind: provider
+provider: p50
+schema-version: 1
+class: widgetco
+capabilities: [http]
+operations:
+  ping:
+    kind: read
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /ping
+    record:
+      over: $.body.result
+      identity: $.id
+      fields: {id: $.id}

@@ -97,6 +97,35 @@ func TestWriteJSON_LeavesHTMLPunctuationAsItWasWritten(t *testing.T) {
 	}
 }
 
+// MarshalRow is the row every stream and every envelope is written from, and
+// what it answers is the row **and no framing**: a stream adds the newline it
+// separates lines with, and an array's members carry none (§8, §9, ADR-0026).
+func TestMarshalRow_IsTheRowAndNoFraming(t *testing.T) {
+	encoded, err := render.MarshalRow(newStubRow("uptime", 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := string(encoded), `{"type":"stub","name":"uptime","count":2}`; got != want {
+		t.Errorf("MarshalRow() = %q, want %q", got, want)
+	}
+}
+
+// The HTML punctuation rule is the renderer's and not the stream's, which is
+// what moving it here is for: the wire carries an artefact's own bytes on both
+// surfaces, and a message quoting a `&` or a `<` is one a consumer reads back
+// as it was written.
+func TestMarshalRow_LeavesHTMLPunctuationAsItWasWritten(t *testing.T) {
+	encoded, err := render.MarshalRow(newStubRow(`a <b> & c`, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := string(encoded), `{"type":"stub","name":"a <b> & c","count":1}`; got != want {
+		t.Errorf("MarshalRow() = %q, want %q", got, want)
+	}
+}
+
 func TestWriteTable_WritesTheHeaderAndOneAlignedLinePerRow(t *testing.T) {
 	var buf bytes.Buffer
 	rows := []render.Row{newStubRow("uptime", 2), newStubRow("cloudflare-dns", 11)}
