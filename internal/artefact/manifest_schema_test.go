@@ -94,6 +94,36 @@ func TestCheckManifest_ASchemaVersionTheReaderCannotReadIsSchemaMismatchsOwn(t *
 	}
 }
 
+// TestCheckManifest_AVersionBelowTheCeilingIsReadAndNotFloored pins the other
+// side of *at or below*, which the ceiling's arithmetic decides by accident
+// unless a case says otherwise: §12's integer grammar admits a leading `-`, so
+// `schema-version: -1` loads, reads as below the ceiling, and has every one of
+// this Manifest's own checks run over it.
+//
+// **That is the rule applied literally rather than a hole.** What the ceiling
+// guards is reading a shape *newer* than this binary knows, on keys it could not
+// see; a version below it is read with this binary's full understanding, which
+// is what reading down means. A **floor** — *below 1 is not a version* — would be
+// a second rule §11 does not state, and inventing one here would be this file
+// deciding something the specification left closed.
+//
+// It is a case because the alternative is a rule that holds by accident, which
+// is one no reading can be checked against (§8's own argument at readExcerpt).
+func TestCheckManifest_AVersionBelowTheCeilingIsReadAndNotFloored(t *testing.T) {
+	below := strings.Replace(manifestAboveTheCeiling, "schema-version: 2", "schema-version: -1", 1)
+
+	got := checkManifest(t, "providers/uptime.yaml", below)
+	mustNoCode(t, got, CodeManifestSchemaUnsupported)
+	if ManifestSchemaUnsupported(parse(t, below)) {
+		t.Error("a version below the ceiling reads as unsupported; at or below is read, and only above is refused")
+	}
+	// The same four faults the ceiling case suppresses, reported here: a
+	// version below the ceiling buys no silence at all.
+	for _, code := range []string{CodeKindMismatch, CodeNameMismatch, schema.CodeUnknownKey, CodeCapabilityMismatch} {
+		mustCode(t, got, code)
+	}
+}
+
 // TestManifestSchemaVersion_TheBuiltinSatisfiesTheCeiling holds the compiled-in
 // Manifest to the compiled-in ceiling. The two move together or the binary
 // refuses its own Provider, which is a state no repository author could clear.

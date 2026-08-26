@@ -17,9 +17,28 @@ import (
 	"strings"
 )
 
-// Version is the running binary's version. It is a placeholder until
-// `hyper project`'s release machinery lands (milestone 10) and starts
-// stamping it at build time via -ldflags.
+// Version is the running binary's version — the fact the pin gate compares
+// against the Repository declaration's `version:` for exact equality (§11,
+// ADR-0020, internal/pin).
+//
+// **It is a placeholder, and no build replaces it.** The comment here once said
+// it was a placeholder until `hyper project`'s release machinery landed; that
+// machinery landed with issue #178, milestone 10 closed after it, and this
+// constant never moved. Every binary this repository has produced reports
+// `0.0.0-dev`, so the only value the pin gate has compared on a real build is
+// this one and the mismatch arm is exercised by fixtures alone.
+//
+// **A `const` is also the one shape `-ldflags -X` cannot write.** The linker
+// sets a string *variable*; a constant is inlined at compile time and the flag
+// is ignored without complaint. So stamping is not a build-invocation change
+// that could be made against this declaration as it stands — it starts by
+// making this a `var`, which trades a fact the compiler proves for one the
+// linker asserts. That, and the release publication `internal/release` already
+// expects to fetch a `checksums.txt` from, are issue #191's.
+//
+// It is stated rather than left as a forward reference to a milestone that has
+// been and gone: what a reader needs here is what is true now and where the
+// work is filed, not a date that has passed.
 const Version = "0.0.0-dev"
 
 // unknown is what a fact the build did not stamp renders as. The five-line
