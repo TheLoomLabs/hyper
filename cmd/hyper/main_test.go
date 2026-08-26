@@ -91,12 +91,13 @@ func TestDispatch_VersionAnswersFromAnyDirectory(t *testing.T) {
 	}
 }
 
-// TestDispatch_VersionAndTheRefusalQuoteOneConstant is the acceptance
-// criterion that the two readings cannot drift: the version on `hyper
-// version`'s first line is byte-identical to the one the Refusal calls *this
-// binary* when the pin gate declines. One constant, read here through the two
-// surfaces that quote it (§9, §11, ADR-0020, issue #103).
-func TestDispatch_VersionAndTheRefusalQuoteOneConstant(t *testing.T) {
+// TestDispatch_VersionAndTheRefusalQuoteOneVersion is the acceptance criterion
+// that the two readings cannot drift: the version on `hyper version`'s first
+// line is byte-identical to the one the Refusal calls *this binary* when the
+// pin gate declines. One string — whatever the build stamped into it — read
+// here through the two surfaces that quote it (§9, §11, ADR-0020, issues #103
+// and #191).
+func TestDispatch_VersionAndTheRefusalQuoteOneVersion(t *testing.T) {
 	repo := t.TempDir()
 	writeFile(t, filepath.Join(repo, "hyper.yaml"), "kind: repository-declaration\nversion: 9.9.9\n")
 
@@ -116,7 +117,7 @@ func TestDispatch_VersionAndTheRefusalQuoteOneConstant(t *testing.T) {
 		t.Errorf("the Refusal is %q, want it to quote the version the page states: %q", refusal.String(), want)
 	}
 	if stated != version.Version {
-		t.Errorf("the page states %q, want the one constant %q", stated, version.Version)
+		t.Errorf("the page states %q, want the version the binary carries, %q", stated, version.Version)
 	}
 }
 

@@ -1,0 +1,75 @@
+# What a `hyper` release publishes, and the only thing that publishes one.
+#
+# A tag is the whole trigger: pushing `v1.4.0` builds the artefacts, checks that
+# the binary inside one of them reports `1.4.0`, and creates the release with
+# the tarballs and a `checksums.txt` beside them. The tag carries the `v` and
+# every filename under it does not, which is the shape §11 fixes for the release
+# artefact URL and the checksums file the version pin reads (ADR-0020, #191).
+#
+# **This file runs `scripts/release.sh` rather than carrying its own copy of it**
+# so that what a tag publishes is what cmd/hyper's cases already build and
+# inspect. A release process nothing can run before the tag is pushed is one
+# whose faults are found by the first author whose `hyper project` Refuses
+# `release-artefact-absent` against a real 404.
+#
+# **It is not a generated workflow and §11's four constants are not its.** Those
+# govern the file `hyper project` writes into somebody else's repository; this is
+# this repository's own release, hand-written and reviewed like any other file
+# here. What it does share is the ethos: one action, pinned by commit, and no
+# setup action deciding which bytes build the binary — the toolchain is pinned
+# below by the directive in go.mod, which is a file under review here.
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+
+      - name: read the version from the tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      # The toolchain is go.mod's directive exactly, read from it rather than
+      # written here so that the Go this repository builds against lives in one
+      # file. Left alone it would be whichever Go the image ships wherever that
+      # satisfies the directive — the one input to the published bytes that
+      # nothing in the repository would have decided.
+      - name: pin the toolchain to go.mod's directive
+        run: echo "GOTOOLCHAIN=go$(go list -m -f '{{.GoVersion}}')" >> "$GITHUB_ENV"
+
+      - name: build the release
+        run: bash scripts/release.sh "$VERSION" dist
+
+      # A release whose binary reports a version other than its tag is the one
+      # failure this whole mechanism cannot survive: the pin gate compares
+      # strings, so a mis-stamped artefact Refuses in every repository that
+      # installs it and the remedy is another release. It is checked here, where
+      # the answer is still a red job rather than a published file.
+      - name: the binary reports the tag
+        run: |
+          tar -xzf "dist/hyper-$VERSION-x86_64-linux.tar.gz" -C "$RUNNER_TEMP"
+          reported=$("$RUNNER_TEMP/hyper" version | head -n 1)
+          if [ "$reported" != "hyper $VERSION" ]; then
+            echo "the artefact reports '$reported'; the tag is v$VERSION" >&2
+            exit 1
+          fi
+
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            "dist/hyper-$VERSION"-*.tar.gz \
+            dist/checksums.txt

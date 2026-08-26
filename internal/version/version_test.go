@@ -125,13 +125,14 @@ func TestPage_AnUnstampedCommitIsNotMarkedDirty(t *testing.T) {
 	}
 }
 
-// TestCurrent_CarriesTheOneVersionConstant pins the first of the three readers
-// of one constant: the page, the pin gate, and the Refusal message that quotes
-// it all say the same string (§9, ADR-0020, issue #103).
-func TestCurrent_CarriesTheOneVersionConstant(t *testing.T) {
+// TestCurrent_CarriesTheOneVersion pins the first of the three readers of one
+// string: the page, the pin gate, and the Refusal message that quotes it all
+// say what the build stamped and never a second reading of it (§9, ADR-0020,
+// issues #103 and #191).
+func TestCurrent_CarriesTheOneVersion(t *testing.T) {
 	got := version.Current()
 	if got.Version != version.Version {
-		t.Errorf("Current().Version = %q, want the package constant %q", got.Version, version.Version)
+		t.Errorf("Current().Version = %q, want the package's own %q", got.Version, version.Version)
 	}
 	if want := "hyper " + version.Version + "\n"; !strings.HasPrefix(got.Page(), want) {
 		t.Errorf("Current().Page() starts %q, want it to start %q", got.Page(), want)
@@ -174,5 +175,24 @@ func TestPackage_ReachesNoNetwork(t *testing.T) {
 		if dep == "net" || strings.HasPrefix(dep, "net/") || strings.HasPrefix(dep, "crypto/tls") {
 			t.Errorf("internal/version reaches %s; `hyper version` reaches no network on any path (ADR-0019)", dep)
 		}
+	}
+}
+
+// TestVersion_AnUnstampedBuildSaysUnknown is what the binary claims when
+// nothing stamped it. `go test` links no `-X`, so the value read here is the
+// declaration's own — and it is the same word every other unstamped fact on the
+// page renders as, because *what version is this* has no better answer from a
+// build that was never told (issue #191).
+//
+// The word is spelled here rather than read from the package, which an
+// external test package could not do anyway: a case that checked one of the
+// two declarations against the other would pass whatever they were changed to
+// together.
+func TestVersion_AnUnstampedBuildSaysUnknown(t *testing.T) {
+	if got := version.Version; got != "unknown" {
+		t.Errorf("Version = %q, want %q — an unstamped build names no version and says so", got, "unknown")
+	}
+	if got, want := version.Current().Page(), "hyper unknown\n"; !strings.HasPrefix(got, want) {
+		t.Errorf("Page() starts %q, want it to start %q", got, want)
 	}
 }

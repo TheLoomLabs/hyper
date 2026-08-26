@@ -17,35 +17,47 @@ import (
 	"strings"
 )
 
-// Version is the running binary's version — the fact the pin gate compares
-// against the Repository declaration's `version:` for exact equality (§11,
-// ADR-0020, internal/pin).
-//
-// **It is a placeholder, and no build replaces it.** The comment here once said
-// it was a placeholder until `hyper project`'s release machinery landed; that
-// machinery landed with issue #178, milestone 10 closed after it, and this
-// constant never moved. Every binary this repository has produced reports
-// `0.0.0-dev`, so the only value the pin gate has compared on a real build is
-// this one and the mismatch arm is exercised by fixtures alone.
-//
-// **A `const` is also the one shape `-ldflags -X` cannot write.** The linker
-// sets a string *variable*; a constant is inlined at compile time and the flag
-// is ignored without complaint. So stamping is not a build-invocation change
-// that could be made against this declaration as it stands — it starts by
-// making this a `var`, which trades a fact the compiler proves for one the
-// linker asserts. That, and the release publication `internal/release` already
-// expects to fetch a `checksums.txt` from, are issue #191's.
-//
-// It is stated rather than left as a forward reference to a milestone that has
-// been and gone: what a reader needs here is what is true now and where the
-// work is filed, not a date that has passed.
-const Version = "0.0.0-dev"
-
 // unknown is what a fact the build did not stamp renders as. The five-line
 // shape is fixed, so every fact has a value on the page even where the build
 // supplied none — a page whose job is identifying bytes may not quietly
 // identify bytes it cannot vouch for (issue #103).
 const unknown = "unknown"
+
+// Version is the running binary's version — the fact the pin gate compares
+// against the Repository declaration's `version:` for exact equality (§11,
+// ADR-0020, internal/pin).
+//
+// **It is a `var` because a `const` is the one shape `-ldflags -X` cannot
+// write.** The linker sets a string *variable*; a constant is inlined at
+// compile time and the flag is ignored without complaint, which is why every
+// binary this repository produced before issue #191 reported the same
+// placeholder however it was built. The declaration therefore trades a fact the
+// compiler proves for one the linker asserts, deliberately: nothing reads it in
+// a constant expression — Current builds Facts from it and pin.Check compares
+// it as `binaryVersion` — so what the conversion costs is the guarantee that
+// one binary's answer is fixed at compile time, and what it buys is a version
+// that can be true.
+//
+// What writes it is one flag, and docs/build/releasing.md states the invocation
+// whole:
+//
+//	go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=1.4.0" ./cmd/hyper
+//
+// Nothing else may. There is no file, flag or environment variable this is read
+// from at run time — a version resolved after the build is a fact about the
+// machine rather than about the bytes, and the pin gate compares it as though
+// it were the second (§11, ADR-0014, ADR-0020).
+//
+// **An unstamped build says so rather than claiming a version.** The default is
+// the same word every fact the build did not supply renders as, because *what
+// version is this* has no better answer from a build nobody told: `hyper
+// version` prints `hyper unknown`, and the Refusal quoting it reads *this
+// binary is unknown*, which is the honest sentence. It is nobody's release —
+// `hyper project` on such a binary asks for a tag named for it and is answered
+// `404`, which Refuses `release-artefact-absent`, so §11's *an unreleased
+// binary runs and checks and cannot project* arrives as a consequence rather
+// than as a special case.
+var Version = unknown
 
 // Facts is everything `hyper version` states: the binary's own version, the
 // revision and time the build stamped, whether that build came from a modified
