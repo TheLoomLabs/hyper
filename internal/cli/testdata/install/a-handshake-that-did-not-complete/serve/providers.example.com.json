@@ -1,0 +1,6 @@
+{
+  "refuse_first": 2,
+  "refuse_first_as": [
+    "handshake"
+  ]
+}

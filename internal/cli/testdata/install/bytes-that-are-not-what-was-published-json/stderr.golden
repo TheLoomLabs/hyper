@@ -1,0 +1,2 @@
+refused: origin-digest-mismatch
+  https://providers.example.com/acme/dns.yaml published sha256:72bde7ebb5a1903309d738998ed56d308af4bd13cc94ffd19ea987c4408af111 and answered bytes that are sha256:d2ed2c9148d3065e57b2fed8023ea46b46f291d98cc7eff13f8fc59cc434351f

@@ -277,9 +277,11 @@ func digestOf(data []byte) string {
 // **Every status but `200` is one answer**, which is §11's collapse honoured
 // rather than re-litigated: `404`, `410`, `429`, `500` and a body that stopped
 // part way are all *the fetch did not answer with the file*, and they exit
-// together. The message names which URL was asked and what it said, because
-// *the Manifest 404'd* and *the checksums file 404'd* are different acts for
-// whoever has to fix it (§11, ADR-0060).
+// together. **Every one of them names which URL was asked and what it said**,
+// because *the Manifest 404'd* and *the checksums file 404'd* are different acts
+// for whoever has to fix it — and a body that died behind a `200` is the one
+// answer whose own error carries no coordinate, so this is where it acquires one
+// (§11, ADR-0060).
 //
 // **The limit is read one byte past itself**, and that is what this read has
 // that internal/release's does not: a body **at** the limit is a body that
@@ -305,9 +307,17 @@ func read(ctx context.Context, dial capability.Dial, from string, limit int) ([]
 		return nil, fmt.Errorf("%s answered %d", from, response.StatusCode)
 	}
 
+	// **A body that stopped part way names its URL too.** The status line
+	// arrived and the bytes behind it did not, so the error the reader hands
+	// back — an unexpected EOF, a connection reset — carries no coordinate at
+	// all, and a caller told only *unexpected EOF* cannot tell which of the
+	// two reads it was. It is the same sentence the two answers above are
+	// rendered in and it is one answer with them: `install` exits on all of
+	// this identically, and what the message is for is the person who has to
+	// decide whether to talk to the publisher or to their network (§11).
 	body, err := io.ReadAll(io.LimitReader(response.Body, int64(limit)+1))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s answered part of a body and stopped: %w", from, err)
 	}
 	if len(body) > limit {
 		return nil, fmt.Errorf("%s answered more than %d bytes", from, limit)

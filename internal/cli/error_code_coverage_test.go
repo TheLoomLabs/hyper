@@ -155,34 +155,8 @@ func checkCorpusErrorCodes() []string {
 // uncovered member, so the closed set and the fixture set can never drift apart
 // silently (issue #99).
 func TestCheckCorpusErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
-	var haystack []byte
-	for _, c := range goldenCases(t) {
-		if filepath.Dir(c.dir) != checkCorpus {
-			continue
-		}
-		for _, golden := range []string{"stdout.golden", "stderr.golden"} {
-			haystack = append(haystack, readFile(t, filepath.Join(c.dir, golden))...)
-			haystack = append(haystack, '\n')
-		}
-	}
-
 	codes := checkCorpusErrorCodes()
-
-	var missing []string
-	for _, code := range codes {
-		// Bounded on both sides by something other than a lowercase letter
-		// or a hyphen, so a code is never credited by appearing as a
-		// substring of a longer, different one — every member of this set
-		// is a distinct kebab-case token and none is a hyphen-delimited
-		// prefix or suffix of another.
-		pattern := `(^|[^a-z-])` + regexp.QuoteMeta(code) + `([^a-z-]|$)`
-		if !regexp.MustCompile(pattern).Match(haystack) {
-			missing = append(missing, code)
-		}
-	}
-
-	if len(missing) > 0 {
-		sort.Strings(missing)
+	if missing := codesWithNoFixture(t, checkCorpus, codes); len(missing) > 0 {
 		t.Errorf("%d of %d error_code members have no failing fixture under %s/: %v", len(missing), len(codes), checkCorpus, missing)
 	}
 }
@@ -291,17 +265,7 @@ var artefactKindsCitedByARefusal = []string{
 // test states: what is read is what the checked-in goldens say, and a code with
 // no fixture is a claim nothing drives.
 func TestCodesReachingARun_EveryMemberHasARefusingFixture(t *testing.T) {
-	haystack := goldensUnder(t, runCorpus)
-
-	var missing []string
-	for _, code := range codesReachingARun {
-		pattern := `(^|[^a-z-])` + regexp.QuoteMeta(code) + `([^a-z-]|$)`
-		if !regexp.MustCompile(pattern).Match(haystack) {
-			missing = append(missing, code)
-		}
-	}
-	if len(missing) > 0 {
-		sort.Strings(missing)
+	if missing := codesWithNoFixture(t, runCorpus, codesReachingARun); len(missing) > 0 {
 		t.Errorf("%d of %d codes have no Refusing fixture under %s/: %v", len(missing), len(codesReachingARun), runCorpus, missing)
 	}
 }
@@ -336,9 +300,39 @@ func TestCodesReachingARun_EveryArtefactKindIsCited(t *testing.T) {
 	}
 }
 
+// codesWithNoFixture is the question all four assertions in this file ask, and
+// it is one function because the fourth caller is where the same eight lines
+// copied four times stops being a coincidence: which members of a closed set
+// have no fixture in one corpus, named, sorted, so that the closed set and the
+// fixture set can never drift apart silently.
+//
+// What each caller keeps is its own sentence about what a missing fixture
+// means — `check` owes a **failing** one and the other three owe a **Refusing**
+// one, which is a real difference between reporting problems and declining
+// before any effect — and the walk beneath them is the same walk (§12).
+//
+// A code is matched bounded on both sides by something other than a lowercase
+// letter or a hyphen, so it is never credited by appearing as a substring of a
+// longer, different one — every member of every set here is a distinct
+// kebab-case token and none is a hyphen-delimited prefix or suffix of another.
+func codesWithNoFixture(t *testing.T, corpus string, codes []string) []string {
+	t.Helper()
+
+	haystack := goldensUnder(t, corpus)
+
+	var missing []string
+	for _, code := range codes {
+		pattern := `(^|[^a-z-])` + regexp.QuoteMeta(code) + `([^a-z-]|$)`
+		if !regexp.MustCompile(pattern).Match(haystack) {
+			missing = append(missing, code)
+		}
+	}
+	sort.Strings(missing)
+	return missing
+}
+
 // goldensUnder is every stdout and stderr golden of one corpus, concatenated —
-// the one read both assertions above are made against, and the same read the
-// milestone-1 test makes of `check`'s.
+// the one read every assertion above is made against.
 func goldensUnder(t *testing.T, corpus string) []byte {
 	t.Helper()
 
@@ -387,18 +381,52 @@ var codesRefusedByProject = []string{
 // read is what the checked-in goldens say, and a code with no fixture is a claim
 // nothing drives.
 func TestCodesRefusedByProject_EveryMemberHasARefusingFixture(t *testing.T) {
-	haystack := goldensUnder(t, projectCorpus)
-
-	var missing []string
-	for _, code := range codesRefusedByProject {
-		pattern := `(^|[^a-z-])` + regexp.QuoteMeta(code) + `([^a-z-]|$)`
-		if !regexp.MustCompile(pattern).Match(haystack) {
-			missing = append(missing, code)
-		}
-	}
-	if len(missing) > 0 {
-		sort.Strings(missing)
+	if missing := codesWithNoFixture(t, projectCorpus, codesRefusedByProject); len(missing) > 0 {
 		t.Errorf("%d of %d codes have no Refusing fixture under %s/: %v", len(missing), len(codesRefusedByProject), projectCorpus, missing)
+	}
+}
+
+// installCorpus is `install`'s own slice of testdata/, and the fourth corpus
+// this file asks the same question of. It is also what install_test.go's own
+// read of these cases' exit codes is scoped by — the corpus names are declared
+// together here, so that *which directory is which command's* is answered in
+// one place.
+const installCorpus = "testdata/install"
+
+// codesRefusedByInstall is the closed set's members `hyper install`
+// contributes: one, and it is the only thing this command tells apart from
+// every other way its two reads can fail to produce verified bytes.
+//
+// `origin-digest-mismatch` is bytes that arrived and are not the bytes the
+// publisher published. It is a `77` rather than the `1` beside it because the
+// read completed, the digest was published, and a verbatim retry declines
+// identically — the remedy is the publisher's rather than another attempt
+// (§11, §12, ADR-0060, issue #188).
+//
+// **The codes `install` does not carry are the assertion beside it.** A ref the
+// registry does not hold, a checksums file naming every published file but this
+// one, a rate limit, a bad gateway, a connection nothing accepted, a name that
+// did not resolve, a handshake that did not complete and a body over the cap are
+// each exit `1` with **no** `error_code` at all: §11 puts *matches nothing* and
+// *the fetch did not complete* on one code deliberately, and a member here for
+// any of them would be that paragraph reinvented. What holds that half is
+// TestInstallCorpus_ItsWholeCodeSetIsThree, one file over.
+//
+// It is spelled out rather than imported from the package that fires it, on
+// this file's own footing: what every assertion here reads is what the
+// checked-in goldens say, and a constant imported from the code under test
+// would move with it.
+var codesRefusedByInstall = []string{
+	"origin-digest-mismatch",
+}
+
+// TestCodesRefusedByInstall_EveryMemberHasARefusingFixture holds that set
+// against `install`'s corpus, on the footing the three tests above state: what
+// is read is what the checked-in goldens say, and a code with no fixture is a
+// claim nothing drives.
+func TestCodesRefusedByInstall_EveryMemberHasARefusingFixture(t *testing.T) {
+	if missing := codesWithNoFixture(t, installCorpus, codesRefusedByInstall); len(missing) > 0 {
+		t.Errorf("%d of %d codes have no Refusing fixture under %s/: %v", len(missing), len(codesRefusedByInstall), installCorpus, missing)
 	}
 }
 

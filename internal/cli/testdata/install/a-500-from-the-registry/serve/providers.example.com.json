@@ -1,0 +1,7 @@
+{
+  "status": 500,
+  "headers": {
+    "Content-Type": "text/plain"
+  },
+  "body": "Internal Server Error\n"
+}

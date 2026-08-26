@@ -150,6 +150,23 @@ type servedResponse struct {
 	// end, which is here. A case using it serves a body of its own for
 	// nothing else.
 	EchoRequestHeaders []string `json:"echo_request_headers"`
+	// Repeat is how many times the body above is written, for the one kind
+	// of case whose subject is a body's **size**: a response over a read's
+	// cap, which `install` must report as a fetch that did not complete
+	// rather than read into memory (§11, issue #188).
+	//
+	// It is still only what a server supplies — a response of a stated
+	// length — and it is here because the alternative is a case that writes
+	// megabytes into the checked-in corpus, which is a fixture costing more
+	// to carry than the claim it makes.
+	//
+	// It is the **host's** and not one answer's, on `hangs`' own footing: a
+	// case whose subject is a body that never ends is a case about one read,
+	// and a count per answer would be a knob nothing turns.
+	//
+	// Absent, or 1, is the body written once, which is every case that
+	// landed before it.
+	Repeat int `json:"repeat"`
 }
 
 // servedAnswer is one of a host's successive answers: a status, headers and a
@@ -347,7 +364,7 @@ func (f *fixtureServer) answer(w http.ResponseWriter, r *http.Request, instant t
 		w.Header().Set(header, value)
 	}
 	w.WriteHeader(response.Status)
-	io.WriteString(w, body(r, response))
+	io.WriteString(w, repeated(body(r, response), response.Repeat))
 }
 
 // merged is the host's headers with one answer's written over them.
@@ -455,6 +472,16 @@ func filled(r *http.Request, written string) string {
 	return headerPlaceholder.ReplaceAllStringFunc(written, func(placeholder string) string {
 		return r.Header.Get(headerPlaceholder.FindStringSubmatch(placeholder)[1])
 	})
+}
+
+// repeated is the body written as many times as the host's entry asks for, and
+// unchanged where it asks for nothing — which is every case but the one whose
+// subject is a body too large to write down.
+func repeated(written string, times int) string {
+	if times <= 1 {
+		return written
+	}
+	return strings.Repeat(written, times)
 }
 
 // mintFixtureCertificate mints one self-signed certificate covering every host

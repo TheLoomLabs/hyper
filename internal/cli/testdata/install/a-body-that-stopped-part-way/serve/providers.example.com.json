@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/yaml",
+    "Content-Length": "660"
+  },
+  "body": "kind: provider\n"
+}

@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/yaml"
+  },
+  "body": "kind: provider\n",
+  "repeat": 279621
+}

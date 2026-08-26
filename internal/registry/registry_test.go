@@ -7,9 +7,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -226,6 +228,68 @@ func TestFetch_ABodyOverTheCapIsAFetchThatDidNotComplete(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestFetch_EveryFailedReadNamesTheURLItAsked is §11's other sentence about
+// this path: the two reads share one exit code, and one code carrying both is
+// not a reason to render one message. *The Manifest 404'd* and *the checksums
+// file 404'd* are different acts for whoever has to fix it, and the only thing
+// that tells them apart is the URL in the sentence.
+//
+// The last world is the one that has to be given its coordinate rather than
+// carrying one: a `200` whose body dies part way through answers an unexpected
+// EOF, which names nothing at all. It is the same answer as every other here —
+// the fetch did not complete — and a caller told only *unexpected EOF* cannot
+// tell which of the two reads it was (§11, ADR-0060).
+func TestFetch_EveryFailedReadNamesTheURLItAsked(t *testing.T) {
+	for name, asked := range map[string]struct {
+		world http.HandlerFunc
+		named string
+	}{
+		"the Manifest 404s": {func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "Not Found", http.StatusNotFound)
+		}, ref},
+		"the Manifest's body stops part way": {func(w http.ResponseWriter, r *http.Request) {
+			truncated(w, publishedYAML)
+		}, ref},
+		"the checksums file 404s": {func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "checksums.txt") {
+				http.Error(w, "Not Found", http.StatusNotFound)
+				return
+			}
+			fmt.Fprint(w, publishedYAML)
+		}, checksumsURL},
+		"the checksums file's body stops part way": {func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "checksums.txt") {
+				truncated(w, textLine(publishedYAML, basename))
+				return
+			}
+			fmt.Fprint(w, publishedYAML)
+		}, checksumsURL},
+		"the checksums file names every file but this one": {func(w http.ResponseWriter, r *http.Request) {
+			answer(w, r, publishedYAML, textLine(publishedYAML, "other.yaml"))
+		}, checksumsURL},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := fetch(t, serve(t, asked.world), ref)
+
+			if err == nil {
+				t.Fatal("Fetch() = nil, want the read reported")
+			}
+			if !strings.Contains(err.Error(), asked.named) {
+				t.Errorf("Fetch() = %v, want it to name %q — one exit code is not one message", err, asked.named)
+			}
+		})
+	}
+}
+
+// truncated answers a body that stops part way through: the length of the whole
+// file declared, and less than that written before the connection goes. It is
+// what a read that did not complete looks like from the far end, and the one
+// failure here whose own error carries no coordinate.
+func truncated(w http.ResponseWriter, whole string) {
+	w.Header().Set("Content-Length", strconv.Itoa(len(whole)+1))
+	io.WriteString(w, whole)
 }
 
 // fetch parses the ref and performs the two reads, which is what every case
