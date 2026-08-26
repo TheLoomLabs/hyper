@@ -16,7 +16,7 @@
 complete -c hyper -f
 
 # Position one: the command names, and never anything else.
-complete -c hyper -n __fish_use_subcommand -a 'providers provider operation targets check review run probe runs show changes records install project store compact version completions'
+complete -c hyper -n __fish_use_subcommand -a 'providers provider operation targets check review run probe runs show changes records install project store compact version completions mcp'
 
 # store's sub-verb, the whole of the tree's nesting, offered until it is there.
 complete -c hyper -n '__fish_seen_subcommand_from store; and not __fish_seen_subcommand_from init' -a 'init'
@@ -25,8 +25,8 @@ complete -c hyper -n '__fish_seen_subcommand_from store; and not __fish_seen_sub
 # most once, so the condition drops away as soon as one has been.
 complete -c hyper -n '__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from bash fish zsh' -a 'bash fish zsh'
 
-# The globals, offered after the tree's commands alone — version and
-# completions are outside it and take none.
+# The globals, offered after the tree's commands alone — version, completions
+# and mcp are outside it and take none.
 complete -c hyper -n '__fish_seen_subcommand_from providers provider operation targets check review run probe runs show changes records install project store compact' -l json
 complete -c hyper -n '__fish_seen_subcommand_from providers provider operation targets check review run probe runs show changes records install project store compact' -l repo-dir -r -a '(__fish_complete_directories)'
 complete -c hyper -n '__fish_seen_subcommand_from providers provider operation targets check review run probe runs show changes records install project store compact' -l no-color

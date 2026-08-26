@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -188,7 +189,7 @@ func TestMain_NoArgumentsIsUsageError(t *testing.T) {
 }
 
 // TestMain_UnknownCommandNamesWhatWasTyped is a word that is not one of the
-// eighteen. It exits 2 quoting what was typed, and it never reaches the gate:
+// nineteen. It exits 2 quoting what was typed, and it never reaches the gate:
 // the gate compares a repository's pin, a repository root is resolved from the
 // environment or the working directory, and neither was read.
 func TestMain_UnknownCommandNamesWhatWasTyped(t *testing.T) {
@@ -200,6 +201,41 @@ func TestMain_UnknownCommandNamesWhatWasTyped(t *testing.T) {
 	}
 	if got := stderr.String(); !strings.Contains(got, `"bogus"`) {
 		t.Errorf("stderr = %q, want it to name what was typed", got)
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want it untouched", stdout.String())
+	}
+	p.untouched(t)
+}
+
+// TestMain_McpIsANameTheSurfaceFixesAndNothingDispatchesYet is the third
+// command outside the tree, held to what this milestone decided about it and
+// nothing more (issue #193, ADR-0088). §9 names `mcp` and `tree.go` carries it,
+// so the completion scripts offer it; the server it starts is a later
+// milestone's, and until then the name resolves the way every name the spec
+// fixes and the binary has not built resolves — `unknown command`, exit 2,
+// with no repository read on the way there.
+//
+// The case is here rather than left to the unknown-command case above because
+// what it pins is not that an unknown word exits 2 but that *this* word does:
+// a dispatch arm added before the server exists would pass that test and fail
+// this one. The membership check ahead of it is a precondition rather than a
+// second assertion of tree_test.go's — without it, a `mcp` deleted from the
+// surface would leave this case passing as an ordinary unknown word, which is
+// a criterion nothing asserts wearing the look of one.
+func TestMain_McpIsANameTheSurfaceFixesAndNothingDispatchesYet(t *testing.T) {
+	if !slices.Contains(cli.OutsideTree(), "mcp") {
+		t.Fatal("mcp is not among the commands outside the tree; §9 names it there")
+	}
+
+	p := &process{wd: t.TempDir()}
+	var stdout, stderr bytes.Buffer
+
+	if exit := cli.Main([]string{"mcp"}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitUsage {
+		t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
+	}
+	if got := stderr.String(); !strings.Contains(got, `"mcp"`) || !strings.Contains(got, "unknown command") {
+		t.Errorf("stderr = %q, want `unknown command \"mcp\"`", got)
 	}
 	if stdout.Len() != 0 {
 		t.Errorf("stdout = %q, want it untouched", stdout.String())

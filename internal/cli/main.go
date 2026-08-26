@@ -80,16 +80,22 @@ func Main(args []string, stdout, stderr io.Writer, process Process, facts versio
 	switch args[0] {
 	case "version":
 		// Neither the environment nor a working directory is passed, and no
-		// repository root is resolved: `version` is one of the two commands
-		// outside the tree of sixteen and exempt from the pin gate (§9,
-		// ADR-0020).
+		// repository root is resolved: `version` is one of the three
+		// commands outside the tree of sixteen and exempt from the pin gate
+		// (§9, ADR-0020).
 		return RunVersion(args[1:], stdout, stderr, facts)
 	case "completions":
-		// The other command outside the tree, and exempt for the same
+		// The second command outside the tree, and exempt for the same
 		// reason: it reads no repository, so shell setup in a dotfiles
 		// bootstrap works before one exists (§9, ADR-0020, issue #104).
 		return RunCompletions(args[1:], stdout, stderr)
 	default:
+		// The third — `mcp` — has no arm here, and the absence is
+		// deliberate: §9 names the invocation that starts the server and
+		// tree.go carries it, so the completion scripts offer it, and the
+		// server itself is a later ticket's (ADR-0088, issue #193). Until
+		// it lands `hyper mcp` falls through here, exactly as every other
+		// name the spec fixes and the binary has not built does.
 		fmt.Fprintf(stderr, "hyper: unknown command %q\n", args[0])
 		return ExitUsage
 	}
@@ -104,7 +110,7 @@ func Main(args []string, stdout, stderr io.Writer, process Process, facts versio
 //
 // The working directory rides beside the process rather than being left to
 // Getwd because resolving it is the dispatch's act and not a command's: it is
-// resolved once, on this arm, so that the two commands on the other arm never
+// resolved once, on this arm, so that the commands on the other arm never
 // resolve one at all (§9, ADR-0020). A command behind the dispatch holds a
 // Getwd it could call and has no reason to — the answer is already in its
 // hand — which is a rule this signature states rather than a shape it enforces,

@@ -27,11 +27,17 @@ no other nesting, no aliases, and no hidden commands.
 and `runs` sit one letter apart, which is a readability wart rather than a hazard: `run` requires
 arguments and `runs` accepts none positionally, so the typo in either direction is a usage error.
 
-Two more commands exist and are not among the sixteen, because neither reads a repository and neither
-says anything about `hyper`'s domain: `version` prints the version of the binary that would act, and
-`completions <shell>` writes a shell completion script. They are exempt from the version pin gate
-below for that reason — a command that reads no repository has no pin to compare itself against
-(ADR-0020). Neither ever checks whether a newer version exists (ADR-0019).
+Three more commands exist and are not among the sixteen, because none of them reads a repository and none
+says anything about `hyper`'s domain: `version` prints the version of the binary that would act,
+`completions <shell>` writes a shell completion script, and `mcp` starts the server this section states
+below, taking no arguments at all. `version` and `completions` are exempt from the version pin gate below
+for that reason — a command that reads no repository has no pin to compare itself against (ADR-0020).
+`mcp` needs no such exemption, because the invocation is not the act: what acts on a repository is each
+tool the server goes on to serve, and every one of those passes the gate exactly as the command it
+carries does, at the moment it resolves one. `mcp` is also the protocol's name rather than a word the
+glossary defines, where every name in the tree above is one — which is the second reason it stands here
+and not as a seventeenth command (ADR-0088). None of the three ever checks whether a newer version exists
+(ADR-0019).
 
 Fifteen of the sixteen compare themselves against the version pin in the Repository declaration before
 reading a second file and Refuse on mismatch, on a laptop and in CI alike; where there is no pin they
@@ -684,8 +690,9 @@ Thirteen tools, each named for the command above that it carries:
 
 `run_show` is the one name that differs from its command. A client holds every server's tools in one
 flat namespace, where a bare `show` names nothing; the ambiguity the CLI resolved was a different one.
-The two commands outside the sixteen get no tool either: a client writes no completion script, and the
-version of the binary that would act is the version of the server the client started.
+The three commands outside the sixteen get no tool either: a client writes no completion script, the
+version of the binary that would act is the version of the server the client started, and `mcp` is
+that invocation.
 
 Three of the sixteen commands are absent, and one line puts all three on the far side of it: **an agent
 may read the record and add to it, and may not create it, prune it, or bring anything new into the

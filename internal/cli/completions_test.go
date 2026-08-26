@@ -26,7 +26,7 @@ import (
 // cannot say.
 
 // TestCompletions_EveryScriptNamesTheWholeSurface is the acceptance criterion
-// that the three scripts describe one surface: each names all eighteen
+// that the three scripts describe one surface: each names all nineteen
 // commands and `store init`, because each is built from the same list. A shell
 // that fell behind the other two would fail here rather than on the machine of
 // the operator who uses that shell.
@@ -289,7 +289,7 @@ func TestCompletions_TheBashScriptCompletesWhatSectionNineFixes(t *testing.T) {
 		line []string
 		want []string
 	}{
-		{"the eighteen at position one", []string{"hyper", ""}, cli.Commands()},
+		{"the nineteen at position one", []string{"hyper", ""}, cli.Commands()},
 		{"a prefix filters them", []string{"hyper", "pro"}, []string{"providers", "provider", "probe", "project"}},
 		{"init after store, beside the globals", []string{"hyper", "store", ""}, append([]string{"init"}, cli.Globals()...)},
 		{"the globals after a command in the tree", []string{"hyper", "check", ""}, cli.Globals()},
@@ -297,6 +297,7 @@ func TestCompletions_TheBashScriptCompletesWhatSectionNineFixes(t *testing.T) {
 		{"the three shells after completions", []string{"hyper", "completions", ""}, cli.Shells()},
 		{"nothing after the shell completions named", []string{"hyper", "completions", "bash", ""}, nil},
 		{"nothing at all after version", []string{"hyper", "version", ""}, nil},
+		{"nothing at all after mcp, no global among it", []string{"hyper", "mcp", ""}, nil},
 		{"nothing after a word naming no command", []string{"hyper", "deploy", ""}, nil},
 		{"no artefact name is ever offered", []string{"hyper", "review", ""}, cli.Globals()},
 		{"no Provider name is ever offered", []string{"hyper", "provider", ""}, cli.Globals()},

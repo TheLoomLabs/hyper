@@ -7,7 +7,7 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/version"
 )
 
-// RunVersion implements `hyper version` — one of the two commands that stand
+// RunVersion implements `hyper version` — one of the three commands that stand
 // outside the tree of sixteen, and the second way to read the version string
 // the pin gate compares (§9, ADR-0020, issue #103). An operator whose `check`
 // just Refused with *this binary is 1.4.0* has been told a version by the

@@ -18,7 +18,7 @@ _hyper() {
     # zsh/parameter's readonly map of every command on $path, and the
     # completion system loads that module.
     local -a _hyper_commands _hyper_globals _hyper_shells _hyper_store_sub_verbs
-    _hyper_commands=(providers provider operation targets check review run probe runs show changes records install project store compact version completions)
+    _hyper_commands=(providers provider operation targets check review run probe runs show changes records install project store compact version completions mcp)
     _hyper_globals=(--json --repo-dir --no-color)
     _hyper_shells=(bash fish zsh)
     _hyper_store_sub_verbs=(init)
@@ -56,8 +56,8 @@ _hyper() {
             ;;
     esac
 
-    # version and any word that names no command fall through to nothing:
-    # version takes no argument at all, and an unknown name has none to offer.
+    # version and mcp take no argument at all, and a word that names no
+    # command has none to offer: all three fall through to nothing.
 }
 
 if [ "$funcstack[1]" = '_hyper' ]; then

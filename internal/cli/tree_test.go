@@ -21,15 +21,20 @@ var sectionNineTree = []string{
 }
 
 // TestTree_IsSectionNines holds the one compiled-in surface against the
-// specification it transcribes: sixteen in the tree, two outside it, eighteen
-// in all, each name appearing exactly once. This is the test that fails the
-// day a milestone adds a command to the tree, which is the point — the same
-// edit that adds it here reaches all three shells (issue #104).
+// specification it transcribes: sixteen in the tree, three outside it,
+// nineteen in all, each name appearing exactly once. This is the test that
+// fails the day a milestone adds a command to the tree, which is the point —
+// the same edit that adds it here reaches all three shells (issue #104).
+//
+// The third member outside the tree is `mcp`, and it is transcribed here for
+// the same reason the sixteen are: §9 names it, and a name the specification
+// fixes is one this list carries whether or not a milestone has built it yet
+// (issue #193, ADR-0088).
 func TestTree_IsSectionNines(t *testing.T) {
 	if got, want := cli.Tree(), sectionNineTree; !slices.Equal(got, want) {
 		t.Errorf("the tree is %q,\n            want §9's %q", got, want)
 	}
-	if got, want := cli.OutsideTree(), []string{"version", "completions"}; !slices.Equal(got, want) {
+	if got, want := cli.OutsideTree(), []string{"version", "completions", "mcp"}; !slices.Equal(got, want) {
 		t.Errorf("outside the tree is %q, want %q", got, want)
 	}
 	if got, want := cli.Globals(), []string{"--json", "--repo-dir", "--no-color"}; !slices.Equal(got, want) {
@@ -43,8 +48,8 @@ func TestTree_IsSectionNines(t *testing.T) {
 	}
 
 	commands := cli.Commands()
-	if len(commands) != 18 {
-		t.Errorf("the surface is %d commands, want the eighteen: %q", len(commands), commands)
+	if len(commands) != 19 {
+		t.Errorf("the surface is %d commands, want the nineteen: %q", len(commands), commands)
 	}
 	seen := make(map[string]bool, len(commands))
 	for _, name := range commands {

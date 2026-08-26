@@ -12,7 +12,7 @@
 # Install: source <(hyper completions bash)
 
 _hyper() {
-    local commands='providers provider operation targets check review run probe runs show changes records install project store compact version completions'
+    local commands='providers provider operation targets check review run probe runs show changes records install project store compact version completions mcp'
     local globals='--json --repo-dir --no-color'
     local shells='bash fish zsh'
     local store_sub_verbs='init'
@@ -72,8 +72,8 @@ _hyper() {
             ;;
     esac
 
-    # version and any word that names no command fall through to nothing:
-    # version takes no argument at all, and an unknown name has none to offer.
+    # version and mcp take no argument at all, and a word that names no
+    # command has none to offer: all three fall through to nothing.
 }
 
 complete -F _hyper hyper

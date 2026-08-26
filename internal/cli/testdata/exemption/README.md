@@ -7,8 +7,10 @@ This corpus is §9's exemption paragraph as a fixture (ADR-0020, issue #105).
 - `check/` — the command inside the tree of sixteen — Refuses
   `version-pin-mismatch` at 77, with stdout silent and the Refusal naming both
   versions and both remedies.
-- `version/` and `completions/` — the two commands outside it — exit 0 with
-  their whole output on stdout and nothing on stderr.
+- `version/` and `completions/` — two of the three commands outside it — exit
+  0 with their whole output on stdout and nothing on stderr. The third is
+  `mcp`, which this fixture does not drive: the name is fixed and the server
+  is not built, so there is no invocation here to contrast (ADR-0088).
 
 The difference between them is the exemption and nothing else. That the gate
 Refuses is already proven six times over in `../check/version-pin-*`; what is

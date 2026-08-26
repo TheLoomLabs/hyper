@@ -7,8 +7,8 @@ import (
 )
 
 // RunCompletions implements `hyper completions <shell>` — the second of the
-// two commands standing outside §9's tree of sixteen, and the first time that
-// tree reaches a shell at all (issue #104).
+// three commands standing outside §9's tree of sixteen, and the first time
+// that tree reaches a shell at all (issue #104).
 //
 // Like RunVersion it is a sibling of RunCheck taking neither the environment
 // nor a working directory: §9 exempts it from the version pin gate, and the
@@ -63,8 +63,9 @@ var completionScripts = map[string]string{
 //
 // The second paragraph is the inconsistency the design accepts and states: the
 // script describes the surface §9 fixes rather than the state of the build, so
-// the shell knows `run`, `review` and `records` before those commands exist.
-// It closes as the milestones land.
+// the shell knows `mcp` before the server it starts exists. It closes as the
+// milestones land, and `run`, `review` and `records` — the three it named
+// while milestone 2 was the newest — are what that closing looks like.
 func preamble(shell, install string) string {
 	return "" +
 		"# " + shell + " completion for hyper(1), written by: hyper completions " + shell + "\n" +
@@ -147,8 +148,8 @@ _hyper() {
             ;;
     esac
 
-    # version and any word that names no command fall through to nothing:
-    # version takes no argument at all, and an unknown name has none to offer.
+    # version and mcp take no argument at all, and a word that names no
+    # command has none to offer: all three fall through to nothing.
 }
 
 complete -F _hyper hyper
@@ -206,8 +207,8 @@ _hyper() {
             ;;
     esac
 
-    # version and any word that names no command fall through to nothing:
-    # version takes no argument at all, and an unknown name has none to offer.
+    # version and mcp take no argument at all, and a word that names no
+    # command has none to offer: all three fall through to nothing.
 }
 
 if [ "$funcstack[1]" = '_hyper' ]; then
@@ -250,8 +251,8 @@ complete -c hyper -n '__fish_seen_subcommand_from store; and not __fish_seen_sub
 # most once, so the condition drops away as soon as one has been.
 complete -c hyper -n '__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from ` + words(shells) + `' -a '` + words(shells) + `'
 
-# The globals, offered after the tree's commands alone — version and
-# completions are outside it and take none.
+# The globals, offered after the tree's commands alone — version, completions
+# and mcp are outside it and take none.
 `)
 
 	seen := "__fish_seen_subcommand_from " + words(tree)
