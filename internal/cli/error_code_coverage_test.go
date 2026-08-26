@@ -117,8 +117,24 @@ var milestoneNineCheckCodes = []string{
 // milestone the fold answered it the one way §11 forbids: the later Manifest
 // won, and the built-in's Operations left the namespace with no row to say so
 // (§11, §12, issue #185).
+//
+// `capability-reserved` is the other thing an Extension may never be: a
+// Manifest in providers/ holding the Capability reserved to the Providers hyper
+// ships. It is here rather than in the milestone-1 list because milestone 1
+// enforced the Capability check a Manifest can pass — declared against derived —
+// and this is the one it cannot: a Manifest may agree with itself exactly,
+// declare `shell`, carry `shell:` request blocks, and exec argv on the machine
+// hyper runs on, and until this milestone `check` reported no problems found
+// (§11, §12, ADR-0004, issue #186).
+//
+// The two are one milestone's list and not two because they close one sentence:
+// what an Extension may never be. They are also closed by one criterion — hyper
+// ships a Provider only where the Capability it needs is one nobody else may
+// declare (ADR-0039) — so the roster this list's first member reads and the
+// reserved set its second reads grow together or not at all.
 var milestoneTenErrorCodes = []string{
 	"provider-name-collision",
+	"capability-reserved",
 }
 
 // checkCorpusErrorCodes is every error_code the check corpus owes a failing
@@ -222,6 +238,13 @@ const runCorpus = "testdata/run"
 // against whatever took its name being exactly the failure §11 refuses (§6,
 // §11, issue #185).
 //
+// capability-reserved is milestone 10's second, and it is here for the reason
+// the three above are and one of its own: what a Run would otherwise reach is
+// the Capability itself. A rule that held for `check` and not for a Run would
+// leave the file that declares it one `hyper run` away from exec'ing argv on
+// the machine — which is the guarantee §11 states in words and this milestone
+// enforces (§6, §11, issue #186).
+//
 // projection-stale is the other, and it is the member this list was hardest to
 // leave out: a Run started by a projected workflow is a Run started by a file
 // that must be what the artefacts ask for, and a rule that held on a laptop and
@@ -244,6 +267,7 @@ var codesReachingARun = []string{
 	"cadence-malformed",
 	"projection-stale",
 	"provider-name-collision",
+	"capability-reserved",
 }
 
 // artefactKindsCitedByARefusal is the five reviewed artefacts by where each one

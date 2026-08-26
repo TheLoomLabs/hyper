@@ -1,0 +1,33 @@
+nothing ran. no step was reached.
+
+refused: capability-reserved
+
+  providers/deploy-helper.yaml:5
+    3 │ schema-version: 1
+    4 │ class: local
+    5 │ capabilities: [shell]
+      │               ^ capabilities: declares shell, which is reserved to the Providers hyper ships — an Extension may never hold it
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                          LINE  FIELD
+providers/deploy-helper.yaml  5     capabilities
+
+refused: capability-reserved
+
+  providers/deploy-helper.yaml:11
+    9 │     repeatability: repeatable
+   10 │     deadline: 30s
+   11 │     shell: {}
+      │            ^ operations.restart_service uses shell, which is reserved to the Providers hyper ships — an Extension may never hold it
+      │
+      = checked at run start, before the first step
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                          LINE  FIELD
+providers/deploy-helper.yaml  11    operations.restart_service.shell
+
+refused · exit 77 · run 01992102-6a30-7c41-bb2f-4e5d8a1c9e77

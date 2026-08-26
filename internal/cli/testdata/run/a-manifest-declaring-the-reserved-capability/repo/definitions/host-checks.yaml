@@ -1,0 +1,5 @@
+kind: definition
+definition: host-checks
+provider: shell
+kinds: [read]
+targets: [local]

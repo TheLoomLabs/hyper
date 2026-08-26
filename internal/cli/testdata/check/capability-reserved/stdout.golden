@@ -1,0 +1,3 @@
+FILE                          LINE  FIELD                             ERROR_CODE           MESSAGE
+providers/deploy-helper.yaml  5     capabilities                      capability-reserved  capabilities: declares shell, which is reserved to the Providers hyper ships — an Extension may never hold it
+providers/deploy-helper.yaml  11    operations.restart_service.shell  capability-reserved  operations.restart_service uses shell, which is reserved to the Providers hyper ships — an Extension may never hold it

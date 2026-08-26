@@ -2,10 +2,13 @@ kind: provider
 provider: schema-unsupported-demo
 schema-version: 1
 class: local
-capabilities: [shell]
+capabilities: [http]
 operations:
   run:
     kind: read
     deadline: 1h
-    shell: {}
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /
     input: {"$ref": "#/definitions/x"}

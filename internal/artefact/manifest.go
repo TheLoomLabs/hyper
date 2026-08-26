@@ -7,12 +7,17 @@
 // (§4, issue #92). capability-mismatch and identity-undeclared read what an
 // Operation's own request and record: imply against what the Manifest
 // declares elsewhere; manifest-inconsistent is eleven decidable-from-one-
-// file shapes of one fact sharing one code; header-reserved refuses a name
-// the tool holds rather than an internal contradiction. One further shape
-// of manifest-inconsistent — Target slot coverage — needs a (Definition,
-// Target) binding neither this file nor this milestone's artefacts supplied
-// on their own, and is definition.go's, alongside target-class-mismatch, a
-// code of its own that needs the same binding (issue #93).
+// file shapes of one fact sharing one code; header-reserved and
+// capability-reserved refuse a name the tool holds rather than an internal
+// contradiction, the second of them being the one check here whose subject
+// is not the Manifest but where it was loaded from — §11's rule that an
+// Extension may never hold the shell Capability, which is why it runs in
+// CheckManifest and not in the body the built-in shares (issue #186). One
+// further shape of manifest-inconsistent — Target slot coverage — needs a
+// (Definition, Target) binding neither this file nor this milestone's
+// artefacts supplied on their own, and is definition.go's, alongside
+// target-class-mismatch, a code of its own that needs the same binding
+// (issue #93).
 //
 // opaque is not among the keys any schema here admits — it is never a
 // writable key at all, being a property of the Capability an Operation's
@@ -48,6 +53,19 @@ const CodeHoleIllegal = "hole-illegal"
 // earns for disagreeing with what hyper derives from every Operation's own
 // request block — over-declared or under, either direction (§3, §4).
 const CodeCapabilityMismatch = "capability-mismatch"
+
+// CodeCapabilityReserved is the code a Manifest loaded from providers/ earns
+// for reaching a Capability reserved to the Providers hyper ships — shell,
+// the one behind an opaque Operation, so that *a third party can never ship
+// a Provider that runs commands on your machine*, which is the honest form
+// §13 states the guarantee in (§11, §12, ADR-0004).
+//
+// It is drawn on a name the tool holds rather than on an internal
+// contradiction, which is header-reserved's shape one artefact-class over
+// (§4): what capability-mismatch reads is whether a Manifest agrees with
+// itself, and a Manifest can reach this one while agreeing with itself
+// exactly.
+const CodeCapabilityReserved = "capability-reserved"
 
 // CodeIdentityUndeclared is the code an Operation projecting a Record and
 // declaring no identity: for it earns — a Record's name is the value the
@@ -281,17 +299,114 @@ var fieldNoRootPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-
 // the file's basename, and checkManifestBody's grammar checks. root is nil
 // where the file parsed to no document at all; the schema check still runs
 // and reports every required key the file never supplied.
+//
+// It is also where §11's reserved-Capability rule runs, and the placement is
+// the criterion: what capability-reserved is about is a Manifest **loaded
+// from providers/**, which is what calling this function already means —
+// artefactChecks routes the built-in to CheckBuiltinShellProvider and every
+// providers/ file here (issue #186).
 func CheckManifest(file string, root *yaml.Node) []problem.Problem {
-	problems := checkManifestBody(file, root)
+	problems := withReservedCapability(checkManifestBody(file, root), file, root)
 	problems = append(problems, checkKind(file, root, KindProvider)...)
 	problems = append(problems, checkName(file, root, "provider")...)
 	return problems
 }
 
-// checkManifestBody is CheckManifest without the two checks that need a
-// file of the Manifest's own to compare against — reused by
-// CheckBuiltinShellProvider, which authors its name outright and has no
-// directory for kind-mismatch to compare against either (§3, §11).
+// withReservedCapability layers the reserved-Capability check over the
+// Manifest's own problems and drops the capability-mismatch row wherever the
+// two land on one site, which is withCredentialSlots' own shape one artefact
+// over: two rows pointing at one line for one cause is what that drop exists
+// to prevent (§4).
+//
+// It stands here rather than in checkManifestBody because the subject is a
+// Manifest **loaded from providers/**, which is the criterion §11 states and
+// the one this function already carries — it is the half of CheckManifest the
+// built-in does not run, alongside kind-mismatch and name-mismatch.
+func withReservedCapability(problems []problem.Problem, file string, root *yaml.Node) []problem.Problem {
+	reserved := checkCapabilityReserved(file, root)
+	return append(dropCapabilityMismatchAt(problems, reserved), reserved...)
+}
+
+// dropCapabilityMismatchAt removes the capability-mismatch row standing where
+// a reserved-Capability row already stands. The site is the comparison rather
+// than the field, because the two rows the declared spelling can produce share
+// the field capabilities: and differ only in which member of the list they
+// cite — the position *is* which Capability is spoken of (§4).
+//
+// It is a join on node identity rather than on coordinates that happen to
+// agree: both checks cite the members declaredCapabilities enumerates and the
+// nodes requestCapabilities carries, so a row of each about one Capability is
+// two readings of one node by construction.
+//
+// The drop rather than teaching capability-mismatch to pass over a reserved
+// member: that check runs over the built-in too, and the built-in declaring
+// shell and using it is exactly the agreement declared-equals-derived exists
+// to hold it to (§4, §11).
+func dropCapabilityMismatchAt(problems, reserved []problem.Problem) []problem.Problem {
+	type site struct{ line, column int }
+	reservedSites := map[site]bool{}
+	for _, p := range reserved {
+		reservedSites[site{p.Line, p.Column}] = true
+	}
+
+	kept := problems[:0]
+	for _, p := range problems {
+		if p.ErrorCode == CodeCapabilityMismatch && reservedSites[site{p.Line, p.Column}] {
+			continue
+		}
+		kept = append(kept, p)
+	}
+	return kept
+}
+
+// checkCapabilityReserved reports capability-reserved wherever this Manifest
+// reaches a Capability §12 reserves to the Providers hyper ships
+// (IsReservedCapability). It reads the two spellings a Manifest reaches one
+// by: the **declared** spelling, a member of the top-level capabilities: list,
+// cited at that member; and the **derived** spelling, an Operation whose
+// request block is that Capability's, cited at that key.
+//
+// **Both, and the second one is the point.** The derived spelling is where the
+// power actually is — an Operation whose request block is shell: execs argv on
+// the machine hyper runs on whatever the top level says — and reporting only
+// the declared spelling would leave capability-mismatch to name it, as *a
+// Capability an Operation names that the top level does not declare*. That is
+// a row whose remedy is **declare it**, on a Manifest for which declaring it is
+// the fault: a reader handed it is being told to make the file worse. Hence the
+// drop above rather than two rows.
+func checkCapabilityReserved(file string, root *yaml.Node) []problem.Problem {
+	var problems []problem.Problem
+
+	for _, item := range declaredCapabilities(root) {
+		if !IsReservedCapability(item.Value) {
+			continue
+		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: item.Line, Column: item.Column, Field: "capabilities",
+			ErrorCode: CodeCapabilityReserved,
+			Message:   fmt.Sprintf("capabilities: declares %s, which is reserved to the Providers hyper ships — an Extension may never hold it", item.Value),
+		})
+	}
+
+	for _, r := range requestCapabilities(root) {
+		if !IsReservedCapability(r.capability) {
+			continue
+		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: r.node.Line, Column: r.node.Column,
+			Field:     "operations." + r.operation + "." + r.capability,
+			ErrorCode: CodeCapabilityReserved,
+			Message:   fmt.Sprintf("operations.%s uses %s, which is reserved to the Providers hyper ships — an Extension may never hold it", r.operation, r.capability),
+		})
+	}
+	return problems
+}
+
+// checkManifestBody is CheckManifest without the three checks that read a
+// Manifest against where it was loaded from — reused by
+// CheckBuiltinShellProvider, which authors its name outright, has no
+// directory for kind-mismatch to compare against, and is the one Manifest
+// entitled to the reserved Capability (§3, §11).
 func checkManifestBody(file string, root *yaml.Node) []problem.Problem {
 	problems := schema.Check(root, ManifestDeclaration, file)
 	problems = append(problems, checkAuth(file, root)...)
@@ -309,63 +424,116 @@ func checkManifestBody(file string, root *yaml.Node) []problem.Problem {
 	return problems
 }
 
+// requestCapability is one Operation's request read as the Capability it is
+// written under: which Operation, which Capability, and the node whose key
+// named it — the coordinate every row about that request cites.
+type requestCapability struct {
+	operation  string
+	capability string
+	node       *yaml.Node
+}
+
+// requestCapabilities is every Operation whose request names a Capability
+// unambiguously, in document order — the **derived** spelling of what a
+// Manifest requires.
+//
+// Two checks read it: capability-mismatch, which compares the set against
+// capabilities:, and capability-reserved, which asks whether any member is one
+// no Manifest in providers/ may hold. They read one enumeration rather than
+// two walks that agree, which is operationCapability's own argument one level
+// down — the day they were two walks is the day one of them reads a request
+// block the other does not (§3, §4). It is also what makes the two rows about
+// one Operation cite one coordinate by construction, which is the join
+// dropCapabilityMismatchAt is written over.
+//
+// An Operation naming both http: and shell:, or neither, contributes nothing:
+// it has already earned schema-mismatch from checkExactlyOneOf and names no
+// Capability unambiguously. That silence is deliberate on both sides — a
+// Manifest is not told it holds a Capability its own request did not name,
+// and the file is refused either way.
+func requestCapabilities(root *yaml.Node) []requestCapability {
+	opsVal := topLevelFields(root, "operations")["operations"]
+	if opsVal == nil || opsVal.Kind != yaml.MappingNode {
+		return nil
+	}
+
+	var found []requestCapability
+	for i := 0; i+1 < len(opsVal.Content); i += 2 {
+		nameNode, opNode := opsVal.Content[i], opsVal.Content[i+1]
+		if nameNode.Kind != yaml.ScalarNode || opNode.Kind != yaml.MappingNode {
+			continue
+		}
+		capability, node := operationCapability(opNode)
+		if capability == "" {
+			continue
+		}
+		found = append(found, requestCapability{operation: nameNode.Value, capability: capability, node: node})
+	}
+	return found
+}
+
+// declaredCapabilities is every scalar member of the top-level capabilities:
+// list, in document order — the **declared** spelling, enumerated once for the
+// same two readers and for the same reason as the derived one above. The nodes
+// and not the values, because which member a row cites is the only thing that
+// says which Capability it is about.
+func declaredCapabilities(root *yaml.Node) []*yaml.Node {
+	declaredVal := topLevelFields(root, "capabilities")["capabilities"]
+	if declaredVal == nil || declaredVal.Kind != yaml.SequenceNode {
+		return nil
+	}
+
+	var members []*yaml.Node
+	for _, item := range declaredVal.Content {
+		if item.Kind == yaml.ScalarNode {
+			members = append(members, item)
+		}
+	}
+	return members
+}
+
 // checkCapabilityMismatch reads capabilities: against what hyper derives
 // from every Operation's own request block — the block's key *is* the
 // Capability, so this reads one key per Operation rather than inferring one
 // from shape (§3). A capability declared with no Operation naming it, or
 // named by an Operation the top level does not declare, is
-// capability-mismatch either way (§4). An Operation naming both http: and
-// shell:, or neither, has already earned schema-mismatch from
-// checkExactlyOneOf and contributes no Capability here, having named none
-// unambiguously.
+// capability-mismatch either way (§4).
+//
+// It runs over every Manifest, the built-in included and with no exemption for
+// the reserved Capability: declared-equals-derived is the check the whole
+// extension model rests on (§11), so the one Manifest entitled to shell is
+// held to it too. What capability-reserved does with the rows this earns is
+// dropCapabilityMismatchAt's, one caller up.
 func checkCapabilityMismatch(file string, root *yaml.Node) []problem.Problem {
-	declaredVal := topLevelFields(root, "capabilities")["capabilities"]
 	declared := map[string]bool{}
-	if declaredVal != nil && declaredVal.Kind == yaml.SequenceNode {
-		for _, item := range declaredVal.Content {
-			if item.Kind == yaml.ScalarNode {
-				declared[item.Value] = true
-			}
-		}
+	for _, item := range declaredCapabilities(root) {
+		declared[item.Value] = true
 	}
 
-	opsVal := topLevelFields(root, "operations")["operations"]
 	derived := map[string]bool{}
 	var problems []problem.Problem
-	if opsVal != nil && opsVal.Kind == yaml.MappingNode {
-		for i := 0; i+1 < len(opsVal.Content); i += 2 {
-			nameNode, opNode := opsVal.Content[i], opsVal.Content[i+1]
-			if nameNode.Kind != yaml.ScalarNode || opNode.Kind != yaml.MappingNode {
-				continue
-			}
-			capability, node := operationCapability(opNode)
-			if capability == "" {
-				continue
-			}
-			derived[capability] = true
-			if declared[capability] {
-				continue
-			}
-			problems = append(problems, problem.Problem{
-				File: file, Line: node.Line, Column: node.Column,
-				Field:     "operations." + nameNode.Value + "." + capability,
-				ErrorCode: CodeCapabilityMismatch,
-				Message:   fmt.Sprintf("operations.%s uses %s, and capabilities: does not declare it", nameNode.Value, capability),
-			})
+	for _, r := range requestCapabilities(root) {
+		derived[r.capability] = true
+		if declared[r.capability] {
+			continue
 		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: r.node.Line, Column: r.node.Column,
+			Field:     "operations." + r.operation + "." + r.capability,
+			ErrorCode: CodeCapabilityMismatch,
+			Message:   fmt.Sprintf("operations.%s uses %s, and capabilities: does not declare it", r.operation, r.capability),
+		})
 	}
 
-	if declaredVal != nil && declaredVal.Kind == yaml.SequenceNode {
-		for _, item := range declaredVal.Content {
-			if item.Kind != yaml.ScalarNode || derived[item.Value] {
-				continue
-			}
-			problems = append(problems, problem.Problem{
-				File: file, Line: item.Line, Column: item.Column, Field: "capabilities",
-				ErrorCode: CodeCapabilityMismatch,
-				Message:   fmt.Sprintf("capabilities: declares %s, and no Operation's request block names it", item.Value),
-			})
+	for _, item := range declaredCapabilities(root) {
+		if derived[item.Value] {
+			continue
 		}
+		problems = append(problems, problem.Problem{
+			File: file, Line: item.Line, Column: item.Column, Field: "capabilities",
+			ErrorCode: CodeCapabilityMismatch,
+			Message:   fmt.Sprintf("capabilities: declares %s, and no Operation's request block names it", item.Value),
+		})
 	}
 	return problems
 }

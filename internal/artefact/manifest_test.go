@@ -1,11 +1,22 @@
 package artefact
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/schema"
 )
+
+// A case whose Manifest is written with shell: request blocks runs
+// checkManifestBody rather than CheckManifest, and what it asserts is why: the
+// shell Capability is reserved to the Providers hyper ships, so a Manifest of
+// that shape is the built-in's and not a file in providers/ (§11, §12,
+// capability-reserved). CheckManifest is the providers/ file's checks —
+// kind-mismatch, name-mismatch and the reserved Capability — and
+// checkManifestBody is the Manifest's own oracle, which is what a case about
+// an input schema or a record identity is asking about.
 
 // mustNoCode fails if got carries any problem of code.
 func mustNoCode(t *testing.T, got []problem.Problem, code string) {
@@ -15,6 +26,26 @@ func mustNoCode(t *testing.T, got []problem.Problem, code string) {
 			t.Fatalf("got %+v, want no %s problem", got, code)
 		}
 	}
+}
+
+// countCode is how many problems of code got carries — the assertion a check
+// firing at more than one site needs, where mustCode answers only the first.
+func countCode(got []problem.Problem, code string) int {
+	return len(fieldsOfCode(got, code))
+}
+
+// fieldsOfCode is the field each problem of code cites, in the order they were
+// reported. A check firing at more than one site is asserted through this
+// rather than by indexing got, so what the assertion reads is which sites were
+// cited and not where a caller happened to append them.
+func fieldsOfCode(got []problem.Problem, code string) []string {
+	var fields []string
+	for _, p := range got {
+		if p.ErrorCode == code {
+			fields = append(fields, p.Field)
+		}
+	}
+	return fields
 }
 
 // cloudflareDNS and uptime are §3's two worked Manifests, byte for byte
@@ -258,7 +289,7 @@ operations:
 	}
 }
 
-func TestCheckManifest_InputSchemaOutsideTheSubsetIsUnsupported(t *testing.T) {
+func TestCheckManifestBody_InputSchemaOutsideTheSubsetIsUnsupported(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		schema string
@@ -273,13 +304,13 @@ func TestCheckManifest_InputSchemaOutsideTheSubsetIsUnsupported(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			doc := "kind: provider\nprovider: broken\nschema-version: 1\nclass: local\ncapabilities: [shell]\noperations:\n  run:\n    kind: read\n    deadline: 1h\n    shell: {}\n    input: " + tc.schema + "\n"
-			got := CheckManifest("providers/broken.yaml", parse(t, doc))
+			got := checkManifestBody("providers/broken.yaml", parse(t, doc))
 			mustCode(t, got, CodeSchemaUnsupported)
 		})
 	}
 }
 
-func TestCheckManifest_InputSchemaSubsetNestsCleanly(t *testing.T) {
+func TestCheckManifestBody_InputSchemaSubsetNestsCleanly(t *testing.T) {
 	doc := `kind: provider
 provider: broken
 schema-version: 1
@@ -303,7 +334,7 @@ operations:
       fields:
         exit_code: $.exit_code
 `
-	mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+	mustNone(t, checkManifestBody("providers/broken.yaml", parse(t, doc)))
 }
 
 func TestCheckManifest_HoleInAuthParametersIsIllegal(t *testing.T) {
@@ -830,12 +861,33 @@ func TestCheckManifest_BuiltinShellProviderPassesEveryCheck(t *testing.T) {
 // The Manifest's oracle (§4, issue #92): the checks that read a Manifest's
 // own declarations against each other, with nothing but the file in hand.
 
+// TestCheckManifest_CapabilityMismatchOverDeclared is a capability declared
+// with no Operation naming it. Both halves of this check are written over http
+// because the shell spelling of either is capability-reserved's site, and the
+// mismatch row standing there is dropped (§11, §12) — which leaves a Manifest
+// declaring the one unreserved member and using it nowhere as the whole of
+// what over-declaring can now be.
 func TestCheckManifest_CapabilityMismatchOverDeclared(t *testing.T) {
 	doc := `kind: provider
 provider: broken
 schema-version: 1
 class: local
-capabilities: [http, shell]
+capabilities: [http]
+operations: {}
+`
+	got := CheckManifest("providers/broken.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeCapabilityMismatch)
+	if p.Field != "capabilities" {
+		t.Errorf("Field = %q, want capabilities", p.Field)
+	}
+}
+
+func TestCheckManifest_CapabilityMismatchUnderDeclared(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: []
 operations:
   noop:
     kind: read
@@ -851,17 +903,58 @@ operations:
 `
 	got := CheckManifest("providers/broken.yaml", parse(t, doc))
 	p := mustCode(t, got, CodeCapabilityMismatch)
-	if p.Field != "capabilities" {
-		t.Errorf("Field = %q, want capabilities", p.Field)
+	if p.Field != "operations.noop.http" {
+		t.Errorf("Field = %q, want operations.noop.http", p.Field)
 	}
 }
 
-func TestCheckManifest_CapabilityMismatchUnderDeclared(t *testing.T) {
+// §11's second rule about what an Extension may never be: it may never hold a
+// Capability reserved to the Providers hyper ships (capability-reserved, §12,
+// ADR-0004, ADR-0039). The subject is a Manifest loaded from providers/, which
+// is why every case below runs through CheckManifest rather than through
+// checkManifestBody, and why the built-in reaches none of them.
+
+// TestCheckManifest_CapabilityReservedDeclaredSpelling is the first of the two
+// spellings a Manifest reaches the Capability by: shell as a member of the
+// top-level capabilities: list, cited at that member.
+//
+// It carries no Operation at all, so the only other row it could earn is the
+// over-declared half of capability-mismatch — at that same member, for that
+// same cause — and the assertion that exactly one problem stands is what says
+// the row was dropped.
+func TestCheckManifest_CapabilityReservedDeclaredSpelling(t *testing.T) {
 	doc := `kind: provider
-provider: broken
+provider: local-shell
 schema-version: 1
 class: local
-capabilities: [http]
+capabilities: [shell]
+operations: {}
+`
+	got := CheckManifest("providers/local-shell.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeCapabilityReserved)
+	if p.Field != "capabilities" || p.Line != 5 {
+		t.Errorf("Field = %q, Line = %d, want capabilities at line 5", p.Field, p.Line)
+	}
+	if len(got) != 1 {
+		t.Errorf("CheckManifest() = %+v, want the reserved row alone", got)
+	}
+}
+
+// TestCheckManifest_CapabilityReservedDerivedSpelling is the second spelling,
+// and the one the guarantee actually rests on: an Operation whose request
+// block is shell: execs argv on the machine hyper runs on whatever the top
+// level declares, so the row is cited at that key.
+//
+// The Manifest declares no Capability at all, so what stands at that same key
+// without this check is the under-declared half of capability-mismatch — the
+// row whose remedy is *declare it*, on a Manifest for which declaring it is
+// the fault. Exactly one problem is what says that row was dropped.
+func TestCheckManifest_CapabilityReservedDerivedSpelling(t *testing.T) {
+	doc := `kind: provider
+provider: local-shell
+schema-version: 1
+class: local
+capabilities: []
 operations:
   run:
     kind: read
@@ -876,10 +969,72 @@ operations:
       fields:
         exit_code: $.exit_code
 `
-	got := CheckManifest("providers/broken.yaml", parse(t, doc))
-	p := mustCode(t, got, CodeCapabilityMismatch)
-	if p.Field != "operations.run.shell" {
-		t.Errorf("Field = %q, want operations.run.shell", p.Field)
+	got := CheckManifest("providers/local-shell.yaml", parse(t, doc))
+	p := mustCode(t, got, CodeCapabilityReserved)
+	if p.Field != "operations.run.shell" || p.Line != 10 {
+		t.Errorf("Field = %q, Line = %d, want operations.run.shell at line 10", p.Field, p.Line)
+	}
+	if len(got) != 1 {
+		t.Errorf("CheckManifest() = %+v, want the reserved row alone", got)
+	}
+}
+
+// TestCheckManifest_CapabilityReservedBothSpellings is the Manifest that
+// satisfies the declared-equals-derived check exactly and is refused anyway:
+// it earns a row at each site and no capability-mismatch, there being no
+// disagreement for that check to find. It is the shape §13's guarantee is
+// stated over — a Manifest in providers/ that declares shell, carries a
+// shell: request block, satisfies declared-equals-derived exactly, and execs
+// argv on the machine hyper runs on.
+func TestCheckManifest_CapabilityReservedBothSpellings(t *testing.T) {
+	doc := `kind: provider
+provider: local-shell
+schema-version: 1
+class: local
+capabilities: [shell]
+operations:
+  run:
+    kind: read
+    deadline: 1h
+    shell: {}
+    input:
+      type: object
+      properties:
+        command: {type: array, items: {type: string}}
+    record:
+      identity: $.command
+      fields:
+        exit_code: $.exit_code
+`
+	got := CheckManifest("providers/local-shell.yaml", parse(t, doc))
+	mustNoCode(t, got, CodeCapabilityMismatch)
+	if cited := fieldsOfCode(got, CodeCapabilityReserved); !slices.Equal(cited, []string{"capabilities", "operations.run.shell"}) {
+		t.Errorf("cited %q, want a reserved row at each of the two sites", cited)
+	}
+}
+
+// TestCheckManifest_CapabilityReservedDoesNotReachHTTP is the other half of
+// the set: §12 reserves exactly one member, so a Manifest declaring and using
+// http is untouched by this check whatever else it does.
+func TestCheckManifest_CapabilityReservedDoesNotReachHTTP(t *testing.T) {
+	mustNoCode(t, CheckManifest("providers/uptime.yaml", parse(t, uptime)), CodeCapabilityReserved)
+	mustNoCode(t, CheckManifest("providers/cloudflare-dns.yaml", parse(t, cloudflareDNS)), CodeCapabilityReserved)
+}
+
+// TestCheckManifest_ARenamedForkOfTheBuiltinMayNotDeclareShell is §11's
+// forkability limit read off one file: a built-in is forkable in form and not
+// in power, so a copy of the built-in's own source in providers/ — renamed,
+// which is what an Extension unable to shadow a built-in name must do — earns
+// capability-reserved at its declared member and at each of its six
+// Operations' shell: keys, and no name-mismatch, the rename being correct
+// (§11, ADR-0039).
+func TestCheckManifest_ARenamedForkOfTheBuiltinMayNotDeclareShell(t *testing.T) {
+	doc := strings.Replace(BuiltinShellProviderYAML, "provider: shell\n", "provider: local-shell\n", 1)
+	got := CheckManifest("providers/local-shell.yaml", parse(t, doc))
+	mustNoCode(t, got, CodeNameMismatch)
+	mustNoCode(t, got, CodeCapabilityMismatch)
+	if n := countCode(got, CodeCapabilityReserved); n != 7 {
+		t.Fatalf("CheckManifest() = %+v, want a reserved row at the declared member and at each of the six Operations", got)
 	}
 }
 
@@ -1295,6 +1450,9 @@ operations:
 `
 		mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
 	})
+	// The shell half runs checkManifestBody, a Manifest of that shape being
+	// the built-in's and not a file in providers/ — see the note at the head
+	// of this file. The claim is the same one either oracle would answer.
 	t.Run("shell-command", func(t *testing.T) {
 		doc := `kind: provider
 provider: broken
@@ -1316,7 +1474,7 @@ operations:
       fields:
         exit_code: $.exit_code
 `
-		mustNone(t, CheckManifest("providers/broken.yaml", parse(t, doc)))
+		mustNone(t, checkManifestBody("providers/broken.yaml", parse(t, doc)))
 	})
 }
 

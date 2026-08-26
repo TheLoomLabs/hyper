@@ -42,6 +42,36 @@ func IsBuiltinProviderName(name string) bool {
 	return name == BuiltinShellProviderName
 }
 
+// ReservedCapability is the one member of §12's Capability set that is
+// reserved to the Providers hyper ships: shell, the Capability behind an
+// opaque Operation.
+//
+// It is spelled apart from BuiltinShellProviderName above, which is the same
+// four letters standing for a different fact — one is a Provider's name and
+// the other a Capability's, and a Manifest may take the second while renaming
+// itself past the first, which is the whole of what a fork of the built-in is
+// (§11).
+const ReservedCapability = "shell"
+
+// IsReservedCapability says whether name is a Capability no Manifest loaded
+// from providers/ may hold, declared or derived (capability-reserved, §11).
+//
+// **One member, and http is not it.** §12 closes the Capability set at two and
+// reserves exactly one: http describes what it does and shell cannot describe
+// anything, so what an Operation cannot describe and who may write one are one
+// fact (ADR-0004). A third party can never ship a Provider that runs commands
+// on your machine, and that sentence is this predicate.
+//
+// **It is closed by the same criterion that closes the built-in Provider set,
+// and neither grows without the other.** hyper ships a Provider only where the
+// Capability it needs is one nobody else may declare (ADR-0039), so a new
+// reserved member is a new built-in and a new built-in is a new reserved
+// member — which is why this predicate stands beside IsBuiltinProviderName
+// rather than in the file that reads capabilities: off a Manifest.
+func IsReservedCapability(name string) bool {
+	return name == ReservedCapability
+}
+
 // BuiltinShellProviderYAML is hyper's own shell Provider, compiled into the
 // binary exactly as §12 states it: six Operations, Kind crossed with the
 // Repeatability values each Kind may declare, sharing one request — an
@@ -133,12 +163,20 @@ operations:
 `
 
 // CheckBuiltinShellProvider validates BuiltinShellProviderYAML against
-// every check CheckManifest runs except the two that need a file of its
-// own — kind-mismatch has no directory to compare against and
-// name-mismatch no basename, the built-in authoring its name outright and
-// having no file at all (§3, §11). It is checked like any other Manifest,
-// with no exemption: a Provider is data, and data check may not read is an
-// advisory analyzer wearing the tool's own badge.
+// every check CheckManifest runs except the three that read a Manifest
+// against where it was loaded from — kind-mismatch has no directory to
+// compare against and name-mismatch no basename, the built-in authoring its
+// name outright and having no file at all, and capability-reserved is §11's
+// rule about a Manifest in providers/, which this is not (§3, §11). It is
+// checked like any other Manifest, with no exemption: a Provider is data,
+// and data check may not read is an advisory analyzer wearing the tool's own
+// badge.
+//
+// The three are absent because the function they live in is never called for
+// these bytes, rather than because a branch inside it lets them through. An
+// exemption would be the thing §11 does not have: the built-in is entitled to
+// the Capability for being compiled in, and *compiled in* is the whole of the
+// criterion (ADR-0039, ADR-0073).
 func CheckBuiltinShellProvider() []problem.Problem {
 	return checkManifestBody(BuiltinShellProviderPath, BuiltinShellProviderRoot())
 }

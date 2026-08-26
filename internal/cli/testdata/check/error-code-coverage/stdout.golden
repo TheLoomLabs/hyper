@@ -17,5 +17,5 @@
 {"type":"problem","file":"providers/hole-illegal-demo.yaml","line":10,"column":11,"field":"operations.noop","error_code":"manifest-inconsistent","message":"kind: read carries no record: — record: is mandatory on a read and a mutate"}
 {"type":"problem","file":"providers/hole-illegal-demo.yaml","line":19,"column":9,"field":"operations.noop.input.properties.header_name","error_code":"manifest-inconsistent","message":"input \"header_name\" is declared and no position of this Operation's request reaches it"}
 {"type":"problem","file":"providers/schema-unsupported-demo.yaml","line":8,"column":11,"field":"operations.run","error_code":"manifest-inconsistent","message":"kind: read carries no record: — record: is mandatory on a read and a mutate"}
-{"type":"problem","file":"providers/schema-unsupported-demo.yaml","line":11,"column":13,"field":"operations.run.input.$ref","error_code":"schema-unsupported","message":"\"$ref\" reaches outside the input-schema subset — type, enum, properties and items are the whole of it"}
+{"type":"problem","file":"providers/schema-unsupported-demo.yaml","line":14,"column":13,"field":"operations.run.input.$ref","error_code":"schema-unsupported","message":"\"$ref\" reaches outside the input-schema subset — type, enum, properties and items are the whole of it"}
 {"type":"result","truncated":false}

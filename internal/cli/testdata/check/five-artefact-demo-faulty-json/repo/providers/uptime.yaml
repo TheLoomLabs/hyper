@@ -2,7 +2,7 @@ kind: provider
 provider: uptime
 schema-version: 1
 class: local
-capabilities: [http, shell]
+capabilities: []
 operations:
   check_http:
     kind: read

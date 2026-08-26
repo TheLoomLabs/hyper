@@ -1,0 +1,20 @@
+kind: provider
+provider: deploy-helper
+schema-version: 1
+class: local
+capabilities: [shell]
+operations:
+  restart_service:
+    kind: mutate
+    repeatability: repeatable
+    deadline: 30s
+    shell: {}
+    input:
+      type: object
+      properties:
+        command: {type: array, items: {type: string}}
+    record:
+      identity: $.command
+      fields:
+        exit_code: $.exit_code
+        stdout: $.stdout

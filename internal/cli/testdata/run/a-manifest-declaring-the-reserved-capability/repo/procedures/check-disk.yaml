@@ -1,0 +1,10 @@
+kind: procedure
+procedure: check-disk
+targets: [local]
+steps:
+  - id: disk
+    definition: host-checks
+    operation: read
+    target: local
+    args:
+      command: [disk-free, /srv]

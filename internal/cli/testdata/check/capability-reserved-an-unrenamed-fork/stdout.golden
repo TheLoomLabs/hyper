@@ -1,0 +1,9 @@
+FILE                  LINE  FIELD                                     ERROR_CODE               MESSAGE
+providers/shell.yaml  2     provider                                  provider-name-collision  provider: shell is a built-in Provider's name — the built-in stands and this file names nothing in the Provider namespace
+providers/shell.yaml  5     capabilities                              capability-reserved      capabilities: declares shell, which is reserved to the Providers hyper ships — an Extension may never hold it
+providers/shell.yaml  11    operations.read.shell                     capability-reserved      operations.read uses shell, which is reserved to the Providers hyper ships — an Extension may never hold it
+providers/shell.yaml  26    operations.mutate.shell                   capability-reserved      operations.mutate uses shell, which is reserved to the Providers hyper ships — an Extension may never hold it
+providers/shell.yaml  40    operations.mutate_once.shell              capability-reserved      operations.mutate_once uses shell, which is reserved to the Providers hyper ships — an Extension may never hold it
+providers/shell.yaml  55    operations.mutate_skip_if_recorded.shell  capability-reserved      operations.mutate_skip_if_recorded uses shell, which is reserved to the Providers hyper ships — an Extension may never hold it
+providers/shell.yaml  70    operations.destroy.shell                  capability-reserved      operations.destroy uses shell, which is reserved to the Providers hyper ships — an Extension may never hold it
+providers/shell.yaml  78    operations.destroy_once.shell             capability-reserved      operations.destroy_once uses shell, which is reserved to the Providers hyper ships — an Extension may never hold it
