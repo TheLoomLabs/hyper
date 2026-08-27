@@ -238,6 +238,92 @@ refuse together, and `run_show/an-unknown-run-id` is a positional that satisfies
 every schema and names nothing. Each carries the sentence its command wrote and
 each is paired with its twin one directory up.
 
+`run/` is §9's Execution half, and it is the tool that closes the loop: an agent
+that cannot run also cannot read back the Record it just caused (issue #200).
+Every case here **reuses the `run` corpus one directory up** — a `repo-from`
+naming the same fixture repository, beside the same `store/` seed, the same
+`mint`, the same `serve/` and the same `env` — and each is **named for the
+argv case it is the same Run as**. That naming is the fence: a case here holds
+a `store.golden` and so does its twin, and the two are compared byte for byte
+(`TestGoldenCorpora_ARunThroughTheToolWritesTheStoreTheCommandWrites`). One
+Run, two doors, one branch — *ergonomics is the whole of the difference between
+the two*, held as a comparison of bytes rather than as a claim.
+
+`the-tracer-bullet` is the ordinary return: `outcome: completed`, the entry
+named whole, `dry_run: false` beside it, and a text block that is §8's terminal
+line arriving as a sentence. The exit code is the one member of that line the
+summary does not compose — the terminal compensates for the outcome arriving
+last by carrying a code, and this surface has none — so what says *past this
+lies time* is `failed` standing where `refused` would have. A Refusal is the
+other way round: its text block is the command's **page**, forwarded whole, and
+the page's own terminal line goes over with its code and its `hyper show`
+pointer in it, because the rendering is not this surface's to edit. `a-skip-propagates` is the same
+shape over a Procedure whose Steps skipped, and `a-destroy-halted-at-the-fourth-of-five`
+is the other side of the triple: `failed`, `isError: true`, and the Step row
+carrying `3 of 5` in its two counts.
+
+`a-rehearsal-stops-at-the-first-effect` is `dry_run: true`, and it reports
+**`completed`** — a halted rehearsal is the correct outcome of a correct
+operation, so the answer is partial and says so in the Dispositions rather than
+in the outcome. The marker rides in the structured half and in the text block
+both, which is §7's one exception to the absence rule holding here for the
+reason it holds in the Store: without it the sentence a Run that reached the
+world writes and the sentence a rehearsal writes are the same bytes.
+
+**A Refusal comes back rendered in full**, and `run` is where that rendering is
+the command's own page rather than its stderr. `an-expansion-past-its-bound` is
+the whole of it — the Step table, the caret excerpt, the `=` notes, `EDIT ONE OF`
+with its `FROM` and `TO`, the terminal line's pointer at `hyper show
+--expansion`, and the sentence saying a verbatim retry refuses identically.
+`check-refuses-the-run` is the same shape with five members and no Step table at
+all, *nothing ran. no step was reached.* standing in its place.
+`version-pin-mismatch` and `a-repository-with-no-store` are the two paths that
+decline **before a Run is identified**: both carry `outcome: refused` with no
+`run_id`, which is §8's rule that what is missing there is the id and never the
+key beside it.
+
+`a-shell-mutate-lands-an-asset` is the `shell` Capability through the tool: the
+case carries its own `bin/`, so the argv a Step runs resolves against the
+fixture and not against the machine, and what the tool reaches is a real child
+process. Two cases here carry a `-json` twin that was written for them —
+this one and `a-secret-field-is-the-marker` — because the row-pairing fence
+holds an envelope's row against the streams the corpus writes, and a fixture
+only this surface drives has none.
+
+`a-secret-sink-names-every-step` is the guardrail the sink exists for: the
+invocation supplied none, so the Run Refuses before Step 1 naming **every** Step
+that would have needed one. `a-secret-field-is-the-marker` is the other side —
+a `secret_sink` supplied, the Run completing — and what it is really for is what
+is *not* in its envelope: no secret, under any key, the output schema being
+closed over the members §9 names. Its sink is a relative path because a golden
+cannot hold an absolute one; §9 describes the argument as absolute, and what the
+command does with either is resolve it against the process's working directory.
+
+The nine `usage-` cases are §9's malformed set for this tool, and they split in
+two. `usage-a-definition-is-not-an-argument`, `usage-inputs-is-not-an-argument`
+and `usage-a-target-is-not-an-argument` never reach a command: the schema is
+closed over three properties, so each is `json: unknown field` — and the closure
+is what refuses the bypass nobody has thought of yet, which no list of forbidden
+words could. `usage-an-empty-procedure-names-nothing` and
+`usage-an-empty-sink-names-no-path` are well-typed arguments that name nothing,
+the schema's `minLength` made true where it is enforceable; the second is
+load-bearing rather than tidy, an empty sink read as *no sink* being the very
+Refusal above arriving from a typo. The other four are the command's own
+sentences, forwarded: a positional that is not a Procedure, one that is a
+Definition, a sink named `-`, and a sink inside the repository working tree.
+Each names `--secret-out` where the argument is `secret_sink`, which is the rule
+rather than a rough edge — a usage error's message is the sentence a person
+would have read, and the truncation marker's hint is the only wording §9 spells
+differently between the two surfaces.
+
+**The three ways a Run loses the Store are not here**, for the reason their argv
+twins are not: a lock is held by a live process and git's account of an
+unreachable remote names a temp directory, so neither is a directory of files.
+They are in `../../run_store_lost_test.go`, beside the argv cases they double,
+and they are the one place the two surfaces cannot say the same thing — the lock
+and the sync at Run start write no terminal row at all, so the envelope carries
+§12's reading of the code the command would have returned.
+
 What a declining case is held against beyond its own golden is the rendering
 the CLI writes, and one fence holds both halves
 (`TestGoldenCorpora_WhatDeclinesInAnEnvelopeIsWhatTheCLIWroteOnStderr`). A

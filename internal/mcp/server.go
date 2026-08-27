@@ -207,7 +207,25 @@ func (s *Server) handler(t tool) sdk.ToolHandler {
 			return nil, fmt.Errorf("%s: %w", t.name, err)
 		}
 
-		envelope, err := envelopeOf(s.dispatch(argv), t.rendersInFull)
+		// What the tool can say about the call before it runs, and it is
+		// one tool's: `run` carries §12's triple, and the envelope needs
+		// the rehearsal marker beside it on the one path where the
+		// command writes no row carrying its own (tools.go, executionOf).
+		//
+		// **A tool with no execution half sends nil**, which is how the
+		// envelope is told that this answer carries no `outcome` key at
+		// all: the table is where a tool declares it, and this is that
+		// declaration crossing rather than a second copy of it.
+		var called *execution
+		if t.executes != nil {
+			carried, err := t.executes(request.Params.Arguments)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", t.name, err)
+			}
+			called = &carried
+		}
+
+		envelope, err := envelopeOf(s.dispatch(argv), t.rendersInFull, called)
 		if err != nil {
 			return nil, err
 		}

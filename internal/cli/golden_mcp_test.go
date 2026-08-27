@@ -135,17 +135,34 @@ func renderEnvelope(t *testing.T, envelope mcp.Envelope) string {
 	}
 	page.WriteString("  ],\n  \"structuredContent\": {\n")
 
-	if len(envelope.StructuredContent.Rows) == 0 {
+	// The execution members, written first and written only where the
+	// answer carries them: §9 puts them ahead of the rows in the envelope
+	// it states, and a tool that is not a Run carries no `outcome` key at
+	// all (§9, issue #200). `dry_run` is written wherever `outcome` is,
+	// `false` included, which is why the corpus writes it off the pointer
+	// rather than off its value.
+	structured := envelope.StructuredContent
+	if structured.Outcome != "" {
+		fmt.Fprintf(&page, "    \"outcome\": %q,\n", structured.Outcome)
+		if structured.RunID != "" {
+			fmt.Fprintf(&page, "    \"run_id\": %q,\n", structured.RunID)
+		}
+		if structured.DryRun != nil {
+			fmt.Fprintf(&page, "    \"dry_run\": %t,\n", *structured.DryRun)
+		}
+	}
+
+	if len(structured.Rows) == 0 {
 		page.WriteString("    \"rows\": [],\n")
 	} else {
 		page.WriteString("    \"rows\": [\n")
-		for i, row := range envelope.StructuredContent.Rows {
-			page.WriteString("      " + string(row) + separator(i, len(envelope.StructuredContent.Rows)) + "\n")
+		for i, row := range structured.Rows {
+			page.WriteString("      " + string(row) + separator(i, len(structured.Rows)) + "\n")
 		}
 		page.WriteString("    ],\n")
 	}
 
-	fmt.Fprintf(&page, "    \"truncated\": %s\n  },\n", envelope.StructuredContent.Truncated)
+	fmt.Fprintf(&page, "    \"truncated\": %s\n  },\n", structured.Truncated)
 	fmt.Fprintf(&page, "  \"isError\": %t\n}\n", envelope.IsError)
 	return page.String()
 }
@@ -221,6 +238,9 @@ func TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue(t *testing.T) {
 		var held struct {
 			Content           []json.RawMessage `json:"content"`
 			StructuredContent struct {
+				Outcome   string            `json:"outcome"`
+				RunID     string            `json:"run_id"`
+				DryRun    *bool             `json:"dry_run"`
 				Rows      []json.RawMessage `json:"rows"`
 				Truncated json.RawMessage   `json:"truncated"`
 			} `json:"structuredContent"`
@@ -240,10 +260,62 @@ func TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue(t *testing.T) {
 			t.Errorf("case %s: its envelope carries no truncated member", c.name)
 		case held.IsError == nil:
 			t.Errorf("case %s: its envelope carries no isError; the bit is written whichever it is", c.name)
+		// §7's one exception to the absence rule, held over the surface
+		// that carries it: `dry_run` is written wherever `outcome` is,
+		// the bare `false` included, and a golden holding the one
+		// without the other would state an envelope whose reader cannot
+		// tell a rehearsal from a Run that reached the world (§9, issue
+		// #200).
+		case held.StructuredContent.Outcome != "" && held.StructuredContent.DryRun == nil:
+			t.Errorf("case %s: its envelope carries outcome %q and no dry_run; the marker is written wherever the outcome is", c.name, held.StructuredContent.Outcome)
+		case held.StructuredContent.Outcome == "" && held.StructuredContent.DryRun != nil:
+			t.Errorf("case %s: its envelope carries dry_run and no outcome; the marker rides beside the triple and nowhere else", c.name)
+		case held.StructuredContent.Outcome == "" && held.StructuredContent.RunID != "":
+			t.Errorf("case %s: its envelope names a Run and carries no outcome; a tool that is not a Run carries neither", c.name)
 		}
 	}
 	if read == 0 {
 		t.Fatal("no case under testdata/ holds a call; the rule was held over nothing")
+	}
+}
+
+// TestGoldenCorpora_ARunThroughTheToolWritesTheStoreTheCommandWrites is the
+// claim `run` on this surface is really about, held as a comparison of bytes:
+// *ergonomics is the whole of the difference between the two* (§9, issue #200).
+//
+// A tool builds the command line its command would have received and hands it
+// to the same dispatch, so a Run driven through the tool and the same Run driven
+// through the argv are one Run. The two cases stand the same fixture from the
+// same seed with the same minted id against the same served world, so the branch
+// each leaves behind is comparable byte for byte — and if it ever stops being,
+// the tool has grown a behaviour of its own, which is the one thing this surface
+// may not do.
+//
+// **The pairing is by name and the name is the command corpus's**, which is what
+// makes the fence self-maintaining: a case under testdata/mcp/run/ named for a
+// case under testdata/run/ is asserted against it, and one named for nothing —
+// every `usage-` case, which reaches no Run at all — is passed over. A twin that
+// is renamed on one side and not the other stops being compared, which the count
+// below is what catches.
+func TestGoldenCorpora_ARunThroughTheToolWritesTheStoreTheCommandWrites(t *testing.T) {
+	var paired int
+	walkTestdata(t, "store.golden", func(dir string) {
+		tool, twin := filepath.Split(filepath.Clean(dir))
+		if filepath.Clean(tool) != filepath.Join("testdata", "mcp", "run") {
+			return
+		}
+		beside := filepath.Join("testdata", "run", twin, "store.golden")
+		if !isFile(beside) {
+			t.Errorf("case mcp/run/%s holds a store.golden and testdata/run/%s holds none; a Run through the tool is named for the Run through the command it is the same Run as", twin, twin)
+			return
+		}
+		paired++
+		if through, command := readFile(t, filepath.Join(dir, "store.golden")), readFile(t, beside); through != command {
+			t.Errorf("case mcp/run/%s left a branch its argv twin did not:\n through the tool:    %q\n through the command: %q", twin, through, command)
+		}
+	})
+	if paired == 0 {
+		t.Fatal("no case under testdata/mcp/run/ is paired with the command corpus; the claim that one Run reaches one Store through two doors is held over nothing")
 	}
 }
 

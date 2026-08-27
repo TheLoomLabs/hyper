@@ -1,0 +1,17 @@
+{
+  "content": [
+    {"type":"text","text":"completed · run 01991ed9-e44b-7f74-b064-9bac5dc38f4c"}
+  ],
+  "structuredContent": {
+    "outcome": "completed",
+    "run_id": "01991ed9-e44b-7f74-b064-9bac5dc38f4c",
+    "dry_run": false,
+    "rows": [
+      {"type":"step","step":1,"id":"session","kind":"read","disposition":"ran","records":1},
+      {"type":"provenance","hyper_version":"1.4.0","procedure_revision":"e66ef493cfe8dcf040702318953c8a060919ecbe","repo_revision":"90bef0d7d755d7a171af8cddce589b3b1d9acce6"},
+      {"type":"provenance","step":1,"definition_revision":"0f4e88dc2cb2d55deea69ca776bc6e5da24cc9ff","manifest_digest":"sha256:a2077bb5843fae35ef3e2410c76f21ca681f69e642972f5f1553532fa8a3dd3e"}
+    ],
+    "truncated": null
+  },
+  "isError": false
+}

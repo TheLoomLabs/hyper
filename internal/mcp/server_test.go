@@ -35,6 +35,33 @@ type stubRow struct {
 
 func (r stubRow) Cells() []string { return []string{r.Name} }
 
+// outcomeStub is §8's other terminal row in the shape the command writes it,
+// and it stands here for the same reason stubRow does: what these cases
+// exercise is the crossing, and a row this file wrote is one no command's
+// changes can quietly alter underneath them.
+//
+// The members are the ones the envelope lifts — §12's triple, the rehearsal
+// marker written always, and the Run id absent where no entry was written — in
+// the order the command's own row declares them (cli's outcomeRow).
+type outcomeStub struct {
+	Type      string `json:"type"`
+	Outcome   string `json:"outcome"`
+	Code      int    `json:"code"`
+	ErrorCode string `json:"error_code,omitempty"`
+	DryRun    bool   `json:"dry_run"`
+	RunID     string `json:"run_id,omitempty"`
+}
+
+// Cells is empty: the terminal row's line on the page is §8's terminal line,
+// which the command's page writes beneath its table rather than inside it.
+func (r outcomeStub) Cells() []string { return nil }
+
+// ran is a Run's terminal row as this file writes one: the outcome, the code
+// §12 fixes for it, the rehearsal marker, and the entry it wrote.
+func ran(outcome string, code int, dryRun bool, runID string) outcomeStub {
+	return outcomeStub{Type: "outcome", Outcome: outcome, Code: code, DryRun: dryRun, RunID: runID}
+}
+
 // reviewPage is a rendering standing in for §8's review surface: a header line,
 // the gutter beside a source line, and the two blocks beneath it. It is this
 // file's own rather than a command's, for stubRow's reason — what is exercised
@@ -420,6 +447,17 @@ func TestCall_TheArgvIsTheCommandLineItsCommandWouldHaveReceived(t *testing.T) {
 			[]string{"records", "--target", "local", "--definition", "uptime", "--name", "status.hyper.dev", "--history", "--since", "2026-08-04T09:12:00Z", "--limit", "5"}},
 		{"a window named without a history, which the command refuses", "records", `{"since":"2026-08-04T09:12:00Z"}`,
 			[]string{"records", "--since", "2026-08-04T09:12:00Z"}},
+		{"a Run of a Procedure by name", "run", `{"procedure":"publish-preview"}`, []string{"run", "--", "publish-preview"}},
+		{"a Run of a Procedure by path", "run", `{"procedure":"procedures/publish-preview.yaml"}`,
+			[]string{"run", "--", "procedures/publish-preview.yaml"}},
+		{"a Procedure spelled like a flag", "run", `{"procedure":"--dry-run"}`, []string{"run", "--", "--dry-run"}},
+		{"a rehearsal", "run", `{"procedure":"publish-preview","dry_run":true}`, []string{"run", "--dry-run", "--", "publish-preview"}},
+		{"a rehearsal asked for as false", "run", `{"procedure":"publish-preview","dry_run":false}`, []string{"run", "--", "publish-preview"}},
+		{"a sink under the name of the thing it supplies", "run", `{"procedure":"read-session","secret_sink":"/run/secrets/session-token"}`,
+			[]string{"run", "--secret-out", "/run/secrets/session-token", "--", "read-session"}},
+		{"a rehearsal with a sink, both flags ahead of the positional", "run",
+			`{"procedure":"read-session","dry_run":true,"secret_sink":"/run/secrets/session-token"}`,
+			[]string{"run", "--dry-run", "--secret-out", "/run/secrets/session-token", "--", "read-session"}},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, argv := answering(nil, render.NewResultRow(false))
@@ -757,4 +795,338 @@ func TestCall_ARenderingToolThatRenderedNothingIsAFaultInTheServer(t *testing.T)
 	if err == nil {
 		t.Fatalf("the call answered %+v, want a fault in the server", envelope)
 	}
+}
+
+// The execution half (§9, issue #200).
+//
+// The corpus one package over is what says a Run through the tool writes the
+// Store the command writes, and it holds every envelope byte for byte. What is
+// here is the half no fixture repository produces: the two 75s, which write no
+// terminal row at all, and the closure of the one input schema §9 spends a
+// paragraph on.
+
+// TestCall_ARunsEnvelopeLiftsTheTripleTheMarkerAndTheEntry is §9's execution
+// members, taken from the terminal row and from nowhere else: what the CLI's
+// `outcome` row carries and what the envelope carries are one fact rather than
+// two that have to agree (ADR-0026).
+func TestCall_ARunsEnvelopeLiftsTheTripleTheMarkerAndTheEntry(t *testing.T) {
+	for _, one := range []struct {
+		name     string
+		terminal outcomeStub
+		want     Structured
+		isError  bool
+		text     string
+	}{
+		{
+			name:     "a Run that completed",
+			terminal: ran("completed", 0, false, "01991ea6-b118-7c93-8d41-6b2f7ae05c19"),
+			want:     Structured{Outcome: "completed", RunID: "01991ea6-b118-7c93-8d41-6b2f7ae05c19", DryRun: no},
+			text:     "completed · run 01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+		},
+		{
+			name:     "a rehearsal, which is completed and says so",
+			terminal: ran("completed", 0, true, "01991ea6-b118-7c93-8d41-6b2f7ae05c19"),
+			want:     Structured{Outcome: "completed", RunID: "01991ea6-b118-7c93-8d41-6b2f7ae05c19", DryRun: yes},
+			text:     "completed · dry-run · run 01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+		},
+		{
+			name:     "a Run the world resisted",
+			terminal: ran("failed", 1, false, "01991ea6-b118-7c93-8d41-6b2f7ae05c19"),
+			want:     Structured{Outcome: "failed", RunID: "01991ea6-b118-7c93-8d41-6b2f7ae05c19", DryRun: no},
+			isError:  true,
+			text:     "failed · run 01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+		},
+		{
+			name:     "a Run that lost the Store to a push it could not land",
+			terminal: ran("failed", 75, false, "01991ea6-b118-7c93-8d41-6b2f7ae05c19"),
+			want:     Structured{Outcome: "failed", RunID: "01991ea6-b118-7c93-8d41-6b2f7ae05c19", DryRun: no},
+			isError:  true,
+			text:     "failed · run 01991ea6-b118-7c93-8d41-6b2f7ae05c19",
+		},
+		{
+			// The two paths that decline before a Run is identified.
+			// What is missing is the `run_id` and never the key
+			// beside it, exactly as §8 states for the row.
+			name:     "a guardrail declining before a Run had an id",
+			terminal: ran("refused", 77, false, ""),
+			want:     Structured{Outcome: "refused", DryRun: no},
+			isError:  true,
+			text:     refusalText(reviewPage),
+		},
+	} {
+		t.Run(one.name, func(t *testing.T) {
+			// The exit code is the terminal row's own, which is
+			// what the command returns: §12's code space is finer
+			// than the triple, and the row carries both.
+			//
+			// The Refusal buffer is left empty on the arm that
+			// refuses, which is `run`'s own shape: a Run that a
+			// guardrail declined renders the Refusal inside its
+			// page, and the page is what the text block carries
+			// (envelopeOf, runPage).
+			server := NewServer("1.4.0", func([]string) Answer {
+				return Answer{Terminal: one.terminal, Rendering: reviewPage, Exit: one.terminal.Code}
+			})
+
+			envelope, err := server.Call(t.Context(), "run", json.RawMessage(`{"procedure":"publish-preview"}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			structured := envelope.StructuredContent
+			if structured.Outcome != one.want.Outcome {
+				t.Errorf("outcome = %q, want %q", structured.Outcome, one.want.Outcome)
+			}
+			if structured.RunID != one.want.RunID {
+				t.Errorf("run_id = %q, want %q", structured.RunID, one.want.RunID)
+			}
+			if !reflect.DeepEqual(structured.DryRun, one.want.DryRun) {
+				t.Errorf("dry_run = %v, want %v", spelled(structured.DryRun), spelled(one.want.DryRun))
+			}
+			if envelope.IsError != one.isError {
+				t.Errorf("isError = %t, want %t", envelope.IsError, one.isError)
+			}
+			if got := envelope.Content[0].Text; got != one.text {
+				t.Errorf("the text block is %q, want %q", got, one.text)
+			}
+			if got := string(structured.Truncated); got != "null" {
+				t.Errorf("truncated = %s, want null — a Run ranges over nothing for a limit to have cut", got)
+			}
+		})
+	}
+}
+
+// TestCall_ARunThatWroteNoTerminalRowTakesItsOutcomeFromTheCode is the one path
+// where the members are not lifted, and the reason the tool is asked what the
+// call named.
+//
+// A Run that lost the Store to the lock or to the sync at Run start stands
+// before `run.json`, so §8 leaves it writing nothing at all and the CLI's exit
+// code carries the news on its own. This surface has no exit code, so §12's
+// mapping stands in — and `dry_run` comes from the call, because §7 writes it
+// wherever the outcome is and a rehearsal told it reached the world is the one
+// error that cannot be walked back (executionOf).
+func TestCall_ARunThatWroteNoTerminalRowTakesItsOutcomeFromTheCode(t *testing.T) {
+	for _, one := range []struct {
+		name, arguments string
+		dryRun          *bool
+		text            string
+	}{
+		{"a Run that lost the Store", `{"procedure":"publish-preview"}`, no, "failed"},
+		{"a rehearsal that lost the Store", `{"procedure":"publish-preview","dry_run":true}`, yes, "failed · dry-run"},
+	} {
+		t.Run(one.name, func(t *testing.T) {
+			server := NewServer("1.4.0", func([]string) Answer {
+				// What the command left: a sentence on the
+				// narration, and no answer at all.
+				return Answer{Narration: "hyper run: another Run holds the Store lock\n", Exit: 75}
+			})
+
+			envelope, err := server.Call(t.Context(), "run", json.RawMessage(one.arguments))
+			if err != nil {
+				t.Fatal(err)
+			}
+			structured := envelope.StructuredContent
+			if structured.Outcome != "failed" {
+				t.Errorf("outcome = %q, want failed — §12 maps 75 onto it, and a caller with no exit code reads this instead", structured.Outcome)
+			}
+			if structured.RunID != "" {
+				t.Errorf("run_id = %q, want none — no entry was written", structured.RunID)
+			}
+			if !reflect.DeepEqual(structured.DryRun, one.dryRun) {
+				t.Errorf("dry_run = %v, want %v", spelled(structured.DryRun), spelled(one.dryRun))
+			}
+			if !envelope.IsError {
+				t.Error("isError = false; a caller did not get what they asked for")
+			}
+			if got := envelope.Content[0].Text; got != one.text {
+				t.Errorf("the text block is %q, want %q", got, one.text)
+			}
+		})
+	}
+}
+
+// TestCall_NoToolButRunCarriesAnOutcomeKey is §9 read the other way: *a tool
+// that is not a Run carries no `outcome` key at all*, and the marker beside it
+// rides with the triple or not at all.
+//
+// It is held over the whole set rather than over a sample, because the shape it
+// refuses is a tool acquiring an execution member by accident — the envelope
+// composes one structured half for thirteen tools, and the day a second one
+// carries an outcome is the day this surface has two accounts of what a Run is.
+func TestCall_NoToolButRunCarriesAnOutcomeKey(t *testing.T) {
+	var held int
+	for _, declaring := range tools {
+		if declaring.name == "run" {
+			if declaring.executes == nil {
+				t.Error("run declares no execution half; it is the one tool of the thirteen whose answer carries §12's triple")
+			}
+			continue
+		}
+		if declaring.executes != nil {
+			t.Errorf("%s declares an execution half; §9 gives the outcome triple to run and to no other tool", declaring.name)
+		}
+
+		server, _ := answering([]render.Row{stubRow{Type: "provider", Name: "uptime"}}, render.NewResultRow(false))
+		envelope, err := server.Call(t.Context(), declaring.name, argumentsSatisfying(t, declaring))
+		if err != nil {
+			// Unreachable against the stub above, which answers
+			// every argv cleanly, and stated rather than skipped:
+			// a tool that declined here would leave the rule held
+			// over less than the set, which is what the count below
+			// catches.
+			t.Errorf("%s: %v", declaring.name, err)
+			continue
+		}
+		held++
+		switch structured := envelope.StructuredContent; {
+		case structured.Outcome != "":
+			t.Errorf("%s carries outcome %q; a tool that is not a Run carries no outcome key at all", declaring.name, structured.Outcome)
+		case structured.DryRun != nil:
+			t.Errorf("%s carries dry_run; the marker rides beside the triple and nowhere else", declaring.name)
+		case structured.RunID != "":
+			t.Errorf("%s names a Run; only the tool that performs one does", declaring.name)
+		}
+	}
+	if held < len(tools)-1 {
+		t.Errorf("%d of the %d tools that are not Runs answered an envelope; the rest were passed over and the rule was held over less than the set", held, len(tools)-1)
+	}
+}
+
+// TestListTools_RunTakesTheThreeArgumentsAndNoBypassUnderAnyName is §9's *no
+// tool takes an override argument of any kind, under any name*, held where it
+// is holdable: the published schema.
+//
+// **It is a claim about closure and not about a list of forbidden words.** The
+// schema is closed, so the names §9 spends paragraphs refusing — a `definition`,
+// a `target`, an `inputs`, a `force` — are refused by there being three
+// properties and no fourth, which also refuses the name nobody has thought of
+// yet. The three are asserted by name because they are the signature, and a
+// fourth appearing is what this case exists to fail on (ADR-0001, ADR-0008).
+func TestListTools_RunTakesTheThreeArgumentsAndNoBypassUnderAnyName(t *testing.T) {
+	schema := declared(t, runTool.input)
+
+	if !schema.closed() {
+		t.Error("run's input schema admits properties it does not state; a schema that admits a member it does not name is one under which an override argument is well-formed")
+	}
+	if got, want := schema.names(), []string{"dry_run", "procedure", "secret_sink"}; !slices.Equal(got, want) {
+		t.Errorf("run takes %q, want %q — the occasion and never authority", got, want)
+	}
+	if got, want := schema.Required, []string{"procedure"}; !slices.Equal(got, want) {
+		t.Errorf("run requires %q, want %q: every Run is a Run of a Procedure, and the other two are the occasion", got, want)
+	}
+}
+
+// TestListTools_RunsOutputSchemaStatesTheExecutionMembersAndNoSecret is the
+// other half of the sink's guarantee, and the half a corpus case cannot state:
+// **returning the secret in the tool result is not one of the sink's forms**.
+//
+// A golden can only say that no secret appeared in the one answer it drove. The
+// schema says that none can: the structured half is closed over the members §9
+// names, so there is no key for a generated credential to arrive under — which
+// is what keeps it out of an agent's context and out of whatever transcript that
+// agent writes (ADR-0007).
+func TestListTools_RunsOutputSchemaStatesTheExecutionMembersAndNoSecret(t *testing.T) {
+	schema := declared(t, runTool.output)
+
+	if !schema.closed() {
+		t.Error("run's output schema admits members it does not state; a member the schema does not name is a member this surface does not write")
+	}
+	if got, want := schema.names(), []string{"dry_run", "outcome", "rows", "run_id", "truncated"}; !slices.Equal(got, want) {
+		t.Errorf("run answers %q, want %q — §12's triple, the marker, the entry, the rows, and nothing a secret could ride on", got, want)
+	}
+	if got, want := slices.Sorted(slices.Values(schema.Required)), []string{"dry_run", "outcome", "rows", "truncated"}; !slices.Equal(got, want) {
+		t.Errorf("run requires %q, want %q: run_id is the one member absent where no entry was written", got, want)
+	}
+}
+
+// yes and no are the two values of §7's one exception to the absence rule, as
+// the envelope carries it: a pointer, because `false` and *this tool is not a
+// Run* are two different answers (Structured.DryRun).
+var (
+	yes = pointerTo(true)
+	no  = pointerTo(false)
+)
+
+// pointerTo is a value's address where the language has no literal for one. It
+// is here because the third state a case has to be able to state is the
+// **absence**, which a bare `false` cannot.
+func pointerTo[T any](value T) *T { return &value }
+
+// declaredSchema is one of this surface's schemas read for what it declares:
+// whether it is closed, which names it requires, and which properties it
+// admits.
+//
+// It is one type rather than the same anonymous struct at each reader, for the
+// reason objectSchema above is one function: what a schema declares is asked
+// three ways in this file, and three spellings of the read are three chances
+// for one of them to check something slightly different.
+type declaredSchema struct {
+	AdditionalProperties *bool                      `json:"additionalProperties"`
+	Required             []string                   `json:"required"`
+	Properties           map[string]json.RawMessage `json:"properties"`
+}
+
+// declared reads one schema this package publishes. It takes the raw bytes
+// rather than the SDK's value because these are the tool table's own, checked
+// in as the JSON a client receives (closedObject).
+func declared(t *testing.T, schema json.RawMessage) declaredSchema {
+	t.Helper()
+
+	var read declaredSchema
+	if err := json.Unmarshal(schema, &read); err != nil {
+		t.Fatal(err)
+	}
+	return read
+}
+
+// closed answers objectSchema's question of a raw schema: `additionalProperties`
+// stated and false, which is what makes *no tool takes an override argument of
+// any kind, under any name* a thing a client can check rather than a promise.
+func (s declaredSchema) closed() bool {
+	return s.AdditionalProperties != nil && !*s.AdditionalProperties
+}
+
+// names is every property the schema admits, sorted — the signature, in the one
+// order a comparison can be written against.
+func (s declaredSchema) names() []string { return slices.Sorted(maps.Keys(s.Properties)) }
+
+// spelled is a dry_run marker in an error message: `true`, `false`, or the
+// absence, which is the third state and the one a bare `%v` on a pointer would
+// print as an address.
+func spelled(dryRun *bool) string {
+	if dryRun == nil {
+		return "absent"
+	}
+	return strconv.FormatBool(*dryRun)
+}
+
+// argumentsSatisfying is arguments enough for one tool to build its command
+// line: every required property of its schema, filled with a name.
+//
+// It is derived from the schema rather than tabulated per tool, so that a tool
+// landing tomorrow is held to the rule above without this file being edited.
+func argumentsSatisfying(t *testing.T, declaring tool) json.RawMessage {
+	t.Helper()
+
+	schema := declared(t, declaring.input)
+	filled := map[string]any{}
+	for _, name := range schema.Required {
+		var property struct {
+			Type string `json:"type"`
+		}
+		if err := json.Unmarshal(schema.Properties[name], &property); err != nil {
+			continue
+		}
+		switch property.Type {
+		case "array":
+			filled[name] = []string{"definitions/uptime.yaml"}
+		default:
+			filled[name] = "uptime"
+		}
+	}
+	arguments, err := json.Marshal(filled)
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return arguments
 }

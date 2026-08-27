@@ -1,0 +1,12 @@
+{
+  "content": [
+    {"type":"text","text":"refused: version-pin-mismatch\n  this binary is 1.4.0; the repository pins 9.9.9 — run: hyper project, or install 9.9.9\n\na verbatim retry refuses identically: no argument to this tool, and no flag anywhere, overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."}
+  ],
+  "structuredContent": {
+    "outcome": "refused",
+    "dry_run": false,
+    "rows": [],
+    "truncated": null
+  },
+  "isError": true
+}

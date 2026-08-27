@@ -1,0 +1,73 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f65-5f66-7195-8c71-8fa0c6152e69/outcome.json (1305 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "refused",
+  "refusal": [
+    {
+      "error_code": "artefact-absent",
+      "field": "provider",
+      "file": "definitions/paid-status.yaml",
+      "line": 3,
+      "message": "provider: paidd resolves to nothing — no built-in Provider and no providers/paidd.yaml"
+    },
+    {
+      "error_code": "unknown-key",
+      "field": "retain-forever",
+      "file": "hyper.yaml",
+      "line": 5,
+      "message": "\"retain-forever\" is not a key the schema at this position admits"
+    },
+    {
+      "error_code": "reference-unresolvable",
+      "field": "steps[0].operation",
+      "file": "procedures/reaches-nothing.yaml",
+      "line": 7,
+      "message": "operation: no_such_operation names no Operation the Definition's Provider declares"
+    },
+    {
+      "error_code": "header-reserved",
+      "field": "auth.header.name",
+      "file": "providers/paid.yaml",
+      "line": 7,
+      "message": "Content-Type: is one of the five headers hyper computes for itself"
+    },
+    {
+      "error_code": "credential-slot-malformed",
+      "field": "auth.token",
+      "file": "targets/paid.yaml",
+      "line": 8,
+      "message": "auth.token: a credential slot's value must be a mapping whose sole key is env:"
+    }
+  ],
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f65-5f66-7195-8c71-8fa0c6152e69/run.json (472 bytes)
+{
+  "dry_run": false,
+  "procedure": "watch-status",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329",
+    "repo_revision": "93b6129dc575be36f1bc5a6dd6285a81ead496d5"
+  },
+  "run_id": "01991f65-5f66-7195-8c71-8fa0c6152e69",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

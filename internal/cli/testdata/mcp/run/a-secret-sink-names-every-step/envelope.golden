@@ -1,0 +1,17 @@
+{
+  "content": [
+    {"type":"text","text":"nothing ran. no step was reached.\n\nrefused: secret-sink-absent\n\n  procedures/read-sessions.yaml:5\n    4 │ steps:\n    5 │   - id: status\n      │         ^ session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>\n      │\n      = checked at run start, before the first step\n      = the same invocation again with --secret-out <path>\n\nrefused: secret-sink-absent\n\n  procedures/read-sessions.yaml:11\n    9 │     args:\n   10 │       host: status.hyper.dev\n   11 │   - id: cert\n      │         ^ session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>\n      │\n      = checked at run start, before the first step\n      = the same invocation again with --secret-out <path>\n\nrefused · exit 77 · run 01991f68-8299-74c8-9fa4-b2d3f948559c\n\na verbatim retry refuses identically: no argument to this tool, and no flag anywhere, overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."}
+  ],
+  "structuredContent": {
+    "outcome": "refused",
+    "run_id": "01991f68-8299-74c8-9fa4-b2d3f948559c",
+    "dry_run": false,
+    "rows": [
+      {"type":"refusal","error_code":"secret-sink-absent","step":1,"step_id":"status","operation":"read_session","target":"local","file":"procedures/read-sessions.yaml","line":5,"field":"steps[0]","message":"session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out \u003cpath\u003e"},
+      {"type":"refusal","error_code":"secret-sink-absent","step":2,"step_id":"cert","operation":"read_session","target":"local","file":"procedures/read-sessions.yaml","line":11,"field":"steps[1]","message":"session read_session declares secret: output and this invocation supplied no sink — run it again with --secret-out \u003cpath\u003e"},
+      {"type":"provenance","hyper_version":"1.4.0","procedure_revision":"46ba56c83841c3a5088c20824bec9d8c6e79d2c1","repo_revision":"6862766265e2d2c50dbaeb28ee077b996c947d0e"}
+    ],
+    "truncated": null
+  },
+  "isError": true
+}

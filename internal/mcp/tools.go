@@ -19,7 +19,7 @@ import (
 // argv would be a second place for a guardrail to be skipped, a Refusal to be
 // reworded or a row to be reshaped.
 //
-// §9 states thirteen tools, each named for the command it carries. Ten are
+// §9 states thirteen tools, each named for the command it carries. Eleven are
 // here. The rest arrive with the milestones that build them, on tree.go's own
 // rule for the command surface: a name is real when the code behind it is, and
 // the table is where that becomes true rather than a list to be kept in step.
@@ -55,6 +55,23 @@ type tool struct {
 	// would be a tool holding a rendering, which is the one thing *a tool
 	// is a schema, an argv, and nothing else* forbids.
 	rendersInFull bool
+	// executes is §9's execution half read as a property of the tool: `run`
+	// is the one of the thirteen whose answer carries §12's triple, and a
+	// tool that leaves this nil is one that carries no `outcome` key at all
+	// (§9, envelope.go, issue #200).
+	//
+	// It is a **function of the arguments** rather than a bare bit, because
+	// what the envelope needs from the tool is a pair rather than a fact:
+	// the outcome is §12's reading of the exit code, and `dry_run` is this
+	// call's own — written wherever `outcome` is, and never guessed. It is
+	// read only on the one path where the command wrote no terminal row to
+	// carry either (executionOf).
+	//
+	// It reads the arguments through the same reader argv reads them
+	// through, which is what keeps the two from disagreeing about one call:
+	// there is one reading of a `run`'s arguments and it is asked twice
+	// (runArguments).
+	executes func(arguments json.RawMessage) (execution, error)
 }
 
 // declaration is the tool as the SDK publishes it in `tools/list`. It is the
@@ -71,10 +88,10 @@ func (t tool) declaration() *sdk.Tool {
 }
 
 // tools is the set, in §9's own order: Discovery first, and within it the order
-// §9's table states, then the repository, then Authoring, then Inspection.
-// Execution and Lifecycle stand between them in §9's table and are not here
-// yet, which is the rule above holding rather than a gap in the order.
-var tools = []tool{providersTool, providerTool, operationTool, targetsTool, checkTool, reviewTool, runsTool, runShowTool, changesTool, recordsTool}
+// §9's table states, then the repository, then Authoring, then Execution, then
+// Inspection. `probe` and Lifecycle's `project` stand in §9's table and are not
+// here yet, which is the rule above holding rather than a gap in the order.
+var tools = []tool{providersTool, providerTool, operationTool, targetsTool, checkTool, reviewTool, runTool, runsTool, runShowTool, changesTool, recordsTool}
 
 // providersTool carries `hyper providers` — §9's first discovery question,
 // *which Provider*, and the one an agent asks before it can write a
@@ -794,6 +811,93 @@ const provenanceMembers = `
 	"manifest_digest": {"type": "string"},
 	"origin_digest": {"type": "string"}`
 
+// refusalRow is one member of a Refusal on §8's wire, written once because
+// **two tools answer it**: `run`, where the Run's own guardrails declined it,
+// and `run_show`, reading the same array back out of the entry that recorded
+// it (§8, issue #200).
+//
+// It is one fragment for problemRow's reason, and here the pairing is exact:
+// there is one constructor behind the row on the CLI side and both surfaces
+// reach it — a Run reports the array and `show` reads it back, one reading of
+// one Refusal rather than two that have to agree (refusalRowOf, ADR-0026). The
+// `column` a `check` problem carries is the one member absent from it: that
+// member rides on `check`'s stream alone and is read back out of no file.
+//
+// It is a bare object rather than a closedObject for problemRow's reason: what
+// it describes is a member of `rows`, and the closure it needs is written into
+// it here.
+const refusalRow = `{
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["type", "error_code"],
+	"description": "One member of a Refusal — one row per problem, and never one row carrying an array. It is the same row as a Run reports it and as the entry recording it is read back. Every member the check did not have is absent rather than written empty.",
+	"properties": {
+		"type": {"const": "refusal"},
+		"error_code": {"type": "string", "description": "One member of §12's closed error_code set, naming the check that declined."},
+		"step": {"type": "integer", "minimum": 1, "description": "An artefact coordinate and never an execution fact: the Step it names may have no file in the entry at all, every Refusal that declines before Step 1 citing one that never ran."},
+		"step_id": {"type": "string"},
+		"operation": {"type": "string"},
+		"target": {"type": "string"},
+		"declared": {"description": "What the artefact declared, as the value it is: a number, a string, a list or a mapping."},
+		"observed": {"description": "What the check found, beside it."},
+		"file": {"type": "string"},
+		"line": {"type": "integer", "minimum": 1},
+		"field": {"type": "string"},
+		"message": {"type": "string"},
+		"resolved": {
+			"type": "object",
+			"description": "Each relative operand the citation carries, mapped to the instant it resolved to against this Run's start — not the reader's clock, months later. Its keys are the operands the artefact wrote.",
+			"additionalProperties": {"type": "string"}
+		}
+	}
+}`
+
+// remediationRow is §8's `EDIT ONE OF` table on the wire, one row per edit, and
+// it is shared by the two tools that carry a Refusal's rows for refusalRow's
+// reason: the rows ride between one member and the next, and a schema that said
+// one thing under `run` and another under `run_show` would describe two tables
+// where the CLI draws one (§8, refusal.go).
+const remediationRow = `{
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["type", "file"],
+	"description": "One edit past the check above: the coordinate, and either a value to replace or a direction to narrow in. §8 renders these as the EDIT ONE OF table.",
+	"properties": {
+		"type": {"const": "remediation"},
+		"file": {"type": "string"},
+		"line": {"type": "integer", "minimum": 1},
+		"field": {"type": "string"},
+		"from": {"description": "The value the check found, where the replacement is arithmetic."},
+		"to": {"description": "The value that would clear it."},
+		"hint": {"type": "string", "description": "The direction, where narrowing is a judgement rather than arithmetic."},
+		"example_expansion": {"type": "integer", "minimum": 0, "description": "What hyper derived about the hint above: the count a worked example of that narrowing would reach."},
+		"resolved": {
+			"type": "object",
+			"description": "The proposal's relative operands, glossed against the same instant the current value was.",
+			"additionalProperties": {"type": "string"}
+		}
+	}
+}`
+
+// provenanceRow is §7's Provenance as a row, at either of its two scopes, and
+// it is the members above with the discriminator and the scope around them.
+//
+// It is shared by the two tools that report a Run's Provenance — `run`, which
+// writes it as the Run ends, and `run_show`, which reads it back — and the
+// sharing is the point rather than a convenience: what a Run states about the
+// code that performed it and what the entry states about the same Run are one
+// account (§7, §8, ADR-0043).
+const provenanceRow = `{
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["type"],
+	"description": "Which code performed the Run, at one of §7's two scopes. Which scope a row is is read off the row itself: a Step's carries step and the Run-wide one does not, and a discriminator beside it would carry that fact twice. Nothing here is abbreviated.",
+	"properties": {
+		"type": {"const": "provenance"},
+		"step": {"type": "integer", "minimum": 1},` + provenanceMembers + `
+	}
+}`
+
 // runsTool carries `hyper runs` — the Journal listed, and the surface that
 // enumerates the namespace a `run_id` resolves against.
 //
@@ -989,62 +1093,9 @@ var runShowTool = tool{
 							}
 						}
 					},
-					{
-						"type": "object",
-						"additionalProperties": false,
-						"required": ["type", "error_code"],
-						"description": "One member of the Refusal the entry's own Run recorded, one row per problem and never one row carrying an array. Every member the check did not have is absent rather than written empty.",
-						"properties": {
-							"type": {"const": "refusal"},
-							"error_code": {"type": "string", "description": "One member of §12's closed error_code set, naming the check that declined."},
-							"step": {"type": "integer", "minimum": 1, "description": "An artefact coordinate and never an execution fact: the Step it names may have no file in this entry at all."},
-							"step_id": {"type": "string"},
-							"operation": {"type": "string"},
-							"target": {"type": "string"},
-							"declared": {"description": "What the artefact declared, as the value it is: a number, a string, a list or a mapping."},
-							"observed": {"description": "What the check found, beside it."},
-							"file": {"type": "string"},
-							"line": {"type": "integer", "minimum": 1},
-							"field": {"type": "string"},
-							"message": {"type": "string"},
-							"resolved": {
-								"type": "object",
-								"description": "Each relative operand the citation carries, mapped to the instant it resolved to against this Run's start — not the reader's clock, months later. Its keys are the operands the artefact wrote.",
-								"additionalProperties": {"type": "string"}
-							}
-						}
-					},
-					{
-						"type": "object",
-						"additionalProperties": false,
-						"required": ["type", "file"],
-						"description": "One edit past the check above: the coordinate, and either a value to replace or a direction to narrow in. §8 renders these as the EDIT ONE OF table.",
-						"properties": {
-							"type": {"const": "remediation"},
-							"file": {"type": "string"},
-							"line": {"type": "integer", "minimum": 1},
-							"field": {"type": "string"},
-							"from": {"description": "The value the check found, where the replacement is arithmetic."},
-							"to": {"description": "The value that would clear it."},
-							"hint": {"type": "string", "description": "The direction, where narrowing is a judgement rather than arithmetic."},
-							"example_expansion": {"type": "integer", "minimum": 0, "description": "What hyper derived about the hint above: the count a worked example of that narrowing would reach."},
-							"resolved": {
-								"type": "object",
-								"description": "The proposal's relative operands, glossed against the same instant the current value was.",
-								"additionalProperties": {"type": "string"}
-							}
-						}
-					},
-					{
-						"type": "object",
-						"additionalProperties": false,
-						"required": ["type"],
-						"description": "Which code performed the Run, at one of §7's two scopes. Which scope a row is is read off the row itself: a Step's carries step and the Run-wide one does not, and a discriminator beside it would carry that fact twice. Nothing here is abbreviated.",
-						"properties": {
-							"type": {"const": "provenance"},
-							"step": {"type": "integer", "minimum": 1},`+provenanceMembers+`
-						}
-					},
+					`+refusalRow+`,
+					`+remediationRow+`,
+					`+provenanceRow+`,
 					{
 						"type": "object",
 						"additionalProperties": false,
@@ -1145,6 +1196,210 @@ var runShowTool = tool{
 		// that "--" ends the flags (flags.go).
 		return append(argv, "--", named.RunID), nil
 	},
+}
+
+// Execution (§9, issue #200).
+//
+// **The tool that closes the loop.** An agent that cannot run also cannot read
+// back the Record it just caused, which is what this surface exists for. §9
+// puts the effectful half here deliberately: restricting the surface to
+// authoring and reads would make *who is calling* an axis of authority, and no
+// guardrail §5 states is a function of that — an unattended Run on a Cadence is
+// already accepted, and a call made by an agent with a human watching it is
+// strictly safer than that.
+
+// runTool carries `hyper run <procedure>` — the one tool of the thirteen that
+// writes to the record on its own account, and the one whose answer carries
+// §12's outcome triple.
+//
+// **`run` takes a Procedure and nothing else**, as the command does. Every Run
+// is a Run of a Procedure (ADR-0036), so there is no single-Operation arm of
+// this tool and a call carrying a `definition` is an argument violating a
+// schema — a protocol error, which is what this surface has in place of exit
+// `2`. There is no `target` either: a Procedure declares its own envelope, so
+// one supplied here is redundant with the artefact or it is authority arriving
+// after review (§5, ADR-0008).
+//
+// **There is no `inputs` argument.** A Procedure is fully bound by its
+// artefact, and a value supplied at call time is Step behaviour appearing on no
+// reviewed line — authority arriving after review, which is the shape ADR-0008
+// removed and the same shape as the `--force` that is absent everywhere else.
+// The schema is closed, so every one of those names is refused by the schema
+// rather than by a check written here (closedObject).
+//
+// **`secret_sink` is the CLI's `--secret-out` under the name of the thing it
+// supplies**, a flag named for a direction having no direction to name in an
+// argument object. It is chosen by the caller and **never defaulted by
+// `hyper`**: a sink supplied automatically deletes the guardrail that makes its
+// absence a Refusal, and makes `hyper` a place a secret lives (ADR-0007).
+// Everything the CLI states about the path holds whoever named it, and both
+// faults it can have — `-`, and a path inside the repository working tree — are
+// the usage errors the command already makes them, arriving here as protocol
+// errors (§9, run.go, ADR-0060).
+//
+// **Returning the secret in the tool result is not one of the sink's forms**,
+// and nothing here could make it one: what the sink names is a path, and a Run
+// writes the file. A generated credential in a tool result is a credential in
+// an agent's context and from there in whatever transcript that agent writes.
+//
+// It carries no `--limit`, its command carrying none: a Run reports what it
+// just did rather than ranging over a namespace, so there is no result set for
+// a cap to cut and `truncated` is `null` on every call (§9, envelope.go).
+//
+// **Both sink faults come back naming `--secret-out` and not `secret_sink`**,
+// and that is the rule holding rather than a rough edge: a usage error's
+// message is what the command wrote where the CLI writes a human sentence, and
+// this surface forwards it so an agent reads the sentence a person would have
+// read (§9, issue #196). §9 spells one wording differently between the two
+// surfaces and one only — the truncation marker's hint — so a rewrite here
+// would be this package holding an opinion about a sentence addressed to a
+// caller (envelope.go, render.Narrowing).
+var runTool = tool{
+	name:        "run",
+	description: "Run one Procedure through every guardrail §5 states, writing the Records, the Journal entry and the Provenance the command writes. Refuses rather than overriding: no argument here is a bypass.",
+	input: closedObject(`{
+		"procedure": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The Procedure to run: a repository-relative path — one containing / or ending .yaml — or the name the artefact declares for itself. It carries no Target: a Procedure is fully bound and declares its own Target envelope."
+		},
+		"dry_run": {
+			"type": "boolean",
+			"description": "Perform the reads this Run reaches and stop rather than simulating an effect. A rehearsal writes a Journal entry marked as one, names the Step it withheld with every Step after it never reached, and reports completed — a halted rehearsal is the correct outcome of a correct operation."
+		},
+		"secret_sink": {
+			"type": "string",
+			"minLength": 1,
+			"description": "Where a Step declaring secret output writes it: an absolute path outside the repository working tree, written 0600. It is never defaulted — a Run reaching such a Step with none supplied Refuses — and the secret is never returned in this result."
+		}
+	}`, "procedure"),
+	output: closedObject(`{
+		"outcome": {
+			"enum": ["completed", "refused", "failed"],
+			"description": "§12's triple, and this tool's alone among the thirteen. It is the discriminator and isError is not: one bit cannot carry three states. failed is the one a caller may retry — past it lies time, where past a refused lies an act of somebody's."
+		},
+		"run_id": {
+			"type": "string",
+			"description": "The entry this Run wrote, whole. Absent exactly where no entry was written: the version pin gate, the bootstrap store-absent, and a Run that lost the Store before it was attempted."
+		},
+		"dry_run": {
+			"type": "boolean",
+			"description": "Whether this was a rehearsal. Written always, false included — §7's one exception to the absence rule, because what a reader that takes its absence for false gets wrong is unrecoverable."
+		},
+		"rows": {
+			"type": "array",
+			"items": {
+				"oneOf": [
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "step", "id", "kind", "disposition"],
+						"description": "One Step that reached a Disposition, in the order the Run ran them. What each Record did is the Comparison's rendering rather than the Run's, and changes is what emits it.",
+						"properties": {
+							"type": {"const": "step"},
+							"step": {"type": "integer", "minimum": 1},
+							"id": {"type": "string"},
+							"path": {"type": "string", "description": "The invocation chain a Step reached through a nested Procedure was reached under, absent on a top-level Step."},
+							"kind": {"enum": ["read", "mutate", "destroy"]},
+							"disposition": {"type": "string", "description": "What became of the Step, as §12 names it."},
+							"records": {
+								"type": "integer",
+								"minimum": 0,
+								"description": "How many identities the Step concluded about, which is not how many it wrote. Absent where the Disposition carries no set at all, and 0 where a Step ran and its Expansion resolved to nothing; the two are different answers."
+							},
+							"expanded": {
+								"type": "integer",
+								"minimum": 0,
+								"description": "What the Expansion resolved to, where the Step stopped short of it and the count above accounts for only part. Which Records those are is run_show under expansion and nowhere else."
+							}
+						}
+					},
+					`+refusalRow+`,
+					`+remediationRow+`,
+					`+provenanceRow+`
+				]
+			}
+		},
+		"truncated": {
+			"type": "null",
+			"description": "A Run reports what it just did rather than ranging over a namespace, so there is no result set for a limit to have cut and no marker to carry."
+		}
+	}`, "outcome", "dry_run", "rows", "truncated"),
+	argv: func(arguments json.RawMessage) ([]string, error) {
+		named, err := runArguments(arguments)
+		if err != nil {
+			return nil, err
+		}
+		// Both flags come off the command's line **before** the shared
+		// parser sees it and both stop at the first `--`, so they go
+		// ahead of the positional here — which is what keeps a Procedure
+		// named `--dry-run` runnable (run.go).
+		argv := []string{"run"}
+		if named.DryRun {
+			argv = append(argv, "--dry-run")
+		}
+		// The sink through namedValue, which is the reading every
+		// optional argument on this surface already gets: absent is the
+		// flag left off, and the empty string is a caller who asked for
+		// a sink and named none — a malformed call, and never the
+		// absence that makes a Step declaring secret output Refuse (§9,
+		// ADR-0007).
+		sink, err := flagsFor(namedValue{argument: "secret_sink", value: named.SecretSink, noun: "path", flag: "--secret-out"})
+		if err != nil {
+			return nil, err
+		}
+		argv = append(argv, sink...)
+		// Past one `--`, for providerTool's reason: the positional's
+		// name form is matched against a namespace that can hold
+		// anything, and its path form against a repository that can
+		// hold a file called `--json` (flags.go).
+		return append(argv, "--", named.Procedure), nil
+	},
+	executes: func(arguments json.RawMessage) (execution, error) {
+		named, err := runArguments(arguments)
+		if err != nil {
+			return execution{}, err
+		}
+		return execution{dryRun: named.DryRun}, nil
+	},
+}
+
+// runCall is one `run` call's arguments, read.
+//
+// `secret_sink` is a pointer for namedValue's reason and it is the reason the
+// whole guardrail rests on: **absent and empty are two different calls**. A
+// Run reaching a Step that declares secret output with no sink supplied Refuses
+// (`secret-sink-absent`, §12), so a caller who sent `""` asked for a sink and
+// named none — and reading that as *no sink* would turn a malformed call into
+// the very Refusal the absence exists to produce (§9, ADR-0007).
+type runCall struct {
+	Procedure  string  `json:"procedure"`
+	DryRun     bool    `json:"dry_run"`
+	SecretSink *string `json:"secret_sink"`
+}
+
+// runArguments is the one reading of a `run` call's arguments, and it is asked
+// twice: once for the command line, and once for what the envelope needs to say
+// about a Run that never reached a row (runTool).
+//
+// **It is one function rather than two readings** for the reason the golden
+// corpus reads a case's argv once: a call that answered the question
+// differently depending on who asked would be one whose command line said one
+// thing and whose envelope said another.
+//
+// The positional's empty string is refused here and the sink's is refused where
+// the flag is built, which is namedValue's own reading — the sink is optional
+// and the Procedure is not, so only one of the two has an absence to tell an
+// empty string from (runTool.argv).
+func runArguments(arguments json.RawMessage) (runCall, error) {
+	var named runCall
+	if err := readArguments(arguments, &named); err != nil {
+		return runCall{}, err
+	}
+	if err := namesSomething("procedure", named.Procedure, "Procedure"); err != nil {
+		return runCall{}, err
+	}
+	return named, nil
 }
 
 // changesTool carries `hyper changes [procedure]` — §8's Comparison, and the

@@ -1,0 +1,19 @@
+{
+  "content": [
+    {"type":"text","text":"completed · dry-run · run 01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e10"}
+  ],
+  "structuredContent": {
+    "outcome": "completed",
+    "run_id": "01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e10",
+    "dry_run": true,
+    "rows": [
+      {"type":"step","step":1,"id":"status","kind":"read","disposition":"ran","records":1},
+      {"type":"step","step":2,"id":"publish","kind":"mutate","disposition":"never-reached"},
+      {"type":"step","step":3,"id":"confirm","kind":"read","disposition":"never-reached"},
+      {"type":"provenance","hyper_version":"1.4.0","procedure_revision":"e1635d5e1898cf3bc99071c7e84e1faf0416ecb7","repo_revision":"0353643b1dce169342e2e0ebdc5e581f5fb9eb11"},
+      {"type":"provenance","step":1,"definition_revision":"077c633cf1996368e8d16880b0bf2d37b6ffe360","manifest_digest":"sha256:14430d0615ccff83ca5062c11134192621a89380e92ce554177727f54ad092b7"}
+    ],
+    "truncated": null
+  },
+  "isError": false
+}

@@ -1,0 +1,8 @@
+{
+  "answers": [
+    {"status": 204},
+    {"status": 204},
+    {"status": 204},
+    {"status": 500, "headers": {"Content-Type": "application/json"}, "body": "{\"success\":false,\"errors\":[{\"code\":10000,\"message\":\"Internal error.\"}]}"}
+  ]
+}

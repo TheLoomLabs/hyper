@@ -11,6 +11,7 @@ import (
 
 	"github.com/TheLoomLabs/hyper/internal/exit"
 	"github.com/TheLoomLabs/hyper/internal/render"
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
 // The return envelope: the one shape every tool answers with (§9, issue #195).
@@ -83,6 +84,26 @@ type TextBlock struct {
 // a command whose parameters can narrow what it cut. Re-typing either here
 // would be this package holding a second opinion about a shape it does not own.
 type Structured struct {
+	// Outcome is §12's triple, and it is `run`'s alone among the thirteen:
+	// a tool that is not a Run carries no `outcome` key at all, and this is
+	// the member that is absent there (§9, issue #200). It is **not**
+	// restated by any row and it is not `isError` — one bit does not carry
+	// three states.
+	Outcome string `json:"outcome,omitempty"`
+	// RunID is the entry the Run wrote, whole (ADR-0047), and absent
+	// exactly where no entry was written: the version pin gate and the
+	// bootstrap `store-absent`, the two paths that decline before a Run is
+	// identified, and the 75s that stand before `run.json` (§8, §9).
+	RunID string `json:"run_id,omitempty"`
+	// DryRun rides beside Outcome and is written **wherever Outcome is**,
+	// the bare `false` included — §7's one exception to the absence rule
+	// holding on this surface for the reason it holds in the Store: what a
+	// reader that takes its absence for `false` gets wrong is unrecoverable.
+	//
+	// It is a pointer for that reason and no other. `false` and *this tool
+	// is not a Run* are two different answers, and a bare bool could only
+	// say one of them.
+	DryRun *bool `json:"dry_run,omitempty"`
 	// Rows is §8's row set unchanged: one object per row, carrying the same
 	// `type` discriminator, served as an array rather than a line stream. It
 	// is `[]` where the command found nothing rather than absent, which is
@@ -91,6 +112,60 @@ type Structured struct {
 	// Truncated is what the terminal row carried, bare.
 	Truncated json.RawMessage `json:"truncated"`
 }
+
+// execution is what a call says about itself **before its command runs**: that
+// the tool carries §12's triple at all, and — where it does — whether the
+// invocation named a rehearsal (§9, issue #200).
+//
+// It exists for one path, and the path is the reason it cannot be read off the
+// answer. A Run that lost the Store to the lock or to the sync at Run start
+// stands before `run.json` and writes no terminal row at all, so there is
+// nothing there to lift an outcome from; §12 still fixes what `75` carries, and
+// this is the other operand that arm needs — `dry_run` is the invocation's, and
+// a path that guessed it `false` would tell a caller their rehearsal reached
+// the world (run.go, reportLockFault).
+//
+// **It travels as a pointer, and the nil is the whole of *this tool is not a
+// Run*.** A tool declares an execution half or it does not (tools.go), and a
+// bit inside this value restating that would be one fact in two places — the
+// day they disagree, a listing acquires an outcome.
+type execution struct {
+	// dryRun is what this call named, and it is read only where the command
+	// wrote no row carrying its own answer.
+	dryRun bool
+}
+
+// outcomeMembers is the envelope's execution half as one value: the three
+// members above, in the shape the terminal `outcome` row already writes them.
+//
+// It is decoded straight from that row rather than composed beside it, which is
+// what makes the envelope's `outcome` and the CLI's `outcome` row one fact:
+// the members are lifted, not recomputed, and a Run that reported one thing on
+// the terminal cannot report another here (§9, ADR-0026).
+//
+// **Two of the row's members stay behind, and neither is an oversight.** The
+// exit code is the fact this surface does not have — §9 states the envelope
+// without one, and outcomeSummary says what stands in its place. `error_code`
+// is the head of the Refusal's array, derived on the row and stored nowhere,
+// and a `refusal` row carries it per member: lifting it would put a second
+// representation of the array's first member beside the array, which is the
+// thing the CLI declines to store for the same reason (§7, §8, cli's
+// outcomeRow). Where the array is empty the key is absent there too — the pin
+// gate and the bootstrap `store-absent` write no rows on either surface, and
+// the check that declined is named in the Refusal rendering the text block
+// carries whole, which is where §9 puts a Refusal's identity on every one of
+// the thirteen.
+type outcomeMembers struct {
+	Outcome string `json:"outcome"`
+	RunID   string `json:"run_id"`
+	DryRun  *bool  `json:"dry_run"`
+}
+
+// outcomeType is the terminal row a Run writes, by its own discriminator. §8
+// fixes two terminal rows and makes the type itself the discriminator — a Run
+// emits `outcome` and everything else emits `result` — so this is the whole of
+// what tells the two apart on the wire.
+const outcomeType = "outcome"
 
 // envelopeOf is §9's mapping in full: the exit code one command returned, and
 // the envelope this surface answers with (§9, issue #196).
@@ -127,8 +202,8 @@ type Structured struct {
 // surface knows how to compose. It travels as a protocol error, which is where
 // §9 puts a fault in the server, and it is stated rather than dressed as a
 // domain answer — a wrong envelope is harder to notice than a missing one.
-func envelopeOf(answered Answer, rendersInFull bool) (Envelope, error) {
-	structured, kinds, err := structuredOf(answered)
+func envelopeOf(answered Answer, rendersInFull bool, called *execution) (Envelope, error) {
+	structured, kinds, err := structuredOf(answered, called)
 	if err != nil {
 		return Envelope{}, err
 	}
@@ -143,13 +218,15 @@ func envelopeOf(answered Answer, rendersInFull bool) (Envelope, error) {
 		// true of a failure as much as of a Refusal, and nothing in the
 		// structured content restates it (§9).
 		//
-		// **`1` and `75` are not one piece of news**, and neither the
-		// bit nor this arm says which happened: `75` is the code a
-		// caller may retry and `1` is not. What says it is the answer
-		// itself — §12's `outcome`, and the text block naming it — and
-		// both arrive with `run`, the one command that reaches `75` at
-		// all (§9, issue #199).
-		text, err := answerText(answered, rendersInFull, kinds, wasCut(structured.Truncated))
+		// **`1` and `75` are one piece of news on this surface**, and
+		// deliberately: §12 maps both onto `failed`, and what §9 gives
+		// a caller to act on is the triple rather than the code. What
+		// separates *retry me* from *a verbatim retry refuses
+		// identically* is `failed` standing where `refused` would have
+		// — an act is required past a `77` and time is all that is
+		// required past a `75` — and that distinction survives the loss
+		// of the code intact (§9, §12, ADR-0061, issue #200).
+		text, err := answerText(answered, rendersInFull, structured, kinds)
 		if err != nil {
 			return Envelope{}, err
 		}
@@ -160,11 +237,29 @@ func envelopeOf(answered Answer, rendersInFull bool) (Envelope, error) {
 		}, nil
 
 	case exit.Refused:
-		if answered.Refusal == "" {
+		// **The Refusal as the command rendered it, wherever the command
+		// rendered it.** Most of §9's sixteen render one where the CLI
+		// writes it on stderr and leave stdout silent, and `answered.Refusal`
+		// is that buffer. `run` is the exception and it is not a second
+		// rendering: a Run that a guardrail declined renders the Refusal
+		// *inside its page*, beneath the Step table and above §8's terminal
+		// line, so what the command wrote is the page and the page is what
+		// the text block carries — Step table, caret excerpt, `=` notes,
+		// `EDIT ONE OF` and all (§8, §9, runPage, issue #200).
+		//
+		// The pin gate and the bootstrap `store-absent` take the first arm
+		// even on `run`: both decline through the shared helper that renders
+		// a Refusal, and the page they leave behind is §8's terminal line
+		// alone (gate.go, reportRunStoreFault).
+		rendering := answered.Refusal
+		if rendering == "" {
+			rendering = answered.Rendering
+		}
+		if rendering == "" {
 			return Envelope{}, fmt.Errorf("the command exited %d and rendered no Refusal, which is a fault in the server: the rendering is the entire way past (ADR-0001)", answered.Exit)
 		}
 		return Envelope{
-			Content:           []TextBlock{{Type: "text", Text: refusalText(answered.Refusal)}},
+			Content:           []TextBlock{{Type: "text", Text: refusalText(rendering)}},
 			StructuredContent: structured,
 			IsError:           true,
 		}, nil
@@ -200,16 +295,109 @@ func envelopeOf(answered Answer, rendersInFull bool) (Envelope, error) {
 // the same row on the `--json` stream are the same bytes: the two surfaces
 // cannot state different things because there is one row set and one encoder
 // behind both (ADR-0026).
-func structuredOf(answered Answer) (Structured, []string, error) {
+func structuredOf(answered Answer, called *execution) (Structured, []string, error) {
 	rows, kinds, err := marshalRows(answered.Rows)
 	if err != nil {
 		return Structured{}, nil, err
 	}
-	truncated, err := truncatedOf(answered.Terminal)
+	// The terminal row, encoded and discriminated **once**. What it carries
+	// goes two ways from here — the truncation marker into `truncated`, the
+	// execution members into the three keys beside it — and §8 fixes that
+	// the type is what tells the two terminal rows apart, so a second
+	// reading would be the same row asked the same question twice.
+	terminal, kind, err := discriminate(answered.Terminal)
 	if err != nil {
 		return Structured{}, nil, err
 	}
-	return Structured{Rows: rows, Truncated: truncated}, kinds, nil
+	truncated, err := truncatedOf(answered.Terminal, terminal, kind)
+	if err != nil {
+		return Structured{}, nil, err
+	}
+	structured := Structured{Rows: rows, Truncated: truncated}
+
+	carried, carries, err := executionOf(terminal, kind, called, answered.Exit)
+	if err != nil {
+		return Structured{}, nil, err
+	}
+	if carries {
+		structured.Outcome, structured.RunID, structured.DryRun = carried.Outcome, carried.RunID, carried.DryRun
+	}
+	return structured, kinds, nil
+}
+
+// executionOf is the envelope's execution members: §12's triple, the rehearsal
+// marker written beside it, and the Run id where an entry was written — and
+// whether this answer carries them at all (§9, issue #200).
+//
+// **They are lifted from the terminal `outcome` row wherever the command wrote
+// one**, which is every path on which a Run was attempted and the two that
+// decline before a Run is identified — the version pin gate and the bootstrap
+// `store-absent`, where what is missing is the `run_id` and never the key
+// beside it (§8). Lifting rather than recomposing is what makes the envelope's
+// `outcome` and the CLI's `outcome` row one fact rather than two that have to
+// agree (ADR-0026).
+//
+// **The one path with no row to lift from is a Run that lost the Store before
+// it was attempted**: the lock, and the sync at Run start. Both stand before
+// `run.json`, so §8 leaves them writing nothing at all and the CLI's exit code
+// carries the news on its own — and this surface has no exit code, so an
+// envelope composed the same way would answer `isError: true` with nothing in
+// it to say which of the triple happened. §12 fixes what each code carries, so
+// the outcome is read from the code and `dry_run` from the call that named it
+// (execution, run.go).
+//
+// A row that carries no `dry_run` is a fault in the server rather than an
+// absent marker: §7's one exception to the absence rule is written always, so
+// a row without it is a row this repository composed wrongly, and reading its
+// silence as `false` is the one reading §7 forbids.
+func executionOf(terminal json.RawMessage, kind string, called *execution, code int) (outcomeMembers, bool, error) {
+	if kind == outcomeType {
+		var carried outcomeMembers
+		if err := json.Unmarshal(terminal, &carried); err != nil {
+			return outcomeMembers{}, false, err
+		}
+		if carried.DryRun == nil {
+			return outcomeMembers{}, false, fmt.Errorf("the terminal row %s carries no dry_run member, which is written always (§7)", terminal)
+		}
+		return carried, true, nil
+	}
+	if called == nil {
+		return outcomeMembers{}, false, nil
+	}
+	outcome, mapped := outcomeFor(code)
+	if !mapped {
+		return outcomeMembers{}, false, nil
+	}
+	dryRun := called.dryRun
+	return outcomeMembers{Outcome: outcome, DryRun: &dryRun}, true, nil
+}
+
+// outcomeFor is §12's exit code read for the outcome it carries — *seven
+// members, one per way an invocation can end, each carrying the outcome of the
+// triple it maps onto* — and whether the code is one that carries one at all.
+//
+// **It is the same table cli's exitFor writes in the other direction**, and the
+// two are not one function because they are not one question: exitFor maps an
+// answer and a signal onto the finer code space, and this maps a code back onto
+// the coarser triple. What holds them together is §12, which states both.
+//
+// It is reached on the one path above and states the whole table anyway,
+// because a partial reading is one that answers *no outcome* on a path nobody
+// foresaw. `2` is the member that carries none: no Run began, and a usage error
+// never reaches an envelope on this surface in any case (§12, ADR-0060). The
+// two signals are unreachable here for the reason envelopeOf states — this
+// server installs no signal watch — and they are mapped rather than left out,
+// a code that arrives being better answered than guessed at.
+func outcomeFor(code int) (string, bool) {
+	switch code {
+	case exit.Clean:
+		return string(store.OutcomeCompleted), true
+	case exit.Refused:
+		return string(store.OutcomeRefused), true
+	case exit.Problems, exit.StoreLost, exit.Interrupted, exit.Terminated:
+		return string(store.OutcomeFailed), true
+	}
+	return "", false
 }
 
 // answerText is the text block of an ordinary return, which is the first two
@@ -236,9 +424,18 @@ func structuredOf(answered Answer) (Structured, []string, error) {
 // block, so there is nothing left to say. It is stated rather than carried,
 // for the reason the Refusal arm states its own — a wrong envelope is harder
 // to notice than a missing one.
-func answerText(answered Answer, rendersInFull bool, kinds []string, truncated bool) (string, error) {
+func answerText(answered Answer, rendersInFull bool, structured Structured, kinds []string) (string, error) {
 	if !rendersInFull {
-		return summary(kinds, truncated), nil
+		// **Outcome first, and on `run` that means the outcome instead of
+		// the counts**: §8's terminal line arriving here as a sentence
+		// (§9, issue #200). It is selected on the answer rather than
+		// declared per tool for summary's own reason — a tool is a schema
+		// and an argv — and what selects it is the one thing that is true
+		// of a Run's answer and of nothing else: it carries the triple.
+		if structured.Outcome != "" {
+			return outcomeSummary(structured), nil
+		}
+		return summary(kinds, wasCut(structured.Truncated)), nil
 	}
 	if answered.Rendering == "" {
 		return "", fmt.Errorf("the command exited %d and rendered no page, which is a fault in the server: this tool's text block is the rendering and nothing else (§9)", answered.Exit)
@@ -289,20 +486,39 @@ func marshalRows(rows []render.Row) ([]json.RawMessage, []string, error) {
 	encoded := make([]json.RawMessage, 0, len(rows))
 	kinds := make([]string, 0, len(rows))
 	for _, row := range rows {
-		line, err := render.MarshalRow(row)
+		line, kind, err := discriminate(row)
 		if err != nil {
 			return nil, nil, err
 		}
-		var discriminated struct {
-			Type string `json:"type"`
-		}
-		if err := json.Unmarshal(line, &discriminated); err != nil {
-			return nil, nil, err
-		}
 		encoded = append(encoded, line)
-		kinds = append(kinds, discriminated.Type)
+		kinds = append(kinds, kind)
 	}
 	return encoded, kinds, nil
+}
+
+// discriminate is one row on the wire and the `type` it went out under, and it
+// is the **one** reading of a row this package makes: §8 fixes that a row's
+// `type` is its first key, so the encoded row is where that fact is true, and
+// every question this file asks about which row it has is asked here.
+//
+// A nil row is no bytes and no type, which is the shape a command that opened
+// no row stream at all leaves behind: a usage error, and a guardrail declining
+// from a command that is not a Run (§9, ADR-0060).
+func discriminate(row render.Row) (json.RawMessage, string, error) {
+	if row == nil {
+		return nil, "", nil
+	}
+	encoded, err := render.MarshalRow(row)
+	if err != nil {
+		return nil, "", err
+	}
+	var read struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(encoded, &read); err != nil {
+		return nil, "", err
+	}
+	return encoded, read.Type, nil
 }
 
 // truncatedOf is the terminal row's `truncated` member, lifted whole — except
@@ -323,7 +539,7 @@ func marshalRows(rows []render.Row) ([]json.RawMessage, []string, error) {
 // (render.Narrowing), so this asks the marker for its second spelling rather
 // than editing the sentence the first one composed — a rewrite here would be
 // this package holding an opinion about which flags a command has.
-func truncatedOf(terminal render.Row) (json.RawMessage, error) {
+func truncatedOf(terminal render.Row, encoded json.RawMessage, kind string) (json.RawMessage, error) {
 	// **No terminal row is `null` and not an error**, and the path that
 	// reaches it is a command that opened no row stream at all: a usage
 	// error, and a guardrail declining from a command that is not a Run
@@ -342,9 +558,16 @@ func truncatedOf(terminal render.Row) (json.RawMessage, error) {
 			return json.Marshal(marker.InArguments())
 		}
 	}
-	encoded, err := render.MarshalRow(terminal)
-	if err != nil {
-		return nil, err
+	// **A Run's terminal row has no truncation to carry**, and that is the
+	// second way this member is `null`. §8 states two terminal rows and makes
+	// the type the discriminator: everything that ranges over something ends
+	// in `result`, carrying the marker, and a Run ends in `outcome`, carrying
+	// what a Run did. A Run reports what it just did rather than ranging over
+	// a namespace, so there is no result set for a cap to have cut — and
+	// `false` here would be this surface claiming a stream was complete that
+	// was never a stream (§8, §9, issue #200).
+	if kind == outcomeType {
+		return json.RawMessage("null"), nil
 	}
 	var carried struct {
 		Truncated json.RawMessage `json:"truncated"`
@@ -373,6 +596,46 @@ func wasCut(truncated json.RawMessage) bool {
 		return false
 	}
 	return true
+}
+
+// outcomeSummary is a Run's text block: §8's terminal line, arriving here as a
+// sentence (§9, issue #200).
+//
+// **It names the outcome first and the Run id after it**, which is the whole of
+// what a client with no exit code and no scrollback needs from it: an entry the
+// envelope does not name is one an agent can reach only by asking which Run was
+// the last, on a Store two environments write. Where no entry was written there
+// is nothing to name, and the line says what happened and stops.
+//
+// **The exit code is the one member of §8's line this does not compose.** The
+// terminal compensates for the outcome arriving last by carrying a code, and
+// this surface has no code to carry: what §12's `75` says — *past this lies
+// time* — is said here by `failed` standing where `refused` would have, which
+// is the distinction a caller acts on (§9, §12, ADR-0061).
+//
+// That is a fact about **this line** and not about the envelope. A Refusal's
+// text block is the command's page forwarded whole, and the page ends in §8's
+// terminal line with its code and its `hyper show` pointer in it — because the
+// rendering goes over untouched, which is the rule an edit here would break
+// (refusalText).
+//
+// **The rehearsal marker travels**, and it is the one part of the line that is
+// load-bearing rather than informative: without it the sentence a Run that
+// reached the world writes and the sentence a rehearsal writes are the same
+// bytes, on the one path where the difference is the whole point (§7).
+//
+// It is composed from the lifted members and not from a second reading of the
+// answer, so the sentence and the three keys beside it cannot disagree about
+// what happened (structuredOf).
+func outcomeSummary(structured Structured) string {
+	parts := []string{structured.Outcome}
+	if structured.DryRun != nil && *structured.DryRun {
+		parts = append(parts, "dry-run")
+	}
+	if structured.RunID != "" {
+		parts = append(parts, "run "+structured.RunID)
+	}
+	return strings.Join(parts, " · ")
 }
 
 // summary is the ordinary return's text block: **one summary line, outcome

@@ -1,0 +1,25 @@
+{
+  "content": [
+    {"type":"text","text":"nothing ran. no step was reached.\n\nrefused: artefact-absent\n\n  definitions/paid-status.yaml:3\n    1 │ kind: definition\n    2 │ definition: paid-status\n    3 │ provider: paidd\n      │           ^ provider: paidd resolves to nothing — no built-in Provider and no providers/paidd.yaml\n      │\n      = checked at run start, before the first step\n      = no flag overrides this (ADR-0001) — the way past is an artefact edit\n\nEDIT ONE OF\nFILE                          LINE  FIELD\ndefinitions/paid-status.yaml  3     provider\n\nrefused: unknown-key\n\n  hyper.yaml:5\n    3 │ digest: sha256:0000000000000000000000000000000000000000000000000000000000000000\n    4 │ retention: 90d\n    5 │ retain-forever: true\n      │                 ^ \"retain-forever\" is not a key the schema at this position admits\n      │\n      = checked at run start, before the first step\n      = no flag overrides this (ADR-0001) — the way past is an artefact edit\n\nEDIT ONE OF\nFILE        LINE  FIELD\nhyper.yaml  5     retain-forever\n\nrefused: reference-unresolvable\n\n  procedures/reaches-nothing.yaml:7\n    5 │   - id: nope\n    6 │     definition: uptime-check\n    7 │     operation: no_such_operation\n      │                ^ operation: no_such_operation names no Operation the Definition's Provider declares\n      │\n      = checked at run start, before the first step\n      = no flag overrides this (ADR-0001) — the way past is an artefact edit\n\nEDIT ONE OF\nFILE                             LINE  FIELD\nprocedures/reaches-nothing.yaml  7     steps[0].operation\n\nrefused: header-reserved\n\n  providers/paid.yaml:7\n    6 │ auth:\n    7 │   header: {name: Content-Type, prefix: \"Bearer \"}\n      │           ^ Content-Type: is one of the five headers hyper computes for itself\n      │\n      = checked at run start, before the first step\n      = no flag overrides this (ADR-0001) — the way past is an artefact edit\n\nEDIT ONE OF\nFILE                 LINE  FIELD\nproviders/paid.yaml  7     auth.header.name\n\nrefused: credential-slot-malformed\n\n  targets/paid.yaml:8\n    7 │ auth:\n    8 │   token: PAID_TOKEN\n      │          ^ auth.token: a credential slot's value must be a mapping whose sole key is env:\n      │\n      = checked at run start, before the first step\n      = no flag overrides this (ADR-0001) — the way past is an artefact edit\n\nEDIT ONE OF\nFILE               LINE  FIELD\ntargets/paid.yaml  8     auth.token\n\nrefused · exit 77 · run 01991f65-5f66-7195-8c71-8fa0c6152e69\n\na verbatim retry refuses identically: no argument to this tool, and no flag anywhere, overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."}
+  ],
+  "structuredContent": {
+    "outcome": "refused",
+    "run_id": "01991f65-5f66-7195-8c71-8fa0c6152e69",
+    "dry_run": false,
+    "rows": [
+      {"type":"refusal","error_code":"artefact-absent","file":"definitions/paid-status.yaml","line":3,"field":"provider","message":"provider: paidd resolves to nothing — no built-in Provider and no providers/paidd.yaml"},
+      {"type":"remediation","file":"definitions/paid-status.yaml","line":3,"field":"provider"},
+      {"type":"refusal","error_code":"unknown-key","file":"hyper.yaml","line":5,"field":"retain-forever","message":"\"retain-forever\" is not a key the schema at this position admits"},
+      {"type":"remediation","file":"hyper.yaml","line":5,"field":"retain-forever"},
+      {"type":"refusal","error_code":"reference-unresolvable","file":"procedures/reaches-nothing.yaml","line":7,"field":"steps[0].operation","message":"operation: no_such_operation names no Operation the Definition's Provider declares"},
+      {"type":"remediation","file":"procedures/reaches-nothing.yaml","line":7,"field":"steps[0].operation"},
+      {"type":"refusal","error_code":"header-reserved","file":"providers/paid.yaml","line":7,"field":"auth.header.name","message":"Content-Type: is one of the five headers hyper computes for itself"},
+      {"type":"remediation","file":"providers/paid.yaml","line":7,"field":"auth.header.name"},
+      {"type":"refusal","error_code":"credential-slot-malformed","file":"targets/paid.yaml","line":8,"field":"auth.token","message":"auth.token: a credential slot's value must be a mapping whose sole key is env:"},
+      {"type":"remediation","file":"targets/paid.yaml","line":8,"field":"auth.token"},
+      {"type":"provenance","hyper_version":"1.4.0","procedure_revision":"54ff1a903180ac1a4e7fe5039cc0ab87ad8aa329","repo_revision":"93b6129dc575be36f1bc5a6dd6285a81ead496d5"}
+    ],
+    "truncated": null
+  },
+  "isError": true
+}

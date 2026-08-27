@@ -329,7 +329,7 @@ drives.
 | `a-working-tree-that-moved` | an artefact the Run read differs from `HEAD`, so the entry carries `repo_dirty: true` and the Provenance names the working tree's blob |
 | `an-untracked-artefact-is-dirty` | the other half of the same sentence: the Definition the Step binds is not committed at all, and the entry says so |
 | `a-run-on-a-runner` | the Trigger's other executor: `cause: cron`, the occasion, and no `host` |
-| `a-secret-field-is-the-marker` | a Manifest declaring `secret:` — the version carries the constant marker and the value reaches no file. It supplies `--secret-out`, without which the sink gate below would decline it before Step 1 |
+| `a-secret-field-is-the-marker`, `-json` | a Manifest declaring `secret:` — the version carries the constant marker and the value reaches no file. It supplies `--secret-out`, without which the sink gate below would decline it before Step 1. The `-json` half carries the same Run's rows and exists so that the second surface's twin has one to be paired against (`mcp/run/`, issue #200) |
 | `a-host-that-answered-nothing` | the `read` that never halts on what came back: the host is granted and the case serves it nothing, so the Observation records the silence and the Run completes at `0` |
 | `a-run-halted-by-its-step` | a Run the world resisted: `failed`, exit `1`, the Step *ran* with the set it concluded about, and the entry left where it stopped |
 | `what-the-run-wrote-reaches-the-remote` | the Run's own commits go out and `remote.golden` shows what arrived |
@@ -516,7 +516,7 @@ semantics on top.
 
 | Case | What it is about |
 | --- | --- |
-| `a-shell-mutate-lands-an-asset` | the effectful spine under this Capability: a `mutate` runs a command, one version lands with `record_type: asset` named by the argv that made it, the Step is *ran* and the Run completes at `0` |
+| `a-shell-mutate-lands-an-asset`, `-json` | the effectful spine under this Capability: a `mutate` runs a command, one version lands with `record_type: asset` named by the argv that made it, the Step is *ran* and the Run completes at `0`. The `-json` half exists so that the second surface's twin has a stream to be paired against (`mcp/run/`, issue #200) |
 | `a-shell-mutate-that-exited-non-zero` | the halt: `1` is not `0`, so the Step is ***ran*** at `0 of 1`, carries **no `error_code`** — nothing declined — and its `answered` holds the command and the exit code, which is §7's own worked example |
 | `a-shell-mutate-whose-child-never-started` | the argv names a binary the case's `bin/` does not hold: the object is `command` alone, so the Step is ***attempted, world untouched*** with no identity set and `–` in `RECORDS`, and its `answered` is the command with **no `exit_code` beside it**. It is a request that never left under a different Capability and carries the same Disposition (ADR-0062) |
 | `a-shell-destroy-halted-at-the-second-of-two` | `rm -rf` over two paths where the second exits `1`: the first Tombstone is committed, the Step is *ran* at `1 of 2`, and the Run halts at `1`. **No exit code completes a `destroy`** — there is no `404` to be told *already gone* by, and what the `answered` names is the member that ended the Step rather than the one that succeeded |
