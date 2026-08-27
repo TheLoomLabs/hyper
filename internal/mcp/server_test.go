@@ -383,6 +383,16 @@ func TestCall_AnArgumentTheSchemaDoesNotAdmitIsAProtocolError(t *testing.T) {
 		{"a Procedure named as the empty string on a tool whose positional is optional", "changes", `{"procedure":""}`},
 		{"a Record named as the empty string", "records", `{"name":""}`},
 		{"a history that is not a boolean", "records", `{"history":"all"}`},
+		{"a Probe with no Operation named", "probe", `{"provider":"uptime"}`},
+		{"a Probe naming its Provider as the empty string", "probe", `{"provider":"","operation":"check_http"}`},
+		{"an inputs member that is a list", "probe", `{"provider":"uptime","operation":"check_http","inputs":{"host":["a"]}}`},
+		{"an inputs member that is a mapping", "probe", `{"provider":"uptime","operation":"check_http","inputs":{"host":{"name":"a"}}}`},
+		{"an inputs member that is null", "probe", `{"provider":"uptime","operation":"check_http","inputs":{"host":null}}`},
+		{"an input named by the empty string", "probe", `{"provider":"uptime","operation":"check_http","inputs":{"":"a"}}`},
+		{"an input whose name carries an =", "probe", `{"provider":"uptime","operation":"check_http","inputs":{"a=b":"c"}}`},
+		{"inputs that are not an object at all", "probe", `{"provider":"uptime","operation":"check_http","inputs":"host=a"}`},
+		{"a Definition where a Probe takes a Provider and an Operation", "probe", `{"definition":"uptime","operation":"check_http"}`},
+		{"a Target on the one tool that binds local and nothing else", "probe", `{"provider":"uptime","operation":"check_http","target":"cloudflare-prod"}`},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, _ := answering(nil, render.NewResultRow(false))
@@ -458,6 +468,26 @@ func TestCall_TheArgvIsTheCommandLineItsCommandWouldHaveReceived(t *testing.T) {
 		{"a rehearsal with a sink, both flags ahead of the positional", "run",
 			`{"procedure":"read-session","dry_run":true,"secret_sink":"/run/secrets/session-token"}`,
 			[]string{"run", "--dry-run", "--secret-out", "/run/secrets/session-token", "--", "read-session"}},
+		{"a Probe of an Operation taking no inputs", "probe", `{"provider":"uptime","operation":"check_http"}`,
+			[]string{"probe", "--", "uptime", "check_http"}},
+		{"a Probe with its inputs left off entirely", "probe", `{"provider":"uptime","operation":"check_http","inputs":{}}`,
+			[]string{"probe", "--", "uptime", "check_http"}},
+		{"one input, as the repeated flag its command takes", "probe",
+			`{"provider":"uptime","operation":"check_http","inputs":{"host":"status.hyper.dev"}}`,
+			[]string{"probe", "--input", "host=status.hyper.dev", "--", "uptime", "check_http"}},
+		{"two inputs, by name and not by the order they were written", "probe",
+			`{"provider":"metrics","operation":"window","inputs":{"minutes":15,"host":"metrics.hyper.dev"}}`,
+			[]string{"probe", "--input", "host=metrics.hyper.dev", "--input", "minutes=15", "--", "metrics", "window"}},
+		{"a number spelled as the caller wrote it", "probe",
+			`{"provider":"metrics","operation":"window","inputs":{"minutes":1.0}}`,
+			[]string{"probe", "--input", "minutes=1.0", "--", "metrics", "window"}},
+		{"a boolean input", "probe", `{"provider":"uptime","operation":"check_http","inputs":{"follow":true}}`,
+			[]string{"probe", "--input", "follow=true", "--", "uptime", "check_http"}},
+		{"a value carrying an = of its own, which the pair splits at its first", "probe",
+			`{"provider":"uptime","operation":"check_http","inputs":{"query":"a=b"}}`,
+			[]string{"probe", "--input", "query=a=b", "--", "uptime", "check_http"}},
+		{"two names spelled like flags, past the --", "probe", `{"provider":"--json","operation":"--limit"}`,
+			[]string{"probe", "--", "--json", "--limit"}},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, argv := answering(nil, render.NewResultRow(false))
@@ -1013,6 +1043,117 @@ func TestListTools_RunTakesTheThreeArgumentsAndNoBypassUnderAnyName(t *testing.T
 	}
 	if got, want := schema.Required, []string{"procedure"}; !slices.Equal(got, want) {
 		t.Errorf("run requires %q, want %q: every Run is a Run of a Procedure, and the other two are the occasion", got, want)
+	}
+}
+
+// TestListTools_ProbeTakesTwoNamesAndAnInputsObject is §9's signature for the
+// second Execution tool, held where it is holdable: the published schema
+// (issue #201).
+//
+// **The closure is the claim and `inputs` is the exception it makes room for.**
+// The argument object is closed over three properties, so the `definition`, the
+// `target` and the `repo_dir` §9 spends paragraphs refusing are refused by there
+// being no fourth. What `inputs` admits is open, and it has to be: its keys are
+// the Operation's, declared in a Manifest this schema has never read, so a
+// closed object there would be this surface naming a shape it does not own
+// (closedObject).
+//
+// What it is **not** open about is what a member may hold. Every §12 type is a
+// scalar, so the three JSON scalars are named and nothing else is — an `object`
+// and an `array` read as nothing at every position a hole fills (ADR-0078), and
+// a member that is one of them names a value no input can carry.
+func TestListTools_ProbeTakesTwoNamesAndAnInputsObject(t *testing.T) {
+	schema := declared(t, probeTool.input)
+
+	if !schema.closed() {
+		t.Error("probe's input schema admits properties it does not state; a schema that admits a member it does not name is one under which an override argument is well-formed")
+	}
+	if got, want := schema.names(), []string{"inputs", "operation", "provider"}; !slices.Equal(got, want) {
+		t.Errorf("probe takes %q, want %q — the two positionals and the inputs, and no Definition and no Target", got, want)
+	}
+	if got, want := schema.Required, []string{"provider", "operation"}; !slices.Equal(got, want) {
+		t.Errorf("probe requires %q, want %q: a Probe resolves two names, and an Operation taking no inputs is supplied none", got, want)
+	}
+
+	var inputs struct {
+		Type          string `json:"type"`
+		PropertyNames struct {
+			MinLength *int   `json:"minLength"`
+			Pattern   string `json:"pattern"`
+		} `json:"propertyNames"`
+		AdditionalProperties struct {
+			Type []string `json:"type"`
+		} `json:"additionalProperties"`
+	}
+	if err := json.Unmarshal(schema.Properties["inputs"], &inputs); err != nil {
+		t.Fatal(err)
+	}
+	if inputs.Type != "object" {
+		t.Errorf("inputs is declared %q, want an object keyed by input name", inputs.Type)
+	}
+	if got, want := inputs.AdditionalProperties.Type, []string{"string", "number", "boolean"}; !slices.Equal(got, want) {
+		t.Errorf("an input admits %q, want %q: every type §12 declares is a scalar, and object and array read as nothing anywhere", got, want)
+	}
+	// **The key is declared too, and it has to be**: the server refuses a
+	// name that is empty and one that carries an `=`, and a refusal the
+	// schema does not state is this surface declining what it published as
+	// well-formed (suppliedInputs).
+	if inputs.PropertyNames.MinLength == nil || *inputs.PropertyNames.MinLength != 1 {
+		t.Errorf("inputs declares propertyNames minLength %v, want 1: a key that is well-typed and names no input is a malformed call", inputs.PropertyNames.MinLength)
+	}
+	if got, want := inputs.PropertyNames.Pattern, `^[^=]*$`; got != want {
+		t.Errorf("inputs declares propertyNames pattern %q, want %q: an input is spelled as one --input name=value pair, split at its first =", got, want)
+	}
+}
+
+// TestCall_AnInputNameTheSchemaRefusesIsRefusedByTheServer is the other half of
+// the pair above: a `propertyNames` is a claim a client may or may not check,
+// and this is the reading that makes it true where it is enforceable (§9,
+// readArguments).
+//
+// Both keys are **well-typed** — `inputs` is an object and its member is a
+// string — so nothing but the key itself declines them, which is why the schema
+// and the server are asserted together rather than either alone.
+func TestCall_AnInputNameTheSchemaRefusesIsRefusedByTheServer(t *testing.T) {
+	for _, called := range []struct{ name, arguments string }{
+		{"a key that names no input", `{"provider":"uptime","operation":"check_http","inputs":{"":"status.hyper.dev"}}`},
+		{"a key no --input pair can address", `{"provider":"uptime","operation":"check_http","inputs":{"a=b":"c"}}`},
+	} {
+		t.Run(called.name, func(t *testing.T) {
+			server, argv := answering(nil, render.NewResultRow(false))
+
+			if envelope, err := server.Call(t.Context(), "probe", json.RawMessage(called.arguments)); err == nil {
+				t.Fatalf("the call answered %+v, want a protocol error", envelope)
+			}
+			if len(*argv) > 0 {
+				t.Errorf("the tool built %q; a name the schema refuses reaches no command line", *argv)
+			}
+		})
+	}
+}
+
+// TestListTools_ProbeAnswersOneRowAndNoOutcome is the other half of the tool:
+// what a Probe returns, and the key it does not carry.
+//
+// **A Probe has no outcome triple to report**, having written no Record and no
+// Journal entry (ADR-0009), so the output schema names the rows and the
+// truncation marker and nothing beside them. The `outcome`, `run_id` and
+// `dry_run` `run` declares are absent here by the schema being closed over what
+// §9 names, which is the same closure that keeps a secret out of a Run's answer.
+//
+// **The two members whose keys are not this file's are declared open**, and that
+// is closedObject's stated exception rather than a hole in it: a projection's
+// keys are the Manifest's and a response's are the world's, and a closed object
+// over either would be this surface stating a shape it does not own — wrongly,
+// since the next Manifest projects a field it has never heard of.
+func TestListTools_ProbeAnswersOneRowAndNoOutcome(t *testing.T) {
+	schema := declared(t, probeTool.output)
+
+	if !schema.closed() {
+		t.Error("probe's output schema admits members it does not state")
+	}
+	if got, want := schema.names(), []string{"rows", "truncated"}; !slices.Equal(got, want) {
+		t.Errorf("probe answers %q, want %q — a Probe is no Run, and carries no outcome key at all", got, want)
 	}
 }
 

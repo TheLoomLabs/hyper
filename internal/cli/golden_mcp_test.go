@@ -279,43 +279,45 @@ func TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue(t *testing.T) {
 	}
 }
 
-// TestGoldenCorpora_ARunThroughTheToolWritesTheStoreTheCommandWrites is the
-// claim `run` on this surface is really about, held as a comparison of bytes:
-// *ergonomics is the whole of the difference between the two* (§9, issue #200).
+// TestGoldenCorpora_AToolLeavesTheBranchItsCommandLeaves is the claim this
+// surface is really about, held as a comparison of bytes: *ergonomics is the
+// whole of the difference between the two* (§9, issues #200 and #201).
 //
 // A tool builds the command line its command would have received and hands it
-// to the same dispatch, so a Run driven through the tool and the same Run driven
-// through the argv are one Run. The two cases stand the same fixture from the
-// same seed with the same minted id against the same served world, so the branch
-// each leaves behind is comparable byte for byte — and if it ever stops being,
-// the tool has grown a behaviour of its own, which is the one thing this surface
-// may not do.
+// to the same dispatch, so what a call leaves on the Store branch and what the
+// same invocation leaves through the argv are one thing. On `run` that is the
+// Journal entry, the Records and the Provenance a Run writes; on `probe` it is
+// **nothing at all**, a Probe writing no Record and no Journal entry (ADR-0009)
+// — and a store.golden is how the corpus says either without taking the tool's
+// word for it.
 //
 // **The pairing is by name and the name is the command corpus's**, which is what
-// makes the fence self-maintaining: a case under testdata/mcp/run/ named for a
-// case under testdata/run/ is asserted against it, and one named for nothing —
-// every `usage-` case, which reaches no Run at all — is passed over. A twin that
-// is renamed on one side and not the other stops being compared, which the count
+// makes the fence self-maintaining: a case under `testdata/mcp/<tool>/` named
+// for a case under the corpus of the command that tool carries is asserted
+// against it, and one named for nothing — every `usage-` case, which reaches no
+// invocation at all — carries no store.golden and is passed over. A twin
+// renamed on one side and not the other stops being compared, which the count
 // below is what catches.
-func TestGoldenCorpora_ARunThroughTheToolWritesTheStoreTheCommandWrites(t *testing.T) {
+func TestGoldenCorpora_AToolLeavesTheBranchItsCommandLeaves(t *testing.T) {
 	var paired int
 	walkTestdata(t, "store.golden", func(dir string) {
-		tool, twin := filepath.Split(filepath.Clean(dir))
-		if filepath.Clean(tool) != filepath.Join("testdata", "mcp", "run") {
+		name := filepath.ToSlash(strings.TrimPrefix(dir, "testdata"+string(filepath.Separator)))
+		twin, under := twinOf(name)
+		if !under {
 			return
 		}
-		beside := filepath.Join("testdata", "run", twin, "store.golden")
+		beside := filepath.Join(twin, "store.golden")
 		if !isFile(beside) {
-			t.Errorf("case mcp/run/%s holds a store.golden and testdata/run/%s holds none; a Run through the tool is named for the Run through the command it is the same Run as", twin, twin)
+			t.Errorf("case %s holds a store.golden and %s holds none; a call is named for the invocation through the command it is the same invocation as", name, twin)
 			return
 		}
 		paired++
 		if through, command := readFile(t, filepath.Join(dir, "store.golden")), readFile(t, beside); through != command {
-			t.Errorf("case mcp/run/%s left a branch its argv twin did not:\n through the tool:    %q\n through the command: %q", twin, through, command)
+			t.Errorf("case %s left a branch its argv twin did not:\n through the tool:    %q\n through the command: %q", name, through, command)
 		}
 	})
 	if paired == 0 {
-		t.Fatal("no case under testdata/mcp/run/ is paired with the command corpus; the claim that one Run reaches one Store through two doors is held over nothing")
+		t.Fatal("no case under testdata/mcp/ is paired with the command corpus; the claim that one invocation reaches one branch through two doors is held over nothing")
 	}
 }
 
@@ -654,6 +656,7 @@ func decodedRow(t *testing.T, line string) map[string]any {
 //
 //	provider, target, manifest, operation   name, digest
 //	operation_detail                        source
+//	probe_result                            provider, operation
 //	artefact                                kind, path
 //	gutter                                  line
 //	authority                               definition, target
@@ -674,6 +677,19 @@ func decodedRow(t *testing.T, line string) map[string]any {
 // rather than inventing a second one. The `source` is the declaring lines
 // themselves, which is a long key and the honest one: that row has no shorter
 // member saying **which** Operation it is about.
+//
+// **A `probe_result` is named by the two positionals its call resolved** (issue
+// #201). It carries no `name` and no `digest` — its members are a Provider, an
+// Operation, a projection and a response — so without them every Probe in the
+// corpus is one key, and a `metrics window` envelope would be held against the
+// `uptime check_http` streams as readily as against its own.
+//
+// The three `uptime check_http` cases **do** share one key, and that is the
+// enumeration working rather than falling short: they are three renderings of
+// one identity — a `503`, a `200`, and a host that answered nothing — and what
+// the fence holds is that an envelope's row is one of the renderings the stream
+// writes, which is why each of them has a `--json` twin written for it
+// (testdata/probe/README.md).
 //
 // **The Inspection four's rows are what made `step` a member** (issue #199).
 // Two Steps of one Run against one Definition and one Target differ in their
@@ -697,6 +713,8 @@ func rowIdentity(line string) string {
 		Name       string `json:"name"`
 		Digest     string `json:"digest"`
 		Source     string `json:"source"`
+		Provider   string `json:"provider"`
+		Operation  string `json:"operation"`
 		Kind       string `json:"kind"`
 		Path       string `json:"path"`
 		Line       int    `json:"line"`
@@ -732,7 +750,7 @@ func rowIdentity(line string) string {
 		return ""
 	}
 	return strings.Join([]string{
-		row.Type, row.Name, row.Digest, row.Source, row.Kind, row.Path,
+		row.Type, row.Name, row.Digest, row.Source, row.Provider, row.Operation, row.Kind, row.Path,
 		strconv.Itoa(row.Line), row.Definition, row.Target, row.Flag,
 		strconv.Itoa(row.CitesLine), row.File, row.ErrorCode,
 		row.ID, row.RunID, strconv.Itoa(row.Step), row.Field,

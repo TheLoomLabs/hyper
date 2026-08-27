@@ -1,0 +1,2 @@
+hyper probe: shell read is an opaque Operation, and a Probe may never invoke one whatever any Target grants
+  there is no edit that would make it work; run the command yourself

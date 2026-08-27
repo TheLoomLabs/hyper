@@ -1,0 +1,1 @@
+{"tool": "probe", "arguments": {"provider": "uptime", "operation": "check_http", "inputs": {"host": "elsewhere.example.com"}}}

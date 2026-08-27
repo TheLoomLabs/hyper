@@ -1,0 +1,10 @@
+{
+  "content": [
+    {"type":"text","text":"refused: host-not-granted\n\n  targets/local.yaml:6\n    4 │ kinds: [read]\n    5 │ capabilities: [http]\n    6 │ hosts: [status.hyper.dev, cert.hyper.dev]\n      │        ^ local grants no elsewhere.example.com\n      │\n      = no flag overrides this (ADR-0001) — the way past is an artefact edit\n\nEDIT ONE OF\nFILE                LINE  FIELD\ntargets/local.yaml  6     hosts\n\na verbatim retry refuses identically: no argument to this tool, and no flag anywhere, overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."}
+  ],
+  "structuredContent": {
+    "rows": [],
+    "truncated": null
+  },
+  "isError": true
+}

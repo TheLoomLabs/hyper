@@ -1,0 +1,1 @@
+probe: inputs host: ["status.hyper.dev"] is no value an input carries; an input holds one scalar — a string, a number or a boolean

@@ -1,0 +1,3 @@
+hyper probe: --input hostname: the Operation declares no input of that name
+  the Operation declares host
+hyper probe: --input host: the Operation declares it and nothing supplied it

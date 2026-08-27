@@ -1,0 +1,12 @@
+{
+  "content": [
+    {"type":"text","text":"1 Probe"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"probe_result","provider":"uptime","operation":"check_http","projection":{"host":"status.hyper.dev","status":503,"days_left":34},"response":{"host":"status.hyper.dev","status":503,"headers":{"content-length":"0","content-type":"text/html","date":"Thu, 02 Apr 2026 09:41:14 GMT"},"tls":{"not_after":"2026-05-06T21:41:14Z","days_left":34,"subject":"CN=status.hyper.dev,O=hyper golden fixture","issuer":"CN=status.hyper.dev,O=hyper golden fixture"}}}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

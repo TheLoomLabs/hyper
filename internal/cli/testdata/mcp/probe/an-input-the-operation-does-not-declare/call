@@ -1,0 +1,1 @@
+{"tool": "probe", "arguments": {"provider": "uptime", "operation": "check_http", "inputs": {"hostname": "status.hyper.dev"}}}

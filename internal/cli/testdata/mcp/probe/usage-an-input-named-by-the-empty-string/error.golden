@@ -1,0 +1,1 @@
+probe: inputs names an input with the empty string, which names no input

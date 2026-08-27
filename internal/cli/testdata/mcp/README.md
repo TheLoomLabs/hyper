@@ -238,14 +238,15 @@ refuse together, and `run_show/an-unknown-run-id` is a positional that satisfies
 every schema and names nothing. Each carries the sentence its command wrote and
 each is paired with its twin one directory up.
 
-`run/` is §9's Execution half, and it is the tool that closes the loop: an agent
-that cannot run also cannot read back the Record it just caused (issue #200).
+`run/` is the first of §9's Execution half, and it is the tool that closes the
+loop: an agent that cannot run also cannot read back the Record it just caused
+(issue #200).
 Every case here **reuses the `run` corpus one directory up** — a `repo-from`
 naming the same fixture repository, beside the same `store/` seed, the same
 `mint`, the same `serve/` and the same `env` — and each is **named for the
 argv case it is the same Run as**. That naming is the fence: a case here holds
 a `store.golden` and so does its twin, and the two are compared byte for byte
-(`TestGoldenCorpora_ARunThroughTheToolWritesTheStoreTheCommandWrites`). One
+(`TestGoldenCorpora_AToolLeavesTheBranchItsCommandLeaves`). One
 Run, two doors, one branch — *ergonomics is the whole of the difference between
 the two*, held as a comparison of bytes rather than as a claim.
 
@@ -328,6 +329,61 @@ where the argument is `secret_sink`, which is the rule rather than a rough edge
 — a usage error's message is the sentence a person would have read, and the
 truncation marker's hint is the only wording §9 spells differently between the
 two surfaces.
+
+`probe/` is §9's other Execution tool, and it is the one that protects the
+review surface: a throwaway question that costs a reviewed Definition is what
+ends with a repository full of Definitions nobody read (issue #201). Every case
+here is named for the case one directory up it drives the same Probe as, and
+each reuses that case's repository — `../../five-artefact-demo/repo` for the
+seven that share it, and the one-edge repository the others carry — named in an
+`env` because no tool takes an argument that names one. The two cases that never
+reach a command name none at all, which is the claim rather than an omission:
+what refuses them is the argument, one layer above any repository.
+
+`a-503-and-nothing-else` is the ordinary return, and what it is worth reading
+for is what is **not** in it: no `outcome` key, a Probe having no outcome triple
+to report, and `truncated: false` rather than `null` — one Probe is one answer,
+and the terminal row it lifts that from is `result` and not a Run's. Its text
+block is `1 Probe`, the glossary's word for the thing and not the wire's
+discriminator. `a-typed-input-filling-a-query-hole` is the `inputs` object doing
+what the repeated flag does: `minutes` arrives as the JSON number `15` and is
+read against the `integer` the Operation declares at that position, which is the
+whole of ADR-0081 on this surface — the spelling crosses and the typing does
+not. `a-host-that-answered-nothing` is the third `uptime check_http` rendering
+and the one that says a `503` and a host that answered nothing are one piece of
+news here: `isError: false`, the response object carrying `host` and nothing
+else, and the sentence the CLI wrote on stderr about the refused connection
+dropped, narration being what this surface drops.
+
+`writes-nothing-at-all` is ADR-0009 held as bytes rather than as a claim. It
+stands a Store branch, Probes beside it, and holds a `store.golden` that its
+argv twin's matches byte for byte — no Record, no Journal entry, no Store write,
+on the one path a golden can actually see it.
+
+`a-host-outside-the-grant` and `a-repository-declaring-no-local` are the
+Refusal, in both the shapes the repository leaves available: positioned on the
+`hosts:` line that did not grant the host, and unpositioned where there is no
+declaration to point at. Both come back `isError: true` with the Refusal
+rendered whole and no rows, which is the reach coming from an artefact even
+where no artefact named the Operation.
+
+The eight declining cases split the way `run`'s ten do. Six are the command's
+own sentences forwarded: the opaque Operation twice, *whatever any Target
+grants*; the effectful one; the declared input left out; the input the Operation
+does not declare, which carries **both** faults the command found, the second
+being that nothing supplied the one it does declare; and the value that will not
+read as its declared type. Every one of them arrives as a JSON-RPC error
+carrying no `error_code`, which is ADR-0060's line: a code names a check that
+declined an **artefact**, and a value supplied at a call is not one.
+
+The other two never reach a command at all, and they are the shape this argument
+adds: `inputs` is the one object on this surface whose keys are not the
+schema's, so its `propertyNames` is where a key's own claim is stated and the
+server is where it is made true. `usage-an-input-named-by-the-empty-string` is
+the `minLength` half — a key that is well-typed and names no input — and
+`usage-an-input-that-is-not-a-scalar` is the member type: every type §12
+declares is a scalar, and an `array` reads as nothing at every position a hole
+fills.
 
 **The three ways a Run loses the Store are not here**, for the reason their argv
 twins are not: a lock is held by a live process and git's account of an

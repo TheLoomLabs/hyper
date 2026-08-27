@@ -723,6 +723,11 @@ var nouns = map[string]noun{
 	"remediation": {singular: "remediation"},
 	"window":      {singular: "window"},
 	"code":        {singular: "code fact"},
+	// `probe_result` is `operation_detail`'s reading over §9's other
+	// Execution tool: the glossary has one word for the thing however it is
+	// rendered, and a caller who asked for a Probe is told they got one
+	// rather than told the wire's discriminator back (§9, issue #201).
+	"probe_result": {singular: "Probe"},
 	// The Inspection four's own (issue #199). `entry` is a **Journal**
 	// entry, which is what the glossary calls one and what tells it from
 	// the Step entries a Procedure holds.

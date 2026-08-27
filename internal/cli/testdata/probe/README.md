@@ -26,7 +26,7 @@ comes back as `host` and nothing else.
 
 ## What each case is for
 
-Eight run against
+Sixteen run against
 [`../five-artefact-demo/repo`](../five-artefact-demo/README.md) — §3's own
 `uptime` Manifest, one `read` Operation, no credential, `class: local` — named
 with the `--repo-dir` an operator would type. The rest carry a repository of
@@ -36,7 +36,7 @@ their own, each written for the one edge it drives.
 | --- | --- |
 | `a-503-and-nothing-else`, `-json` | the demo: a `503` with no body, exit `0`, in both modes |
 | `a-200-carrying-a-json-body` | `body` present and parsed |
-| `a-host-that-answered-nothing` | the object is `host` alone, and the Probe still renders and exits `0` |
+| `a-host-that-answered-nothing`, `-json` | the object is `host` alone, and the Probe still renders and exits `0` |
 | `a-typed-input-filling-a-query-hole` | `--input minutes=0015` reads as the integer 15 and fills a `query:` hole |
 | `a-value-that-will-not-read-as-its-type` | the same input as `soon`: a usage error at `2`, carrying no `error_code` |
 | `a-host-outside-the-grant`, `-json` | `host-not-granted`, `77`, naming the `hosts:` line to edit — stdout silent in both modes |
@@ -49,7 +49,7 @@ their own, each written for the one edge it drives.
 | `a-deadline-the-call-cannot-meet` | the Operation's `deadline:` bounds the call and is reported rather than hung on |
 | `a-provider-matching-nothing`, `an-operation-matching-nothing`, `one-positional`, `an-input-the-operation-does-not-declare`, `a-declared-input-left-out`, `an-input-with-no-value` | the six usage errors, all `2`, all with stdout completely silent |
 | `version-pin-mismatch-and-a-bad-operation` | the gate fires before either positional resolves: `77`, not `2` |
-| `writes-nothing-at-all` | a Probe beside a Store branch, and `store.golden` shows the branch it did not touch |
+| `writes-nothing-at-all`, `-json` | a Probe beside a Store branch, and `store.golden` shows the branch it did not touch |
 
 ## Why `a-deadline-the-call-cannot-meet` declares `0s`
 
@@ -60,3 +60,14 @@ The bound cutting a call that is already in flight is
 `internal/capability`'s own test, where a handler blocks until the test releases
 it — a server that hangs for a golden second is a suite that takes a second
 longer on every run to state something a millisecond already states.
+
+## The two `-json` twins written for another corpus
+
+`a-host-that-answered-nothing-json` and `writes-nothing-at-all-json` are here
+for the fence rather than for themselves. An envelope's row is held against the
+rows the corpus's `--json` streams write, corpus-wide and by the row's own
+identity (`TestGoldenCorpora_ARowInAnEnvelopeIsTheRowTheStreamWrites`), and a
+`probe_result` is identified by its Provider and its Operation — so the three
+`uptime check_http` answers under `../mcp/probe/` are three renderings of one
+identity and each needs a stream that writes it. A fixture only the second
+surface drives has none.

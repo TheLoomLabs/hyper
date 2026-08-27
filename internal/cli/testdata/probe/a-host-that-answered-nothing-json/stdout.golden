@@ -1,0 +1,2 @@
+{"type":"probe_result","provider":"uptime","operation":"check_http","projection":{"host":"cert.hyper.dev"},"response":{"host":"cert.hyper.dev"}}
+{"type":"result","truncated":false}

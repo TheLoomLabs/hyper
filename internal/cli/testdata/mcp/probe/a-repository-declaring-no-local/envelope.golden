@@ -1,0 +1,10 @@
+{
+  "content": [
+    {"type":"text","text":"refused: host-not-granted\n  the repository declares no Target named local, so it grants no host — author targets/local.yaml granting \"status.hyper.dev\"\n\na verbatim retry refuses identically: no argument to this tool, and no flag anywhere, overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."}
+  ],
+  "structuredContent": {
+    "rows": [],
+    "truncated": null
+  },
+  "isError": true
+}

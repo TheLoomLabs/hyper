@@ -3,13 +3,16 @@ package mcp
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// The tool set (§9, issues #195, #197, #198 and #199).
+// The tool set (§9, issues #195, #197, #198, #199, #200 and #201).
 //
 // **A tool is a schema, an argv, and nothing else.** Each declares its
 // arguments typed and closed exactly as the flag or the positional it carries
@@ -19,7 +22,7 @@ import (
 // argv would be a second place for a guardrail to be skipped, a Refusal to be
 // reworded or a row to be reshaped.
 //
-// §9 states thirteen tools, each named for the command it carries. Eleven are
+// §9 states thirteen tools, each named for the command it carries. Twelve are
 // here. The rest arrive with the milestones that build them, on tree.go's own
 // rule for the command surface: a name is real when the code behind it is, and
 // the table is where that becomes true rather than a list to be kept in step.
@@ -89,9 +92,9 @@ func (t tool) declaration() *sdk.Tool {
 
 // tools is the set, in §9's own order: Discovery first, and within it the order
 // §9's table states, then the repository, then Authoring, then Execution, then
-// Inspection. `probe` and Lifecycle's `project` stand in §9's table and are not
-// here yet, which is the rule above holding rather than a gap in the order.
-var tools = []tool{providersTool, providerTool, operationTool, targetsTool, checkTool, reviewTool, runTool, runsTool, runShowTool, changesTool, recordsTool}
+// Inspection. Lifecycle's `project` stands in §9's table and is not here yet,
+// which is the rule above holding rather than a gap in the order.
+var tools = []tool{providersTool, providerTool, operationTool, targetsTool, checkTool, reviewTool, runTool, probeTool, runsTool, runShowTool, changesTool, recordsTool}
 
 // providersTool carries `hyper providers` — §9's first discovery question,
 // *which Provider*, and the one an agent asks before it can write a
@@ -1421,6 +1424,187 @@ func runArguments(arguments json.RawMessage) (runCall, error) {
 		return runCall{}, err
 	}
 	return named, nil
+}
+
+// probeTool carries `hyper probe <provider> <operation>` — §9's second
+// Execution tool, and the one that protects the review surface (issue #201).
+//
+// **The reason this surface needs a Probe is not agent convenience.** Writing a
+// file is cheap for an agent; what is not cheap is §8's review model, which
+// dies by volume — an agent authoring a Manifest against an unfamiliar API asks
+// *what does this endpoint actually answer* twenty times, and if every one of
+// those questions costs a reviewed Definition then the set of Definitions stops
+// being something a human reads and the oversight story goes with it (§9).
+//
+// **It carries no `outcome` key**, and the table is where that is declared: a
+// Probe writes no Record and no Journal entry, so it has no outcome triple to
+// report, and a tool leaving `executes` nil is one whose envelope carries none
+// (§9, ADR-0009, envelope.go). What ends its rows is `result` and never
+// `outcome`, which is the command's own terminal row lifted like every other
+// (§8, ADR-0026).
+//
+// **Everything else a Probe declines, it declines in the command.** The opaque
+// Operation, the effectful one, the input the Operation does not declare, the
+// declared input left out and the value that will not read as its declared type
+// are the command's own usage errors, and each arrives here as the JSON-RPC
+// error §9 answers a malformed call with, carrying no `error_code` — a code
+// naming a check that declined an **artefact**, and a value supplied at a call
+// not being one (§9, ADR-0060). A host outside what the Target named `local`
+// grants is the other half and the other shape: that one is a guardrail
+// declining, so it comes back `isError: true` with the Refusal rendered whole.
+var probeTool = tool{
+	name:        "probe",
+	description: "Invoke a read Operation against local without a Definition, and answer the projection beside the raw response. It writes no Record and no Journal entry: a throwaway question costs no reviewed artefact.",
+	input: closedObject(`{
+		"provider": {"type": "string", "minLength": 1, "description": "The Provider's name, as its Manifest declares it."},
+		"operation": {"type": "string", "minLength": 1, "description": "The Operation's name, as a key of that Manifest's own operations: block. It declares kind: read and is not opaque — a Probe may invoke neither an effectful Operation nor an opaque one, whatever any Target grants."},
+		"inputs": {
+			"type": "object",
+			"description": "The Operation's inputs, one object keyed by input name, in place of the CLI's repeated --input. Every declared input is supplied and no other name is: there is no null and no key-omission syntax, so an input left out has no sink to render at. Each value is read against the type the Operation declares at that position rather than by what the value looks like, so a string carrying digits and a number are one value at an integer position; object, array and null read as nothing anywhere and are refused here.",
+			"propertyNames": {
+				"minLength": 1,
+				"pattern": "^[^=]*$",
+				"description": "An input's name, as the Operation's own inputs: block declares it. It carries no = : the command line this tool builds spells an input as one --input name=value pair and splits it at the first =, so a name carrying one names an input no pair can address."
+			},
+			"additionalProperties": {"type": ["string", "number", "boolean"]}
+		}
+	}`, "provider", "operation"),
+	output: closedObject(`{
+		"rows": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["type", "provider", "operation", "projection", "response"],
+				"properties": {
+					"type": {"const": "probe_result"},
+					"provider": {"type": "string"},
+					"operation": {"type": "string"},
+					"projection": {
+						"type": "object",
+						"description": "What hyper derived from the response, in the shape a Record would have held — and {} where every projected path resolved to nothing, which is an absence a reader reads rather than an error hyper reports. Its keys are the Manifest's own."
+					},
+					"response": {
+						"type": "object",
+						"description": "The raw response beside the projection, which no credentialled surface shows: a Probe binds local, which carries no credential slot, so the wire is visible by construction rather than by a flag. A host that answered nothing at all is this object carrying host and nothing else."
+					}
+				}
+			}
+		},
+		"truncated": {"type": "boolean"}
+	}`, "rows", "truncated"),
+	argv: func(arguments json.RawMessage) ([]string, error) {
+		var named struct {
+			Provider  string                     `json:"provider"`
+			Operation string                     `json:"operation"`
+			Inputs    map[string]json.RawMessage `json:"inputs"`
+		}
+		if err := readArguments(arguments, &named); err != nil {
+			return nil, err
+		}
+		// The two positionals are refused separately for operationTool's
+		// reason read across: a Probe resolves them against the Provider
+		// set exactly as `operation` does, and the two namespaces are two
+		// (§9, probe.go).
+		if err := namesSomething("provider", named.Provider, "Provider"); err != nil {
+			return nil, err
+		}
+		if err := namesSomething("operation", named.Operation, "Operation"); err != nil {
+			return nil, err
+		}
+		supplied, err := suppliedInputs(named.Inputs)
+		if err != nil {
+			return nil, err
+		}
+		// The inputs go ahead of the `--` and the two names go past it.
+		// The command takes its repeated flag off the argument list
+		// before the shared parser sees it and stops at the first `--`,
+		// so a Provider or an Operation spelled like a flag is still the
+		// positional it is (flags.go, probe.go).
+		argv := append([]string{"probe"}, supplied...)
+		return append(argv, "--", named.Provider, named.Operation), nil
+	},
+}
+
+// suppliedInputs is the `inputs` object as the command line carries it: one
+// `--input name=value` pair per member.
+//
+// **They go over sorted by name**, which is not the order a caller wrote them
+// in because a JSON object has no order to read. Two clients spelling one call
+// with their keys two ways would otherwise build two command lines and, where
+// both name an input the Operation does not declare, be told about their faults
+// in two orders. The command keeps the order it was typed in for a reason that
+// does not reach here — a repeated flag can name one input twice and an object
+// cannot (probe.go).
+func suppliedInputs(inputs map[string]json.RawMessage) ([]string, error) {
+	names := make([]string, 0, len(inputs))
+	for name := range inputs {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	argv := make([]string, 0, 2*len(names))
+	for _, name := range names {
+		// The schema's `propertyNames` made true, which is where the two
+		// halves of it belong: `minLength` and `pattern` are claims a
+		// client may or may not check, and the server is where a claim
+		// becomes a refusal — the same reading `namesSomething` takes
+		// over a value and `readArguments` takes over the closure
+		// (probeTool).
+		if name == "" {
+			return nil, errors.New("inputs names an input with the empty string, which names no input")
+		}
+		if strings.Contains(name, "=") {
+			return nil, fmt.Errorf("inputs %s: an input name carrying an = cannot be spelled as one --input pair, which is the command line this tool builds", name)
+		}
+		value, err := inputText(name, inputs[name])
+		if err != nil {
+			return nil, err
+		}
+		argv = append(argv, "--input", name+"="+value)
+	}
+	return argv, nil
+}
+
+// inputText is one input's value as the pair carries it: the JSON scalar
+// written out as text.
+//
+// **The spelling crosses and the typing does not.** A value is read against the
+// type the Operation **declares** at that position rather than by what the value
+// looks like (ADR-0081), and that declaration is in a Manifest this file has
+// never seen — so what a number goes over as is the digits the caller wrote,
+// and a `1.0` at an `integer` position is declined by the command in its own
+// words rather than quietly rounded here. A tool that read the value by its JSON
+// type would be this surface typing it by what it looks like, which is the one
+// reading ADR-0081 removed.
+//
+// **The three JSON scalars cross and nothing else does.** §12's types are all
+// scalars, and `object` and `array` read as nothing at every position a hole
+// fills (ADR-0078), so a member that is one of those — or a `null`, which names
+// no value at all — is a well-typed argument naming a value no input can hold.
+// That is a malformed call and arrives as a protocol error, carrying no
+// `error_code`: nothing was reviewed, so no check declined (§9, ADR-0060).
+func inputText(name string, value json.RawMessage) (string, error) {
+	decoder := json.NewDecoder(bytes.NewReader(value))
+	// The digits as they were written. Through a float64 an integer too
+	// large to hold would arrive rounded and a `1.0` would arrive as `1`,
+	// either of which is this surface editing a value on its way to a schema
+	// that has not read it yet — and the second is the one that matters,
+	// since what an `integer` position refuses is exactly that spelling.
+	decoder.UseNumber()
+	var read any
+	if err := decoder.Decode(&read); err != nil {
+		return "", fmt.Errorf("inputs %s: %w", name, err)
+	}
+	switch held := read.(type) {
+	case string:
+		return held, nil
+	case json.Number:
+		return held.String(), nil
+	case bool:
+		return strconv.FormatBool(held), nil
+	}
+	return "", fmt.Errorf("inputs %s: %s is no value an input carries; an input holds one scalar — a string, a number or a boolean", name, value)
 }
 
 // changesTool carries `hyper changes [procedure]` — §8's Comparison, and the

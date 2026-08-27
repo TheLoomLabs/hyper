@@ -1,0 +1,12 @@
+{
+  "content": [
+    {"type":"text","text":"1 Probe"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"probe_result","provider":"uptime","operation":"check_http","projection":{"host":"cert.hyper.dev"},"response":{"host":"cert.hyper.dev"}}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}
