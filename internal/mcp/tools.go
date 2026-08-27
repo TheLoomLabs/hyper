@@ -453,17 +453,17 @@ const problemRow = `{
 // argument is optional because the command's positional list is, and the
 // absent list is every problem the repository has rather than none.
 //
-// **The paths resolve where the command resolves them, which is against the
-// process's working directory and not against the repository root**, and §9's
-// sketch calls them *repository-relative* — a disagreement this tool inherits
-// rather than settles. It cannot settle it: a tool builds the command line its
-// command would have received and holds no logic of its own, and it has no
-// repository in hand to re-root a path against even if it did. Nor is the
-// command obviously wrong — a person typing `hyper check a.yaml` from inside
-// `definitions/` means the file beside them, and repository-relative would
-// refuse it. What this surface can do is state which root it is, which the
-// schema above does, and leave the two spellings of one argument to a ticket
-// of their own (§9, check.go, issue #198).
+// **The paths are repository-relative, which is where the command resolves
+// them**: one root, and the same root on both surfaces (ADR-0089). This tool
+// still settles nothing — it builds the command line its command would have
+// received and holds no logic of its own — and it does not have to, the command
+// having stopped reading the argument against the process's working directory.
+// That is what makes the argument nameable here at all: a client picks the
+// directory it starts a server in, nothing in the protocol lets a caller see or
+// set it, and an argument read against it would mean something different per
+// client for one string. What a caller has in hand instead is the path a
+// `problem` row above already carries, which is the same spelling going back in
+// (§9, check.go, issue #205).
 //
 // **There is no argument for a `--fix`**, because there is no `hyper check
 // --fix`: a checker that can also mutate is a checker you stop trusting, and a
@@ -478,7 +478,7 @@ var checkTool = tool{
 		"paths": {
 			"type": "array",
 			"items": {"type": "string", "minLength": 1},
-			"description": "Paths as the command's own positionals take them: relative to the working directory this server was started in, or absolute. Every artefact still loads and only the problems positioned in the ones named are reported; omit it to report every problem the repository has."
+			"description": "Paths as the command's own positionals take them: repository-relative, or absolute and inside the repository — a path resolving outside it names nothing this repository holds and is refused. Every artefact still loads and only the problems positioned in the ones named are reported; omit it to report every problem the repository has."
 		}
 	}`),
 	output: closedObject(`{
@@ -495,14 +495,13 @@ var checkTool = tool{
 		if err := readArguments(arguments, &named); err != nil {
 			return nil, err
 		}
-		// A member is refused for the reason a name is, and the reading is
-		// load-bearing rather than tidy here: the command resolves a path
-		// against the working directory before it stats one, so the empty
-		// string resolves to that directory, stats clean as a directory
-		// does, and then matches no problem's file — `check([""])` would
-		// answer *no problems found* over a repository full of them. The
-		// index is in the message because the list has more than one place
-		// to be wrong in.
+		// A member is refused for the reason a name is, and here it is
+		// the schema saying one layer above what the command says for the
+		// same argument: an empty path names no file in the repository,
+		// which the command declines in its own sentence and this refuses
+		// before a command line is built at all (ADR-0089, issue #205).
+		// The index is in the message because the list has more than one
+		// place to be wrong in.
 		for i, path := range named.Paths {
 			if err := namesSomething(fmt.Sprintf("paths[%d]", i), path, "path"); err != nil {
 				return nil, err

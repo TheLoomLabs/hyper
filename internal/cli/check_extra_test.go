@@ -166,3 +166,82 @@ func TestRunCheck_UnreadableArtefactDoesNotAbortThePass(t *testing.T) {
 		t.Errorf("stdout = %q, want a problem row for the unreadable artefact", stdout.String())
 	}
 }
+
+// The three arms of the path positional a golden case cannot hold: an absolute
+// path, which no checked-in argv can spell; the empty string, which strings.
+// Fields cannot carry into an argv; and the repository root itself, which is
+// the one path that names every problem there is (ADR-0089).
+
+func TestRunCheck_AnAbsolutePathInsideTheRepositoryFilters(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, filepath.Join(root, "definitions", "broken.yaml"), "kind: definition\nbase: &b\n  x: 1\ntargets: *b\n")
+	writeFile(t, filepath.Join(root, "procedures", "broken.yaml"), "kind: procedure\nbase: &c\n  x: 1\ntargets: *c\n")
+
+	var stdout, stderr bytes.Buffer
+	named := filepath.Join(root, "definitions", "broken.yaml")
+	exit := cli.RunCheck([]string{"--repo-dir", root, "--json", named}, cli.Streams(&stdout, &stderr), emptyEnvironment, t.TempDir(), "1.4.0")
+
+	if exit != cli.ExitProblems {
+		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitProblems, stderr.String())
+	}
+	if !bytes.Contains(stdout.Bytes(), []byte("definitions/broken.yaml")) {
+		t.Errorf("stdout = %q, want the named artefact's rows", stdout.String())
+	}
+	if bytes.Contains(stdout.Bytes(), []byte("procedures/broken.yaml")) {
+		t.Errorf("stdout = %q, want no rows from outside the path named", stdout.String())
+	}
+}
+
+func TestRunCheck_AnAbsolutePathOutsideTheRepositoryExitsTwo(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, filepath.Join(root, "definitions", "broken.yaml"), "kind: definition\nbase: &b\n  x: 1\ntargets: *b\n")
+	elsewhere := t.TempDir()
+	named := filepath.Join(elsewhere, "definitions", "broken.yaml")
+	writeFile(t, named, "kind: definition\n")
+
+	var stdout, stderr bytes.Buffer
+	exit := cli.RunCheck([]string{"--repo-dir", root, named}, cli.Streams(&stdout, &stderr), emptyEnvironment, elsewhere, "1.4.0")
+
+	if exit != cli.ExitUsage {
+		t.Fatalf("exit = %d, want %d; stdout=%q", exit, cli.ExitUsage, stdout.String())
+	}
+	if stdout.Len() != 0 {
+		t.Errorf("stdout = %q, want empty; a repository with problems must not report clean", stdout.String())
+	}
+	if want := "hyper check: " + named + ": outside the repository\n"; stderr.String() != want {
+		t.Errorf("stderr = %q, want %q", stderr.String(), want)
+	}
+}
+
+func TestRunCheck_TheEmptyPathNamesNothing(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, filepath.Join(root, "definitions", "broken.yaml"), "kind: definition\nbase: &b\n  x: 1\ntargets: *b\n")
+
+	var stdout, stderr bytes.Buffer
+	exit := cli.RunCheck([]string{"--repo-dir", root, ""}, cli.Streams(&stdout, &stderr), emptyEnvironment, root, "1.4.0")
+
+	if exit != cli.ExitUsage {
+		t.Fatalf("exit = %d, want %d; stdout=%q", exit, cli.ExitUsage, stdout.String())
+	}
+	if want := "hyper check: the empty string names no path\n"; stderr.String() != want {
+		t.Errorf("stderr = %q, want %q", stderr.String(), want)
+	}
+}
+
+func TestRunCheck_TheRepositoryRootAsAPathReportsEveryProblem(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, filepath.Join(root, "definitions", "broken.yaml"), "kind: definition\nbase: &b\n  x: 1\ntargets: *b\n")
+	writeFile(t, filepath.Join(root, "procedures", "broken.yaml"), "kind: procedure\nbase: &c\n  x: 1\ntargets: *c\n")
+
+	var stdout, stderr bytes.Buffer
+	exit := cli.RunCheck([]string{"--repo-dir", root, "--json", "."}, cli.Streams(&stdout, &stderr), emptyEnvironment, root, "1.4.0")
+
+	if exit != cli.ExitProblems {
+		t.Fatalf("exit = %d, want %d; stderr=%q", exit, cli.ExitProblems, stderr.String())
+	}
+	for _, want := range []string{"definitions/broken.yaml", "procedures/broken.yaml"} {
+		if !bytes.Contains(stdout.Bytes(), []byte(want)) {
+			t.Errorf("stdout = %q, want %s among its rows; the root names every problem there is", stdout.String(), want)
+		}
+	}
+}

@@ -21,10 +21,12 @@ import (
 )
 
 // RunCheck implements `hyper check [path...]`. wd is the working directory
-// repository-root resolution walks up from; lookupenv reads HYPER_REPO_DIR and
-// NO_COLOR; binaryVersion is what the pin gate compares against hyper.yaml's
-// pin. All four are passed in rather than read from the process directly, so
-// the whole command is exercisable without a subprocess.
+// repository-root resolution walks up from, and that is the whole of what this
+// command reads it for: a path positional is read against the repository root
+// the walk arrives at, never against wd itself (ADR-0089). lookupenv reads
+// HYPER_REPO_DIR and NO_COLOR; binaryVersion is what the pin gate compares
+// against hyper.yaml's pin. All four are passed in rather than read from the
+// process directly, so the whole command is exercisable without a subprocess.
 func RunCheck(args []string, to destination, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
 	parsed, to, code := parseArgs("check", args, parameters{limit: takesNoLimit}, lookupenv, to)
 	if code != 0 {
@@ -45,13 +47,29 @@ func RunCheck(args []string, to destination, lookupenv func(string) (string, boo
 		return code
 	}
 
-	// check stats its path arguments before loading a single artefact
-	// (§9): a path naming no file exits 2 and reports no problems at all.
+	// check reads its path arguments against the repository root and stats
+	// them there, before loading a single artefact (§9, ADR-0089). One root,
+	// and the repository is it: a path names a file this repository holds or
+	// it names nothing, which is what makes the argument the same argument
+	// on both surfaces and what keeps a filter from silently matching no
+	// problem at all. A path naming no file exits 2 and reports no problems
+	// at all, and so does one that resolves outside the repository — decided
+	// before the stat, a path outside the repository naming nothing this
+	// command could report on however well it names a file on the caller's
+	// own disk.
+	wanted := make([]string, 0, len(paths))
 	for _, p := range paths {
-		if _, err := os.Stat(absPath(wd, p)); err != nil {
-			fmt.Fprintf(to.narrate(), "hyper check: %s: no such file or directory\n", p)
+		rel, fault := repoRelative(repoRoot, p)
+		if fault == "" {
+			if _, err := os.Stat(filepath.Join(repoRoot, filepath.FromSlash(rel))); err != nil {
+				fault = p + ": no such file or directory"
+			}
+		}
+		if fault != "" {
+			fmt.Fprintf(to.narrate(), "hyper check: %s\n", fault)
 			return ExitUsage
 		}
+		wanted = append(wanted, rel)
 	}
 
 	// The repository is loaded by one call, which walks the artefact
@@ -78,8 +96,8 @@ func RunCheck(args []string, to destination, lookupenv func(string) (string, boo
 	// none.
 	problems := verify.Repository(loaded)
 
-	if len(paths) > 0 {
-		problems = filterByPaths(problems, paths, repoRoot, wd)
+	if len(wanted) > 0 {
+		problems = filterByPaths(problems, wanted)
 	}
 	problem.Sort(problems)
 
@@ -107,34 +125,70 @@ func RunCheck(args []string, to destination, lookupenv func(string) (string, boo
 	return ExitClean
 }
 
-// absPath resolves p against wd if p is not already absolute — the one rule
-// every path argument this command takes (--repo-dir, a path positional) is
-// read by.
-func absPath(wd, p string) string {
+// absPath resolves p against base if p is not already absolute. Which base a
+// path argument is read against is the argument's own — the caller's working
+// directory for the two that name something *outside* the repository, --repo-dir
+// and --secret-out, and the repository root for the one that names something
+// inside it (ADR-0089).
+func absPath(base, p string) string {
 	if filepath.IsAbs(p) {
 		return p
 	}
-	return filepath.Join(wd, p)
+	return filepath.Join(base, p)
+}
+
+// repositoryRoot is what a positional naming the repository itself comes back
+// as — the way filepath.Rel spells a path that is the root — and what the
+// filter below reads as *every problem there is*. It is named rather than
+// spelt twice because two functions share the fact.
+const repositoryRoot = "."
+
+// repoRelative reads one path positional against the repository root and gives
+// it back in the spelling a problem's File is written in: slash-separated, and
+// relative to that root. Where the argument names nothing this repository could
+// hold it gives back the sentence saying so instead, and the caller writes that
+// after its own name — the shape a usage error takes everywhere in this package
+// (flags.go's arityFault, ADR-0060).
+//
+// A relative path is joined to the root and an absolute one is read as itself,
+// and both are then held to the same bound: the repository. There is no second
+// root and no arm — the caller's directory decides which repository is being
+// checked (resolveRepoRoot) and never which file inside it is being reported on,
+// which is what lets an agent that cannot see a working directory name a file at
+// all (§9, ADR-0089).
+//
+// **The bound is decided lexically**, from the argument and the root and no disk
+// read: it is a parse, in the sense ADR-0087 gives one, and it runs before the
+// stat. The cost is stated in ADR-0089 — an absolute argument spelling a symlink
+// prefix differently from the root is refused rather than resolved, which is a
+// decline with a sentence and never a silent zero, and the repository-relative
+// form is unaffected.
+func repoRelative(repoRoot, p string) (rel, fault string) {
+	if p == "" {
+		return "", "the empty string names no path"
+	}
+	rel, err := filepath.Rel(repoRoot, absPath(repoRoot, p))
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", p + ": outside the repository"
+	}
+	return filepath.ToSlash(rel), ""
 }
 
 // filterByPaths keeps only the problems positioned in the paths named,
 // having already loaded and checked every artefact in the repository (§9):
 // every rule compares one artefact against another, so a subset of the
 // repository is not checkable on its own — only reportable on its own.
-func filterByPaths(problems []problem.Problem, paths []string, repoRoot, wd string) []problem.Problem {
-	wanted := make([]string, 0, len(paths))
-	for _, p := range paths {
-		rel, err := filepath.Rel(repoRoot, absPath(wd, p))
-		if err != nil {
-			rel = p
-		}
-		wanted = append(wanted, filepath.ToSlash(rel))
-	}
-
+//
+// wanted is what repoRelative already made of the positionals, which is the
+// spelling a problem's File carries. The two being one spelling is the whole of
+// what this ticket was: a filter reading its argument against one root while the
+// stat beside it read the same argument against another matched no problem at
+// all, and reported clean over a repository full of them (ADR-0089, issue #205).
+func filterByPaths(problems []problem.Problem, wanted []string) []problem.Problem {
 	var kept []problem.Problem
 	for _, prob := range problems {
 		for _, want := range wanted {
-			if prob.File == want || strings.HasPrefix(prob.File, want+"/") {
+			if want == repositoryRoot || prob.File == want || strings.HasPrefix(prob.File, want+"/") {
 				kept = append(kept, prob)
 				break
 			}

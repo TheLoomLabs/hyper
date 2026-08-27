@@ -1,0 +1,5 @@
+kind: definition
+definition: a
+provider: hetzner
+targets:
+  - local

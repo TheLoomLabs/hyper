@@ -843,3 +843,41 @@ func TestGoldenCorpora_TheAuthoringToolsAreDrivenWithNothingButARepository(t *te
 		t.Fatal("no case under testdata/mcp/ drives check or review; the rule was held over nothing")
 	}
 }
+
+// TestGoldenCorpora_ACheckCallNamesItsPathsAgainstTheRepository is an absence
+// held as a rule: a call that names a path carries **no `wd`**, because the
+// path is read against the repository root and not against the directory the
+// client started the server in (ADR-0089, issue #205).
+//
+// It is a fence rather than a line in the README because nothing else would
+// notice it lapsing — a case that pinned its working directory to the
+// repository would pass exactly as it does now, and the corpus would quietly
+// stop driving the case the decision is about. What these cases run from is a
+// directory that is not the repository at all, which is the one thing a client
+// cannot state and this argument therefore cannot depend on.
+func TestGoldenCorpora_ACheckCallNamesItsPathsAgainstTheRepository(t *testing.T) {
+	var named int
+	for _, c := range goldenCases(t) {
+		if c.call == nil || c.call.Tool != "check" {
+			continue
+		}
+		var arguments struct {
+			Paths []string `json:"paths"`
+		}
+		if len(c.call.Arguments) > 0 {
+			if err := json.Unmarshal(c.call.Arguments, &arguments); err != nil {
+				t.Fatalf("case %s: its call's arguments are not check's: %v", c.name, err)
+			}
+		}
+		if len(arguments.Paths) == 0 {
+			continue
+		}
+		named++
+		if isFile(filepath.Join(c.dir, "wd")) {
+			t.Errorf("case %s names a path and carries a wd; a path is read against the repository root, and a case stating a working directory drives the one case where the two agree", c.name)
+		}
+	}
+	if named == 0 {
+		t.Fatal("no call case names a path for check; the rule was held over nothing")
+	}
+}

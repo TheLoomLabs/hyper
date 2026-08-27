@@ -145,24 +145,24 @@ named, and is meant to be read against `five-artefact-demo-faulty` beside it:
 one load, one rule set, four rows fewer. `paths-prove-the-full-load` is the
 claim that makes it honest — the file it names is clean **only because the
 artefacts it references loaded too**, so `rows: []` there is the full load
-answering. Every case here that names a path carries a `wd` as well as an
-`env`, and the `wd` is doing real work: `check` resolves a path argument
-against the **process's working directory** before it stats one, exactly as its
-command does, so a case whose working directory is not the repository would
-have every path it names refused. The `wd` is a client started in the
-repository it is asking about, which is the case §9's sketch has in mind when
-it calls the argument *repository-relative* — the two spellings of that one
-argument are named in `internal/mcp/tools.go` and are not this corpus's to
-settle.
+answering. **No case here carries a `wd`**, and their absence is the claim: a
+path argument is read against the repository root and never against the
+directory the client started the server in (ADR-0089), so every one of these
+cases runs from a working directory that is not the repository at all and names
+its files exactly as §9's sketch says it may. Each carried a `wd` while the
+command read a path against the process's directory, which pinned the one case
+where the two roots agree — a client standing in the repository it is asking
+about — and that is what issue #205 settled and this corpus stopped needing.
 
-`path-not-found` and `an-empty-path-names-nothing` are the two malformed halves
-of one argument. The first is the command's own usage error, paired with
-`../../check/path-not-found` one directory up. The second never reaches a
-command at all: `paths: [""]` is well-typed and names no path, and the schema's
-`minLength` is made true on the server because it has to be — the command
-resolves the empty string to the working directory itself, stats it clean as a
-directory stats clean, and then matches no problem's file, so `check([""])`
-would answer *no problems found* over a repository full of them.
+`path-not-found`, `a-path-outside-the-repository` and
+`an-empty-path-names-nothing` are the three malformed halves of one argument.
+The first two are the command's own usage errors, each paired with the case of
+the same name one directory up: a path naming no file in the repository, and a
+path resolving outside it — which resolves to a real file on the disk beside the
+fixture and is refused for naming nothing this repository holds. The third never
+reaches a command at all: `paths: [""]` is well-typed and names no path, and the
+schema's `minLength` is what refuses it here, one layer above the sentence the
+command writes for the same argument.
 
 `review/five-artefact-demo-procedure` is what the tool is for. Its `text` is the
 **whole rendered review surface** — the gutter, `AUTHORITY`, `FLAGS` — byte for

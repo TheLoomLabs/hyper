@@ -1,0 +1,5 @@
+kind: definition
+definition: b
+other: &shared2
+  provider: hetzner
+targets: *shared2

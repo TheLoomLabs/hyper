@@ -95,7 +95,10 @@ before it could be judged is the world resisting rather than the invocation bein
 `check [path...]` stats its paths before it loads a single artefact, so a path naming no file is `2`
 and no problems are reported at all — the alternative is worse than unstated, since `check` reports
 only the problems positioned in the paths it was given, so a path matching nothing filters to zero
-problems and `hyper check definitions/typo.yaml` exits `0` clean on a job that checked nothing.
+problems and `hyper check definitions/typo.yaml` exits `0` clean on a job that checked nothing. **A
+path resolving outside the repository is the same `2` for the same reason**, and it is decided before
+the stat rather than by it: such a path names nothing this command could report on, however well it
+names a file on the caller's own disk (ADR-0089).
 
 ## Discovery
 
@@ -208,6 +211,16 @@ repository; with paths it still loads every artefact and reports only the proble
 ones named, because every rule §4 states compares one artefact against another and a subset of the
 repository is therefore not checkable on its own. It resolves no credential, reaches no network, and
 invokes nothing.
+
+**A path positional is read against the repository root, and the repository bounds it** (ADR-0089). A
+relative path is joined to that root, an absolute one is read as itself, and either way a path that
+resolves outside the repository names nothing to report on and is the usage error above. The caller's
+working directory decides *which repository* is being checked and never *which file inside it* is
+being reported on — so one string names one file wherever it is typed, and the spelling a path
+positional takes is the spelling `check`'s own rows come back in. The relative form is the one
+`review <artefact>` already takes — its path resolves against the load's own paths and never against
+a working directory — and `check` admits the absolute spelling beside it because it stats a file
+rather than matching a loaded artefact's own path.
 
 Its output is one row per problem — the file, the line, the field, the `error_code` §12 defines, and a
 message — positioned so that the next act is an edit, ordered by file path and then by line. A Run
@@ -896,8 +909,10 @@ unreachable.
 
 ```jsonc
 check(paths?)
-// args: paths — an array of repository-relative paths. Every artefact still loads; only the
-//               problems positioned in the ones named are reported
+// args: paths — an array of repository-relative paths, read against the repository root exactly
+//               as the command reads them: an absolute path inside the repository is admitted,
+//               and one resolving outside it is refused (ADR-0089). Every artefact still loads;
+//               only the problems positioned in the ones named are reported
 // → rows: [{ type: "problem", file, line, column, field, error_code, message }]   // error_code: §12
 ```
 
