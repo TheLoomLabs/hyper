@@ -1,0 +1,10 @@
+{
+  "content": [
+    {"type":"text","text":"refused: store-absent\n  no hyper-store branch in this repository — hyper store init\n\na verbatim retry refuses identically: no argument to this tool, and no flag anywhere, overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."}
+  ],
+  "structuredContent": {
+    "rows": [],
+    "truncated": null
+  },
+  "isError": true
+}

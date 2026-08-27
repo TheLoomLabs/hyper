@@ -183,6 +183,61 @@ fourth — an artefact that is not there at all has no row to write, which is th
 usage error, and it arrives as a protocol error paired with its twin one
 directory up.
 
+`runs/`, `run_show/`, `changes/` and `records/` are §9's Inspection four, and
+every case here **reuses the four commands' own Stores** — a `repo-from` and a
+`store-from` naming the corpus one directory up, so what an envelope states and
+what a `--json` stream states are two readings of one seeded Journal (issue
+#199). `run_show` is the one directory not named for its command: §9 names the
+tool differently, a client holding every server's tools in one flat namespace
+where a bare `show` names nothing, and the pairings above follow the tool to
+`../../show/` rather than looking for a corpus that does not exist.
+
+The truncated cases are what the ticket is really about, and there are four of
+them — one per marker the four commands can write.
+`runs/a-cut-listing-names-the-time-axis`, `changes/the-limit-cuts-the-tables`,
+`records/a-cut-listing-names-the-identity-axis` and
+`records/a-series-is-cut-at-the-version-cap` each carry the marker with all four
+members and a **hint naming the tool's arguments**: *narrow with `since` or
+`target`*, where the terminal writes `--since` or `--target`. `changes` is the
+one worth reading twice — its hint says `record_kind` where its command says
+`--kind`, which is a rewording no textual edit of the command's sentence could
+have reached, and it is the only member of any answer that differs between the
+two surfaces. The last of the four is `records`' **second** marker: the limit
+dropped nothing and the cap on versions per series did, so the axis is `time`
+and the counts are versions.
+
+`changes/a-window-and-its-header` is the window with nothing in its Record
+tables and `the-other-forms-of-a-row` is the other side of it, carrying all four
+change forms across both tables — which is where the `observation` rows are, and
+the reason it is here rather than left to the `asset` rows the two narrowed
+cases carry.
+
+`run_show/an-entry-read-back` and `run_show/an-expansion-asked-for` are one
+Store driven twice, and the pair is the whole of what `expansion` does: the
+entry's second Step carries a selector, no row shows one without the argument,
+and every row does with it. `a-halted-destroy-under-expansion` is the richer
+entry beside them — a `bound`, a relative operand glossed under `resolved`, and
+an `answered` status that is not the ordinary answer — and `a-refused-entry` is
+the entry whose Run recorded a Refusal, which is where the `refusal` and
+`remediation` rows are. `a-projection-failure-names-the-path` is the one member
+§6 gives a Step of its own: a `projection_failed_path`, beside the partial
+`records` it leaves.
+
+`runs/store-absent` is §9's line about the far side of the tool set: **a tool
+finding no Store Refuses naming a command its caller cannot reach.** It comes
+back `isError: true`, with no `outcome` key and the Refusal rendered whole,
+naming `hyper store init` — which is correct rather than awkward, creating the
+record being the human's act and an agent's part in it being to say that it has
+not happened.
+
+The four usage cases are the pairs §9's malformed set puts on this surface:
+`runs/usage-an-outcome-outside-the-triple` is a value outside a closed set the
+**command** closes where the flag is read, `records/usage-since-without-history`
+and `changes/usage-since-and-between` are the two argument pairs the commands
+refuse together, and `run_show/an-unknown-run-id` is a positional that satisfies
+every schema and names nothing. Each carries the sentence its command wrote and
+each is paired with its twin one directory up.
+
 What a declining case is held against beyond its own golden is the rendering
 the CLI writes, and one fence holds both halves
 (`TestGoldenCorpora_WhatDeclinesInAnEnvelopeIsWhatTheCLIWroteOnStderr`). A

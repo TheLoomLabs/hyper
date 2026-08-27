@@ -2,6 +2,8 @@ package render_test
 
 import (
 	"bytes"
+	"encoding/json"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -236,9 +238,9 @@ func TestResultRow_TheThreeShapesOfTheTruncationMember(t *testing.T) {
 				Axis:     render.AxisTime,
 				Returned: 200,
 				Dropped:  2840,
-				Hint:     "narrow with --since, or --between on changes",
+				Narrows:  render.Narrowing{{Flag: "--since", Argument: "since"}, {Flag: "--target", Argument: "target"}},
 			}),
-			line: `{"type":"result","truncated":{"axis":"time","returned":200,"dropped":2840,"hint":"narrow with --since, or --between on changes"}}`,
+			line: `{"type":"result","truncated":{"axis":"time","returned":200,"dropped":2840,"hint":"narrow with --since or --target"}}`,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -263,7 +265,7 @@ func TestTruncationMarker_CarriesTheIdentityAxisByItsOwnName(t *testing.T) {
 		Axis:     render.AxisIdentity,
 		Returned: 50,
 		Dropped:  3950,
-		Hint:     "narrow with --target, --definition or --name",
+		Narrows:  recordsNarrowing,
 	}
 
 	if err := render.WriteJSON(&buf, nil, render.NewTruncatedResultRow(marker)); err != nil {
@@ -293,7 +295,7 @@ func TestTruncationMarker_AMarkerThatIsNotOneStopsTheStream(t *testing.T) {
 		Axis:     render.AxisIdentity,
 		Returned: 50,
 		Dropped:  3950,
-		Hint:     "narrow with --target, --definition or --name",
+		Narrows:  recordsNarrowing,
 	}
 	for name, c := range map[string]struct {
 		marker render.TruncationMarker
@@ -334,7 +336,7 @@ func TestTruncationMarker_AMarkerThatIsNotOneStopsTheStream(t *testing.T) {
 		"a remedy naming nothing": {
 			marker: func() render.TruncationMarker {
 				m := whole
-				m.Hint = ""
+				m.Narrows = nil
 				return m
 			}(),
 			says: "hint",
@@ -361,7 +363,7 @@ func TestTruncationMarker_AMarkerThatIsNotOneStopsTheStream(t *testing.T) {
 // be read as *unknown* where the fact is *one*.
 func TestTruncationMarker_WritesEveryMemberEvenWhereOneIsSmall(t *testing.T) {
 	var buf bytes.Buffer
-	marker := render.TruncationMarker{Axis: render.AxisTime, Returned: 1, Dropped: 1, Hint: "narrow with --since"}
+	marker := render.TruncationMarker{Axis: render.AxisTime, Returned: 1, Dropped: 1, Narrows: render.Narrowing{{Flag: "--since", Argument: "since"}}}
 
 	if err := render.WriteJSON(&buf, nil, render.NewTruncatedResultRow(marker)); err != nil {
 		t.Fatal(err)
@@ -378,7 +380,7 @@ func TestTruncationMarker_WritesEveryMemberEvenWhereOneIsSmall(t *testing.T) {
 // is a line its command writes on stderr, and a page that grew a row here would
 // be putting narration on stdout, where only the answer goes (§9).
 func TestTruncatedResultRow_HasNoLineOnThePage(t *testing.T) {
-	row := render.NewTruncatedResultRow(render.TruncationMarker{Axis: render.AxisIdentity, Returned: 1, Dropped: 2, Hint: "narrow with --name"})
+	row := render.NewTruncatedResultRow(render.TruncationMarker{Axis: render.AxisIdentity, Returned: 1, Dropped: 2, Narrows: render.Narrowing{{Flag: "--name", Argument: "name"}}})
 	if cells := row.Cells(); len(cells) != 0 {
 		t.Errorf("Cells() = %q, want none", cells)
 	}
@@ -440,5 +442,116 @@ func TestWriteAligned_ABlockWithNothingStackedComesBackAsItWentIn(t *testing.T) 
 	}
 	if got, want := buf.String(), "a    bb\nccc  d\n"; got != want {
 		t.Errorf("WriteAligned() = %q, want %q", got, want)
+	}
+}
+
+// The narrowing is the marker's remedy held as the parameters themselves,
+// spelled by each surface that writes one (§9, issue #199). The CLI's marker
+// names flags, because a caller types flags; the MCP surface's names arguments,
+// because a caller there types no flag anywhere.
+
+// recordsNarrowing is `records`'s own, the widest of the four commands write
+// and the one every case below reads. It is spelled out here rather than
+// imported from internal/cli, on the fence's own discipline: a value taken from
+// the package under test would agree with whatever that package happened to
+// hold.
+var recordsNarrowing = render.Narrowing{
+	{Flag: "--target", Argument: "target"},
+	{Flag: "--definition", Argument: "definition"},
+	{Flag: "--name", Argument: "name"},
+}
+
+// TestNarrowing_IsOneListSpelledOnceForEachSurface is the whole of what the
+// type is for: one list of parameters, two sentences, and neither surface
+// composing the other's. A hint naming `--kind` on a surface with no flags to
+// type would point an agent at an argument no schema declares.
+func TestNarrowing_IsOneListSpelledOnceForEachSurface(t *testing.T) {
+	for name, c := range map[string]struct {
+		narrowing render.Narrowing
+		flags     string
+		arguments string
+	}{
+		"one parameter": {
+			narrowing: render.Narrowing{{Flag: "--since", Argument: "since"}},
+			flags:     "narrow with --since",
+			arguments: "narrow with `since`",
+		},
+		"two": {
+			narrowing: render.Narrowing{{Flag: "--since", Argument: "since"}, {Flag: "--target", Argument: "target"}},
+			flags:     "narrow with --since or --target",
+			arguments: "narrow with `since` or `target`",
+		},
+		"three": {
+			narrowing: recordsNarrowing,
+			flags:     "narrow with --target, --definition or --name",
+			arguments: "narrow with `target`, `definition` or `name`",
+		},
+		"two spellings of one parameter": {
+			narrowing: render.Narrowing{{Flag: "--target", Argument: "target"}, {Flag: "--kind", Argument: "record_kind"}},
+			flags:     "narrow with --target or --kind",
+			arguments: "narrow with `target` or `record_kind`",
+		},
+		"none at all": {
+			narrowing: nil,
+			flags:     "",
+			arguments: "",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := c.narrowing.Flags(); got != c.flags {
+				t.Errorf("Flags() = %q, want %q", got, c.flags)
+			}
+			if got := c.narrowing.Arguments(); got != c.arguments {
+				t.Errorf("Arguments() = %q, want %q", got, c.arguments)
+			}
+		})
+	}
+}
+
+// TestTruncationMarker_InArgumentsSpellsTheHintForASurfaceWithNoFlagsToType is
+// §9's own wording for the second surface: the axis and both counts are the
+// command's, unchanged, and the hint is the same parameters named as the tool's
+// arguments — which is the one member of a marker that differs between the two
+// (§9, issue #199).
+func TestTruncationMarker_InArgumentsSpellsTheHintForASurfaceWithNoFlagsToType(t *testing.T) {
+	marker := render.TruncationMarker{
+		Axis:     render.AxisTime,
+		Returned: 200,
+		Dropped:  2840,
+		Narrows:  render.Narrowing{{Flag: "--since", Argument: "since"}, {Flag: "--target", Argument: "target"}},
+	}
+
+	encoded, err := json.Marshal(marker.InArguments())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"axis":"time","returned":200,"dropped":2840,"hint":"narrow with ` + "`since`" + ` or ` + "`target`" + `"}`
+	if got := string(encoded); got != want {
+		t.Errorf("InArguments() = %s, want %s", got, want)
+	}
+	// The marker it was taken from is unchanged, a spelling being a
+	// reading of one value rather than an edit to it: the command's own
+	// terminal row goes on writing flags after a tool has read it.
+	if got, want := marker.Narrows.Flags(), "narrow with --since or --target"; got != want {
+		t.Errorf("the marker now spells its hint %q, want %q", got, want)
+	}
+}
+
+// TestResultRow_MarkerIsTheMarkerTheRowCarries is the door the second surface
+// reads a marker through: the terminal row crosses that boundary as a row, and
+// a tool that had to re-decode the member to re-spell its hint would be reading
+// back what it had just written (internal/mcp/envelope.go).
+func TestResultRow_MarkerIsTheMarkerTheRowCarries(t *testing.T) {
+	marker := render.TruncationMarker{Axis: render.AxisTime, Returned: 1, Dropped: 1, Narrows: recordsNarrowing}
+
+	got, cut := render.NewTruncatedResultRow(marker).Marker()
+	if !cut {
+		t.Fatal("a truncated result row carries no marker")
+	}
+	if !reflect.DeepEqual(got, marker) {
+		t.Errorf("Marker() = %+v, want %+v", got, marker)
+	}
+	if _, cut := render.NewResultRow(true).Marker(); cut {
+		t.Error("the bare boolean answers a marker; a namespace listing has no axis to name")
 	}
 }

@@ -1,0 +1,20 @@
+{
+  "content": [
+    {"type":"text","text":"1 window, 5 Assets, 3 code facts"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03.000Z","outcome":"completed","ended":"2026-08-04T09:13:51.000Z","procedure_revision":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18.000Z","outcome":"completed","ended":"2026-08-06T11:05:49.000Z","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}},
+      {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_ordinal":4,"to_ordinal":5,"confirmed_at":"2026-08-06T11:04:41.000Z","fields":{"region":"fsn1","server_type":"cx22"}},
+      {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_ordinal":3,"to_ordinal":4,"confirmed_at":"2026-08-06T11:04:52.000Z","fields":{"region":"fsn1","server_type":"cx22"}},
+      {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_ordinal":7,"to_ordinal":8,"confirmed_at":"2026-08-06T11:05:09.000Z","fields":{"region":"fsn1","server_type":"cx22"}},
+      {"type":"asset","change":"changed","target":"staging","definition":"hetzner-staging","name":"preview-8815","from_ordinal":9,"to_ordinal":10,"fields":{"labels.retire-after":["2026-08-18","2026-08-25"]}},
+      {"type":"asset","change":"created","target":"staging","definition":"hetzner-staging","name":"preview-8821","to_ordinal":1,"fields":{"region":"fsn1","server_type":"cx22"}},
+      {"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1","to":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"},
+      {"type":"code","fact":"repository revision","from":"1f0a3d78c2e5b91467af03d28b5c9e610473fa8d","to":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"},
+      {"type":"code","fact":"other lines changed","baseline_absent":"not-in-clone","command":"git diff 1f0a3d7 88bc402"}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

@@ -305,14 +305,24 @@ func marshalRows(rows []render.Row) ([]json.RawMessage, []string, error) {
 	return encoded, kinds, nil
 }
 
-// truncatedOf is the terminal row's `truncated` member, lifted whole.
+// truncatedOf is the terminal row's `truncated` member, lifted whole — except
+// for the marker's hint, which is the one member of an answer §9 spells
+// differently here (issue #199).
 //
-// It is read out of the encoded terminal row for marshalRows' own reason: which
-// of §9's three shapes a command wrote is a decision render.Truncation already
-// made and already knows how to write, and a reader here that switched on the
-// value would be a second implementation of that choice. Lifting the member
-// carries the bare boolean and the marker object alike, and carries whatever
-// §9 adds to it next without this file changing.
+// **The lift is the rule and the hint is the exception, and the exception is
+// §9's own.** Which of §9's three shapes a command wrote is a decision
+// render.Truncation already made and already knows how to write, and a reader
+// here that switched on the value would be a second implementation of that
+// choice; so the bare boolean is carried across untouched, as is whatever §9
+// adds to the member next. What the marker carries is a **remedy**, and a
+// remedy naming `--since` on a surface where nothing takes a flag would point an
+// agent at an argument no schema declares.
+//
+// It is spelled rather than rewritten. The marker holds the parameters that
+// narrow its axis and each surface names them in its own words
+// (render.Narrowing), so this asks the marker for its second spelling rather
+// than editing the sentence the first one composed — a rewrite here would be
+// this package holding an opinion about which flags a command has.
 func truncatedOf(terminal render.Row) (json.RawMessage, error) {
 	// **No terminal row is `null` and not an error**, and the path that
 	// reaches it is a command that opened no row stream at all: a usage
@@ -322,6 +332,15 @@ func truncatedOf(terminal render.Row) (json.RawMessage, error) {
 	// truncation marker or nothing, and nothing is what this is.
 	if terminal == nil {
 		return json.RawMessage("null"), nil
+	}
+	// The marker as a value, through the door render.ResultRow opens for
+	// it: what crossed the boundary is a row, and re-decoding the member in
+	// order to re-spell one word of it would be reading back what the
+	// terminal row had just encoded.
+	if result, is := terminal.(render.ResultRow); is {
+		if marker, cut := result.Marker(); cut {
+			return json.Marshal(marker.InArguments())
+		}
 	}
 	encoded, err := render.MarshalRow(terminal)
 	if err != nil {
@@ -390,7 +409,7 @@ func summary(kinds []string, truncated bool) string {
 
 	counts := make([]string, 0, len(order))
 	for _, kind := range order {
-		counts = append(counts, fmt.Sprintf("%d %s", counted[kind], noun(kind, counted[kind])))
+		counts = append(counts, fmt.Sprintf("%d %s", counted[kind], nounFor(kind, counted[kind])))
 	}
 	line := strings.Join(counts, ", ")
 	if truncated {
@@ -399,7 +418,17 @@ func summary(kinds []string, truncated bool) string {
 	return line
 }
 
-// nouns is what each of §8's row types is called in prose, singular, spelled as
+// noun is one row type's word in the two forms a count needs it in. The plural
+// is written only where it is not the singular with an `s` on it, which is one
+// of the two exceptions this table is a table for: `Journal entries` is not
+// `Journal entrys`, and a rule over the discriminator would have no way to know
+// that.
+type noun struct {
+	singular string
+	plural   string
+}
+
+// nouns is what each of §8's row types is called in prose, spelled as
 // CONTEXT.md spells it. It is a table rather than a rule over the discriminator
 // because the discriminators are `snake_case` machine names and the glossary's
 // words are not derivable from them.
@@ -409,37 +438,64 @@ func summary(kinds []string, truncated bool) string {
 // alternative: a fabricated noun would put a word in the glossary's mouth, and
 // a refusal would fail a call over the prose beside an answer that is otherwise
 // correct.
-var nouns = map[string]string{
-	"provider":  "Provider",
-	"manifest":  "Manifest",
-	"operation": "Operation",
+var nouns = map[string]noun{
+	"provider":  {singular: "Provider"},
+	"manifest":  {singular: "Manifest"},
+	"operation": {singular: "Operation"},
 	// `operation_detail` is one Operation seen up close, and the glossary has
 	// one word for the thing however it is rendered: a caller who asked
 	// about one Operation is told they got one, in the noun they asked in.
 	// The row type's own name is the wire's discriminator and not a second
 	// noun (§8, issue #197).
-	"operation_detail": "Operation",
-	"target":           "Target",
-	// `problem` is spelled as itself, and the entry is here rather than
-	// left to the fallthrough on purpose: the glossary has no term for one,
-	// so the discriminator already *is* the English word, and a row type
-	// reading as its own name by accident and by decision should not look
-	// the same to whoever reads this table next (§12, CONTEXT.md).
-	"problem": "problem",
+	"operation_detail": {singular: "Operation"},
+	"target":           {singular: "Target"},
+	// `problem`, `remediation`, `window` and `code` are spelled in lower
+	// case, and the entries are here rather than left to the fallthrough on
+	// purpose: the glossary has no term for any of them, so the
+	// discriminator already *is* the English word — or, for a code fact, two
+	// of them — and a row type reading as its own name by accident and by
+	// decision should not look the same to whoever reads this table next
+	// (§12, CONTEXT.md).
+	"problem":     {singular: "problem"},
+	"remediation": {singular: "remediation"},
+	"window":      {singular: "window"},
+	"code":        {singular: "code fact"},
+	// The Inspection four's own (issue #199). `entry` is a **Journal**
+	// entry, which is what the glossary calls one and what tells it from
+	// the Step entries a Procedure holds.
+	//
+	// `provenance` is the **row** and not the thing, which is the second
+	// exception above and the one worth reading twice: the glossary's
+	// Provenance is *the record of which code produced something*, a mass
+	// noun with no plural in it, and what a Run answers three of is rows —
+	// the Run-wide scope and one per Step file written (§7, ADR-0043). So
+	// the noun names what is counted rather than coining a plural for a
+	// word the glossary does not pluralise, which is the same discipline
+	// the rest of this table keeps by not inventing one at all.
+	"run":         {singular: "Run"},
+	"entry":       {singular: "Journal entry", plural: "Journal entries"},
+	"refusal":     {singular: "Refusal"},
+	"provenance":  {singular: "Provenance row", plural: "Provenance rows"},
+	"step":        {singular: "Step"},
+	"asset":       {singular: "Asset"},
+	"observation": {singular: "Observation"},
+	"record":      {singular: "Record"},
 }
 
-// noun is one row type in prose, pluralised by count. The plural is the English
-// `s` and nothing cleverer: every noun in the table above takes it, and a row
-// type that does not is one whose entry says so.
-func noun(kind string, count int) string {
-	word, named := nouns[kind]
+// nounFor is one row type in prose, pluralised by count: the plural its entry
+// states, or the English `s` where it states none.
+func nounFor(kind string, count int) string {
+	spelled, named := nouns[kind]
 	if !named {
-		word = kind
+		spelled = noun{singular: kind}
 	}
-	if count == 1 {
-		return word
+	switch {
+	case count == 1:
+		return spelled.singular
+	case spelled.plural != "":
+		return spelled.plural
 	}
-	return word + "s"
+	return spelled.singular + "s"
 }
 
 // result is the envelope as the SDK carries it, and it is the whole of the

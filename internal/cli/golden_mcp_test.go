@@ -333,11 +333,10 @@ func TestGoldenCorpora_WhatDeclinesInAnEnvelopeIsWhatTheCLIWroteOnStderr(t *test
 		}
 
 		if c.answersAProtocolError() {
-			named, under := strings.CutPrefix(c.name, "mcp/")
-			if !under {
+			twin, paired := twinOf(c.name)
+			if !paired {
 				continue
 			}
-			twin := filepath.Join("testdata", named)
 			wrote := strings.TrimRight(readFile(t, filepath.Join(twin, "stderr.golden")), "\n")
 			if wrote == "" {
 				continue
@@ -588,12 +587,30 @@ func decodedRow(t *testing.T, line string) map[string]any {
 //	authority                               definition, target
 //	flag                                    flag, cites_line
 //	problem                                 file, line, error_code
+//	run                                     id
+//	entry                                   run_id
+//	step, provenance                        step
+//	refusal                                 error_code, step, file, line, field
+//	remediation                             file, line, field
+//	window                                  procedure
+//	asset, observation                      target, definition, name
+//	code                                    fact, subject
+//	record                                  key, ordinal, run_id
 //
 // A `problem`'s three are exactly the key problem.Compare orders on, which is
 // the fence borrowing the command's own answer to *which problem is this*
 // rather than inventing a second one. The `source` is the declaring lines
 // themselves, which is a long key and the honest one: that row has no shorter
 // member saying **which** Operation it is about.
+//
+// **The Inspection four's rows are what made `step` a member** (issue #199).
+// Two Steps of one Run against one Definition and one Target differ in their
+// position and in nothing else this list held, so a `run_show` envelope's
+// second Step was being held against its first — which is exactly the quiet
+// pairing the enumeration exists to prevent. `provenance` takes the same member
+// for the same reason, that being the split the wire already states between its
+// two scopes (ADR-0043), and a `record` takes its identity and its ordinal,
+// a history being many versions of one key.
 //
 // The members are read into one flat struct rather than switched on per type,
 // because a key is the members a row happens to carry: a row type that carries
@@ -617,6 +634,23 @@ func rowIdentity(line string) string {
 		CitesLine  int    `json:"cites_line"`
 		File       string `json:"file"`
 		ErrorCode  string `json:"error_code"`
+		ID         string `json:"id"`
+		RunID      string `json:"run_id"`
+		Step       int    `json:"step"`
+		Field      string `json:"field"`
+		Procedure  string `json:"procedure"`
+		Fact       string `json:"fact"`
+		Subject    string `json:"subject"`
+		Ordinal    int    `json:"ordinal"`
+		// Key is a Record's identity, which is the one key here that is
+		// nested: a Record is identified by three names together, and
+		// three siblings of `ordinal` would be three names that happen
+		// to be adjacent (§2, §9).
+		Key struct {
+			Target     string `json:"target"`
+			Definition string `json:"definition"`
+			Name       string `json:"name"`
+		} `json:"key"`
 	}
 	if err := json.Unmarshal([]byte(line), &row); err != nil {
 		return ""
@@ -629,8 +663,40 @@ func rowIdentity(line string) string {
 		row.Type, row.Name, row.Digest, row.Source, row.Kind, row.Path,
 		strconv.Itoa(row.Line), row.Definition, row.Target, row.Flag,
 		strconv.Itoa(row.CitesLine), row.File, row.ErrorCode,
+		row.ID, row.RunID, strconv.Itoa(row.Step), row.Field,
+		row.Procedure, row.Fact, row.Subject, strconv.Itoa(row.Ordinal),
+		row.Key.Target, row.Key.Definition, row.Key.Name,
 	}, "\x00")
 }
+
+// twinOf is the case one directory up that a call case is paired against:
+// `mcp/<tool>/<case>` against `<command>/<case>`, one fixture repository driven
+// two ways. It answers false for a case that is not under `mcp/` at all.
+//
+// A tool is named for the command it carries, so the two directory names are
+// the same word — with one exception, and that exception is why this is a
+// function rather than a `strings.CutPrefix` at each pairing. §9 names
+// `run_show` differently from its command: a client holds every server's tools
+// in one flat namespace, where a bare `show` names nothing. A pairing that
+// looked under `testdata/run_show/` would find no twin, hold the case against
+// nothing, and pass — which is the failure a fence is least able to notice
+// (issue #199).
+func twinOf(name string) (string, bool) {
+	named, under := strings.CutPrefix(name, "mcp/")
+	if !under {
+		return "", false
+	}
+	tool, held, _ := strings.Cut(named, "/")
+	if command, differs := commands[tool]; differs {
+		tool = command
+	}
+	return filepath.Join("testdata", tool, filepath.FromSlash(held)), true
+}
+
+// commands is every tool whose name is not its command's, which §9 states as
+// exactly one: the rest are spelled alike and are not listed, a table of
+// identities being a table to keep in step for nothing.
+var commands = map[string]string{"run_show": "show"}
 
 // TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout is §9's
 // text-block table held where its second row is: **`review` carries the full
@@ -654,11 +720,10 @@ func TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout(t *testing.T) 
 		if c.call == nil || c.call.Tool != "review" || c.answersAProtocolError() {
 			continue
 		}
-		named, under := strings.CutPrefix(c.name, "mcp/")
-		if !under {
+		twin, paired := twinOf(c.name)
+		if !paired {
 			continue
 		}
-		twin := filepath.Join("testdata", filepath.FromSlash(named))
 		wrote := readFile(t, filepath.Join(twin, "stdout.golden"))
 		if wrote == "" {
 			t.Errorf("case %s has no twin at %s writing the page on stdout; the text block is held against nothing", c.name, twin)

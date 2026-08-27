@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
@@ -123,7 +124,7 @@ func TestParseArgs_LeavesRunsParametersUnknownToACommandThatTakesNone(t *testing
 func TestTruncationLine_NamesTheNarrowingRatherThanALargerLimit(t *testing.T) {
 	for name, c := range map[string]struct {
 		parsed    commandArgs
-		narrowing string
+		narrowing render.Narrowing
 		want      string
 	}{
 		"a cap the caller named, on an axis with parameters that narrow it": {

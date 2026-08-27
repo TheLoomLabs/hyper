@@ -78,7 +78,7 @@ func RunProviders(args []string, to destination, lookupenv func(string) (string,
 	// complete, and a table that simply stopped after the last row it was
 	// allowed would.
 	if dropped > 0 {
-		fmt.Fprintf(to.narrate(), "hyper providers: %s\n", truncationLine("Providers", len(kept), len(rows), parsed, ""))
+		fmt.Fprintf(to.narrate(), "hyper providers: %s\n", truncationLine("Providers", len(kept), len(rows), parsed, nil))
 	}
 
 	return ExitClean

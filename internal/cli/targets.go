@@ -67,7 +67,7 @@ func RunTargets(args []string, to destination, lookupenv func(string) (string, b
 	}
 
 	if dropped > 0 {
-		fmt.Fprintf(to.narrate(), "hyper targets: %s\n", truncationLine("Targets", len(kept), len(rows), parsed, ""))
+		fmt.Fprintf(to.narrate(), "hyper targets: %s\n", truncationLine("Targets", len(kept), len(rows), parsed, nil))
 	}
 
 	return ExitClean

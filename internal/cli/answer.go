@@ -101,10 +101,12 @@ func truncate(rows []render.Row, limit int) (kept []render.Row, dropped int) {
 // default at all. Naming a flag the caller never typed would point the remedy
 // at an argument they would go looking for in their own command line.
 //
-// narrowing is the remedy, and it is the caller's own words for the same reason
-// the noun is: the parameters that narrow an axis differ by which command was
-// called (render.TruncationMarker). A command that has none passes the empty
-// string, and there the remedy is a larger cap — which is what a listing over a
+// narrowing is the remedy, and it is the caller's own parameters for the same
+// reason the noun is: the parameters that narrow an axis differ by which
+// command was called (render.Narrowing). It is spelled in **flags** here, this
+// being the surface a caller types one on; the same list reaches the MCP server
+// spelled as arguments (§9). A command that has none passes nothing at all, and
+// there the remedy is a larger cap — which is what a listing over a
 // namespace with nothing to narrow has left. **Where a command has one, the
 // narrowing is the whole remedy and no larger --limit is offered beside it**:
 // this line is the page's half of the marker on the wire, and the marker names
@@ -112,13 +114,13 @@ func truncate(rows []render.Row, limit int) (kept []render.Row, dropped int) {
 //
 // Neither form offers a next page. There is no cursor behind this stream, and a
 // truncated result must never look complete.
-func truncationLine(noun string, returned, found int, parsed commandArgs, narrowing string) string {
+func truncationLine(noun string, returned, found int, parsed commandArgs, narrowing render.Narrowing) string {
 	cut, remedy := fmt.Sprintf("--limit %d", parsed.limit), ""
 	if !parsed.limitNamed {
 		cut, remedy = fmt.Sprintf("the default limit of %d", parsed.limit), " — name a larger --limit for the rest"
 	}
-	if narrowing != "" {
-		remedy = " — " + narrowing
+	if len(narrowing) > 0 {
+		remedy = " — " + narrowing.Flags()
 	}
 	return fmt.Sprintf("returned %d of %d %s; %d dropped by %s%s",
 		returned, found, noun, found-returned, cut, remedy)

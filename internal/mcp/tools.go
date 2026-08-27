@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// The tool set (§9, issues #195 and #197).
+// The tool set (§9, issues #195, #197, #198 and #199).
 //
 // **A tool is a schema, an argv, and nothing else.** Each declares its
 // arguments typed and closed exactly as the flag or the positional it carries
@@ -18,7 +19,7 @@ import (
 // argv would be a second place for a guardrail to be skipped, a Refusal to be
 // reworded or a row to be reshaped.
 //
-// §9 states thirteen tools, each named for the command it carries. Six are
+// §9 states thirteen tools, each named for the command it carries. Ten are
 // here. The rest arrive with the milestones that build them, on tree.go's own
 // rule for the command surface: a name is real when the code behind it is, and
 // the table is where that becomes true rather than a list to be kept in step.
@@ -70,8 +71,10 @@ func (t tool) declaration() *sdk.Tool {
 }
 
 // tools is the set, in §9's own order: Discovery first, and within it the order
-// §9's table states, then the repository, then Authoring.
-var tools = []tool{providersTool, providerTool, operationTool, targetsTool, checkTool, reviewTool}
+// §9's table states, then the repository, then Authoring, then Inspection.
+// Execution and Lifecycle stand between them in §9's table and are not here
+// yet, which is the rule above holding rather than a gap in the order.
+var tools = []tool{providersTool, providerTool, operationTool, targetsTool, checkTool, reviewTool, runsTool, runShowTool, changesTool, recordsTool}
 
 // providersTool carries `hyper providers` — §9's first discovery question,
 // *which Provider*, and the one an agent asks before it can write a
@@ -662,13 +665,23 @@ var noArguments = closedObject(`{}`)
 // closedObject composes an input or output schema: a closed object over the
 // properties given, requiring the names listed.
 //
-// **`additionalProperties` is false on every schema this surface publishes.**
+// **`additionalProperties` is false on every schema this surface composes.**
 // §9's arguments are closed sets, and a schema that admitted a member it does
 // not state would be one under which an override argument is well-formed —
 // which is the one thing *no tool takes an override argument of any kind, under
 // any name* has to be held by. The same closure on the output is what makes the
 // envelope's structured half a contract rather than a description: a member the
 // schema does not name is a member this surface does not write.
+//
+// **The exception is a value whose keys are the artefact's or the world's**, and
+// it is an exception to the *composition* rather than to the rule: a Record's
+// projected `fields`, a Refusal's `declared` and `observed`, a selector as
+// authored. Their members are named by whoever wrote the artefact or by whatever
+// answered the call, so a closed object over them would be this surface stating
+// a shape it does not own — and stating it wrongly, since the next Manifest
+// projects a field this file has never heard of. They are declared open, or
+// left untyped where the value may be a scalar as easily as a mapping, which is
+// what §8's own wire already carries (§8, ADR-0059).
 //
 // It is a helper over text rather than a builder over Go values because the
 // schemas are the wire's and are read as JSON: what is checked in should be the
@@ -742,4 +755,814 @@ func readArguments(arguments json.RawMessage, into any) error {
 		return fmt.Errorf("arguments: %w", err)
 	}
 	return nil
+}
+
+// The Inspection four (§9, issue #199).
+//
+// **Every row here is its command's, unchanged.** What is new is the arguments
+// — §9's typed, closed parameters, and nothing behind them: there is no
+// predicate dialect over these tools and none under them, a caller wanting an
+// arbitrary filter taking the rows and applying it themselves (ADR-0013) — and
+// the truncation marker's second wording, which is the one member of an answer
+// §9 spells differently here (envelope.go).
+//
+// The schemas below are therefore long, and they are long for the reason the
+// rows are worth having: a Journal entry read back whole carries five row types
+// and a Comparison three, and an `outputSchema` is declared **once and for
+// every call of the tool**. What a client is told about a Step under
+// `expansion` and about one without it is one schema, because it is one tool.
+
+// provenanceMembers is §7's Provenance as schema members, written once because
+// **two rows carry it**: `run_show`'s `provenance` row, at either of the two
+// scopes, and the `provenance` member of a `records` row, which carries the
+// whole of it under one key (§7, ADR-0043).
+//
+// It is one fragment for problemRow's reason: there is one declaration behind
+// the block on the CLI side (provenance.go) and there should be one schema in
+// front of it. Every member follows the ordinary absence rule — a member is
+// written at the level where it has one value and omitted from every level
+// where it has none — so nothing here is required.
+const provenanceMembers = `
+	"hyper_version": {"type": "string"},
+	"procedure_revision": {"type": "string"},
+	"repo_revision": {"type": "string"},
+	"repo_dirty": {
+		"type": "boolean",
+		"description": "Whether the Run read bytes that differ from the revision beside it. Those bytes are nowhere in git, and this is the marker that stops a consumer resolving the revision and believing it read what ran."
+	},
+	"definition_revision": {"type": "string"},
+	"manifest_digest": {"type": "string"},
+	"origin_digest": {"type": "string"}`
+
+// runsTool carries `hyper runs` — the Journal listed, and the surface that
+// enumerates the namespace a `run_id` resolves against.
+//
+// Its five arguments are the command's five parameters, typed as the flags are
+// and named as they are with the hyphens dropped. They are conjunctive, they
+// are closed, and there is nothing else: a filter expression here would be the
+// predicate dialect ADR-0013 refused, arriving on the surface where it would be
+// easiest to write and hardest to review.
+//
+// **`limit` is offered here where `providers` and `targets` do not offer it**,
+// and the difference is what the axis is: this command orders on time and has
+// parameters that narrow it, so a cap that cuts hands back a marker naming the
+// axis and the arguments that ask a narrower question. A namespace listing has
+// neither, which is why its cut is the default's alone (§9, providersTool).
+var runsTool = tool{
+	name:        "runs",
+	description: "List the Journal, newest first: one row per Run, with its Trigger, its outcome, the Targets it bound and the version of hyper that performed it.",
+	input: closedObject(`{
+		"since": {
+			"type": "string",
+			"description": "An RFC 3339 instant bounding the window below, inclusive of the instant it names: a timestamp copied off a started member selects the Run it was copied from. There is no relative form and no bare date — those are questions about a clock the caller is not holding."
+		},
+		"procedure": {"type": "string", "minLength": 1, "description": "A Procedure's name, matched byte-exact over UTF-8."},
+		"target": {"type": "string", "minLength": 1, "description": "A Target's name, matched byte-exact over UTF-8. It keeps the Runs that bound it, which is a fact only a Step file carries."},
+		"outcome": {
+			"enum": ["completed", "refused", "failed"],
+			"description": "One member of §12's triple. open is not among them: an entry holding no account of how it ended is in a state and not in the triple, so nothing here selects one."
+		},
+		"limit": {"type": "integer", "minimum": 1, "description": "The row cap. Omit it for the command's own default; a cut result carries the truncation marker and never a cursor."}
+	}`),
+	output: closedObject(`{
+		"rows": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["type", "id", "started", "trigger", "procedure", "targets", "hyper_version"],
+				"properties": {
+					"type": {"const": "run"},
+					"id": {"type": "string", "description": "The Run id, whole: what a consumer does with one is hand it back to run_show."},
+					"started": {"type": "string"},
+					"trigger": {
+						"type": "string",
+						"description": "The Trigger composed: a clock or a person, which is the whole of what §7 says a Trigger distinguishes. It is on every row, being the only thing that tells a world that has not changed from one nobody has looked at. run_show is where the four facts an executor writes are four members."
+					},
+					"outcome": {
+						"enum": ["completed", "refused", "failed"],
+						"description": "Absent on an open entry, the absence carrying that state rather than a fourth value: a started beside no outcome is the whole of what the Store holds about a Run nobody has closed."
+					},
+					"contested": {
+						"type": "boolean",
+						"description": "Written where another Run drew an inference beside this entry's own account. It stands beside the outcome rather than inside it, a second account of an entry being no more a fourth value than open is."
+					},
+					"procedure": {"type": "string"},
+					"targets": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The Targets the Run bound, written always and [] where it bound none: every entry carries this fact, and a Refusal that declined before Step 1 bound nothing."
+					},
+					"hyper_version": {"type": "string"}
+				}
+			}
+		},
+		"truncated": {"type": "boolean"}
+	}`, "rows", "truncated"),
+	argv: func(arguments json.RawMessage) ([]string, error) {
+		var named struct {
+			Since     *string `json:"since"`
+			Procedure *string `json:"procedure"`
+			Target    *string `json:"target"`
+			Outcome   *string `json:"outcome"`
+			Limit     *int    `json:"limit"`
+		}
+		if err := readArguments(arguments, &named); err != nil {
+			return nil, err
+		}
+		// The order is §9's own signature order, and each argument is
+		// refused empty for namesSomething's reason: `--procedure ""`
+		// is a narrowing the command reads as no narrowing at all, so a
+		// caller who asked for something would be answered as though
+		// they had not.
+		narrowed, err := flagsFor(
+			namedValue{"since", named.Since, "instant", "--since"},
+			namedValue{"procedure", named.Procedure, "Procedure", "--procedure"},
+			namedValue{"target", named.Target, "Target", "--target"},
+			namedValue{"outcome", named.Outcome, "outcome", "--outcome"},
+		)
+		if err != nil {
+			return nil, err
+		}
+		argv := append([]string{"runs"}, narrowed...)
+		return append(argv, cappedAt(named.Limit)...), nil
+	},
+}
+
+// runShowTool carries `hyper show <run-id>` — one Journal entry read back
+// whole, and **the one tool whose name differs from its command**. A client
+// holds every server's tools in one flat namespace, where a bare `show` names
+// nothing; the ambiguity the CLI resolved was a different one (§9).
+//
+// Its two arguments are the command's positional and its one flag. There is no
+// `limit`, because the command has none: `show` orders nothing, so there is no
+// ordering for a cut to keep the first N of and no axis for a marker to name —
+// and what a cap would do instead is hand back a Run's account with its last
+// Steps dropped, which is the partial answer wearing a complete one's shape §9
+// forbids (show.go).
+//
+// **`expansion` is a boolean and never a mode something else turns on**
+// (ADR-0013). Under it each Step row carries the `selector` it was expanded
+// from, what it expanded to and the Bound it was read against; without it none
+// does, an Expansion of five hundred members being the whole of what a Step
+// reached and almost never what a reader of a Disposition came for.
+//
+// **A `run_id` the Store lacks is a JSON-RPC error**: it satisfies every schema
+// and still names nothing, which is §9's third member of the malformed set —
+// and a partial id resolves to nothing anywhere, so a prefix and a typo arrive
+// at one message (§9, ADR-0047, ADR-0060).
+//
+// §9's sketch named a `disposition` row here, carrying `state` and `failed_path`
+// with the Expansion split off into rows of its own. The command has written
+// `entry`, `refusal`, `remediation`, `provenance` and `step` rows since
+// milestone 8, and those are what this answers: §12's opening rule sends one
+// fact to two wires under one name, and a second shape for one entry is where
+// the day comes that the two surfaces disagree about what a Run did (§9, §12,
+// ADR-0026, issue #199).
+var runShowTool = tool{
+	name:        "run_show",
+	description: "Read one Journal entry back whole: its header, the Refusal its Run recorded, and one row per Step record with that Step's own Provenance beside it.",
+	input: closedObject(`{
+		"run_id": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The Run id, whole. Nothing anywhere resolves a partial one, so a prefix names nothing exactly as a typo does; hyper runs enumerates the namespace it resolves against."
+		},
+		"expansion": {
+			"type": "boolean",
+			"description": "Whether each Step row carries the selector it was expanded from, what it expanded to and the Bound it was read against. It is the destination §8's bound-exceeded page points a reader at."
+		}
+	}`, "run_id"),
+	output: closedObject(`{
+		"rows": {
+			"type": "array",
+			"items": {
+				"oneOf": [
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "run_id", "procedure", "trigger", "started_at", "dry_run"],
+						"description": "The entry's header, emitted first: what its own run.json holds, and the account or accounts it carries of how it ended. The four states §7 classifies an entry into are read off which of outcome and closed_by stand.",
+						"properties": {
+							"type": {"const": "entry"},
+							"run_id": {"type": "string"},
+							"procedure": {"type": "string"},
+							"trigger": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["cause", "executor"],
+								"description": "The Trigger as the entry holds it: a mapping and never a composed string, four facts whose shape differs by executor not packing into one without a grammar and a parser.",
+								"properties": {
+									"cause": {"type": "string"},
+									"executor": {"type": "string"},
+									"actor": {"type": "string"},
+									"host": {"type": "string"},
+									"run_id": {"type": "string", "description": "The executor's own run id, which is not hyper's: the entry's is the member of the same name on the row above."},
+									"run_attempt": {"type": "integer", "minimum": 1},
+									"job_url": {"type": "string"}
+								}
+							},
+							"started_at": {"type": "string"},
+							"dry_run": {
+								"type": "boolean",
+								"description": "Written always, false included — §7's one exception to the absence rule, because what a reader that takes its absence for false gets wrong is unrecoverable."
+							},
+							"outcome": {"enum": ["completed", "refused", "failed"]},
+							"ended_at": {
+								"type": "string",
+								"description": "The owner's and never a closer's: a closing write's instant is on the closing Run's clock, and putting it here would invite a cross-entry subtraction §7 forbids."
+							},
+							"closed_by": {
+								"type": "array",
+								"description": "Every inference another Run drew about this entry, one member per closing write. Both this and outcome standing is a contest, which hyper reports and never decides.",
+								"items": {
+									"type": "object",
+									"additionalProperties": false,
+									"required": ["run_id", "outcome", "ended_at"],
+									"properties": {
+										"run_id": {"type": "string", "description": "The closing Run, which is the file's name rather than one of its members."},
+										"outcome": {"const": "failed", "description": "What §7 fixes every closing write as. It is written rather than left implied because the page states it."},
+										"step": {"type": "integer", "minimum": 1},
+										"ended_at": {"type": "string"}
+									}
+								}
+							}
+						}
+					},
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "error_code"],
+						"description": "One member of the Refusal the entry's own Run recorded, one row per problem and never one row carrying an array. Every member the check did not have is absent rather than written empty.",
+						"properties": {
+							"type": {"const": "refusal"},
+							"error_code": {"type": "string", "description": "One member of §12's closed error_code set, naming the check that declined."},
+							"step": {"type": "integer", "minimum": 1, "description": "An artefact coordinate and never an execution fact: the Step it names may have no file in this entry at all."},
+							"step_id": {"type": "string"},
+							"operation": {"type": "string"},
+							"target": {"type": "string"},
+							"declared": {"description": "What the artefact declared, as the value it is: a number, a string, a list or a mapping."},
+							"observed": {"description": "What the check found, beside it."},
+							"file": {"type": "string"},
+							"line": {"type": "integer", "minimum": 1},
+							"field": {"type": "string"},
+							"message": {"type": "string"},
+							"resolved": {
+								"type": "object",
+								"description": "Each relative operand the citation carries, mapped to the instant it resolved to against this Run's start — not the reader's clock, months later. Its keys are the operands the artefact wrote.",
+								"additionalProperties": {"type": "string"}
+							}
+						}
+					},
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "file"],
+						"description": "One edit past the check above: the coordinate, and either a value to replace or a direction to narrow in. §8 renders these as the EDIT ONE OF table.",
+						"properties": {
+							"type": {"const": "remediation"},
+							"file": {"type": "string"},
+							"line": {"type": "integer", "minimum": 1},
+							"field": {"type": "string"},
+							"from": {"description": "The value the check found, where the replacement is arithmetic."},
+							"to": {"description": "The value that would clear it."},
+							"hint": {"type": "string", "description": "The direction, where narrowing is a judgement rather than arithmetic."},
+							"example_expansion": {"type": "integer", "minimum": 0, "description": "What hyper derived about the hint above: the count a worked example of that narrowing would reach."},
+							"resolved": {
+								"type": "object",
+								"description": "The proposal's relative operands, glossed against the same instant the current value was.",
+								"additionalProperties": {"type": "string"}
+							}
+						}
+					},
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type"],
+						"description": "Which code performed the Run, at one of §7's two scopes. Which scope a row is is read off the row itself: a Step's carries step and the Run-wide one does not, and a discriminator beside it would carry that fact twice. Nothing here is abbreviated.",
+						"properties": {
+							"type": {"const": "provenance"},
+							"step": {"type": "integer", "minimum": 1},`+provenanceMembers+`
+						}
+					},
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "step", "disposition"],
+						"description": "One Step record the entry holds, in the Run's own written order. A Step the Run never reached wrote no file, so it has no row here and no provenance row either: that Disposition is read from a silence inside a closed entry.",
+						"properties": {
+							"type": {"const": "step"},
+							"step": {"type": "integer", "minimum": 1},
+							"id": {"type": "string"},
+							"path": {"type": "string", "description": "The invocation chain where the Step was reached through a nested Procedure."},
+							"definition": {"type": "string"},
+							"operation": {"type": "string"},
+							"provider": {"type": "string"},
+							"target": {"type": "string"},
+							"kind": {"enum": ["read", "mutate", "destroy"]},
+							"disposition": {"type": "string", "description": "What became of the Step, as §12 names it."},
+							"started_at": {"type": "string", "description": "Absent on a record a reaper wrote: a closing write does not know when the Step began, which is an honest absence rather than the year 1."},
+							"ended_at": {"type": "string"},
+							"records": {
+								"type": "array",
+								"items": {"type": "string"},
+								"description": "The identities this Step concluded about — the members, and not the count §8's Step table renders. Absent where the Disposition carries no set at all, and [] where a Step ran and its Expansion resolved to nothing; the two are different answers."
+							},
+							"unchanged_since": {
+								"type": "string",
+								"description": "The Run the members above were read from, where this entry holds a digest and no members of its own. It is what keeps show from presenting another entry's bytes as though they were this one's."
+							},
+							"selector": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["declared", "expanded_to"],
+								"description": "Written under expansion and nowhere else.",
+								"properties": {
+									"declared": {"description": "The selector as authored, in the canonical bytes the entry holds for it."},
+									"expanded_to": {
+										"type": "array",
+										"items": {"type": "string"},
+										"description": "What it expanded to, in Expansion order and never sorted: on a serial destroy the halt point is legible by position and nowhere else. Written whenever a selector exists, the empty list included."
+									},
+									"bound": {"type": "integer", "minimum": 0}
+								}
+							},
+							"resolved": {
+								"type": "object",
+								"description": "Each relative operand the selector carries, mapped to the instant it resolved to against this Run's start. It rides with selector and under expansion alone.",
+								"additionalProperties": {"type": "string"}
+							},
+							"pattern": {
+								"type": "object",
+								"additionalProperties": false,
+								"description": "hyper's own account of the work, supplied by no Provider: what makes a Step that took four minutes legible as four minutes of something.",
+								"properties": {
+									"attempts": {"type": "integer", "minimum": 1},
+									"pages": {"type": "integer", "minimum": 1},
+									"polls": {"type": "integer", "minimum": 1}
+								}
+							},
+							"answered": {
+								"type": "object",
+								"additionalProperties": false,
+								"description": "What an effectful call gave back where it did not give the ordinary answer. Its presence is that fact; a read's status is the answer, and the answer is in the Record.",
+								"properties": {
+									"host": {"type": "string"},
+									"status": {"type": "integer", "description": "Absent where no response arrived at all, which is the Step whose request provably never left."},
+									"command": {"type": "string"},
+									"exit_code": {"type": "integer", "description": "Absent where the command was never started: 0 is an answer a shell command gives, and reading an unset field as one is how a request that never left acquires an exit code."}
+								}
+							},
+							"projection_failed_path": {"type": "string", "description": "§6's projection failure alone, and the records above are then partial."}
+						}
+					}
+				]
+			}
+		},
+		"truncated": {"type": "boolean"}
+	}`, "rows", "truncated"),
+	argv: func(arguments json.RawMessage) ([]string, error) {
+		var named struct {
+			RunID     string `json:"run_id"`
+			Expansion bool   `json:"expansion"`
+		}
+		if err := readArguments(arguments, &named); err != nil {
+			return nil, err
+		}
+		if err := namesSomething("run_id", named.RunID, "Run"); err != nil {
+			return nil, err
+		}
+		argv := []string{"show"}
+		if named.Expansion {
+			// Before the `--`, because that is where the command
+			// takes it: `--expansion` comes off the line before the
+			// shared parser sees it and stops at the first `--`
+			// (show.go).
+			argv = append(argv, "--expansion")
+		}
+		// Past one `--`, for providerTool's reason: a Run id is matched
+		// byte-exact against a namespace, and the parser already states
+		// that "--" ends the flags (flags.go).
+		return append(argv, "--", named.RunID), nil
+	},
+}
+
+// changesTool carries `hyper changes [procedure]` — §8's Comparison, and the
+// question this whole surface exists to close the loop on: *what differs from
+// when we last looked*.
+//
+// **`procedure` is the command's positional and not a filter**, which is the
+// one difference between this argument set and `runs`': naming one selects the
+// rendering, and naming none compares across every Procedure at once (§9,
+// changes.go).
+//
+// **`record_kind` is the CLI's `--kind` spelled out.** In a flat argument object
+// beside tools carrying an Operation's Kind, one name cannot hold two senses:
+// a **Kind** is `read`, `mutate` or `destroy`, and this is `asset` or
+// `observation`. §9 writes the argument out this way and the CLI's own flag
+// value is documented under the same reading (flags.go).
+//
+// **`since` and `between` name one window two ways, and naming it both ways is
+// a JSON-RPC error.** So is a `between` naming a rehearsal, an open entry, one
+// Run twice, two Procedures, or the two ends the wrong way round: every one of
+// them is a well-typed argument that names no window this surface can render,
+// and the command's own sentence is what comes back (§9, ADR-0060).
+var changesTool = tool{
+	name:        "changes",
+	description: "Report what changed between two Runs of a Procedure: the Assets you moved, the Observations the world moved, and what moved in the code between them.",
+	input: closedObject(`{
+		"procedure": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The Procedure to compare Runs of. Omit it to compare across every Procedure the Journal holds, one block each — which is a fold and never a sum: there is no grand total across windows with different baselines."
+		},
+		"since": {"type": "string", "description": "An RFC 3339 instant bounding the window, inclusive of the instant it names. It is one of two ways of naming a window and naming it both ways at once is a malformed call."},
+		"between": {
+			"type": "array",
+			"items": {"type": "string", "minLength": 1},
+			"minItems": 2,
+			"maxItems": 2,
+			"description": "The window's two ends named directly, baseline first and subject second — the order the header renders them in. A pair given the other way round is refused rather than quietly reordered."
+		},
+		"target": {"type": "string", "minLength": 1, "description": "A Target's name, matched byte-exact over UTF-8. It narrows the two Record tables and never the header or the code facts beneath them."},
+		"record_kind": {
+			"enum": ["asset", "observation"],
+			"description": "One of §7's two Record types, which is the split between the two Record tables. It is the CLI's --kind under a name that cannot be read as an Operation's Kind."
+		},
+		"limit": {"type": "integer", "minimum": 1, "description": "The cap on the two Record tables' rows. It cuts neither the window rows nor the code facts: narrowing what a reader looked at may not narrow what they are told changed."}
+	}`),
+	output: closedObject(`{
+		"rows": {
+			"type": "array",
+			"items": {
+				"oneOf": [
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "procedure", "subject"],
+						"description": "One window's header, and the row every block opens with. baseline is absent where there is none, which a window has exactly one way of: the subject is the first Run of its Procedure.",
+						"properties": {
+							"type": {"const": "window"},
+							"procedure": {"type": "string"},
+							"baseline": `+windowSide+`,
+							"subject": `+windowSide+`
+						}
+					},
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "change", "target", "definition", "name", "fields"],
+						"description": "One Record that moved. The type is which of the two tables holds it — asset is YOU DID THIS and observation is THE WORLD MOVED — the split being by actor rather than by column.",
+						"properties": {
+							"type": {"enum": ["asset", "observation"]},
+							"change": {"type": "string", "description": "What happened to it between the two ends, as §8 names it."},
+							"target": {"type": "string"},
+							"definition": {"type": "string"},
+							"name": {"type": "string"},
+							"from_ordinal": {"type": "integer", "minimum": 1, "description": "Absent where the end has no version to name, which is what appeared and vanished are."},
+							"to_ordinal": {"type": "integer", "minimum": 1},
+							"confirmed_at": {"type": "string", "description": "When a destruction was confirmed, on a destroyed row alone."},
+							"fields": {
+								"type": "object",
+								"description": "What the projection held, every value whole: a pair of values where the field changed, and the value alone where one end held nothing. Its keys are the Record's own fields, so it is the one object here whose members hyper does not state. Written always, the empty mapping included — an empty one is what says hyper destroyed this and never observed what it was."
+							}
+						}
+					},
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "fact"],
+						"description": "One code fact, or the catch-all that terminates the table. The two are told apart by fact. subject_kind and subject stand together where the fact has an artefact subject and neither stands where it does not — repo_revision belongs to no artefact a reader can open.",
+						"properties": {
+							"type": {"const": "code"},
+							"subject_kind": {"type": "string"},
+							"subject": {"type": "string"},
+							"fact": {"type": "string"},
+							"from": {"description": "The baseline's value, as the value it is."},
+							"to": {"description": "The subject's value."},
+							"from_phrase": {"type": "string", "description": "A Cadence expression glossed, where the fact is one: the gloss's parts ride beside the expression rather than as a composed line."},
+							"to_phrase": {"type": "string"},
+							"from_rate": {"type": "number"},
+							"to_rate": {"type": "number"},
+							"count": {"type": "integer", "minimum": 0, "description": "The catch-all's own: how many moved lines no classed row above reports. Zero is a count, which is why the table can read 0 other lines changed and still carry this row."},
+							"baseline_absent": {"type": "string", "description": "Stands in place of count where the bytes could not be read: the object is not in this clone."},
+							"command": {"type": "string", "description": "The git diff a reader runs, abbreviated as the page draws it — a command rather than an id, and one git resolves short. Absent where either side recorded repo_dirty."}
+						}
+					}
+				]
+			}
+		},
+		"truncated": {"type": "boolean"}
+	}`, "rows", "truncated"),
+	argv: func(arguments json.RawMessage) ([]string, error) {
+		var named struct {
+			Procedure  *string  `json:"procedure"`
+			Since      *string  `json:"since"`
+			Between    []string `json:"between"`
+			Target     *string  `json:"target"`
+			RecordKind *string  `json:"record_kind"`
+			Limit      *int     `json:"limit"`
+		}
+		if err := readArguments(arguments, &named); err != nil {
+			return nil, err
+		}
+		// The positional is read first and written last, which is where
+		// the command takes it. It is refused empty for the reason every
+		// other argument here is: `changes` reads no positional at all
+		// as *compare across every Procedure*, so `procedure: ""` would
+		// answer a fold over the whole Store to a caller who named one
+		// (namedValue.flagged).
+		procedure := ""
+		if named.Procedure != nil {
+			if err := namesSomething("procedure", *named.Procedure, "Procedure"); err != nil {
+				return nil, err
+			}
+			procedure = *named.Procedure
+		}
+
+		since, err := flagsFor(namedValue{"since", named.Since, "instant", "--since"})
+		if err != nil {
+			return nil, err
+		}
+		argv := append([]string{"changes"}, since...)
+		if named.Between != nil {
+			// A window has two ends, and the schema's minItems and
+			// maxItems are made true here for readArguments' own
+			// reason: a schema is a claim a client may or may not
+			// check. One id is one end of a window, which is a
+			// thing the flag itself refuses in as many words
+			// (flags.go).
+			if len(named.Between) != 2 {
+				return nil, fmt.Errorf("between takes two Run ids, the baseline and the subject, and was given %d: a window has two ends", len(named.Between))
+			}
+			for i, id := range named.Between {
+				if err := namesSomething(fmt.Sprintf("between[%d]", i), id, "Run"); err != nil {
+					return nil, err
+				}
+			}
+			argv = append(argv, "--between", named.Between[0], named.Between[1])
+		}
+		narrowed, err := flagsFor(
+			namedValue{"target", named.Target, "Target", "--target"},
+			namedValue{"record_kind", named.RecordKind, "Record type", "--kind"},
+		)
+		if err != nil {
+			return nil, err
+		}
+		argv = append(argv, narrowed...)
+		argv = append(argv, cappedAt(named.Limit)...)
+		if procedure == "" {
+			return argv, nil
+		}
+		// The positional last and past one `--`, which is the command
+		// line the command would have received: a Procedure name is
+		// matched byte-exact against a namespace that can hold a name
+		// spelled like a flag (flags.go).
+		return append(argv, "--", procedure), nil
+	},
+}
+
+// windowSide is one end of a Comparison's window as a schema, written once
+// because a `window` row carries two of them and they are one shape (§8,
+// compare.SideRow).
+//
+// **`ended` stands where the page renders a duration**: §7 is precise that no
+// duration is stored anywhere, and the wire carries the two instants it
+// subtracted and never the subtraction. Its absence is what the page renders
+// `reaped` for, and `closed_by` beside it says why.
+const windowSide = `{
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["run", "trigger", "started", "outcome", "procedure_revision"],
+	"properties": {
+		"run": {"type": "string"},
+		"trigger": {"type": "string"},
+		"started": {"type": "string"},
+		"outcome": {
+			"enum": ["completed", "refused", "failed"],
+			"description": "The entry's own, written always: a window never names an open entry, so there is always one."
+		},
+		"ended": {"type": "string", "description": "Absent on a reaped entry, whose only account is a closing write on the closing Run's clock, so no duration derives."},
+		"procedure_revision": {"type": "string"},
+		"repo_dirty": {"type": "boolean"},
+		"closed_by": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["run", "outcome", "ended"],
+				"properties": {
+					"run": {"type": "string"},
+					"outcome": {"const": "failed"},
+					"step": {"type": "integer", "minimum": 1},
+					"ended": {"type": "string"}
+				}
+			}
+		}
+	}
+}`
+
+// recordsTool carries `hyper records` — the surface whose job is finding a
+// version. `changes` reads a change and this finds the version that change is
+// of.
+//
+// Its arguments are the identity's three columns, the boolean that opens a
+// series, the window that bounds one, and the cap. **`since` is legal only with
+// `history`, exactly as the flags are**: without it the parameter would filter
+// Heads by when they last moved, which is a change read on the command whose
+// job is finding a version — and having it turn `history` on instead would be
+// the mode ADR-0013 refused. The pair the command refuses together is refused
+// together here, arriving as a JSON-RPC error, being a malformed call rather
+// than a guardrail declining (§9, ADR-0060, records.go).
+//
+// **`limit` counts identities and never rows.** Under `history` a series comes
+// back whole or does not come back, a series cut partway through being a
+// partial history wearing a complete one's shape; what bounds one series is a
+// constant this implementation picks, and a marker naming the time axis is what
+// says it cut (records.go).
+var recordsTool = tool{
+	name:        "records",
+	description: "Find a version: one row per Record with its ordinal, the Run and Step that wrote it, its state and its Provenance — or every version of one, under history.",
+	input: closedObject(`{
+		"target": {"type": "string", "minLength": 1, "description": "The identity's first column, matched byte-exact over UTF-8."},
+		"definition": {"type": "string", "minLength": 1, "description": "Its second."},
+		"name": {"type": "string", "minLength": 1, "description": "Its third. Naming all three is naming one Record, and naming none is the whole branch."},
+		"history": {
+			"type": "boolean",
+			"description": "Whether to answer every version of each Record rather than its Head alone, newest first. It is an explicit boolean and never a mode another argument turns on."
+		},
+		"since": {
+			"type": "string",
+			"description": "An RFC 3339 instant bounding the versions inside each series, inclusive of the instant it names. It is legal only with history: a Head has no window to bound, and naming one here would not open a history."
+		},
+		"limit": {"type": "integer", "minimum": 1, "description": "The cap, counting Records and never rows: under history a series comes back whole or does not come back."}
+	}`),
+	output: closedObject(`{
+		"rows": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["type", "key", "ordinal", "run_id", "step", "record_kind", "provenance"],
+				"properties": {
+					"type": {"const": "record"},
+					"key": {
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["target", "definition", "name"],
+						"description": "The Record's identity as the one fact it is: a Record is identified by its Target, its Definition and a name together, and three siblings of ordinal would be three arguments that happen to be adjacent.",
+						"properties": {
+							"target": {"type": "string"},
+							"definition": {"type": "string"},
+							"name": {"type": "string"}
+						}
+					},
+					"ordinal": {
+						"type": "integer",
+						"minimum": 1,
+						"description": "The version's position in the series' own ordering, stored nowhere and never its identifier — which is the Run that wrote it. It is unstable under Compaction, which is affordable for exactly one reason: nothing anywhere accepts an ordinal as input."
+					},
+					"run_id": {"type": "string", "description": "Whole. The Run and the Step together are the version's identity: two Steps of one Run writing one identity write two paths, so the Run alone would not name one."},
+					"step": {"type": "integer", "minimum": 1},
+					"record_kind": {"enum": ["asset", "observation"]},
+					"tombstoned": {"type": "boolean", "description": "Whether the Record's Head is a Tombstone. It is the series' state rather than the version's, so it means one thing on every row of a history."},
+					"orphaned": {"type": "boolean", "description": "An Asset still standing whose Definition no longer exists. Reported for as long as it stands rather than once, or a forgotten resource becomes invisible by way of a tidy-up commit."},
+					"secret_fields": {
+						"type": "array",
+						"items": {"type": "string"},
+						"description": "The fields whose value the presence-only marker stands in for: the names, and never a value. Absent where nothing was suppressed."
+					},
+					"provenance": {
+						"type": "object",
+						"additionalProperties": false,
+						"description": "The whole of it, the Run-wide half and the Step's half under one key, which is what a Record version carries and what no Journal file does. It is written always: a version states which code performed the Run that wrote it.",
+						"properties": {`+provenanceMembers+`
+						}
+					}
+				}
+			}
+		},
+		"truncated": {"type": "boolean"}
+	}`, "rows", "truncated"),
+	argv: func(arguments json.RawMessage) ([]string, error) {
+		var named struct {
+			Target     *string `json:"target"`
+			Definition *string `json:"definition"`
+			Name       *string `json:"name"`
+			History    bool    `json:"history"`
+			Since      *string `json:"since"`
+			Limit      *int    `json:"limit"`
+		}
+		if err := readArguments(arguments, &named); err != nil {
+			return nil, err
+		}
+		narrowed, err := flagsFor(
+			namedValue{"target", named.Target, "Target", "--target"},
+			namedValue{"definition", named.Definition, "Definition", "--definition"},
+			namedValue{"name", named.Name, "Record", "--name"},
+		)
+		if err != nil {
+			return nil, err
+		}
+		argv := append([]string{"records"}, narrowed...)
+		if named.History {
+			argv = append(argv, "--history")
+		}
+		// `since` is passed whether or not `history` was given, and the
+		// pair is refused by the command rather than here: what the two
+		// together mean is the command's own rule, and a tool that
+		// decided it would be a second reading of a fact the CLI half
+		// already states in a sentence a caller reads (records.go).
+		since, err := flagsFor(namedValue{"since", named.Since, "instant", "--since"})
+		if err != nil {
+			return nil, err
+		}
+		argv = append(argv, since...)
+		return append(argv, cappedAt(named.Limit)...), nil
+	},
+}
+
+// namedValue is one optional argument that carries a value: what it is called
+// here, what the caller wrote, the noun a refusal names, and the flag its
+// command takes.
+//
+// The four Inspection tools take eleven of these between them and every one of
+// them reads the same way — absent is no narrowing, empty is a malformed call,
+// and present is a flag and its value — so it is stated once. A tool that
+// spelled the reading per argument would be eleven chances for one of them to
+// let the empty string through. The two arguments that are not one of these are
+// the two that do not become a flag and a value: `changes`'s positional, and the
+// pair `between` takes.
+type namedValue struct {
+	argument string
+	// value is what the caller wrote, and it is a pointer because
+	// **absent and empty are two different calls**: every one of these
+	// arguments narrows something, so a tool that read the two as one
+	// would answer *everything* to a caller who asked about a name that
+	// happens to be the empty string (flagged below).
+	value *string
+	noun  string
+	flag  string
+}
+
+// flagged is the argument as a command line carries it: the flag and its value
+// where the caller named one, nothing at all where they did not, and an error
+// where they named the empty string.
+//
+// **The empty string is a malformed call and not an absent parameter**, which
+// is namesSomething's reading and is load-bearing on every one of these: the
+// command reads an empty `--target` as no narrowing at all, so a caller asking
+// about a Target named `""` would be handed the whole Journal as though they
+// had asked for it (check's own `paths: [""]`, one file up).
+//
+// The value goes after the flag as a separate argument rather than joined with
+// `=`, which is the spelling every one of these flags takes and the one that
+// needs no escaping: a value beginning `--` is the next argument, and the
+// command's own reader takes whatever stands there (flags.go).
+func (v namedValue) flagged() ([]string, error) {
+	if v.value == nil {
+		return nil, nil
+	}
+	if err := namesSomething(v.argument, *v.value, v.noun); err != nil {
+		return nil, err
+	}
+	return []string{v.flag, *v.value}, nil
+}
+
+// flagsFor is a run of optional arguments as the command line carries them, in
+// the order they were given, and the first refusal among them.
+//
+// It is here rather than a loop at each of the four tools because what the loop
+// holds is the reading rather than the order: an argument that will not stand is
+// a malformed call, and five copies of *check the error before appending* are
+// five chances for one of them to append and carry on. What each tool still
+// states for itself is which arguments it takes and in which order, that being
+// §9's signature and not this function's.
+func flagsFor(parameters ...namedValue) ([]string, error) {
+	var argv []string
+	for _, parameter := range parameters {
+		flagged, err := parameter.flagged()
+		if err != nil {
+			return nil, err
+		}
+		argv = append(argv, flagged...)
+	}
+	return argv, nil
+}
+
+// cappedAt is the `--limit` a caller named, and nothing where they named none —
+// which is the command's own default applying, exactly as it does on a listing
+// tool that offers no cap at all (providersTool).
+//
+// It takes a pointer because **zero is a value this argument must be able to
+// carry**: the schema's `minimum` refuses it, and a tool that read an absent
+// argument and an explicit `0` as one value would silently answer the default
+// where a caller asked for a cap the command refuses in its own words — a limit
+// of none is the flag left off, and a limit of zero is a question with no
+// answer in it (flags.go).
+func cappedAt(limit *int) []string {
+	if limit == nil {
+		return nil
+	}
+	return []string{"--limit", strconv.Itoa(*limit)}
 }

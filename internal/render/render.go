@@ -127,6 +127,81 @@ const (
 	AxisTime TruncationAxis = "time"
 )
 
+// A Narrowing is the parameters that narrow the axis a limit cut: the remedy a
+// truncation marker carries, held as the parameters themselves rather than as a
+// finished sentence.
+//
+// It is a list and not a string because **the remedy is spelled twice**. §9
+// gives the same marker to the terminal and to the MCP server, and the hint is
+// the one member of it that differs between them: a caller at a keyboard types
+// `--since`, and a caller of a tool types no flag anywhere, so a hint naming
+// flags there would point an agent at an argument no schema declares (§9, issue
+// #199). One list behind both is what keeps the two sentences from coming to
+// name different parameters (ADR-0026).
+//
+// Which parameters narrow an axis differs by which command was called —
+// `--between` is `changes`'s and nobody else's — so the list is the command's
+// own and this package only spells it.
+type Narrowing []Parameter
+
+// Parameter is one narrowing parameter in both of its spellings: the flag its
+// command line takes, hyphens and all, and the argument name the tool carrying
+// that command takes.
+//
+// The two are written out rather than derived from one another, because they
+// are not always one word: `--kind` is `record_kind` in a flat argument object,
+// where a bare `kind` is an Operation's Kind and one name cannot hold two
+// senses (§9, §12).
+type Parameter struct {
+	Flag     string
+	Argument string
+}
+
+// Flags is the remedy in the words a command line is typed in: *narrow with
+// --target, --definition or --name*.
+func (n Narrowing) Flags() string {
+	return n.sentence(func(p Parameter) string { return p.Flag })
+}
+
+// Arguments is the remedy in the words a tool call is written in: *narrow with
+// `target`, `definition` or `name`*.
+//
+// The names are quoted because they are identifiers inside a sentence and there
+// is no `--` in front of them to say so — which is exactly the spelling §9
+// writes the marker out in.
+func (n Narrowing) Arguments() string {
+	return n.sentence(func(p Parameter) string { return "`" + p.Argument + "`" })
+}
+
+// sentence is the remedy composed over one spelling: the parameters in the
+// command's own order, with the last joined by `or` — one list read aloud
+// rather than an enumeration, since a caller narrows with any one of them.
+//
+// A narrowing with no parameters composes nothing at all, which is what a
+// namespace listing has: no axis, and no parameter that narrows one. The marker
+// refuses it (MarshalJSON below); the empty sentence is what makes that
+// refusal, rather than a half-written remedy, the thing that happens.
+func (n Narrowing) sentence(spell func(Parameter) string) string {
+	if len(n) == 0 {
+		return ""
+	}
+	named := make([]string, 0, len(n))
+	for _, parameter := range n {
+		named = append(named, spell(parameter))
+	}
+	last := len(named) - 1
+	if last == 0 {
+		return narrowWith + named[0]
+	}
+	return narrowWith + strings.Join(named[:last], ", ") + " or " + named[last]
+}
+
+// narrowWith opens every remedy this marker carries, on both surfaces. There is
+// no cursor behind either stream and no way to ask for the next N: the remedy
+// for a truncated result is a narrower question, and this is the sentence that
+// says so (§9, ADR-0065).
+const narrowWith = "narrow with "
+
 // TruncationMarker is the shape §9 fixes for a result an Inspection command's
 // limit cut: which axis was cut, what came back, what did not, and what would
 // make the next call a narrower question. There is no cursor behind this stream
@@ -138,16 +213,41 @@ const (
 // compares, and the ordinary absence rule (§7) would leave a consumer reading a
 // missing key as *unknown* where the fact is *none*.
 //
-// Hint is the command's own words, for truncationLine's reason one package
-// over: the parameters that narrow an axis differ by which command was called —
-// `--between` is `changes`'s and nobody else's — and naming a flag the caller's
-// command does not take would point the remedy at an argument they would go
-// looking for in their own command line.
+// The fourth of them is `hint`, and it is composed at write time out of Narrows
+// rather than held as a sentence: the parameters are the command's own and the
+// spelling is the surface's, which is the whole of the difference between the
+// marker the terminal writes and the marker a tool answers (Narrowing).
 type TruncationMarker struct {
-	Axis     TruncationAxis `json:"axis"`
-	Returned int            `json:"returned"`
-	Dropped  int            `json:"dropped"`
-	Hint     string         `json:"hint"`
+	Axis     TruncationAxis
+	Returned int
+	Dropped  int
+	Narrows  Narrowing
+	// arguments says the hint is spelled in argument names rather than in
+	// flags. It is unexported and its one door is InArguments below, so a
+	// marker a command built is the terminal's by default and becomes a
+	// tool's only by being read as one — a member a caller could set would
+	// be a command free to write either surface's words on its own wire.
+	arguments bool
+}
+
+// InArguments is this marker as a surface with no flags to type writes it: the
+// same axis and the same two counts, and the hint naming the tool's arguments
+// (§9, issue #199).
+//
+// It answers a value rather than editing this one, a spelling being a reading
+// of one marker rather than a change to it: the command's own terminal row goes
+// on writing flags after a tool has read it.
+func (m TruncationMarker) InArguments() TruncationMarker {
+	m.arguments = true
+	return m
+}
+
+// hint is the remedy in this marker's own spelling.
+func (m TruncationMarker) hint() string {
+	if m.arguments {
+		return m.Narrows.Arguments()
+	}
+	return m.Narrows.Flags()
 }
 
 // MarshalJSON writes the marker, and refuses one that is not one: a marker
@@ -187,14 +287,19 @@ func (m TruncationMarker) MarshalJSON() ([]byte, error) {
 		return nil, fmt.Errorf("a truncation marker returned %d rows: a limit cuts a result it returned some of", m.Returned)
 	case m.Dropped < 1:
 		return nil, fmt.Errorf("a truncation marker dropped %d rows: a result nothing cut carries no marker", m.Dropped)
-	case m.Hint == "":
+	case len(m.Narrows) == 0:
 		return nil, errors.New("a truncation marker carries no hint: the axis names the cut, and the hint names what narrows it")
 	}
-	// The alias sheds this method and nothing else, so the members, their
-	// order and their tags are the type's own and the encoding below is the
-	// ordinary one.
-	type members TruncationMarker
-	return json.Marshal(members(m))
+	// The members are written out here rather than tagged on the type
+	// above, because `hint` is composed from the parameters beside it and a
+	// tag would put the composed sentence on the value: the marker holds
+	// what narrows the axis, and the sentence is this write's (Narrowing).
+	return json.Marshal(struct {
+		Axis     TruncationAxis `json:"axis"`
+		Returned int            `json:"returned"`
+		Dropped  int            `json:"dropped"`
+		Hint     string         `json:"hint"`
+	}{m.Axis, m.Returned, m.Dropped, m.hint()})
 }
 
 // NewResultRow is the terminal row for a stream that carried everything it
@@ -208,6 +313,21 @@ func NewResultRow(truncated bool) ResultRow {
 // whose parameters can narrow what it cut.
 func NewTruncatedResultRow(marker TruncationMarker) ResultRow {
 	return ResultRow{Type: "result", Truncated: Truncation{marker: &marker}}
+}
+
+// Marker is the marker this row carries, and whether it carries one at all: the
+// bare boolean answers none, a namespace listing having no axis to name.
+//
+// It is the door a second surface reads a marker through. The terminal row
+// crosses that boundary as a row, and the MCP server writes its hint in its own
+// words (§9) — so what it needs is the marker as a value, where re-decoding the
+// member it is about to write would be reading back what it had just encoded
+// (internal/mcp/envelope.go, issue #199).
+func (r ResultRow) Marker() (TruncationMarker, bool) {
+	if r.Truncated.marker == nil {
+		return TruncationMarker{}, false
+	}
+	return *r.Truncated.marker, true
 }
 
 // Cells is empty: the terminal row is the wire's framing and has no line on the

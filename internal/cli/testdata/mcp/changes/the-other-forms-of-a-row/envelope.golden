@@ -1,0 +1,19 @@
+{
+  "content": [
+    {"type":"text","text":"1 window, 2 Assets, 2 Observations, 3 code facts"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03.000Z","outcome":"completed","ended":"2026-08-04T09:13:51.000Z","procedure_revision":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18.000Z","outcome":"completed","ended":"2026-08-06T11:05:49.000Z","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}},
+      {"type":"asset","change":"changed","target":"staging","definition":"hetzner-staging","name":"preview-8901","from_ordinal":1,"to_ordinal":2,"fields":{"region":["fsn1","nbg1"],"user_data":["#cloud-config\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx","#cloud-config\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"]}},
+      {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8999","to_ordinal":1,"confirmed_at":"2026-08-06T11:05:09.000Z","fields":{}},
+      {"type":"observation","change":"appeared","target":"local","definition":"uptime","name":"queue.hyper.dev","to_ordinal":2,"fields":{"status":503}},
+      {"type":"observation","change":"vanished","target":"local","definition":"uptime","name":"status.hyper.dev","from_ordinal":1,"fields":{"status":200,"stdout":"HTTP/1.1 200 OK\nserver: nginx"}},
+      {"type":"code","subject_kind":"procedure","subject":"retire-preview-envs","fact":"procedure revision","from":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1","to":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"},
+      {"type":"code","fact":"repository revision","from":"1f0a3d78c2e5b91467af03d28b5c9e610473fa8d","to":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"},
+      {"type":"code","fact":"other lines changed","baseline_absent":"not-in-clone","command":"git diff 1f0a3d7 88bc402"}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

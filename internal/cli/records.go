@@ -194,16 +194,23 @@ func RunRecords(args []string, to destination, process Process, wd, binaryVersio
 // parameters that narrow the identity axis, which is the axis this command
 // orders on and therefore the one a cap cuts.
 //
-// It is the command's own words rather than the renderer's, because the
+// It is the command's own parameters rather than the renderer's, because the
 // parameters that narrow an axis differ by which command was called —
 // `--between` is `changes`'s and nobody else's — and naming a flag the caller's
 // command does not take would point the remedy at an argument they would go
-// looking for in their own command line.
+// looking for in their own command line. It is the parameters and not the
+// sentence for runsNarrowing's reason: §9 gives this marker two surfaces, and
+// the hint is the one member of it each spells for itself (render.Narrowing,
+// issue #199).
 //
 // `--since` is not among them, and its absence is the rule rather than an
 // oversight: it narrows the versions **inside** a series, and what a cap cut
 // here is whole Records (§9, ADR-0065).
-const recordsNarrowing = "narrow with --target, --definition or --name"
+var recordsNarrowing = render.Narrowing{
+	{Flag: "--target", Argument: "target"},
+	{Flag: "--definition", Argument: "definition"},
+	{Flag: "--name", Argument: "name"},
+}
 
 // recordsTerminal is the row every stream here ends with: the marker where
 // something cut the answer, and the bare `false` only where nothing did.
@@ -232,14 +239,14 @@ func recordsTerminal(left cut) render.Row {
 			Axis:     render.AxisIdentity,
 			Returned: left.identities,
 			Dropped:  left.identitiesDropped,
-			Hint:     recordsNarrowing,
+			Narrows:  recordsNarrowing,
 		})
 	case left.versionsDropped > 0:
 		return render.NewTruncatedResultRow(render.TruncationMarker{
 			Axis:     render.AxisTime,
 			Returned: left.versions,
 			Dropped:  left.versionsDropped,
-			Hint:     versionsNarrowing,
+			Narrows:  versionsNarrowing,
 		})
 	}
 	return render.NewResultRow(false)
@@ -253,7 +260,7 @@ func recordsTerminal(left cut) render.Row {
 // narrows it**, and a window small enough to fit under the cap comes back
 // whole — where widening the cap would be a bigger answer, which is not a thing
 // this surface offers on either axis (§9, ADR-0065).
-const versionsNarrowing = "narrow with --since"
+var versionsNarrowing = render.Narrowing{{Flag: "--since", Argument: "since"}}
 
 // recordRow is `records`'s row, and its members are §9's own, in §9's order:
 // {"type":"record","key":{…},"ordinal":…,"run_id":…,"step":…,
@@ -531,7 +538,7 @@ func cutIdentities(selected []selection, limit int) (kept []selection, left cut)
 // the cap is a constant an implementation picks and nothing reads it back.
 func cappedSeriesLine(left cut) string {
 	return fmt.Sprintf("returned %d of %d versions across %d series; %d dropped by the cap on versions per series — %s",
-		left.versions, left.versions+left.versionsDropped, left.identities, left.versionsDropped, versionsNarrowing)
+		left.versions, left.versions+left.versionsDropped, left.identities, left.versionsDropped, versionsNarrowing.Flags())
 }
 
 // recordRows is the answer: one row per version of each Record that came back,

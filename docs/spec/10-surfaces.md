@@ -758,6 +758,14 @@ marker does:
                "hint": "narrow with `since` or `target`" }
 ```
 
+**The hint names the tool's arguments where the terminal's names its flags, and that is the only
+wording an answer changes between the two surfaces.** A hint reading `--since` where nothing takes a
+flag would point a caller at an argument no schema declares; the axis, both counts and every row
+beside them are the command's own, unchanged. All four members are written always — they are counts a
+reader subtracts, and an absent key would read as *unknown* where the fact is *none*. There is no
+cursor here and no way to ask for the next N: the remedy for a truncated result is a narrower
+question, and a truncated result must never look complete.
+
 **The `text` block is asymmetric, and the asymmetry is the point.**
 
 | case | `text` carries |
@@ -983,15 +991,30 @@ runs(since?, procedure?, target?, outcome?, limit?)
 
 ```jsonc
 run_show(run_id, expansion?)
-// → rows: [{ type: "disposition", step, state,   // state: §12
+// → rows: [{ type: "entry", run_id, procedure, trigger: { … }, started_at, dry_run,
+//            outcome, ended_at, closed_by: [ … ] }]   // the header row, emitted first
+//         §8's refusal and remediation rows, where the entry's own Run recorded a Refusal
+//         §8's provenance rows, unchanged: the Run-wide row, then one per Step file written
+//         [{ type: "step", step, id, path, definition, operation, provider, target, kind,
+//            disposition,                        // §12's set
 //            records: [ … ],                     // the identities the Step concluded about — the set
 //                                                // §8's `records` count is the size of; absent where
 //                                                // the Disposition carries none
 //            pattern: { attempts, pages, polls },
-//            failed_path }]                      // §6's projection failure only; records is partial
-//         §8's provenance rows, unchanged: the Run-wide row, then one per Step file written
-//         [{ type: "expansion", step, selector, expanded_to, bound }]   // expansion: true only
+//            selector: { declared, expanded_to, bound },   // expansion: true only
+//            projection_failed_path }]           // §6's projection failure only; records is partial
 ```
+
+**The rows are `show`'s own, and an earlier sketch of this tool named others.** It gave each Step a
+`disposition` row carrying a `state` and a `failed_path`, with the Expansion split off into rows of
+its own, where the command has written `entry`, `refusal`, `remediation`, `provenance` and `step`
+rows since it landed — and what that sketch called `state` is the `disposition` member of the row
+that carries it. §12's opening rule — one fact reaching two wires reaches them under one name —
+decides it in favour of the shape the command already writes, exactly as it decided `credentials`
+above: a second shape for one entry is where the two surfaces come to disagree about what a Run did.
+The Expansion rides on the Step it belongs to for the same reason, under the argument that asks for
+it, and the header and the Refusal rows are the sketch's list made complete rather than widened —
+`show` renders both, and an `outputSchema` is declared once and for every call of the tool.
 
 ```jsonc
 changes(procedure?, since?, between?, target?, record_kind?, limit?)

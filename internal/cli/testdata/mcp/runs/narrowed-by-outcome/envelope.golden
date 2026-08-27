@@ -1,0 +1,13 @@
+{
+  "content": [
+    {"type":"text","text":"2 Runs"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"run","id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4","started":"2026-08-06T11:03:18.000Z","trigger":"igor@thinkpad","outcome":"completed","procedure":"retire-preview-envs","targets":["local","staging"],"hyper_version":"1.4.0"},
+      {"type":"run","id":"019912ab-5e60-7f22-b47d-2c8e10395fa1","started":"2026-08-03T08:00:00.000Z","trigger":"igor@thinkpad","outcome":"completed","contested":true,"procedure":"publish-preview","targets":["local","staging"],"hyper_version":"1.3.2"}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

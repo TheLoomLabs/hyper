@@ -1,0 +1,13 @@
+{
+  "content": [
+    {"type":"text","text":"2 Runs"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"run","id":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","started":"2026-08-06T09:41:12.508Z","trigger":"cron","outcome":"failed","procedure":"retire-preview-envs","targets":["cloudflare-prod"],"hyper_version":"1.4.0"},
+      {"type":"run","id":"019917f2-2c81-7d55-8e3a-1b4c9d70e6a2","started":"2026-08-04T09:12:03.000Z","trigger":"cron","outcome":"failed","procedure":"retire-preview-envs","targets":["cloudflare-prod","local"],"hyper_version":"1.3.2"}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

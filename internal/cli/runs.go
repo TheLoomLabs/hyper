@@ -135,16 +135,25 @@ func RunRuns(args []string, to destination, process Process, wd, binaryVersion s
 // own MCP sketch writes for this command: `--since` and `--target`, the two
 // parameters that narrow what a cap on the time axis cut.
 //
-// It is the command's own words rather than the renderer's, because the
+// It is the command's own parameters rather than the renderer's, because the
 // parameters that narrow an axis differ by which command was called —
 // `--between` is `changes`'s and nobody else's — and naming a flag the caller's
 // command does not take would point the remedy at an argument they would go
 // looking for in their own command line.
 //
-// There is no cursor behind this and no way to ask for the next N: the remedy
-// for a truncated result is a narrower question, and this names the parameters
-// that ask one (§9, ADR-0065).
-const runsNarrowing = "narrow with --since or --target"
+// It is the **parameters** and not the sentence, because §9 gives this marker
+// to two surfaces and the hint is the one member of it that differs between
+// them: the terminal reads `--since`, and the tool carrying this command reads
+// `since`, there being no flag to type on that surface at all (render.Narrowing,
+// issue #199).
+//
+// There is no cursor behind this and no way to ask for the next N on either
+// surface: the remedy for a truncated result is a narrower question, and this
+// names the parameters that ask one (§9, ADR-0065).
+var runsNarrowing = render.Narrowing{
+	{Flag: "--since", Argument: "since"},
+	{Flag: "--target", Argument: "target"},
+}
 
 // runsTerminal is the row every stream here ends with: the marker where a cap
 // cut the listing, and the bare `false` where it did not.
@@ -162,7 +171,7 @@ func runsTerminal(kept []render.Row, dropped int) render.Row {
 		Axis:     render.AxisTime,
 		Returned: len(kept),
 		Dropped:  dropped,
-		Hint:     runsNarrowing,
+		Narrows:  runsNarrowing,
 	})
 }
 

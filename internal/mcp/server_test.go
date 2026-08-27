@@ -270,14 +270,22 @@ func TestCall_ACutResultSaysSoInBothHalves(t *testing.T) {
 	}
 }
 
-// TestCall_ATruncationMarkerTravelsWholeAndUnretyped is the other two of §9's
-// three shapes for `truncated`, and the reason the member is lifted rather than
-// read: the marker object is a shape render.Truncation already knows how to
-// write, and a reader here that switched on the value would be a second
-// implementation of that choice.
-func TestCall_ATruncationMarkerTravelsWholeAndUnretyped(t *testing.T) {
+// TestCall_ATruncationMarkersHintNamesTheToolsArgumentsAndNotItsCommandsFlags
+// is §9's marker on this surface, and the **one member of an answer whose
+// wording differs between the two**: the axis and both counts are the command's
+// own, and the hint names what a caller of a tool would type — which is an
+// argument, there being no flag to type here at all (§9, issue #199).
+//
+// The marker is `changes`'s, because it is the one whose two spellings are not
+// one word: `--kind` is `record_kind` in a flat argument object, where a bare
+// `kind` is an Operation's Kind. A surface that rewrote the sentence rather than
+// spelling the parameters would have no way to know that.
+func TestCall_ATruncationMarkersHintNamesTheToolsArgumentsAndNotItsCommandsFlags(t *testing.T) {
 	marker := render.TruncationMarker{
-		Axis: render.AxisTime, Returned: 50, Dropped: 2840, Hint: "narrow with `since` or `target`",
+		Axis:     render.AxisIdentity,
+		Returned: 50,
+		Dropped:  2840,
+		Narrows:  render.Narrowing{{Flag: "--target", Argument: "target"}, {Flag: "--kind", Argument: "record_kind"}},
 	}
 	rows := []render.Row{stubRow{Type: "provider", Name: "alpha"}}
 	server, _ := answering(rows, render.NewTruncatedResultRow(marker))
@@ -287,7 +295,7 @@ func TestCall_ATruncationMarkerTravelsWholeAndUnretyped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := `{"axis":"time","returned":50,"dropped":2840,"hint":"narrow with ` + "`since`" + ` or ` + "`target`" + `"}`
+	want := `{"axis":"identity","returned":50,"dropped":2840,"hint":"narrow with ` + "`target`" + ` or ` + "`record_kind`" + `"}`
 	if got := string(envelope.StructuredContent.Truncated); got != want {
 		t.Errorf("truncated is %s, want %s", got, want)
 	}
@@ -308,6 +316,14 @@ func TestCall_ATruncationMarkerTravelsWholeAndUnretyped(t *testing.T) {
 // `minLength` and the tool's own reading refuse the same argument — and what
 // the table catches is an SDK that begins validating and answers a **result**
 // where these expect an error, whichever of the two would have refused it.
+//
+// **What is not here is the argument a command refuses**, and its absence is
+// the boundary rather than a gap: `outcome: "open"`, `limit: 0` and
+// `record_kind: "tombstone"` are well-typed values their commands close a set
+// against where the flag is read, so each arrives as a protocol error carrying
+// **the command's own sentence** — which is a fixture repository's to drive and
+// the corpus's to hold (§9, flags.go, internal/cli/testdata/mcp). A tool that
+// refused them here would be holding a second copy of a closed set §12 owns.
 func TestCall_AnArgumentTheSchemaDoesNotAdmitIsAProtocolError(t *testing.T) {
 	for _, called := range []struct{ name, tool, arguments string }{
 		{"a member no schema declares", "providers", `{"limit":10}`},
@@ -326,6 +342,20 @@ func TestCall_AnArgumentTheSchemaDoesNotAdmitIsAProtocolError(t *testing.T) {
 		{"a second path naming nothing at all", "check", `{"paths":["definitions/a.yaml",""]}`},
 		{"the artefact to review left off", "review", `{}`},
 		{"an artefact naming nothing at all", "review", `{"artefact":""}`},
+		{"a Procedure named as the empty string", "runs", `{"procedure":""}`},
+		{"a cap that is not a whole number", "runs", `{"limit":1.5}`},
+		{"a predicate where a typed parameter belongs", "runs", `{"where":"outcome == failed"}`},
+		{"the Run id left off", "run_show", `{}`},
+		{"a Run id naming nothing at all", "run_show", `{"run_id":""}`},
+		{"an expansion that is not a boolean", "run_show", `{"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4","expansion":"yes"}`},
+		{"a window with one end", "changes", `{"between":["0199206d-4e15-7c30-9b8a-52d9ea01f7b4"]}`},
+		{"a window with three", "changes", `{"between":["a","b","c"]}`},
+		{"a window naming no end at all", "changes", `{"between":[]}`},
+		{"an end of a window naming nothing", "changes", `{"between":["0199206d-4e15-7c30-9b8a-52d9ea01f7b4",""]}`},
+		{"the CLI's flag name for it", "changes", `{"kind":"asset"}`},
+		{"a Procedure named as the empty string on a tool whose positional is optional", "changes", `{"procedure":""}`},
+		{"a Record named as the empty string", "records", `{"name":""}`},
+		{"a history that is not a boolean", "records", `{"history":"all"}`},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, _ := answering(nil, render.NewResultRow(false))
@@ -365,6 +395,31 @@ func TestCall_TheArgvIsTheCommandLineItsCommandWouldHaveReceived(t *testing.T) {
 		{"a path spelled like a flag", "check", `{"paths":["--json"]}`, []string{"check", "--", "--json"}},
 		{"a tool taking an artefact by path", "review", `{"artefact":"procedures/deploy.yaml"}`, []string{"review", "--", "procedures/deploy.yaml"}},
 		{"a tool taking an artefact by name", "review", `{"artefact":"deploy"}`, []string{"review", "--", "deploy"}},
+		{"a listing with no parameter named", "runs", `{}`, []string{"runs"}},
+		{"every parameter a listing takes", "runs",
+			`{"since":"2026-08-04T09:12:00Z","procedure":"publish-preview","target":"local","outcome":"failed","limit":2}`,
+			[]string{"runs", "--since", "2026-08-04T09:12:00Z", "--procedure", "publish-preview", "--target", "local", "--outcome", "failed", "--limit", "2"}},
+		{"a name spelled like a flag in a parameter's value", "runs", `{"procedure":"--json"}`, []string{"runs", "--procedure", "--json"}},
+		{"one entry read back", "run_show", `{"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}`,
+			[]string{"show", "--", "0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}},
+		{"one entry read back with its Expansions", "run_show", `{"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4","expansion":true}`,
+			[]string{"show", "--expansion", "--", "0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}},
+		{"an expansion asked for as false", "run_show", `{"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4","expansion":false}`,
+			[]string{"show", "--", "0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}},
+		{"a Comparison across every Procedure", "changes", `{}`, []string{"changes"}},
+		{"a Comparison of one, with the positional last", "changes", `{"procedure":"publish-preview","target":"local"}`,
+			[]string{"changes", "--target", "local", "--", "publish-preview"}},
+		{"the Record type under the name the CLI spells --kind", "changes", `{"record_kind":"observation"}`,
+			[]string{"changes", "--kind", "observation"}},
+		{"a window named by its two ends", "changes", `{"between":["019917f2-2c81-7d55-8e3a-1b4c9d70e6a2","01991ea6-b118-7c93-8d41-6b2f7ae05c19"]}`,
+			[]string{"changes", "--between", "019917f2-2c81-7d55-8e3a-1b4c9d70e6a2", "01991ea6-b118-7c93-8d41-6b2f7ae05c19"}},
+		{"a window named both ways at once, which the command refuses", "changes", `{"since":"2026-08-04T09:12:00Z","between":["a","b"]}`,
+			[]string{"changes", "--since", "2026-08-04T09:12:00Z", "--between", "a", "b"}},
+		{"the Heads of every Record", "records", `{}`, []string{"records"}},
+		{"one Record's history in a window", "records", `{"target":"local","definition":"uptime","name":"status.hyper.dev","history":true,"since":"2026-08-04T09:12:00Z","limit":5}`,
+			[]string{"records", "--target", "local", "--definition", "uptime", "--name", "status.hyper.dev", "--history", "--since", "2026-08-04T09:12:00Z", "--limit", "5"}},
+		{"a window named without a history, which the command refuses", "records", `{"since":"2026-08-04T09:12:00Z"}`,
+			[]string{"records", "--since", "2026-08-04T09:12:00Z"}},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, argv := answering(nil, render.NewResultRow(false))
@@ -395,6 +450,10 @@ func TestSummary_CountsTheRowsByTheirOwnDiscriminator(t *testing.T) {
 		{"one Operation seen up close", []string{"operation_detail"}, false, "1 Operation"},
 		{"the repository's grants", []string{"target", "target"}, false, "2 Targets"},
 		{"a cut listing", []string{"provider", "provider"}, true, "2 Providers, truncated"},
+		{"the Journal listed", []string{"run", "run"}, false, "2 Runs"},
+		{"one entry read back whole", []string{"entry", "provenance", "step", "provenance"}, false, "1 Journal entry, 2 Provenance rows, 1 Step"},
+		{"a plural that is not the English s", []string{"entry", "entry"}, false, "2 Journal entries"},
+		{"a Comparison", []string{"window", "asset", "observation", "code"}, false, "1 window, 1 Asset, 1 Observation, 1 code fact"},
 		{"nothing found", nil, false, "no rows"},
 		{"a row type the table does not name", []string{"widget"}, false, "1 widget"},
 	} {

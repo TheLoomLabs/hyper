@@ -152,15 +152,25 @@ func RunChanges(args []string, to destination, process Process, wd, binaryVersio
 // parameters that narrow the identity axis, which is the axis the two Record
 // tables order on and therefore the one a cap cuts.
 //
-// It is the command's own words rather than the renderer's, because the
+// It is the command's own parameters rather than the renderer's, because the
 // parameters that narrow an axis differ by which command was called — a caller
 // pointed at `--definition` here would go looking for a flag `changes` does not
-// take (§9, §12, ADR-0065).
+// take (§9, §12, ADR-0065). It is the parameters and not the sentence for
+// runsNarrowing's reason: §9 gives this marker two surfaces, and the hint is
+// the one member of it each spells for itself (render.Narrowing, issue #199).
+//
+// **`--kind` is `record_kind` on the second surface**, which is the one
+// parameter of the four commands' whose two spellings are not one word: in a
+// flat argument object beside tools carrying an Operation's Kind, one name
+// cannot hold two senses (§9, flags.go).
 //
 // `--since` and `--between` are not among them, and their absence is the rule
 // rather than an oversight: they move the **window**, which is which two Runs
 // are compared, and what a cap cut here is Records inside one window.
-const changesNarrowing = "narrow with --target or --kind"
+var changesNarrowing = render.Narrowing{
+	{Flag: "--target", Argument: "target"},
+	{Flag: "--kind", Argument: "record_kind"},
+}
 
 // changeNarrowing is what the caller narrowed the two Record tables by: §9's
 // two typed, closed parameters for this surface, read off the arguments once.
@@ -472,7 +482,7 @@ func changesTerminal(left changeCut) render.Row {
 		Axis:     render.AxisIdentity,
 		Returned: left.returned,
 		Dropped:  left.dropped,
-		Hint:     changesNarrowing,
+		Narrows:  changesNarrowing,
 	})
 }
 
