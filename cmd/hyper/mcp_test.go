@@ -70,8 +70,18 @@ func TestMCP_TheProcessSpeaksTheProtocolOnItsOwnStreamsAndDiesWithTheClient(t *t
 			Version string `json:"version"`
 		} `json:"serverInfo"`
 		Capabilities map[string]json.RawMessage `json:"capabilities"`
+		Instructions string                     `json:"instructions"`
 	}
 	decode(t, announced, &handshake)
+
+	// **The orientation is on the wire**, which is the half no in-memory
+	// driver can state: it reaches the model through the client's own
+	// reading of `initialize`, so what matters is that the field crosses
+	// the transport filled (§9, ADR-0093, issue #209). What it says is held
+	// one package down, against a `check` (internal/mcp, internal/cli).
+	if !strings.Contains(handshake.Instructions, "hyper") {
+		t.Errorf("the handshake carries instructions %q; an agent's first tool call is otherwise its first sight of hyper", handshake.Instructions)
+	}
 
 	// The server is `hyper` at the version of the binary that would act,
 	// which is the same string the pin gate compares (§9).

@@ -714,6 +714,40 @@ Ergonomics is the whole of the difference between the two: where the CLI takes a
 takes a typed argument, and where the CLI disambiguates a name against a Procedure this surface
 disambiguates it against every other server the client has loaded.
 
+## The handshake carries the orientation
+
+**`initialize` answers an `instructions` field, and `hyper` fills it.** It is the one thing on this
+surface that reaches an agent *before its first tool call*, and it is the whole of what a fresh
+repository does to orient one: no file in the working tree, no setup beyond the client config a user
+already writes, and nothing for the user to know to do.
+
+It states six things, each of them something the tool set cannot teach. Every tool carries a
+description and `operation` goes further — it answers *the Manifest's own lines, verbatim*, which
+teaches the authoring format at the moment a caller needs it — but all of them arrive with a call
+already in mind, and none of these is about a call:
+
+- **What `hyper` is**: the agent authors, a human reviews, every effect is recorded.
+- **The five artefacts** (§2) and where each lives, since `operation` teaches one of the five and
+  nothing anywhere teaches the other four.
+- **The loop**: read what is here, author with your own file tools, `check`, repair, `review`, hand
+  the diff to the human, and `run` only once they have read it.
+- **The three commands with no tool, and why** — an agent that does not know the absence is
+  deliberate shells out to them, which is the exact bypass the absence exists to prevent.
+- **That a Refusal is final**: the same call retried refuses identically, and no argument anywhere
+  widens the caller's own authority.
+- **One worked example of all five artefacts, which checks clean.** A fresh repository holds only the
+  built-in `shell` Manifest, whose request block is `shell: {}` — so an agent asked for an HTTP
+  Provider has no worked example of a request, an `auth:` scheme or a `record:` projection anywhere in
+  reach. The example carries the Repository declaration at **the server's own version**, that being
+  the version of the binary that would act (ADR-0020).
+
+**It is not `hyper` speaking first.** ADR-0021 governs egress on `hyper`'s own initiative; this is a
+field of the answer to a request the client made. Nothing is initiated, and no destination is named.
+
+`hyper` writes no orientation file into the working tree — no `AGENTS.md`, no scaffolded artefact —
+and nothing here widens what `project` may write. An agent that wants a note left for the next one
+authors it like any other file, with its own file tools, and it lands in a diff (ADR-0093).
+
 ## The tool set
 
 Thirteen tools, each named for the command above that it carries:

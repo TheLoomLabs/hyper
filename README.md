@@ -245,6 +245,21 @@ command that would let an agent prune the account it is itself held to.
 with its client and offers no asynchronous handle, so it owns the author→validate→observe loop
 and short effectful Runs; long unattended work is a Cadence on an executor.
 
+### That config block is the whole of the setup
+
+**The handshake orients the agent.** MCP's `initialize` result carries an `instructions` field,
+and `hyper` fills it: what `hyper` is, the five artefacts and where each lives, the
+author → `check` → `review` → *hand it to a human* → `run` loop, the three commands that have
+no tool and why, that a Refusal retried unchanged refuses identically, and one worked example
+of all five artefacts against an HTTP Provider that checks clean. It arrives before the first
+tool call, so there is nothing to paste, nothing to read first, and no file in your repository.
+
+`hyper` writes no orientation file of its own — no scaffolded `AGENTS.md`, no example artefact.
+If you want one, ask your agent for it once it has been oriented; it will land in a diff you
+read like everything else it writes. That is [ADR-0093](docs/adr/0093-orientation-is-a-handshake-field-and-hyper-writes-no-file-to-carry-it.md),
+and the reasoning is that a file somebody has to know to want cannot be what closes a cold
+start.
+
 ## Where the real documentation is
 
 - [`CONTEXT.md`](CONTEXT.md) — the vocabulary. Every term above is defined there, with the

@@ -226,7 +226,10 @@ func (s *Server) Serve(ctx context.Context) error {
 func (s *Server) server() *sdk.Server {
 	server := sdk.NewServer(
 		&sdk.Implementation{Name: name, Version: s.version},
-		&sdk.ServerOptions{Capabilities: &sdk.ServerCapabilities{Tools: &sdk.ToolCapabilities{}}},
+		&sdk.ServerOptions{
+			Capabilities: &sdk.ServerCapabilities{Tools: &sdk.ToolCapabilities{}},
+			Instructions: Instructions(s.version),
+		},
 	)
 	for _, t := range tools {
 		server.AddTool(t.declaration(), s.handler(t))
