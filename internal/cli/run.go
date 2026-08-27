@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TheLoomLabs/hyper/internal/mcp"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/run"
@@ -187,12 +188,16 @@ func RunRun(args []string, to destination, process Process, wd, binaryVersion st
 		Environ:    process.Environ,
 		Dial:       process.Dial,
 		Exec:       process.Exec,
-		// The drain, as the engine asks it: *has an interrupt arrived
-		// by now*. Which signals are watched, what each exits with and
-		// when a second one kills the process are all this side's
-		// (§6, §9, ADR-0015).
-		Interrupted: watch.interrupted,
-		Narrator:    narration{stderr: to.narrate()},
+		// The drain, as the engine asks it: *has this Run been stopped
+		// by now*. Which signals are watched, what each exits with, when
+		// a second one kills the process and what a cancelled call is
+		// are all this side's (§6, §9, ADR-0015, ADR-0092).
+		Interrupted: stopping(watch.interrupted, to.stopped),
+		// Where the Steps go as they happen, which is the surface's and
+		// not this command's: two stderr lines on the terminal, a
+		// notification at the Step boundary on MCP, and nothing at all
+		// where nobody is watching (§9, destination.go).
+		Narrator: to.narrator(),
 	})
 
 	// The fault is narration's and stdout carries none of it: a failure
@@ -708,6 +713,56 @@ func (n narration) Began(id store.RunID) {
 // id.
 func (n narration) Reached(position, of int, id string) {
 	fmt.Fprintf(n.stderr, "step %d/%d %s\n", position, of, id)
+}
+
+// notifications is §9's narration as the MCP surface carries it: one
+// `notifications/progress` per Step boundary, at the same boundary §7 writes a
+// Journal entry at and §9's stderr line above renders (§9, ADR-0092, issue
+// #202).
+//
+// It is the Narrator's **second** implementation and the engine declares only
+// the two events because §9's narration is two lines. What differs here is that
+// only one of them is a line at all.
+type notifications struct {
+	progress mcp.Progress
+}
+
+// Began sends nothing.
+//
+// On the CLI the event exists because the terminal line is not always reached,
+// and the Run that dies before it is the one Run whose identity its own output
+// would otherwise never carry. Here the id arrives in the summary line and in
+// `run_id`, and a client that gives up gets no delivery at all — so a
+// notification naming the id would be narration with no reader on the one path
+// it was invented for (§9, ADR-0047).
+func (notifications) Began(store.RunID) {}
+
+// Reached sends one Step boundary: the position, the total and the Step. It is
+// narration, so it carries no machine contract and no row of its own — what
+// happened is read off the envelope when the call returns, and this is what
+// stands between now and then on a surface with no scrollback (§9).
+func (n notifications) Reached(position, of int, id string) {
+	n.progress(position, of, id)
+}
+
+// stopping is the drain the engine asks, composed from the ways one invocation
+// can be stopped: the terminal's signal, watched beside the Run, and the
+// client's cancelled call, read off the context the server handed the dispatch
+// (§6, §9, ADR-0015, ADR-0092).
+//
+// **A surface supplies one of the two and never both.** The server installs no
+// signal watch, so a Run there is one nobody interrupts by signal; the terminal
+// has no call to cancel, so its destination never goes away. What this composes
+// is therefore one live source and one that is inert, which is why it is an
+// `or` rather than a decision about which surface is running.
+//
+// It is composed **here** and not in the engine, and that is the whole of what
+// keeps the mapping honest: internal/run asks one question at one place — *has
+// this Run been stopped by now*, asked where the next Step would start — and a
+// second stopping mechanism inside it would be a second place a Run can stop
+// (run.Request.Interrupted).
+func stopping(interrupted, cancelled func() bool) func() bool {
+	return func() bool { return interrupted() || cancelled() }
 }
 
 // runColumns is the Step table's header (§8).

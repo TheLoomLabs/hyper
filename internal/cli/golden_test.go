@@ -149,14 +149,22 @@ func goldenCases(t *testing.T) []goldenCase {
 // here where it has none. Those cases carry none deliberately: a directory
 // holding an argv is one TestGolden walks, and a case whose streams name a temp
 // directory is one no golden can hold (run_store_lost_test.go).
+//
+// **A case is read by the file it holds**, which is TestGolden's own rule read
+// once more: a directory under `testdata/mcp/` holds a `call` where the others
+// hold an argv, so a driver naming one gets the call and drives the second
+// surface (golden_mcp_test.go, mcp_cancelled_test.go).
 func corpusCase(t *testing.T, name string, argv ...string) goldenCase {
 	t.Helper()
 
 	dir := filepath.Join("testdata", filepath.FromSlash(name))
-	if len(argv) == 0 {
-		argv = readArgv(t, filepath.Join(dir, "argv"))
+	if len(argv) > 0 {
+		return goldenCase{dir: dir, name: name, argv: argv}
 	}
-	return goldenCase{dir: dir, name: name, argv: argv}
+	if call := filepath.Join(dir, "call"); isFile(call) {
+		return goldenCase{dir: dir, name: name, call: readCall(t, call)}
+	}
+	return goldenCase{dir: dir, name: name, argv: readArgv(t, filepath.Join(dir, "argv"))}
 }
 
 // walkTestdata walks the corpora for files of one name and hands each one's
@@ -292,6 +300,12 @@ func TestGolden(t *testing.T) {
 // delivery is driven by [run_signal_test.go](run_signal_test.go) — the same
 // cases, the same entry point, with this one member supplied there (issue
 // #145).
+//
+// A call case is a Run **nobody cancels**, for the same reason and with the
+// same answer: a client giving up is a fact about *when* too, so the delivery
+// is driven by [mcp_cancelled_test.go](mcp_cancelled_test.go), where the input
+// supplied is the call's own context rather than a member of this value (issue
+// #202).
 func (c goldenCase) process(t *testing.T, run goldenRun) cli.Process {
 	t.Helper()
 

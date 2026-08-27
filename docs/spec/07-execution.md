@@ -468,6 +468,11 @@ its own Journal entry `failed` and exits 130 (ADR-0015). The drained Step's outc
 Disposition is *ran* like any other completed Step's. For a serial destroy that is a bounded wait,
 and it turns most cancellations into a stop that is recorded in full rather than into an ambiguity.
 
+**The gate is a predicate and not a signal** — *has this Run been stopped by now*, asked where the next
+Step would start and nowhere else, so a Step in flight is never asked to stop and never told to. That is
+what lets a surface with no signals map its own stop onto it rather than growing a second one: the MCP
+server catches no signal at all, and a cancelled call is this same drain (§9, ADR-0092).
+
 A second interrupt kills the process, and what that leaves is an open Journal entry rather than no
 entry at all — the next effectful Run closes it `failed` with the in-flight Step marked *attempted,
 outcome unknown* (ADR-0003), in a file named for the Run doing the closing (§7). There is no reaper, no

@@ -3,6 +3,7 @@ package mcp
 import (
 	"encoding/json"
 	"maps"
+	"net"
 	"reflect"
 	"slices"
 	"strconv"
@@ -82,8 +83,8 @@ const reviewPage = "  DEFINITION  │  definitions/uptime.yaml\n" +
 // (destination.go, answerText).
 func answering(rows []render.Row, terminal render.Row) (*Server, *[]string) {
 	var argv []string
-	return NewServer("1.4.0", func(line []string) Answer {
-		argv = line
+	return NewServer("1.4.0", func(call Call) Answer {
+		argv = call.Argv
 		return Answer{Rows: rows, Terminal: terminal, Rendering: reviewPage}
 	}), &argv
 }
@@ -553,7 +554,7 @@ func TestSummary_CountsTheRowsByTheirOwnDiscriminator(t *testing.T) {
 // was handed. It stands beside `answering` for the cases that are about the
 // exit code rather than about the rows.
 func returning(answer Answer) *Server {
-	return NewServer("1.4.0", func([]string) Answer { return answer })
+	return NewServer("1.4.0", func(Call) Answer { return answer })
 }
 
 // TestCall_APositionalThatMatchesNothingIsAProtocolError is §9's third member
@@ -894,7 +895,7 @@ func TestCall_ARunsEnvelopeLiftsTheTripleTheMarkerAndTheEntry(t *testing.T) {
 			// guardrail declined renders the Refusal inside its
 			// page, and the page is what the text block carries
 			// (envelopeOf, runPage).
-			server := NewServer("1.4.0", func([]string) Answer {
+			server := NewServer("1.4.0", func(Call) Answer {
 				return Answer{Terminal: one.terminal, Rendering: reviewPage, Exit: one.terminal.Code}
 			})
 
@@ -945,7 +946,7 @@ func TestCall_ARunThatWroteNoTerminalRowTakesItsOutcomeFromTheCode(t *testing.T)
 		{"a rehearsal that lost the Store", `{"procedure":"publish-preview","dry_run":true}`, yes, "failed · dry-run"},
 	} {
 		t.Run(one.name, func(t *testing.T) {
-			server := NewServer("1.4.0", func([]string) Answer {
+			server := NewServer("1.4.0", func(Call) Answer {
 				// What the command left: a sentence on the
 				// narration, and no answer at all.
 				return Answer{Narration: "hyper run: another Run holds the Store lock\n", Exit: 75}
@@ -1270,4 +1271,71 @@ func argumentsSatisfying(t *testing.T, declaring tool) json.RawMessage {
 		return json.RawMessage(`{}`)
 	}
 	return arguments
+}
+
+// TestCall_NothingIsSentBetweenCalls is §9's *hyper never speaks first* held
+// over the gap the single-call driver cannot reach: **two calls on one
+// session**, with what arrived read off the wire in the order it arrived (§9,
+// ADR-0021, ADR-0092, issue #202).
+//
+// The progress notifications above belong to the call that is in flight and
+// stop when it does, so what this asserts is the shape of the whole recording:
+// the boundaries of the first call, then the boundaries of the second, and
+// **nothing at all in between or after** — no logging message, no
+// server-initiated request, no notification outside a call in flight.
+//
+// The dispatch narrates two boundaries per call whether or not anybody is
+// watching, so the silence between them is the surface's decision and not an
+// absence of anything to say.
+func TestCall_NothingIsSentBetweenCalls(t *testing.T) {
+	narrating := NewServer("1.4.0", func(call Call) Answer {
+		if call.Progress != nil {
+			call.Progress(1, 2, "first")
+			call.Progress(2, 2, "second")
+		}
+		return Answer{Terminal: render.NewResultRow(false), Rendering: reviewPage}
+	})
+
+	serverSide, clientSide := net.Pipe()
+	arriving := &frames{}
+
+	session, err := narrating.server().Connect(t.Context(), &sdk.IOTransport{Reader: serverSide, Writer: serverSide}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+
+	client, err := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil).
+		Connect(t.Context(), &sdk.IOTransport{Reader: arriving.tee(clientSide), Writer: clientSide}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	// Two calls, and the second under a token of its own: a notification
+	// carrying the first call's token after the first call returned would be
+	// the server still talking about a call that is over.
+	for _, token := range []string{"watching-the-first", "watching-the-second"} {
+		params := &sdk.CallToolParams{Name: "probe", Arguments: json.RawMessage(`{"provider":"uptime","operation":"check_http"}`)}
+		params.SetProgressToken(token)
+		if _, err := client.CallTool(t.Context(), params); err != nil {
+			t.Fatalf("call under %s: %s", token, err)
+		}
+	}
+
+	seen := arriving.watching()
+	if len(seen.Unasked) != 0 {
+		t.Errorf("the server sent %v unasked across two calls; it has no logging channel and initiates nothing", seen.Unasked)
+	}
+	// Four boundaries and not one more, in the two calls' own order: the
+	// notifications a call sends stop when it does, so a fifth would be one
+	// belonging to no call in flight.
+	if len(seen.Progress) != 4 {
+		t.Fatalf("two calls of two Steps each sent %d notifications, want 4: %+v", len(seen.Progress), seen.Progress)
+	}
+	for at, want := range []string{"watching-the-first", "watching-the-first", "watching-the-second", "watching-the-second"} {
+		if got := seen.Progress[at].Token; got != want {
+			t.Errorf("notification %d carries token %v, want %q — a notification belongs to the call in flight", at+1, got, want)
+		}
+	}
 }

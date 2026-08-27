@@ -70,13 +70,51 @@ func RunMCP(args []string, narrate io.Writer, process Process, facts version.Fac
 // back at the one place a reader looks up what the binary does — which is the
 // refusal working as stated rather than an inconvenience of it.
 func MCPServer(process Process, facts version.Facts) *mcp.Server {
-	return mcp.NewServer(facts.Version, func(argv []string) mcp.Answer {
+	return mcp.NewServer(facts.Version, MCPDispatch(process, facts))
+}
+
+// MCPDispatch is what stands behind every tool: one call's argv run through the
+// same table `hyper` dispatches a command line through, against a destination
+// that holds no stream (destination.go).
+//
+// It is exported for MCPServer's own reason, one layer down. The drivers that
+// reach past a golden drive a corpus case with one more input supplied, and the
+// input a **cancelled call** supplies is the call's own context — which is the
+// server's to make and not a caller's, so a driver that wanted to hold it had
+// nowhere to stand. A driver stands the same tool set over this dispatch with
+// an observer in front of it, exactly as the corpus stands the same server with
+// a tee on the wire (mcp.Server.Call, mcp_cancelled_test.go, issue #202).
+func MCPDispatch(process Process, facts version.Facts) mcp.Dispatch {
+	// **The server installs no signal watch**, and this is where that
+	// becomes true rather than merely intended: the process's signals belong
+	// to the client that spawned it and not to any one call in flight, so a
+	// Run here is one nobody interrupts by signal and exit codes `130` and
+	// `143` are unreachable from this surface (§6, §9, §12, ADR-0015,
+	// ADR-0092).
+	//
+	// It costs nothing, because the stop this surface does have is the
+	// cancelled call below: the envelope carries `failed` and the Journal
+	// carries the truthful account, which is what the codes would have added
+	// a number to.
+	//
+	// It is cleared **once**, here rather than inside the dispatch: the
+	// value behind a server is one, calls arrive on goroutines of their own,
+	// and a member written per call would be a write two of them race on.
+	process.Notify = nil
+
+	return func(call mcp.Call) mcp.Answer {
 		// The destination that holds no stream, made fresh per call: what
 		// it retains is one command's answer, and a server handing two
 		// calls one buffer would be a surface whose second answer carried
 		// the first's page.
-		to := &collected{}
-		code, dispatched := runRepositoryCommand(argv, to, process, facts)
+		//
+		// It carries the call's two protocol facts because it is the
+		// **surface's** value: where a Step boundary goes is where this
+		// answer's narration goes, and a caller that has stopped waiting
+		// for an answer is a destination that has gone away (§9,
+		// destination.go).
+		to := &collected{progress: call.Progress, cancelled: call.Context.Err}
+		code, dispatched := runRepositoryCommand(call.Argv, to, process, facts)
 		if !dispatched {
 			// Unreachable by construction, and stated rather than
 			// assumed: every tool is named for one of §9's sixteen and
@@ -87,7 +125,7 @@ func MCPServer(process Process, facts version.Facts) *mcp.Server {
 			// a caller as the protocol error §9 answers a malformed
 			// call with, which is the nearest true thing to say about a
 			// tool that named nothing (issue #196).
-			fmt.Fprintf(to.narrate(), "hyper mcp: %q is not one of §9's sixteen commands; the tool set names a command this binary does not dispatch\n", strings.Join(argv, " "))
+			fmt.Fprintf(to.narrate(), "hyper mcp: %q is not one of §9's sixteen commands; the tool set names a command this binary does not dispatch\n", strings.Join(call.Argv, " "))
 			code = ExitUsage
 		}
 		// One construction of the Answer whichever way the call went, so
@@ -102,5 +140,5 @@ func MCPServer(process Process, facts version.Facts) *mcp.Server {
 			Narration: to.narration.String(),
 			Exit:      code,
 		}
-	})
+	}
 }

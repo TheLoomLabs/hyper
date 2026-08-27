@@ -153,15 +153,21 @@ type Request struct {
 	//
 	// It is a function for the reason every other process read here is one
 	// — the engine reaches no process fact of its own — and it answers
-	// rather than blocks, because the one question a Run asks about a
-	// signal is *has one arrived by now*: it is asked where the next Step
-	// would start and nowhere else, so a Step in flight is never asked to
-	// stop and never told to (Perform).
+	// rather than blocks, because the one question a Run asks about a stop
+	// is *has one arrived by now*: it is asked where the next Step would
+	// start and nowhere else, so a Step in flight is never asked to stop
+	// and never told to (Perform).
 	//
-	// It may be nil, which is a Run nobody can interrupt: the MCP surface
-	// reaches Perform through its own dispatch and has no terminal behind
-	// it, and a `hyper` compiled into a test binary has no handler
-	// installed.
+	// **Being a predicate rather than a signal is what let a second surface
+	// arrive without a second mechanism.** A `run` reached through the MCP
+	// server has no terminal behind it and catches no signal at all; what
+	// stops it is the client cancelling the request, and the mapping is
+	// this predicate reading that call's context. The composition of the
+	// two is the surface's, one package up, and nothing here can tell which
+	// of them answered (§6, §9, ADR-0015, ADR-0092, cli.stopping).
+	//
+	// It may be nil, which is a Run nobody can stop: a `hyper` compiled
+	// into a test binary has no handler installed and no call to cancel.
 	Interrupted func() bool
 	// Narrator is where progress goes as it happens. It may be nil, which is
 	// a Run nobody is watching.
@@ -177,11 +183,21 @@ type Request struct {
 // engine reports the boundary; the surface writes the words. It carries no
 // machine contract and has no `--json` variant, so nothing here derives from it
 // and nothing reads it back.
+//
+// **The second implementation is what the interface was for.** On the MCP
+// surface a Step boundary is a `notifications/progress` and the Run naming
+// itself is nothing at all, because the id reaches that caller in the summary
+// line and in `run_id`; the engine reports the same two events either way and
+// knows about neither rendering (§9, ADR-0092, cli.notifications).
 type Narrator interface {
 	// Began is the Run naming itself, before its first Step. It is the one
 	// place a Run's identity reaches an operator whose process is killed
 	// outright, which is why it is narrated rather than left to the
 	// terminal line (§9).
+	//
+	// A surface where that is not the one place sends nothing, which is a
+	// rendering like any other: a Narrator decides what an event says, and
+	// saying nothing is one of the answers.
 	Began(run store.RunID)
 	// Reached is one Step boundary: the Step's position, how many the Run
 	// holds, and its authored id.

@@ -193,6 +193,11 @@ than coarser: four of the seven are `failed`.
 - `130` — a Run stopped by an interrupt, having drained (§6, ADR-0015). `failed`.
 - `143` — a Run stopped by a termination signal, drained the same way (§9). `failed`.
 
+The last two are the CLI's alone. The MCP server installs no signal watch — the process's signals
+belong to the client that spawned it and not to any one call in flight — so a Run reached through a tool
+is stopped by the client cancelling the call instead, which drains the same way and is `failed` on the
+ordinary code (§9, [ADR-0092](../adr/0092-a-cancelled-call-drains-and-the-server-catches-no-signal.md)).
+
 `75` and `77` are `sysexits`' `EX_TEMPFAIL` and `EX_NOPERM`, and the pairing carries the difference
 between them: `75` says retry me, and `77` says a verbatim retry will refuse identically (§9). What
 sorts a stop into one or the other is whether an act is required to clear it — an edit, an `init`, a

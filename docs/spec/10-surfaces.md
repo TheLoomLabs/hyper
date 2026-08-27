@@ -645,7 +645,8 @@ Probe can never exit is `1`: it is not a Run, and a status is an answer rather t
 A signal is handled as §6 states: the first interrupt drains, the Step in flight finishes, no further
 Step starts, and the Run closes its own Journal entry `failed`, exiting `130` or `143` according to the
 signal it received. Only a second signal kills the process, which is what leaves the open entry a later
-Run closes.
+Run closes. Both codes are the CLI's alone: the MCP server installs no signal watch, so neither is
+reachable from it and what stops a call there is the client cancelling it (below, ADR-0092).
 
 A Run whose every Step skipped exits `0` like any other completed Run. *Did nothing* is not an outcome
 and gets no code of its own; the Dispositions are where the difference is legible (§6).
@@ -1097,10 +1098,34 @@ file and reports what it wrote, and what stands in the Store is no part of that.
 
 A `run` call is synchronous, and progress arrives as a notification at each Step boundary — the same
 boundary §7 writes a Journal entry at, and the same narration stderr carries. It is narration, so it
-carries no machine contract and no row of its own.
+carries no machine contract and no row of its own. It carries the Step's position, how many the Run
+holds, and the Step's authored id; with the outcome arriving only when the call returns, a silent
+twenty minutes is otherwise indistinguishable from a hang.
+
+**A notification is sent where the client supplied a progress token and nowhere else.** That is the
+protocol's rule and `hyper`'s at the same time: without a token there is nothing for a notification to
+be correlated with, and sending one anyway would be the server speaking unasked (ADR-0021).
+
+**A Run naming itself before its first Step sends nothing here.** On the CLI that line exists because
+the terminal line is not always reached, and the Run that dies before it is the one Run whose identity
+its own output would otherwise never carry (ADR-0047). On this surface the id arrives in the summary
+line and in `run_id`, and a client that gives up gets no delivery at all — so a notification naming it
+would be narration with no reader on the one path it was invented for.
 
 An asynchronous handle — `run` returning an id the caller polls — is not offered. It invents a Run that
 outlives its caller with nothing watching it, which is a daemon with extra steps.
+
+**A cancelled call drains.** The client cancels a call by cancelling the request, and that is mapped
+onto the drain §6 already states for the first interrupt: the Step in flight finishes, no further Step
+starts, and the Run closes its own Journal entry `failed` (ADR-0015, ADR-0092). It is one stopping
+mechanism read a second way rather than a second mechanism — the gate §6 states is a predicate asked
+where the next Step would start, and a cancelled call is that predicate answering.
+
+**No signal watch is installed by the server.** The process's signals belong to the client that spawned
+it and not to any one call in flight, so a Run on this surface is one nobody interrupts by signal and
+the exit codes `130` and `143` are unreachable from it. That costs nothing: the envelope carries
+`failed` and the Journal carries the truthful account, which is what the code would have added a number
+to.
 
 A client that gives up needs no machinery of its own, because §6 already states what happens: the stdio
 server dies with the client, and the open Journal entry is closed `failed` by the next invocation with

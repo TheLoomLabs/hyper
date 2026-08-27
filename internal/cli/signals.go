@@ -61,6 +61,12 @@ type signalWatch struct {
 // every test that supplies no signals get, and it is a value rather than a nil
 // pointer so that no caller has to ask which it holds.
 //
+// The MCP surface's nil is written where its dispatch is, and it is a decision
+// rather than an omission: the process's signals belong to the client that
+// spawned the server and not to any one call in flight, so exit codes `130` and
+// `143` are unreachable from there and what stops a Run is the cancelled call
+// instead (§9, §12, ADR-0092, mcp.go).
+//
 // The watch is taken down on the way out whichever way the Run ended, which is
 // what keeps a signal after the last Step from reaching a handler with no Run
 // behind it.

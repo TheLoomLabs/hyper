@@ -1262,6 +1262,23 @@ var runShowTool = tool{
 // writes the file. A generated credential in a tool result is a credential in
 // an agent's context and from there in whatever transcript that agent writes.
 //
+// **The call is synchronous and there is no handle in this schema to poll.**
+// `run` returning an id the caller comes back for would invent a Run that
+// outlives its caller with nothing watching it, which is a daemon with extra
+// steps — so what a caller holds while the Run works is the progress
+// notification at each Step boundary, and what it holds when the call returns
+// is the whole answer (§9, ADR-0092, server.go). The output schema is closed
+// over §9's five members, so a handle is not a thing this tool could grow
+// quietly.
+//
+// **A cancelled call drains.** The client cancels the request, the SDK cancels
+// the handler's context, and that is the drain §6 already states: the Step in
+// flight finishes, no further Step starts, and the Run closes its own entry
+// `failed`. A client that gives up entirely gets no delivery at all and needs
+// no machinery of its own — the stdio server dies with it, and the open entry
+// is closed by the next invocation with the Step in flight recorded *attempted,
+// outcome unknown* (§6, §7, ADR-0015, ADR-0092).
+//
 // It carries no `--limit`, its command carrying none: a Run reports what it
 // just did rather than ranging over a namespace, so there is no result set for
 // a cap to cut and `truncated` is `null` on every call (§9, envelope.go).

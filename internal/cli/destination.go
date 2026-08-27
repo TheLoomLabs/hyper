@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"io"
 
+	"github.com/TheLoomLabs/hyper/internal/mcp"
 	"github.com/TheLoomLabs/hyper/internal/render"
+	"github.com/TheLoomLabs/hyper/internal/run"
 )
 
-// destination is where a command's answer goes, and in which form.
+// destination is where a command's answer goes, in which form, and — since a
+// surface that is not a pair of streams can be watched and can go away — where
+// its narration goes as it happens and whether anybody is still waiting for it.
 //
 // It is one value rather than the three parameters it replaces — a stdout, a
 // stderr and a `--json` — because those three can only ever say *the CLI's
@@ -62,6 +66,38 @@ type destination interface {
 	// line, and the human rendering of a usage error. None of it is the
 	// answer, and none of it is a row.
 	narrate() io.Writer
+
+	// narrator is where a Run's progress goes **as it happens**, which is
+	// the half of narration that cannot wait for a writer: §9's two events
+	// are the Run naming itself before its first Step and one line per Step
+	// boundary, and what those lines *are* is the surface's (run.Narrator).
+	//
+	// It is here rather than composed at the call site because the two
+	// surfaces render them differently and neither renders both: the CLI
+	// writes two stderr lines, and MCP sends a `notifications/progress` at
+	// the Step boundary and nothing at all before the first Step — the id
+	// arriving there in the summary line and in `run_id` (§9, ADR-0021,
+	// ADR-0092, issue #202).
+	//
+	// It may answer **nil**, which is a Run nobody is watching: a call whose
+	// client attached no progress token has nothing for a notification to be
+	// correlated with, and the engine already has a reading of a Narrator
+	// that is not there.
+	narrator() run.Narrator
+
+	// stopped says the caller this answer was going to has stopped waiting
+	// for it, which is the drain §6 states arriving on a surface with no
+	// signals: the client cancels the request, the SDK cancels the handler's
+	// context, and the Step in flight finishes while no further Step starts
+	// (§6, §9, ADR-0015, ADR-0092).
+	//
+	// **It is the destination's because a cancelled call is a destination
+	// that has gone away**, where the terminal's stop is a signal to the
+	// process and reaches a Run through the watch `Process.Notify` stands
+	// (signals.go). The CLI's streams never go away, so they answer false
+	// and the composition at the one call site is one live source and one
+	// that is inert (run.go, stopping).
+	stopped() bool
 
 	// form **answers** the destination the caller asked for rather than
 	// setting anything on this one, which is what lets a destination decline
@@ -130,6 +166,16 @@ func (s streams) refusal(form refusalForm, members []refusalRow) error {
 // narrate is stderr, which is where everything that is not the answer goes.
 func (s streams) narrate() io.Writer { return s.stderr }
 
+// narrator is §9's narration as the CLI writes it: the Run's id before its
+// first Step, and one line per Step boundary, in both forms and always on
+// (run.go).
+func (s streams) narrator() run.Narrator { return narration{stderr: s.stderr} }
+
+// stopped is false, always. A terminal is not a caller that goes away — what
+// stops a Run here is a signal, and the watch that reads one is installed
+// beside the Run rather than behind its answer (signals.go).
+func (streams) stopped() bool { return false }
+
 // form is the CLI's streams in the form `--json` named: the wire where it was
 // given, the page where it was not.
 func (s streams) form(asJSON bool) destination {
@@ -175,6 +221,16 @@ type collected struct {
 	// narration is everything the CLI would have written on stderr, kept
 	// against the one arm of the mapping that reads it (narrate).
 	narration bytes.Buffer
+	// progress is where a Step boundary goes, and **nil where the client
+	// attached no progress token**: the two are one call's difference from
+	// another's, and this is the surface handing it down rather than a
+	// command asking about it (mcp.Call, narrator).
+	progress mcp.Progress
+	// cancelled is the call's context, read for the one question a Run asks
+	// about it: *has the caller stopped waiting by now*. It is the context's
+	// own Err rather than a predicate composed here, so what this holds is
+	// the SDK's answer and not a copy of it (stopped).
+	cancelled func() error
 }
 
 // answer retains the answer whole: the rows and the terminal row as values, and
@@ -222,10 +278,35 @@ func (c *collected) refusal(form refusalForm, members []refusalRow) error {
 //
 // The rest of what a caller would have read on stderr is not lost where it
 // matters: a truncated result says so in the envelope, in both halves, and a
-// Refusal is rendered in full into the buffer above. Progress narration is
-// §9's notification at a Step boundary, which arrives with the tool that has
-// Steps to narrate.
+// Refusal is rendered in full into the buffer above. **Progress narration does
+// not come through here at all** — it cannot, a buffer read when the call
+// returns being no use to a caller watching a Run that has not — so it goes to
+// the notification `narrator` answers, at the Step boundary and as it happens
+// (§9, ADR-0092, issue #202).
 func (c *collected) narrate() io.Writer { return &c.narration }
+
+// narrator is the notification at a Step boundary, and **nil where the client
+// attached no progress token**: without one there is no notification to
+// correlate, and sending one anyway would be the server speaking unasked (§9,
+// ADR-0021).
+//
+// Nil is answered rather than a Narrator that drops what it is handed, because
+// the two are different claims and the engine already tells them apart: a Run
+// with no Narrator is one **nobody is watching**, and this is the layer that
+// knows whether anybody is (run.Narrator, mcp.Call).
+func (c *collected) narrator() run.Narrator {
+	if c.progress == nil {
+		return nil
+	}
+	return notifications{progress: c.progress}
+}
+
+// stopped reads the call's context, and false where no call stands behind this
+// destination at all — which is every driver that builds one directly, a
+// destination being a place an answer goes rather than a call.
+func (c *collected) stopped() bool {
+	return c.cancelled != nil && c.cancelled() != nil
+}
 
 // form answers this destination whichever form was named, which is what
 // destination.form exists to let a destination do: **decline the request by

@@ -12,14 +12,21 @@
 // it a domain value to infer a schema from or to marshal on hyper's behalf — so
 // the day it is replaced is a day one package changes.
 //
-// **What crosses the boundary is an argv and an Answer.** A tool declares its
-// arguments, builds the command line its command would have received, and hands
-// it to the dispatch it was constructed with; the dispatch runs the command
-// behind hyper's own destination and answers the rows. A tool holds no command
-// logic, so there is no second place for a guardrail to be skipped, a Refusal
-// to be reworded or a row to be reshaped: *ergonomics is the whole of the
-// difference between the two* (§9), and making it the whole of the difference
-// in the code is what keeps it true.
+// **What crosses the boundary is a Call and an Answer.** A tool declares
+// its arguments, builds the command line its command would have received, and
+// hands it to the dispatch it was constructed with; the dispatch runs the
+// command behind hyper's own destination and answers the rows. A tool holds no
+// command logic, so there is no second place for a guardrail to be skipped, a
+// Refusal to be reworded or a row to be reshaped: *ergonomics is the whole of
+// the difference between the two* (§9), and making it the whole of the
+// difference in the code is what keeps it true.
+//
+// The Call is the argv and the two facts about the call itself that an argv
+// cannot carry, both of them the protocol's rather than hyper's: the context
+// the call is alive for, which the SDK cancels when the client cancels the
+// request, and where a Step boundary goes, which is a notification where the
+// client attached a progress token and nothing anywhere else (§9, ADR-0021,
+// ADR-0092, issue #202).
 package mcp
 
 import (
@@ -45,14 +52,68 @@ const name = "hyper"
 
 // Dispatch runs one hyper command line and answers what it produced. It is a
 // function rather than an interface with one method because that is the whole
-// of what this package needs of the tool behind it: the argv goes in, the rows
+// of what this package needs of the tool behind it: the Call goes in, the rows
 // come out, and nothing here knows which command ran or what it read.
 //
 // It is what keeps the import one-directional. The dispatch lives in
 // internal/cli, where the commands and their destination are; this package is
 // handed one and never reaches for it, so the SDK stays on this side of the
 // boundary and the command surface stays on the other.
-type Dispatch func(argv []string) Answer
+type Dispatch func(call Call) Answer
+
+// Call is one tool call as the dispatch behind it receives it: the
+// command line the tool built, the context the call is alive for, and where the
+// Steps of a Run go as it performs them.
+//
+// It is one value rather than three parameters because two of the three are
+// facts about the **call** rather than about the command line, and the day a
+// third such fact lands is a day no signature moves. Neither is expressed in
+// the SDK's terms: what crosses is a context and a function, so the package on
+// the other side still cannot name a frame, a session or a notification (§9).
+type Call struct {
+	// Context is the handler's own, and the whole of what this surface has
+	// in place of a signal. The client cancels a call by cancelling the
+	// request; the SDK cancels this; and the drain §6 states reads it where
+	// the next Step would start — the Step in flight finishes, no further
+	// Step starts, and the Run closes its own entry `failed` (§6, §9,
+	// ADR-0015, ADR-0092).
+	//
+	// It is never the parent of anything a command performs. A Step whose
+	// context was this one would be a Step that stopped mid-call, which is
+	// the ambiguity the drain exists to avoid.
+	Context context.Context
+	// Argv is the command line the tool built, exactly as the command would
+	// have received it on the terminal.
+	Argv []string
+	// Progress is one Step boundary reaching the client, and it is **nil
+	// where the client supplied no progress token** (Progress below). A
+	// dispatch handed nil is one whose Run nobody is watching, which is a
+	// state the engine already has a reading of.
+	Progress Progress
+}
+
+// Progress is where a Run's Step boundaries go on this surface: the Step's
+// position, how many the Run holds, and its authored id — the three §9's
+// narration carries, at the same boundary §7 writes a Journal entry at.
+//
+// It is narration, so it carries no machine contract and no row of its own: a
+// caller reads what happened off the envelope when the call returns, and this
+// is what stands between now and then on a surface with no scrollback.
+//
+// **It is nil where the client supplied no progress token**, and that is the
+// rule this type exists to carry rather than a detail of who builds one. A
+// progress notification exists to be correlated with the request that is
+// proceeding, so without a token there is nothing to attach one to and a server
+// that sent one anyway would be speaking unasked, which is the one thing this
+// server never does (§9, ADR-0021, ADR-0092). Nil rather than a function that
+// drops what it is handed is what puts the decision in one place: the surface
+// decides whether anybody is watching, and the Run behind it narrates or does
+// not.
+//
+// The Run naming itself before its first Step is the other event §9's narration
+// carries, and this type has no member for it: it sends nothing here (ADR-0047,
+// ADR-0092).
+type Progress func(position, of int, step string)
 
 // Answer is one command's answer as a value: the rows, the terminal row that
 // ends them, the rendering the command's page produced, and the exit code it
@@ -201,7 +262,7 @@ func (s *Server) server() *sdk.Server {
 // pasted in front of it would be this surface editorialising over prose that is
 // already addressed to a caller (§9, ADR-0026).
 func (s *Server) handler(t tool) sdk.ToolHandler {
-	return func(_ context.Context, request *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
+	return func(ctx context.Context, request *sdk.CallToolRequest) (*sdk.CallToolResult, error) {
 		argv, err := t.argv(request.Params.Arguments)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", t.name, err)
@@ -225,11 +286,44 @@ func (s *Server) handler(t tool) sdk.ToolHandler {
 			called = &carried
 		}
 
-		envelope, err := envelopeOf(s.dispatch(argv), t.rendersInFull, called)
+		answered := s.dispatch(Call{
+			Context:  ctx,
+			Argv:     argv,
+			Progress: progressTo(ctx, request),
+		})
+		envelope, err := envelopeOf(answered, t.rendersInFull, called)
 		if err != nil {
 			return nil, err
 		}
 		return envelope.result(), nil
+	}
+}
+
+// progressTo is this call's Progress: the token read off the request, and
+// **nil where the client supplied none** — the rule Progress states, made true
+// at the one place a token can be read (§9, ADR-0021).
+//
+// **What a failed send does is nothing.** A notification the transport could not
+// carry is narration that did not arrive, and narration carries no machine
+// contract: a Run that stopped because its progress line could not be written
+// would be a Run whose effects turned on whether anybody was reading. The
+// answer the caller gets is the envelope, and where the client has gone away it
+// gets no delivery at all — which is §6's account and not this function's to
+// improve on (§9).
+func progressTo(ctx context.Context, request *sdk.CallToolRequest) Progress {
+	token := request.Params.GetProgressToken()
+	if token == nil {
+		return nil
+	}
+	return func(position, of int, step string) {
+		// The error is dropped, which is the paragraph above as one line:
+		// narration that did not arrive is narration.
+		_ = request.Session.NotifyProgress(ctx, &sdk.ProgressNotificationParams{
+			ProgressToken: token,
+			Progress:      float64(position),
+			Total:         float64(of),
+			Message:       step,
+		})
 	}
 }
 
@@ -255,24 +349,57 @@ func (s *Server) handler(t tool) sdk.ToolHandler {
 // rather than in the harness for the reason the tool set is not a parameter: a
 // harness that stood its own client would be one importing the SDK, and the
 // SDK is reachable from this package and no other.
+//
+// **It attaches no progress token**, which is what makes it the door that also
+// says what a call with none gets: nothing but its envelope. A driver that
+// wants the notifications supplies a token through Watched below.
 func (s *Server) Call(ctx context.Context, tool string, arguments json.RawMessage) (Envelope, error) {
+	envelope, _, err := s.Watched(ctx, tool, arguments, nil)
+	return envelope, err
+}
+
+// Watched is Call under a progress token, and it answers **everything the
+// client saw** beside the envelope: the progress notifications the server sent
+// during the call, and the method of anything else it sent unasked (§9,
+// ADR-0021, issue #202).
+//
+// token is the progress token this call carries, and **nil is a call that
+// supplies none** — which is Call above, and the reason the two are one
+// function: *a notification is sent where the client supplied a token and
+// nowhere else* is a claim about the difference between two calls, and a driver
+// that reached one of them through a second assembly of the server would be
+// comparing two servers rather than two calls.
+//
+// What arrives is read off the recorded frames for the reason the envelope is:
+// what a driver holds should be the messages hyper sent, in the order they
+// arrived on the wire, rather than a client-side handler's account of them.
+func (s *Server) Watched(ctx context.Context, tool string, arguments json.RawMessage, token any) (Envelope, Watching, error) {
 	serverSide, clientSide := net.Pipe()
 	arriving := &frames{}
 
 	session, err := s.server().Connect(ctx, &sdk.IOTransport{Reader: serverSide, Writer: serverSide}, nil)
 	if err != nil {
-		return Envelope{}, err
+		return Envelope{}, Watching{}, err
 	}
+	// **The server session is closed last and it waits**, which is what
+	// makes a cancelled call assertable at all: the handler is still
+	// draining its Run when the client has gone, and a driver that read the
+	// Store branch before this returned would be reading it mid-Run
+	// (mcp_cancelled_test.go).
 	defer session.Close()
 
 	client, err := sdk.NewClient(&sdk.Implementation{Name: "hyper-in-process-client", Version: s.version}, nil).
 		Connect(ctx, &sdk.IOTransport{Reader: arriving.tee(clientSide), Writer: clientSide}, nil)
 	if err != nil {
-		return Envelope{}, err
+		return Envelope{}, Watching{}, err
 	}
 	defer client.Close()
 
-	if _, err := client.CallTool(ctx, &sdk.CallToolParams{Name: tool, Arguments: arguments}); err != nil {
+	params := &sdk.CallToolParams{Name: tool, Arguments: arguments}
+	if token != nil {
+		params.SetProgressToken(token)
+	}
+	if _, err := client.CallTool(ctx, params); err != nil {
 		// **The protocol error is read off the frame too**, for the reason
 		// the envelope is: what the client raises is the wire's message
 		// wrapped in a sentence of its own — `calling "tools/call": …` —
@@ -281,11 +408,42 @@ func (s *Server) Call(ctx context.Context, tool string, arguments json.RawMessag
 		// all, which is a transport that failed before an answer arrived
 		// (issue #196).
 		if failed := arriving.failure(); failed != nil {
-			return Envelope{}, failed
+			return Envelope{}, arriving.watching(), failed
 		}
-		return Envelope{}, err
+		return Envelope{}, arriving.watching(), err
 	}
-	return arriving.envelope()
+	envelope, err := arriving.envelope()
+	return envelope, arriving.watching(), err
+}
+
+// Watching is what a client saw beside one call's envelope.
+//
+// The two members are §9's two claims about this server's own voice, in a shape
+// a driver can hold: what it sent because it was asked to, and what it sent
+// unasked — which is nothing, on every path, always (ADR-0021).
+type Watching struct {
+	// Progress is one member per `notifications/progress`, in arrival order.
+	Progress []Boundary
+	// Unasked is the method of every other message the server sent: a
+	// logging notification, a server-initiated request, anything at all. It
+	// is empty on every path — *hyper never speaks first* — and it is
+	// collected rather than assumed so that a driver holds the claim rather
+	// than restating it (§9, ADR-0021).
+	Unasked []string
+}
+
+// Boundary is one progress notification as it arrived: the token it was
+// correlated with, the Step's position, how many the Run holds, and the Step's
+// authored id.
+//
+// It is this package's own shape and not the SDK's, for the reason every value
+// crossing the boundary is: a driver outside this package holds what hyper
+// said, not the type the transport said it in.
+type Boundary struct {
+	Token    any
+	Position int
+	Of       int
+	Step     string
 }
 
 // frames records the newline-delimited JSON the client read, so that the
@@ -349,20 +507,9 @@ func (f *frames) failure() error {
 // notifications between them carry neither. Call makes exactly one tool call,
 // so there is no third.
 func (f *frames) answered() (json.RawMessage, *wireError, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
 	var result json.RawMessage
 	var failed *wireError
-	// SplitAfter rather than Split, so that a **complete** line is the test:
-	// the transport is newline-delimited JSON, and what the recording ends in
-	// where the SDK's reader stopped mid-frame is a fragment rather than a
-	// frame. Reading one as JSON would report a fault in the server for what
-	// is only a buffer boundary.
-	for _, line := range strings.SplitAfter(f.recorded.String(), "\n") {
-		if !strings.HasSuffix(line, "\n") || strings.TrimSpace(line) == "" {
-			continue
-		}
+	for _, line := range f.complete() {
 		var frame struct {
 			Result json.RawMessage `json:"result"`
 			Error  *wireError      `json:"error"`
@@ -379,6 +526,81 @@ func (f *frames) answered() (json.RawMessage, *wireError, error) {
 	}
 	return result, failed, nil
 }
+
+// complete is the recording as the frames that are whole, which is the one
+// reading of the buffer both questions above are asked through.
+//
+// SplitAfter rather than Split, so that a **complete** line is the test: the
+// transport is newline-delimited JSON, and what the recording ends in where the
+// SDK's reader stopped mid-frame is a fragment rather than a frame. Reading one
+// as JSON would report a fault in the server for what is only a buffer
+// boundary.
+//
+// It takes the mutex, the recording being written on the SDK's own reading
+// goroutine, and answers a slice rather than yielding: a caller holding the
+// lock while it decodes is a caller the reader waits behind.
+func (f *frames) complete() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	var whole []string
+	for _, line := range strings.SplitAfter(f.recorded.String(), "\n") {
+		if !strings.HasSuffix(line, "\n") || strings.TrimSpace(line) == "" {
+			continue
+		}
+		whole = append(whole, line)
+	}
+	return whole
+}
+
+// watching is every message the server sent of its own accord among the
+// recorded frames: the progress notifications, and the method of anything else.
+//
+// **A frame carrying a `method` is the server speaking**, which is the whole of
+// the test. A response carries an id and a result or an error and never a
+// method, so the split needs nothing about the session's state: what is left
+// after the two responses of a `Call` is exactly what this surface sent because
+// it was asked to, and what §9 says is never there at all (ADR-0021).
+//
+// The `initialize` handshake sends no notification either way, so a driver that
+// found one here found it because a tool call produced it.
+func (f *frames) watching() Watching {
+	var seen Watching
+	for _, line := range f.complete() {
+		var frame struct {
+			Method string `json:"method"`
+			Params struct {
+				ProgressToken any     `json:"progressToken"`
+				Progress      float64 `json:"progress"`
+				Total         float64 `json:"total"`
+				Message       string  `json:"message"`
+			} `json:"params"`
+		}
+		if err := json.Unmarshal([]byte(line), &frame); err != nil || frame.Method == "" {
+			// A frame that will not read is answered by the two
+			// readings above, which say so as an error. This one
+			// reports what arrived and never why a frame did not.
+			continue
+		}
+		if frame.Method != notificationProgress {
+			seen.Unasked = append(seen.Unasked, frame.Method)
+			continue
+		}
+		seen.Progress = append(seen.Progress, Boundary{
+			Token:    frame.Params.ProgressToken,
+			Position: int(frame.Params.Progress),
+			Of:       int(frame.Params.Total),
+			Step:     frame.Params.Message,
+		})
+	}
+	return seen
+}
+
+// notificationProgress is the one method this server ever sends, spelled here
+// rather than reached for out of the SDK: what the recording is read against is
+// the wire's own name for the message, and a constant taken from the library
+// that composed it would agree with whatever the library happened to send.
+const notificationProgress = "notifications/progress"
 
 // wireError is a JSON-RPC error object as it arrived, read for the one member
 // a caller of this surface acts on.

@@ -385,6 +385,19 @@ the `minLength` half — a key that is well-typed and names no input — and
 declares is a scalar, and an `array` reads as nothing at every position a hole
 fills.
 
+**What a client hears while a Run works, and what a client that gives up leaves
+behind, are not cases either** — for run_signal_test.go's reason one directory
+up. A progress notification and a cancellation are facts about *when*, which no
+file beside a `call` can state, so both are driven past the goldens instead:
+`../../mcp_progress_test.go` drives `run/a-skip-propagates` twice, once under a
+progress token and once without, and `../../mcp_cancelled_test.go` drives the
+same case with the call cancelled from inside its first Step. They are the same
+cases and the same server; what the driver supplies is the one input a directory
+cannot (issue #202). *Nothing between calls* is one package further over, in
+`internal/mcp`, where two calls share one session and everything the client read
+is checked in the order it arrived — a gap a corpus driving one call at a time
+has no way to look into.
+
 **The three ways a Run loses the Store are not here**, for the reason their argv
 twins are not: a lock is held by a live process and git's account of an
 unreachable remote names a temp directory, so neither is a directory of files.
