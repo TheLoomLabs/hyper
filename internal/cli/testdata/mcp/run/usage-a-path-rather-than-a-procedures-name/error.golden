@@ -1,0 +1,2 @@
+hyper run: "procedures/watch-status.yaml" is a path, and run takes a Procedure's name
+  the name is that file's basename without the .yaml; `review` is the command whose positional takes either form

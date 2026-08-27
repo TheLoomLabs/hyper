@@ -1,0 +1,1 @@
+hyper run procedures/watch-status.yaml --repo-dir ../repo-watch-status

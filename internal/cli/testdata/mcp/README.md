@@ -299,7 +299,7 @@ closed over the members §9 names. Its sink is a relative path because a golden
 cannot hold an absolute one; §9 describes the argument as absolute, and what the
 command does with either is resolve it against the process's working directory.
 
-The nine `usage-` cases are §9's malformed set for this tool, and they split in
+The ten `usage-` cases are §9's malformed set for this tool, and they split in
 two. `usage-a-definition-is-not-an-argument`, `usage-inputs-is-not-an-argument`
 and `usage-a-target-is-not-an-argument` never reach a command: the schema is
 closed over three properties, so each is `json: unknown field` — and the closure
@@ -308,13 +308,15 @@ words could. `usage-an-empty-procedure-names-nothing` and
 `usage-an-empty-sink-names-no-path` are well-typed arguments that name nothing,
 the schema's `minLength` made true where it is enforceable; the second is
 load-bearing rather than tidy, an empty sink read as *no sink* being the very
-Refusal above arriving from a typo. The other four are the command's own
+Refusal above arriving from a typo. The other five are the command's own
 sentences, forwarded: a positional that is not a Procedure, one that is a
-Definition, a sink named `-`, and a sink inside the repository working tree.
-Each names `--secret-out` where the argument is `secret_sink`, which is the rule
-rather than a rough edge — a usage error's message is the sentence a person
-would have read, and the truncation marker's hint is the only wording §9 spells
-differently between the two surfaces.
+Definition, one written as a path — this tool takes a Procedure's **name** and
+`review`'s two forms are `review`'s (ADR-0090) — a sink named `-`, and a sink
+inside the repository working tree. Each of the last two names `--secret-out`
+where the argument is `secret_sink`, which is the rule rather than a rough edge
+— a usage error's message is the sentence a person would have read, and the
+truncation marker's hint is the only wording §9 spells differently between the
+two surfaces.
 
 **The three ways a Run loses the Store are not here**, for the reason their argv
 twins are not: a lock is held by a live process and git's account of an

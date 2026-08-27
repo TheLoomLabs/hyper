@@ -40,6 +40,10 @@ const runCommand = "run"
 // name needs nothing further to resolve and the typo is repaired before the
 // Store is missed (§9, ADR-0060). Past that it is §6's fixed order, which
 // internal/run states.
+//
+// **The positional is a Procedure's name and takes no second form**, unlike
+// `review`'s, which takes a path beside one — the two commands differing rather
+// than the two positionals (ADR-0090, unresolvedProcedure).
 func RunRun(args []string, to destination, process Process, wd, binaryVersion string) int {
 	// `--target` is refused by name rather than as an unknown flag, because
 	// what it means is a decision rather than a typo: a Procedure is fully
@@ -455,16 +459,32 @@ func sinkInsideTheWorkingTree(sink, repoRoot, wd string) string {
 // unresolvedProcedure is the message a positional that is not a Procedure
 // earns, and "" where the name resolves.
 //
-// Both forms are usage errors at `2` carrying no `error_code`: a Refusal is the
+// All three are usage errors at `2` carrying no `error_code`: a Refusal is the
 // artefacts declining an act and a usage error is there being no act to decline
-// (§9, ADR-0060). They are two messages because the remedies differ — one
-// caller mistyped a name and the other named the wrong kind of artefact — and
-// the second is worth its own sentence: every Run is a Run of a Procedure, and
-// what a caller reaching for a Definition wants is a Procedure of one Step
-// (ADR-0036).
+// (§9, ADR-0060). They are three messages because the remedies differ —
+// one caller mistyped a name, one named the wrong kind of artefact, and one
+// wrote the positional in the wrong grammar — and each is worth its own
+// sentence: every Run is a Run of a Procedure, and what a caller reaching for a
+// Definition wants is a Procedure of one Step (ADR-0036).
+//
+// **The path arm chooses a sentence and never a namespace** (ADR-0090). This
+// command's positional has one form, a Procedure's name, so a path-shaped
+// positional is a name that resolved to nothing like any other and the shape is
+// read *after* the Procedure lookup rather than before it. `review` reads the same shape
+// before its lookup because it has two namespaces to pick between and a name
+// tried as a path would make which artefact it renders depend on what else is
+// in the repository (review.go, ADR-0060); here there is one namespace, so
+// reading the shape first would cost the Procedure whose own name happens to
+// end `.yaml` and buy nothing. It is isPathForm either way — what a path looks
+// like is one fact, and the two commands differ in what they do with one.
 func unresolvedProcedure(loaded repository.Loaded, name string) string {
 	if loaded.Procedures[name] {
 		return ""
+	}
+	if isPathForm(name) {
+		return fmt.Sprintf("hyper %s: %q is a path, and %s takes a Procedure's name\n"+
+			"  the name is that file's basename without the .yaml; `review` is the command whose positional takes either form\n",
+			runCommand, name, runCommand)
 	}
 	if _, isDefinition := loaded.Definitions[name]; isDefinition {
 		return fmt.Sprintf("hyper %s: %q is a Definition, and every Run is a Run of a Procedure\n"+

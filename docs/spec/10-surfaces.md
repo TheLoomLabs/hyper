@@ -232,7 +232,15 @@ also mutate is a checker you stop trusting, and a repair flag on a gate is the s
 elsewhere. What repairs projection drift is `project` below, which is a separate command for that
 reason.
 
-`review <artefact>` renders §8's Definition review of the artefact named. It resolves no credential,
+`review <artefact>` renders §8's Definition review of the artefact named. **Its positional takes two
+forms**: one containing `/` or ending `.yaml` is a repository-relative path, resolved against the load's
+own paths; anything else is a name, resolved against the artefacts' own `name:` by the rule above. They
+are two namespaces rather than two spellings, and each reaches what the other cannot — a name here is
+matched across all four artefact namespaces at once and can be ambiguous in them, and an artefact whose
+file will not parse declares no name at all and is reachable only by its path. A form that fell back to
+the other would make which artefact `hyper review deploy` renders depend on what else is in the
+repository, so the discriminator decides which namespace is looked in and never what is tried first
+(ADR-0060, ADR-0090). It resolves no credential,
 reaches no network, and invokes nothing, so it runs offline against a repository whose Store is
 unreachable — the header naming that absence once, for the range and for the Cadence gloss's last entry
 alike, rather than the command failing (§8, §10). A `FLAGS` row
@@ -246,11 +254,20 @@ that is not there is neither — it renders, marks `unresolved` where a derivati
 ## Execution
 
 `run <procedure>` runs the named Procedure, and it is the whole of what `run` does: every Run is a Run
-of a Procedure (ADR-0036). A single Operation invoked directly through a Definition is not a second
-form of this command — there is no such invocation, and handing `run` two positionals is a usage error.
-Where the one positional names an artefact that exists and is a Definition rather than a Procedure, that
-is a usage error too, the two living in different directories and the kind being known before anything
-loads (§3).
+of a Procedure (ADR-0036). **Its positional is that name and takes no second form** — `deploy` names the
+Procedure and `procedures/deploy.yaml` names the file — so a path-shaped positional is a name that
+resolves to nothing like any other, exit `2`, with a sentence saying which grammar this one takes. That
+`review` takes both forms and this takes one is the two *commands* differing rather than the two
+positionals: `procedures/` is one namespace, so a Procedure's name is unambiguous in it, and a Procedure
+whose file will not parse cannot be run at all — the Run-start `check` declines the load before Step 1 —
+so a path here would reach no Procedure the name does not already reach. What a caller holding a path needs
+is the rule rather than a second argument: `name-mismatch` pins a name to its file's basename (§4), and
+that name is what the Journal entry carries and what `changes <procedure>` takes back (§8, ADR-0090).
+
+A single Operation invoked directly through a Definition is not a second form of this command — there is
+no such invocation, and handing `run` two positionals is a usage error. Where the one positional names an
+artefact that exists and is a Definition rather than a Procedure, that is a usage error too, the two
+living in different directories and the kind being known before anything loads (§3).
 
 What is written instead is a Procedure of one Step, and §3's `publish` Step is already that shape: a
 `definition:`, an `operation:`, a `target:` and the `args:` the input schema requires, with no `over:`
@@ -954,7 +971,7 @@ loop this surface exists to close.
 
 ```jsonc
 run(procedure, dry_run?, secret_sink?)
-// args: procedure    — the Procedure to run, carrying no target
+// args: procedure    — the Procedure's name, byte-exact and never a path, carrying no target
 //       dry_run      — boolean
 //       secret_sink  — the Secret sink: an absolute path, outside the repository working tree
 // → outcome: §12's triple
@@ -964,7 +981,10 @@ run(procedure, dry_run?, secret_sink?)
 
 **`run` takes a Procedure and nothing else**, as the command does: every Run is a Run of a Procedure
 (ADR-0036), so there is no single-Operation arm of this tool and a call carrying a `definition` is an
-argument violating a schema — a protocol error, which is what this surface has in place of exit `2`.
+argument violating a schema — a protocol error, which is what this surface has in place of exit `2`. It
+takes that Procedure **by name**, in the command's one form and not `review`'s two, and its schema says
+so: a tool builds the command line its command would have received, so a form advertised here and
+resolved by no command is a malformed call for a Procedure that is there (ADR-0090).
 
 **There is no `inputs` argument.** A Procedure is fully bound by its artefact, and a value supplied at
 call time is Step behaviour appearing on no reviewed line — authority arriving after review, which is

@@ -1219,6 +1219,13 @@ var runShowTool = tool{
 // one supplied here is redundant with the artefact or it is authority arriving
 // after review (§5, ADR-0008).
 //
+// **The positional is a name and takes no second form**, where `reviewTool`'s
+// one screen up takes a path beside one. That is ADR-0090's, and this schema
+// asserts it rather than restating it: the two forms there are two namespaces
+// and here there would be one namespace twice. A caller holding
+// `procedures/deploy.yaml` needs no second form either, `name-mismatch` pinning
+// a name to its file's basename (§4) — which is why the description says so.
+//
 // **There is no `inputs` argument.** A Procedure is fully bound by its
 // artefact, and a value supplied at call time is Step behaviour appearing on no
 // reviewed line — authority arriving after review, which is the shape ADR-0008
@@ -1260,7 +1267,7 @@ var runTool = tool{
 		"procedure": {
 			"type": "string",
 			"minLength": 1,
-			"description": "The Procedure to run: a repository-relative path — one containing / or ending .yaml — or the name the artefact declares for itself. It carries no Target: a Procedure is fully bound and declares its own Target envelope."
+			"description": "The Procedure to run: the name the artefact declares for itself, matched byte-exact over UTF-8. It is a name and never a path — name-mismatch pins a name to its file's basename, so the Procedure in procedures/deploy.yaml is run as deploy — and it carries no Target: a Procedure is fully bound and declares its own Target envelope."
 		},
 		"dry_run": {
 			"type": "boolean",
