@@ -99,11 +99,20 @@ so a human would have to install it before the agent could read it back through 
 registry and release it needs do not exist. Neither is refused for good; the first is refused because
 a fresh directory holds no docs, and the second is a thing to do *as well*, later.
 
-**What the example must not become is a second specification.** It is one Provider, one Target, one
-Definition, one Procedure and a Repository declaration — enough shape to author a second one against,
-carried because the format cannot be inferred, and not a tour of the thirty-two static codes. The text
-is paid for on every session whether the model reads it or not, so anything a tool call already
-answers stays a tool call.
+**What the example must not become is a second specification.** It is two Providers, two Targets, a
+Definition, a Procedure and a Repository declaration — enough shape to author against, carried because
+the format cannot be inferred, and not a tour of the thirty-two static codes. The text is paid for on
+every session whether the model reads it or not, so anything a tool call already answers stays a tool
+call.
+
+**The second Manifest was bought with evidence, and it is the shape of the argument for anything else
+going in.** The first transcript run against this text (issue #209) was asked for a multi-host `read`
+where the example taught a single-host `mutate`. The agent read the orientation, found it did not
+cover the shape it needed, and **disassembled the binary** — `strings`, `objdump --dwarf=info`, raw
+byte scans — to recover `host-input:` and `enumerations:`. It never read `docs/spec/`, which was on the
+same machine; it went to the executable. That is what an insufficient example costs, and it is not a
+cost the prose can pay off: the agent did not need a better sentence, it needed the other request
+shape. A third goes in the same way or not at all — a transcript showing an agent hunting for it.
 
 ## Consequences
 
@@ -116,6 +125,12 @@ answers stays a tool call.
 - **`Instructions` is exported from `internal/mcp`.** The corpus that runs `check` over the example
   lives in `internal/cli`, where the commands are, and the surface must not learn to reach a command
   for itself.
+- **The text states runtime semantics, which is a widening of what it is for and is deliberate.** What
+  halts a Step, what a Disposition means and what deleting a Definition abandons are not answerable by
+  any tool call — they are consequences, and an agent learns them by causing one. The first transcript
+  reported a Run that halted on an unreachable host when none had; the agent had read `probe`'s
+  narration, which prints `no response arrived` and exits `0`, and generalised it. Facts of that class
+  earn their bytes; facts a tool already answers do not.
 - **Nothing widens.** No tool is added, no command is added, `project`'s namespace does not move,
   `install`, `store init` and `compact` stay unreachable, and no artefact permits anything it did not
   permit before. What changed is a field in a handshake.

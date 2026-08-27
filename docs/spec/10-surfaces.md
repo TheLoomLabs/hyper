@@ -731,6 +731,15 @@ already in mind, and none of these is about a call:
   nothing anywhere teaches the other four.
 - **The loop**: read what is here, author with your own file tools, `check`, repair, `review`, hand
   the diff to the human, and `run` only once they have read it.
+- **The four verbs an operator asks for** — author, change, retire, operate — and the fact each needs
+  before it starts: that a changed artefact is reviewed again, that deleting a Definition abandons its
+  Assets rather than destroying them (ADR-0012), and that a declared Cadence left unprojected is
+  `projection-stale`.
+- **What halts and what is merely an answer.** A `read` never halts on what came back and records an
+  absence as readily as a status (§6, ADR-0050); an effectful Operation completes on `2xx` and halts
+  otherwise. Narration is not an outcome — `probe` prints `no response arrived` and exits `0` — and an
+  agent that reads the prose beside a result rather than its Disposition reports a Run that halted when
+  none did.
 - **The three commands with no tool, and why** — an agent that does not know the absence is
   deliberate shells out to them, which is the exact bypass the absence exists to prevent.
 - **That a Refusal is final**: the same call retried refuses identically, and no argument anywhere
@@ -739,7 +748,10 @@ already in mind, and none of these is about a call:
   built-in `shell` Manifest, whose request block is `shell: {}` — so an agent asked for an HTTP
   Provider has no worked example of a request, an `auth:` scheme or a `record:` projection anywhere in
   reach. The example carries the Repository declaration at **the server's own version**, that being
-  the version of the binary that would act (ADR-0020).
+  the version of the binary that would act (ADR-0020). It carries **two** Manifests, and the second is
+  not decoration: a single-host request and a multi-host one (`host: "{from-target}"` with
+  `host-input:`) are different shapes, and an example that taught only the first sent the first agent
+  to try it disassembling the binary for the second.
 
 **It is not `hyper` speaking first.** ADR-0021 governs egress on `hyper`'s own initiative; this is a
 field of the answer to a request the client made. Nothing is initiated, and no destination is named.

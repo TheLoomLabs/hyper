@@ -39,11 +39,22 @@ func TestInstructions_TheWorkedExampleChecksClean(t *testing.T) {
 	root := t.TempDir()
 	written := workedExample(t, mcp.Instructions("1.4.0"))
 
-	// The five §2 counts, and the count is the assertion: an example that
-	// dropped one is one an agent cannot author against, and it would
-	// otherwise check clean by being smaller.
-	if len(written) != 5 {
-		t.Fatalf("the orientation carries %d artefacts, want the five §2 counts: %v", len(written), slices.Sorted(maps.Keys(written)))
+	// **The five kinds §2 counts, not a file count.** An example that
+	// dropped a kind is one an agent cannot author that kind against, and
+	// it would otherwise check clean by being smaller — while a second
+	// Manifest carrying a second request shape is a thing this example is
+	// free to grow, and did (issue #209).
+	carried := map[string]bool{}
+	for _, content := range written {
+		carried[kindOf(content)] = true
+	}
+	for _, kind := range []string{"provider", "target-declaration", "definition", "procedure", "repository-declaration"} {
+		if !carried[kind] {
+			t.Errorf("the orientation carries no %s; §2 counts five artefacts and an agent authors four of them", kind)
+		}
+	}
+	if t.Failed() {
+		t.Fatalf("the example is %v", slices.Sorted(maps.Keys(written)))
 	}
 	for path, content := range written {
 		writeFile(t, filepath.Join(root, path), content)
@@ -89,4 +100,15 @@ func workedExample(t *testing.T, instructions string) map[string]string {
 		t.Fatalf("the orientation opens a block for %s and never closes it", at)
 	}
 	return written
+}
+
+// kindOf is an artefact's `kind:`, which every one of the five declares on a
+// line of its own — the discriminator §3 reads them by, read here the same way.
+func kindOf(content string) string {
+	for _, line := range strings.Split(content, "\n") {
+		if after, ok := strings.CutPrefix(line, "kind: "); ok {
+			return strings.TrimSpace(after)
+		}
+	}
+	return ""
 }
