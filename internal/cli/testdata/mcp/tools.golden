@@ -1,0 +1,2162 @@
+=== changes
+Report what changed between two Runs of a Procedure: the Assets you moved, the Observations the world moved, and what moved in the code between them.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "procedure": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The Procedure to compare Runs of. Omit it to compare across every Procedure the Journal holds, one block each — which is a fold and never a sum: there is no grand total across windows with different baselines."
+    },
+    "since": {
+      "type": "string",
+      "description": "An RFC 3339 instant bounding the window, inclusive of the instant it names. It is one of two ways of naming a window and naming it both ways at once is a malformed call."
+    },
+    "between": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "The window's two ends named directly, baseline first and subject second — the order the header renders them in. A pair given the other way round is refused rather than quietly reordered."
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A Target's name, matched byte-exact over UTF-8. It narrows the two Record tables and never the header or the code facts beneath them."
+    },
+    "record_kind": {
+      "enum": [
+        "asset",
+        "observation"
+      ],
+      "description": "One of §7's two Record types, which is the split between the two Record tables. It is the CLI's --kind under a name that cannot be read as an Operation's Kind."
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The cap on the two Record tables' rows. It cuts neither the window rows nor the code facts: narrowing what a reader looked at may not narrow what they are told changed."
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "procedure",
+              "subject"
+            ],
+            "description": "One window's header, and the row every block opens with. baseline is absent where there is none, which a window has exactly one way of: the subject is the first Run of its Procedure.",
+            "properties": {
+              "type": {
+                "const": "window"
+              },
+              "procedure": {
+                "type": "string"
+              },
+              "baseline": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "run",
+                  "trigger",
+                  "started",
+                  "outcome",
+                  "procedure_revision"
+                ],
+                "properties": {
+                  "run": {
+                    "type": "string"
+                  },
+                  "trigger": {
+                    "type": "string"
+                  },
+                  "started": {
+                    "type": "string"
+                  },
+                  "outcome": {
+                    "enum": [
+                      "completed",
+                      "refused",
+                      "failed"
+                    ],
+                    "description": "The entry's own, written always: a window never names an open entry, so there is always one."
+                  },
+                  "ended": {
+                    "type": "string",
+                    "description": "Absent on a reaped entry, whose only account is a closing write on the closing Run's clock, so no duration derives."
+                  },
+                  "procedure_revision": {
+                    "type": "string"
+                  },
+                  "repo_dirty": {
+                    "type": "boolean"
+                  },
+                  "closed_by": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "run",
+                        "outcome",
+                        "ended"
+                      ],
+                      "properties": {
+                        "run": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "const": "failed"
+                        },
+                        "step": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "ended": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "subject": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "run",
+                  "trigger",
+                  "started",
+                  "outcome",
+                  "procedure_revision"
+                ],
+                "properties": {
+                  "run": {
+                    "type": "string"
+                  },
+                  "trigger": {
+                    "type": "string"
+                  },
+                  "started": {
+                    "type": "string"
+                  },
+                  "outcome": {
+                    "enum": [
+                      "completed",
+                      "refused",
+                      "failed"
+                    ],
+                    "description": "The entry's own, written always: a window never names an open entry, so there is always one."
+                  },
+                  "ended": {
+                    "type": "string",
+                    "description": "Absent on a reaped entry, whose only account is a closing write on the closing Run's clock, so no duration derives."
+                  },
+                  "procedure_revision": {
+                    "type": "string"
+                  },
+                  "repo_dirty": {
+                    "type": "boolean"
+                  },
+                  "closed_by": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "run",
+                        "outcome",
+                        "ended"
+                      ],
+                      "properties": {
+                        "run": {
+                          "type": "string"
+                        },
+                        "outcome": {
+                          "const": "failed"
+                        },
+                        "step": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "ended": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "change",
+              "target",
+              "definition",
+              "name",
+              "fields"
+            ],
+            "description": "One Record that moved. The type is which of the two tables holds it — asset is YOU DID THIS and observation is THE WORLD MOVED — the split being by actor rather than by column.",
+            "properties": {
+              "type": {
+                "enum": [
+                  "asset",
+                  "observation"
+                ]
+              },
+              "change": {
+                "type": "string",
+                "description": "What happened to it between the two ends, as §8 names it."
+              },
+              "target": {
+                "type": "string"
+              },
+              "definition": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "from_ordinal": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Absent where the end has no version to name, which is what appeared and vanished are."
+              },
+              "to_ordinal": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "confirmed_at": {
+                "type": "string",
+                "description": "When a destruction was confirmed, on a destroyed row alone."
+              },
+              "fields": {
+                "type": "object",
+                "description": "What the projection held, every value whole: a pair of values where the field changed, and the value alone where one end held nothing. Its keys are the Record's own fields, so it is the one object here whose members hyper does not state. Written always, the empty mapping included — an empty one is what says hyper destroyed this and never observed what it was."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "fact"
+            ],
+            "description": "One code fact, or the catch-all that terminates the table. The two are told apart by fact. subject_kind and subject stand together where the fact has an artefact subject and neither stands where it does not — repo_revision belongs to no artefact a reader can open.",
+            "properties": {
+              "type": {
+                "const": "code"
+              },
+              "subject_kind": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              },
+              "fact": {
+                "type": "string"
+              },
+              "from": {
+                "description": "The baseline's value, as the value it is."
+              },
+              "to": {
+                "description": "The subject's value."
+              },
+              "from_phrase": {
+                "type": "string",
+                "description": "A Cadence expression glossed, where the fact is one: the gloss's parts ride beside the expression rather than as a composed line."
+              },
+              "to_phrase": {
+                "type": "string"
+              },
+              "from_rate": {
+                "type": "number"
+              },
+              "to_rate": {
+                "type": "number"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "The catch-all's own: how many moved lines no classed row above reports. Zero is a count, which is why the table can read 0 other lines changed and still carry this row."
+              },
+              "baseline_absent": {
+                "type": "string",
+                "description": "Stands in place of count where the bytes could not be read: the object is not in this clone."
+              },
+              "command": {
+                "type": "string",
+                "description": "The git diff a reader runs, abbreviated as the page draws it — a command rather than an id, and one git resolves short. Absent where either side recorded repo_dirty."
+              }
+            }
+          }
+        ]
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== check
+Run every static rule this repository states and report each problem by file, line and error_code.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "paths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Paths as the command's own positionals take them: repository-relative, or absolute and inside the repository — a path resolving outside it names nothing this repository holds and is refused. Every artefact still loads and only the problems positioned in the ones named are reported; omit it to report every problem the repository has."
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "file",
+          "line",
+          "column",
+          "field",
+          "error_code",
+          "message"
+        ],
+        "description": "One problem, positioned. Rows are ordered by file path and then by line, which is the order the row stream is written in and the order a caller may not re-sort after printing.",
+        "properties": {
+          "type": {
+            "const": "problem"
+          },
+          "file": {
+            "type": "string",
+            "description": "The artefact's path, relative to the repository root, with forward slashes on every platform."
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The 1-indexed line. Zero is a fault with no line to go to — a whole-file comparison — and is the absence the empty field beside it also reads as."
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The 1-indexed column, which rides on the wire only: the page has no column for a fact a consumer filters on."
+          },
+          "field": {
+            "type": "string",
+            "description": "A path into the artefact, in §8's remediation notation — steps[2].bound, auth.token — and empty where the fault has no position more specific than the file."
+          },
+          "error_code": {
+            "type": "string",
+            "description": "One member of §12's closed error_code set, naming the check that declined. It is not enumerated here: the set is §12's and the checks' own, and a second copy of it on this surface would be a copy to keep in step."
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== operation
+Report one Operation's declaring Manifest lines, verbatim, and the facts hyper derives from them.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "operation"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The Provider's name, as its Manifest declares it."
+    },
+    "operation": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The Operation's name, as a key of that Manifest's own operations: block."
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "source",
+          "derived"
+        ],
+        "properties": {
+          "type": {
+            "const": "operation_detail"
+          },
+          "source": {
+            "type": "string",
+            "description": "The Manifest lines declaring this Operation, verbatim: the format a caller is expected to author Definitions in, returned rather than re-rendered."
+          },
+          "derived": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "patterns_resolved",
+              "concurrency_limit"
+            ],
+            "description": "What hyper derives from the declaration above, which the source does not carry in this form. capabilities, bound and repeatability are absent only where a Manifest hyper could not read left nothing to derive them from, which is the check surface's to report.",
+            "properties": {
+              "capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The one Capability the Operation's request is written under; an Operation uses exactly one."
+              },
+              "bound": {
+                "enum": [
+                  "mandatory",
+                  "illegal",
+                  "none"
+                ],
+                "description": "Three members and never a boolean: a destroy Step's Bound is mandatory, an opaque destroy's is illegal — writing one there is refused — and on a read or a mutate none is required. false would carry you need not write one and writing one is refused under one value, on the most severe Operation the tool runs."
+              },
+              "patterns_resolved": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "pagination",
+                    "polling",
+                    "retry"
+                  ]
+                },
+                "description": "The members of the Pattern set this Operation declares, and [] rather than absent where it declares none: a caller asking which Patterns run around this call is answered none of them, which is a fact."
+              },
+              "record_cardinality": {
+                "enum": [
+                  "series",
+                  "one"
+                ],
+                "description": "Absent, together with record_identity, on a destroy, which projects no Record of its own."
+              },
+              "record_identity": {
+                "type": "string"
+              },
+              "repeatability": {
+                "enum": [
+                  "repeatable",
+                  "skip-if-recorded",
+                  "run-once"
+                ],
+                "description": "The effective value and not the declared one: run-once where an effectful Manifest omits the key, repeatable where a read does."
+              },
+              "deadline_seconds": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "The deadline in seconds. The wire fixes the unit so that nothing downstream parses a suffix."
+              },
+              "concurrency_limit": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "The effective limit, present on every Operation: the declared concurrency:, or 1 where absent, and 1 on every mutate and destroy."
+              }
+            }
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== probe
+Invoke a read Operation against local without a Definition, and answer the projection beside the raw response. It writes no Record and no Journal entry: a throwaway question costs no reviewed artefact.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "provider",
+    "operation"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The Provider's name, as its Manifest declares it."
+    },
+    "operation": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The Operation's name, as a key of that Manifest's own operations: block. It declares kind: read and is not opaque — a Probe may invoke neither an effectful Operation nor an opaque one, whatever any Target grants."
+    },
+    "inputs": {
+      "type": "object",
+      "description": "The Operation's inputs, one object keyed by input name, in place of the CLI's repeated --input. Every declared input is supplied and no other name is: there is no null and no key-omission syntax, so an input left out has no sink to render at. Each value is read against the type the Operation declares at that position rather than by what the value looks like, so a string carrying digits and a number are one value at an integer position; object, array and null read as nothing anywhere and are refused here.",
+      "propertyNames": {
+        "minLength": 1,
+        "pattern": "^[^=]*$",
+        "description": "An input's name, as the Operation's own inputs: block declares it. It carries no = : the command line this tool builds spells an input as one --input name=value pair and splits it at the first =, so a name carrying one names an input no pair can address."
+      },
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean"
+        ]
+      }
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "provider",
+          "operation",
+          "projection",
+          "response"
+        ],
+        "properties": {
+          "type": {
+            "const": "probe_result"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          },
+          "projection": {
+            "type": "object",
+            "description": "What hyper derived from the response, in the shape a Record would have held — and {} where every projected path resolved to nothing, which is an absence a reader reads rather than an error hyper reports. Its keys are the Manifest's own."
+          },
+          "response": {
+            "type": "object",
+            "description": "The raw response beside the projection, which no credentialled surface shows: a Probe binds local, which carries no credential slot, so the wire is visible by construction rather than by a flag. A host that answered nothing at all is this object carrying host and nothing else."
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== project
+Regenerate the projection: one .github/workflows/ file per Procedure that declares a Cadence, and the two derived scalars in the Repository declaration. It is repo-wide and all-or-nothing — whole files overwritten, the ones no Procedure asks for any more taken away — and it reports what it wrote, the git diff being where a human reviews it.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "path"
+        ],
+        "description": "One file this call wrote or took away: one row per Procedure declaring a Cadence, all of them, and one per generated file no Procedure asks for any more. Rows are ordered by the Procedure name the path itself carries, which is the only name a removed file naming no Procedure has. It carries no last Journal entry — project writes a file and reports what it wrote, and what stands in the Store is no part of that.",
+        "properties": {
+          "type": {
+            "const": "workflow"
+          },
+          "path": {
+            "type": "string",
+            "description": "The file, relative to the repository root, with forward slashes on every platform."
+          },
+          "procedure": {
+            "type": "string",
+            "description": "The Procedure that asked for the file. It is absent on a removed file whose name matches no Procedure the repository holds, and a removed file carries no gloss beside it either: the absence is the fact rather than a widening of the shape."
+          },
+          "cadence": {
+            "type": "string",
+            "description": "The recurrence expression exactly as the artefact wrote it."
+          },
+          "phrase": {
+            "type": "string",
+            "description": "The expression stated in words: the times of day, the days and the months it selects. It is a total function of the five fields — every expression the grammar admits gets one — and it is never truncated."
+          },
+          "rate": {
+            "type": "number",
+            "description": "Runs per month at the two significant figures §10 rounds to. Zero is a rate: an expression the calendar has no instance of matches nothing."
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== provider
+Report one Provider's Manifest facts and every Operation it exposes.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The Provider's name, as its Manifest declares it."
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "digest"
+            ],
+            "properties": {
+              "type": {
+                "const": "manifest"
+              },
+              "auth_scheme": {
+                "type": "string"
+              },
+              "capabilities_required": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "digest": {
+                "type": "string"
+              },
+              "schema_version": {
+                "type": "integer"
+              },
+              "origin_ref": {
+                "type": "string"
+              },
+              "origin_digest": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "name",
+              "kind",
+              "opaque",
+              "summary"
+            ],
+            "properties": {
+              "type": {
+                "const": "operation"
+              },
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "read",
+                  "mutate",
+                  "destroy",
+                  ""
+                ],
+                "description": "The Operation's declared Kind. The empty string is a Manifest that declared none, which is a fault the check surface reports rather than a fourth Kind: the row states what the artefact stated."
+              },
+              "opaque": {
+                "type": "boolean"
+              },
+              "summary": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== providers
+List every Provider this repository can load, built-in and Extension alike.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "name",
+          "origin",
+          "summary",
+          "operation_count",
+          "digest"
+        ],
+        "properties": {
+          "type": {
+            "const": "provider"
+          },
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "built-in",
+              "extension"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "operation_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "digest": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== records
+Find a version: one row per Record with its ordinal, the Run and Step that wrote it, its state and its Provenance — or every version of one, under history.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The identity's first column, matched byte-exact over UTF-8."
+    },
+    "definition": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Its second."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Its third. Naming all three is naming one Record, and naming none is the whole branch."
+    },
+    "history": {
+      "type": "boolean",
+      "description": "Whether to answer every version of each Record rather than its Head alone, newest first. It is an explicit boolean and never a mode another argument turns on."
+    },
+    "since": {
+      "type": "string",
+      "description": "An RFC 3339 instant bounding the versions inside each series, inclusive of the instant it names. It is legal only with history: a Head has no window to bound, and naming one here would not open a history."
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The cap, counting Records and never rows: under history a series comes back whole or does not come back."
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "key",
+          "ordinal",
+          "run_id",
+          "step",
+          "record_kind",
+          "provenance"
+        ],
+        "properties": {
+          "type": {
+            "const": "record"
+          },
+          "key": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "target",
+              "definition",
+              "name"
+            ],
+            "description": "The Record's identity as the one fact it is: a Record is identified by its Target, its Definition and a name together, and three siblings of ordinal would be three arguments that happen to be adjacent.",
+            "properties": {
+              "target": {
+                "type": "string"
+              },
+              "definition": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The version's position in the series' own ordering, stored nowhere and never its identifier — which is the Run that wrote it. It is unstable under Compaction, which is affordable for exactly one reason: nothing anywhere accepts an ordinal as input."
+          },
+          "run_id": {
+            "type": "string",
+            "description": "Whole. The Run and the Step together are the version's identity: two Steps of one Run writing one identity write two paths, so the Run alone would not name one."
+          },
+          "step": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "record_kind": {
+            "enum": [
+              "asset",
+              "observation"
+            ]
+          },
+          "tombstoned": {
+            "type": "boolean",
+            "description": "Whether the Record's Head is a Tombstone. It is the series' state rather than the version's, so it means one thing on every row of a history."
+          },
+          "orphaned": {
+            "type": "boolean",
+            "description": "An Asset still standing whose Definition no longer exists. Reported for as long as it stands rather than once, or a forgotten resource becomes invisible by way of a tidy-up commit."
+          },
+          "secret_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The fields whose value the presence-only marker stands in for: the names, and never a value. Absent where nothing was suppressed."
+          },
+          "provenance": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "The whole of it, the Run-wide half and the Step's half under one key, which is what a Record version carries and what no Journal file does. It is written always: a version states which code performed the Run that wrote it.",
+            "properties": {
+              "hyper_version": {
+                "type": "string"
+              },
+              "procedure_revision": {
+                "type": "string"
+              },
+              "repo_revision": {
+                "type": "string"
+              },
+              "repo_dirty": {
+                "type": "boolean",
+                "description": "Whether the Run read bytes that differ from the revision beside it. Those bytes are nowhere in git, and this is the marker that stops a consumer resolving the revision and believing it read what ran."
+              },
+              "definition_revision": {
+                "type": "string"
+              },
+              "manifest_digest": {
+                "type": "string"
+              },
+              "origin_digest": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== review
+Render §8's review of one artefact — the gutter, the AUTHORITY table and the FLAGS index — as text a human reviewer can be handed verbatim.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artefact"
+  ],
+  "properties": {
+    "artefact": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The artefact to review: a repository-relative path — one containing / or ending .yaml — or the name the artefact declares for itself."
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "kind"
+            ],
+            "description": "The header row, emitted first: what is being reviewed, and the revision the range opened at. baseline and baseline_absent are the two halves of one member and exactly one of them is written.",
+            "properties": {
+              "type": {
+                "const": "artefact"
+              },
+              "kind": {
+                "enum": [
+                  "definition",
+                  "procedure",
+                  "provider",
+                  "target-declaration",
+                  "repository-declaration"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "description": "The artefact's file, relative to the repository root. Absent on the one artefact with no file in the repository, which ships in the binary."
+              },
+              "baseline": {
+                "type": "string",
+                "description": "The revision the range opened at, whole: the wire carries no fact to be recognised, so nothing here is abbreviated."
+              },
+              "baseline_absent": {
+                "enum": [
+                  "built-in",
+                  "no-store",
+                  "not-run",
+                  "not-in-clone"
+                ],
+                "description": "Which of §12's four absences stands where a baseline would: no file at all, nothing to ask, asked and empty, or answered with the object not in this clone."
+              },
+              "cadence": {
+                "type": "string",
+                "description": "The recurrence expression exactly as the artefact wrote it."
+              },
+              "phrase": {
+                "type": "string",
+                "description": "The expression stated in words: the times of day, the days and the months it selects. It is a total function of the five fields — every expression the grammar admits gets one — and it is never truncated."
+              },
+              "rate": {
+                "type": "number",
+                "description": "Runs per month at the two significant figures §10 rounds to. Zero is a rate: an expression the calendar has no instance of matches nothing."
+              },
+              "last_run": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "run",
+                  "ended"
+                ],
+                "description": "The Journal entry the header read an age from. It carries the instant and not the age, an age being a subtraction against the reader's clock.",
+                "properties": {
+                  "run": {
+                    "type": "string"
+                  },
+                  "ended": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "line"
+            ],
+            "description": "One rendered line the gutter has something to say about. The source is not on this list: a review does not decompose into rows, and the consumer already has the file.",
+            "properties": {
+              "type": {
+                "const": "gutter"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "marker": {
+                "type": "string",
+                "description": "The marker column's text with its alignment padding collapsed to single spaces, and the page's sigils spelled in words. It is one derived fact in one cell rather than a decomposition, a decomposition being a second rendering that can be wrong about the first."
+              },
+              "changed": {
+                "type": "boolean",
+                "description": "Whether the range touched the line. The revision it is relative to is named in the header, never once per line."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "definition",
+              "target"
+            ],
+            "description": "One pairing of §5's two claims. The four list members are absent where the supply behind them did not load and [] where it loaded and names nothing, which is the distinction the whole table is built on.",
+            "properties": {
+              "type": {
+                "const": "authority"
+              },
+              "definition": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "definition_kinds": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "read",
+                    "mutate",
+                    "destroy"
+                  ]
+                }
+              },
+              "target_kinds": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "read",
+                    "mutate",
+                    "destroy"
+                  ]
+                }
+              },
+              "effective": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "read",
+                    "mutate",
+                    "destroy"
+                  ]
+                }
+              },
+              "destroy_operations": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "flag",
+              "cites_line"
+            ],
+            "description": "One row of the index into the gutter above. A flag states nothing the gutter does not: it carries no state and no text, and the row on the line it cites is what says which.",
+            "properties": {
+              "type": {
+                "const": "flag"
+              },
+              "flag": {
+                "enum": [
+                  "destroy",
+                  "opaque",
+                  "unbounded",
+                  "envelope",
+                  "unresolved",
+                  "widened",
+                  "narrowed",
+                  "changed"
+                ]
+              },
+              "cites_line": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "The line this flag indexes, which is a line a gutter row above marked."
+              },
+              "step": {
+                "type": "string",
+                "description": "The Step the flag cites, absent on a flag whose subject is the file rather than a Step."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "file",
+              "line",
+              "column",
+              "field",
+              "error_code",
+              "message"
+            ],
+            "description": "One problem, positioned. Rows are ordered by file path and then by line, which is the order the row stream is written in and the order a caller may not re-sort after printing.",
+            "properties": {
+              "type": {
+                "const": "problem"
+              },
+              "file": {
+                "type": "string",
+                "description": "The artefact's path, relative to the repository root, with forward slashes on every platform."
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "The 1-indexed line. Zero is a fault with no line to go to — a whole-file comparison — and is the absence the empty field beside it also reads as."
+              },
+              "column": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "The 1-indexed column, which rides on the wire only: the page has no column for a fact a consumer filters on."
+              },
+              "field": {
+                "type": "string",
+                "description": "A path into the artefact, in §8's remediation notation — steps[2].bound, auth.token — and empty where the fault has no position more specific than the file."
+              },
+              "error_code": {
+                "type": "string",
+                "description": "One member of §12's closed error_code set, naming the check that declined. It is not enumerated here: the set is §12's and the checks' own, and a second copy of it on this surface would be a copy to keep in step."
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== run
+Run one Procedure through every guardrail §5 states, writing the Records, the Journal entry and the Provenance the command writes. Refuses rather than overriding: no argument here is a bypass.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "procedure"
+  ],
+  "properties": {
+    "procedure": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The Procedure to run: the name the artefact declares for itself, matched byte-exact over UTF-8. It is a name and never a path — name-mismatch pins a name to its file's basename, so the Procedure in procedures/deploy.yaml is run as deploy — and it carries no Target: a Procedure is fully bound and declares its own Target envelope."
+    },
+    "dry_run": {
+      "type": "boolean",
+      "description": "Perform the reads this Run reaches and stop rather than simulating an effect. A rehearsal writes a Journal entry marked as one, names the Step it withheld with every Step after it never reached, and reports completed — a halted rehearsal is the correct outcome of a correct operation."
+    },
+    "secret_sink": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Where a Step declaring secret output writes it: an absolute path outside the repository working tree, written 0600. It is never defaulted — a Run reaching such a Step with none supplied Refuses — and the secret is never returned in this result."
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "outcome",
+    "dry_run",
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "outcome": {
+      "enum": [
+        "completed",
+        "refused",
+        "failed"
+      ],
+      "description": "§12's triple, and this tool's alone among the thirteen. It is the discriminator and isError is not: one bit cannot carry three states. failed is the one a caller may retry — past it lies time, where past a refused lies an act of somebody's."
+    },
+    "run_id": {
+      "type": "string",
+      "description": "The entry this Run wrote, whole. Absent exactly where no entry was written: the version pin gate, the bootstrap store-absent, and a Run that lost the Store before it was attempted."
+    },
+    "dry_run": {
+      "type": "boolean",
+      "description": "Whether this was a rehearsal. Written always, false included — §7's one exception to the absence rule, because what a reader that takes its absence for false gets wrong is unrecoverable."
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "step",
+              "id",
+              "kind",
+              "disposition"
+            ],
+            "description": "One Step that reached a Disposition, in the order the Run ran them. What each Record did is the Comparison's rendering rather than the Run's, and changes is what emits it.",
+            "properties": {
+              "type": {
+                "const": "step"
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string",
+                "description": "The invocation chain a Step reached through a nested Procedure was reached under, absent on a top-level Step."
+              },
+              "kind": {
+                "enum": [
+                  "read",
+                  "mutate",
+                  "destroy"
+                ]
+              },
+              "disposition": {
+                "type": "string",
+                "description": "What became of the Step, as §12 names it."
+              },
+              "records": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "How many identities the Step concluded about, which is not how many it wrote. Absent where the Disposition carries no set at all, and 0 where a Step ran and its Expansion resolved to nothing; the two are different answers."
+              },
+              "expanded": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "What the Expansion resolved to, where the Step stopped short of it and the count above accounts for only part. Which Records those are is run_show under expansion and nowhere else."
+              },
+              "withheld": {
+                "const": true,
+                "description": "The Step a rehearsal stopped at, written true on that one Step and absent on every other and on every Run that is not a rehearsal. It is the boundary of a partial answer: this Step's effect was withheld rather than simulated, and the Steps after it are never-reached behind it. Do not read the first never-reached row as this — a Run the world resisted leaves those rows too."
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "error_code"
+            ],
+            "description": "One member of a Refusal — one row per problem, and never one row carrying an array. It is the same row as a Run reports it and as the entry recording it is read back. Every member the check did not have is absent rather than written empty.",
+            "properties": {
+              "type": {
+                "const": "refusal"
+              },
+              "error_code": {
+                "type": "string",
+                "description": "One member of §12's closed error_code set, naming the check that declined."
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "An artefact coordinate and never an execution fact: the Step it names may have no file in the entry at all, every Refusal that declines before Step 1 citing one that never ran."
+              },
+              "step_id": {
+                "type": "string"
+              },
+              "operation": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "declared": {
+                "description": "What the artefact declared, as the value it is: a number, a string, a list or a mapping."
+              },
+              "observed": {
+                "description": "What the check found, beside it."
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "field": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "resolved": {
+                "type": "object",
+                "description": "Each relative operand the citation carries, mapped to the instant it resolved to against this Run's start — not the reader's clock, months later. Its keys are the operands the artefact wrote.",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "file"
+            ],
+            "description": "One edit past the check above: the coordinate, and either a value to replace or a direction to narrow in. §8 renders these as the EDIT ONE OF table.",
+            "properties": {
+              "type": {
+                "const": "remediation"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "field": {
+                "type": "string"
+              },
+              "from": {
+                "description": "The value the check found, where the replacement is arithmetic."
+              },
+              "to": {
+                "description": "The value that would clear it."
+              },
+              "hint": {
+                "type": "string",
+                "description": "The direction, where narrowing is a judgement rather than arithmetic."
+              },
+              "example_expansion": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "What hyper derived about the hint above: the count a worked example of that narrowing would reach."
+              },
+              "resolved": {
+                "type": "object",
+                "description": "The proposal's relative operands, glossed against the same instant the current value was.",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type"
+            ],
+            "description": "Which code performed the Run, at one of §7's two scopes. Which scope a row is is read off the row itself: a Step's carries step and the Run-wide one does not, and a discriminator beside it would carry that fact twice. Nothing here is abbreviated.",
+            "properties": {
+              "type": {
+                "const": "provenance"
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "hyper_version": {
+                "type": "string"
+              },
+              "procedure_revision": {
+                "type": "string"
+              },
+              "repo_revision": {
+                "type": "string"
+              },
+              "repo_dirty": {
+                "type": "boolean",
+                "description": "Whether the Run read bytes that differ from the revision beside it. Those bytes are nowhere in git, and this is the marker that stops a consumer resolving the revision and believing it read what ran."
+              },
+              "definition_revision": {
+                "type": "string"
+              },
+              "manifest_digest": {
+                "type": "string"
+              },
+              "origin_digest": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "truncated": {
+      "type": "null",
+      "description": "A Run reports what it just did rather than ranging over a namespace, so there is no result set for a limit to have cut and no marker to carry."
+    }
+  }
+}
+=== run_show
+Read one Journal entry back whole: its header, the Refusal its Run recorded, and one row per Step record with that Step's own Provenance beside it.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The Run id, whole. Nothing anywhere resolves a partial one, so a prefix names nothing exactly as a typo does; hyper runs enumerates the namespace it resolves against."
+    },
+    "expansion": {
+      "type": "boolean",
+      "description": "Whether each Step row carries the selector it was expanded from, what it expanded to and the Bound it was read against. It is the destination §8's bound-exceeded page points a reader at."
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "run_id",
+              "procedure",
+              "trigger",
+              "started_at",
+              "dry_run"
+            ],
+            "description": "The entry's header, emitted first: what its own run.json holds, and the account or accounts it carries of how it ended. The four states §7 classifies an entry into are read off which of outcome and closed_by stand.",
+            "properties": {
+              "type": {
+                "const": "entry"
+              },
+              "run_id": {
+                "type": "string"
+              },
+              "procedure": {
+                "type": "string"
+              },
+              "trigger": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "cause",
+                  "executor"
+                ],
+                "description": "The Trigger as the entry holds it: a mapping and never a composed string, four facts whose shape differs by executor not packing into one without a grammar and a parser.",
+                "properties": {
+                  "cause": {
+                    "type": "string"
+                  },
+                  "executor": {
+                    "type": "string"
+                  },
+                  "actor": {
+                    "type": "string"
+                  },
+                  "host": {
+                    "type": "string"
+                  },
+                  "run_id": {
+                    "type": "string",
+                    "description": "The executor's own run id, which is not hyper's: the entry's is the member of the same name on the row above."
+                  },
+                  "run_attempt": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "job_url": {
+                    "type": "string"
+                  }
+                }
+              },
+              "started_at": {
+                "type": "string"
+              },
+              "dry_run": {
+                "type": "boolean",
+                "description": "Written always, false included — §7's one exception to the absence rule, because what a reader that takes its absence for false gets wrong is unrecoverable."
+              },
+              "outcome": {
+                "enum": [
+                  "completed",
+                  "refused",
+                  "failed"
+                ]
+              },
+              "ended_at": {
+                "type": "string",
+                "description": "The owner's and never a closer's: a closing write's instant is on the closing Run's clock, and putting it here would invite a cross-entry subtraction §7 forbids."
+              },
+              "closed_by": {
+                "type": "array",
+                "description": "Every inference another Run drew about this entry, one member per closing write. Both this and outcome standing is a contest, which hyper reports and never decides.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "run_id",
+                    "outcome",
+                    "ended_at"
+                  ],
+                  "properties": {
+                    "run_id": {
+                      "type": "string",
+                      "description": "The closing Run, which is the file's name rather than one of its members."
+                    },
+                    "outcome": {
+                      "const": "failed",
+                      "description": "What §7 fixes every closing write as. It is written rather than left implied because the page states it."
+                    },
+                    "step": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "ended_at": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "error_code"
+            ],
+            "description": "One member of a Refusal — one row per problem, and never one row carrying an array. It is the same row as a Run reports it and as the entry recording it is read back. Every member the check did not have is absent rather than written empty.",
+            "properties": {
+              "type": {
+                "const": "refusal"
+              },
+              "error_code": {
+                "type": "string",
+                "description": "One member of §12's closed error_code set, naming the check that declined."
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "An artefact coordinate and never an execution fact: the Step it names may have no file in the entry at all, every Refusal that declines before Step 1 citing one that never ran."
+              },
+              "step_id": {
+                "type": "string"
+              },
+              "operation": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "declared": {
+                "description": "What the artefact declared, as the value it is: a number, a string, a list or a mapping."
+              },
+              "observed": {
+                "description": "What the check found, beside it."
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "field": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "resolved": {
+                "type": "object",
+                "description": "Each relative operand the citation carries, mapped to the instant it resolved to against this Run's start — not the reader's clock, months later. Its keys are the operands the artefact wrote.",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "file"
+            ],
+            "description": "One edit past the check above: the coordinate, and either a value to replace or a direction to narrow in. §8 renders these as the EDIT ONE OF table.",
+            "properties": {
+              "type": {
+                "const": "remediation"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "field": {
+                "type": "string"
+              },
+              "from": {
+                "description": "The value the check found, where the replacement is arithmetic."
+              },
+              "to": {
+                "description": "The value that would clear it."
+              },
+              "hint": {
+                "type": "string",
+                "description": "The direction, where narrowing is a judgement rather than arithmetic."
+              },
+              "example_expansion": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "What hyper derived about the hint above: the count a worked example of that narrowing would reach."
+              },
+              "resolved": {
+                "type": "object",
+                "description": "The proposal's relative operands, glossed against the same instant the current value was.",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type"
+            ],
+            "description": "Which code performed the Run, at one of §7's two scopes. Which scope a row is is read off the row itself: a Step's carries step and the Run-wide one does not, and a discriminator beside it would carry that fact twice. Nothing here is abbreviated.",
+            "properties": {
+              "type": {
+                "const": "provenance"
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "hyper_version": {
+                "type": "string"
+              },
+              "procedure_revision": {
+                "type": "string"
+              },
+              "repo_revision": {
+                "type": "string"
+              },
+              "repo_dirty": {
+                "type": "boolean",
+                "description": "Whether the Run read bytes that differ from the revision beside it. Those bytes are nowhere in git, and this is the marker that stops a consumer resolving the revision and believing it read what ran."
+              },
+              "definition_revision": {
+                "type": "string"
+              },
+              "manifest_digest": {
+                "type": "string"
+              },
+              "origin_digest": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "step",
+              "disposition"
+            ],
+            "description": "One Step record the entry holds, in the Run's own written order. A Step the Run never reached wrote no file, so it has no row here and no provenance row either: that Disposition is read from a silence inside a closed entry.",
+            "properties": {
+              "type": {
+                "const": "step"
+              },
+              "step": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "id": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string",
+                "description": "The invocation chain where the Step was reached through a nested Procedure."
+              },
+              "definition": {
+                "type": "string"
+              },
+              "operation": {
+                "type": "string"
+              },
+              "provider": {
+                "type": "string"
+              },
+              "target": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "read",
+                  "mutate",
+                  "destroy"
+                ]
+              },
+              "disposition": {
+                "type": "string",
+                "description": "What became of the Step, as §12 names it."
+              },
+              "started_at": {
+                "type": "string",
+                "description": "Absent on a record a reaper wrote: a closing write does not know when the Step began, which is an honest absence rather than the year 1."
+              },
+              "ended_at": {
+                "type": "string"
+              },
+              "records": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The identities this Step concluded about — the members, and not the count §8's Step table renders. Absent where the Disposition carries no set at all, and [] where a Step ran and its Expansion resolved to nothing; the two are different answers."
+              },
+              "unchanged_since": {
+                "type": "string",
+                "description": "The Run the members above were read from, where this entry holds a digest and no members of its own. It is what keeps show from presenting another entry's bytes as though they were this one's."
+              },
+              "selector": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "declared",
+                  "expanded_to"
+                ],
+                "description": "Written under expansion and nowhere else.",
+                "properties": {
+                  "declared": {
+                    "description": "The selector as authored, in the canonical bytes the entry holds for it."
+                  },
+                  "expanded_to": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "What it expanded to, in Expansion order and never sorted: on a serial destroy the halt point is legible by position and nowhere else. Written whenever a selector exists, the empty list included."
+                  },
+                  "bound": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              "resolved": {
+                "type": "object",
+                "description": "Each relative operand the selector carries, mapped to the instant it resolved to against this Run's start. It rides with selector and under expansion alone.",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "pattern": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "hyper's own account of the work, supplied by no Provider: what makes a Step that took four minutes legible as four minutes of something.",
+                "properties": {
+                  "attempts": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "pages": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "polls": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              },
+              "answered": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "What an effectful call gave back where it did not give the ordinary answer. Its presence is that fact; a read's status is the answer, and the answer is in the Record.",
+                "properties": {
+                  "host": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "integer",
+                    "description": "Absent where no response arrived at all, which is the Step whose request provably never left."
+                  },
+                  "command": {
+                    "type": "string"
+                  },
+                  "exit_code": {
+                    "type": "integer",
+                    "description": "Absent where the command was never started: 0 is an answer a shell command gives, and reading an unset field as one is how a request that never left acquires an exit code."
+                  }
+                }
+              },
+              "projection_failed_path": {
+                "type": "string",
+                "description": "§6's projection failure alone, and the records above are then partial."
+              }
+            }
+          }
+        ]
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== runs
+List the Journal, newest first: one row per Run, with its Trigger, its outcome, the Targets it bound and the version of hyper that performed it.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {
+    "since": {
+      "type": "string",
+      "description": "An RFC 3339 instant bounding the window below, inclusive of the instant it names: a timestamp copied off a started member selects the Run it was copied from. There is no relative form and no bare date — those are questions about a clock the caller is not holding."
+    },
+    "procedure": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A Procedure's name, matched byte-exact over UTF-8."
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A Target's name, matched byte-exact over UTF-8. It keeps the Runs that bound it, which is a fact only a Step file carries."
+    },
+    "outcome": {
+      "enum": [
+        "completed",
+        "refused",
+        "failed"
+      ],
+      "description": "One member of §12's triple. open is not among them: an entry holding no account of how it ended is in a state and not in the triple, so nothing here selects one."
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The row cap. Omit it for the command's own default; a cut result carries the truncation marker and never a cursor."
+    }
+  }
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "id",
+          "started",
+          "trigger",
+          "procedure",
+          "targets",
+          "hyper_version"
+        ],
+        "properties": {
+          "type": {
+            "const": "run"
+          },
+          "id": {
+            "type": "string",
+            "description": "The Run id, whole: what a consumer does with one is hand it back to run_show."
+          },
+          "started": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string",
+            "description": "The Trigger composed: a clock or a person, which is the whole of what §7 says a Trigger distinguishes. It is on every row, being the only thing that tells a world that has not changed from one nobody has looked at. run_show is where the four facts an executor writes are four members."
+          },
+          "outcome": {
+            "enum": [
+              "completed",
+              "refused",
+              "failed"
+            ],
+            "description": "Absent on an open entry, the absence carrying that state rather than a fourth value: a started beside no outcome is the whole of what the Store holds about a Run nobody has closed."
+          },
+          "contested": {
+            "type": "boolean",
+            "description": "Written where another Run drew an inference beside this entry's own account. It stands beside the outcome rather than inside it, a second account of an entry being no more a fourth value than open is."
+          },
+          "procedure": {
+            "type": "string"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The Targets the Run bound, written always and [] where it bound none: every entry carries this fact, and a Refusal that declined before Step 1 bound nothing."
+          },
+          "hyper_version": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}
+=== targets
+List every Target this repository declares, and the environment variables its credentials resolve from — names only, never a value.
+--- input
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [],
+  "properties": {}
+}
+--- output
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "rows",
+    "truncated"
+  ],
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "name"
+        ],
+        "description": "One Target declaration. The four lists are absent rather than empty where the declaration grants nothing of that kind: a declaration granting no http carries no hosts: at all, and one named local carries no auth: block.",
+        "properties": {
+          "type": {
+            "const": "target"
+          },
+          "name": {
+            "type": "string"
+          },
+          "hosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The host grant, in the declaration's own order. A grant reduced to its first member is not a grant."
+          },
+          "accepts_kinds": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "read",
+                "mutate",
+                "destroy"
+              ]
+            }
+          },
+          "grants_capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "credentials": {
+            "type": "array",
+            "description": "One member per credential slot the declaration carries, which is wider than what a Run checks: a Run resolves the slots its bindings require, and this has no Procedure in hand to narrow by.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "slot"
+              ],
+              "properties": {
+                "slot": {
+                  "type": "string"
+                },
+                "env": {
+                  "type": "string",
+                  "description": "The environment variable the slot resolves from — the name, never the value."
+                },
+                "present": {
+                  "type": "boolean",
+                  "description": "Whether that variable is set, computed when the tool runs. It is absent, with env, on a slot naming no variable: there is nothing to ask the environment about, and false would answer a question nothing asked."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  }
+}

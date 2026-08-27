@@ -374,26 +374,11 @@ func (s *Server) Call(ctx context.Context, tool string, arguments json.RawMessag
 // what a driver holds should be the messages hyper sent, in the order they
 // arrived on the wire, rather than a client-side handler's account of them.
 func (s *Server) Watched(ctx context.Context, tool string, arguments json.RawMessage, token any) (Envelope, Watching, error) {
-	serverSide, clientSide := net.Pipe()
-	arriving := &frames{}
-
-	session, err := s.server().Connect(ctx, &sdk.IOTransport{Reader: serverSide, Writer: serverSide}, nil)
+	client, arriving, done, err := s.paired(ctx)
 	if err != nil {
 		return Envelope{}, Watching{}, err
 	}
-	// **The server session is closed last and it waits**, which is what
-	// makes a cancelled call assertable at all: the handler is still
-	// draining its Run when the client has gone, and a driver that read the
-	// Store branch before this returned would be reading it mid-Run
-	// (mcp_cancelled_test.go).
-	defer session.Close()
-
-	client, err := sdk.NewClient(&sdk.Implementation{Name: "hyper-in-process-client", Version: s.version}, nil).
-		Connect(ctx, &sdk.IOTransport{Reader: arriving.tee(clientSide), Writer: clientSide}, nil)
-	if err != nil {
-		return Envelope{}, Watching{}, err
-	}
-	defer client.Close()
+	defer done()
 
 	params := &sdk.CallToolParams{Name: tool, Arguments: arguments}
 	if token != nil {
@@ -414,6 +399,86 @@ func (s *Server) Watched(ctx context.Context, tool string, arguments json.RawMes
 	}
 	envelope, err := arriving.envelope()
 	return envelope, arriving.watching(), err
+}
+
+// Tools is `tools/list` as a client receives it: the thirteen §9 states, each
+// carrying the two schemas it publishes, read off the wire (§9, issue #204).
+//
+// It is the third door onto this server and it exists for the reason the first
+// two do — the SDK is reachable from this package and no other, so a driver
+// that wanted the listing had nowhere to stand. What it is for is the corpus's
+// schema golden: **a schema is the contract an agent writes its calls
+// against**, and a schema that drifts between two releases is the one way this
+// surface can break a caller without any answer changing
+// (internal/cli/mcp_tools_test.go).
+//
+// **The listing is read off the recorded frame**, for the reason Call's
+// envelope is and with more riding on it: a schema's keys are its author's
+// order, and the SDK decodes a published schema into `any`, which is a map. A
+// golden holding a re-encoded map would hold the encoder's ordering and would
+// change under a Go release rather than under an edit to this package.
+//
+// **The order is the wire's and not the table's.** The SDK holds its tools in a
+// set keyed by name and pages them in name order, so what a client receives is
+// the thirteen alphabetically; §9's group order is the table's own, and the
+// fence that holds it holds it there (tools.go, tool_set_test.go).
+func (s *Server) Tools(ctx context.Context) ([]Declared, error) {
+	client, arriving, done, err := s.paired(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer done()
+
+	if _, err := client.ListTools(ctx, nil); err != nil {
+		if failed := arriving.failure(); failed != nil {
+			return nil, failed
+		}
+		return nil, err
+	}
+	return arriving.listed()
+}
+
+// Declared is one tool as `tools/list` publishes it: what it is called, what a
+// client is told it is for, and the two schemas.
+//
+// The schemas stay raw, which is the whole point of the type. What a caller
+// holds is the bytes the server sent, keys in the order this package wrote
+// them, rather than a decoded shape re-encoded on the way back out.
+type Declared struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Input       json.RawMessage `json:"inputSchema"`
+	Output      json.RawMessage `json:"outputSchema"`
+}
+
+// paired is a client session against this server over a net.Pipe, with
+// everything the client reads recorded on the way past, and the one way to end
+// both sessions.
+//
+// It is one function rather than the same fifteen lines at each door because
+// the ordering below is load-bearing and is the kind of thing a second copy
+// gets subtly wrong.
+//
+// **The server session is closed last and it waits**, which is what makes a
+// cancelled call assertable at all: the handler is still draining its Run when
+// the client has gone, and a driver that read the Store branch before the
+// closer returned would be reading it mid-Run (mcp_cancelled_test.go).
+func (s *Server) paired(ctx context.Context) (client *sdk.ClientSession, arriving *frames, done func(), err error) {
+	serverSide, clientSide := net.Pipe()
+	arriving = &frames{}
+
+	session, err := s.server().Connect(ctx, &sdk.IOTransport{Reader: serverSide, Writer: serverSide}, nil)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	client, err = sdk.NewClient(&sdk.Implementation{Name: "hyper-in-process-client", Version: s.version}, nil).
+		Connect(ctx, &sdk.IOTransport{Reader: arriving.tee(clientSide), Writer: clientSide}, nil)
+	if err != nil {
+		session.Close()
+		return nil, nil, nil, err
+	}
+	return client, arriving, func() { client.Close(); session.Close() }, nil
 }
 
 // Watching is what a client saw beside one call's envelope.
@@ -482,6 +547,36 @@ func (f *frames) envelope() (Envelope, error) {
 		return Envelope{}, errors.New("no frame the client read carries a result")
 	}
 	return envelopeFrom(answered)
+}
+
+// listed is the tool listing among the recorded frames, read into this
+// package's own shape with every schema's bytes as they arrived.
+//
+// **A cursor is a fault rather than a page to follow.** §9 fixes the set at
+// thirteen and the SDK's page is far larger, so a listing that arrived in two
+// halves is this surface answering something other than its own table — and a
+// caller silently following the cursor would turn that into a golden nobody
+// reads twice (§9, tools.go).
+func (f *frames) listed() ([]Declared, error) {
+	answered, _, err := f.answered()
+	switch {
+	case err != nil:
+		return nil, err
+	case answered == nil:
+		return nil, errors.New("no frame the client read carries a result")
+	}
+
+	var listing struct {
+		Tools      []Declared `json:"tools"`
+		NextCursor string     `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(answered, &listing); err != nil {
+		return nil, fmt.Errorf("the tool listing the client read is not one: %w", err)
+	}
+	if listing.NextCursor != "" {
+		return nil, fmt.Errorf("tools/list answered %d tools and a cursor; the set is fixed at startup and arrives whole", len(listing.Tools))
+	}
+	return listing.Tools, nil
 }
 
 // failure is the message of the last JSON-RPC error among the recorded frames,

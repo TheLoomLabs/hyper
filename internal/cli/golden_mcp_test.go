@@ -322,6 +322,28 @@ func TestGoldenCorpora_AToolWritesTheTreeItsCommandWrites(t *testing.T) {
 	})
 }
 
+// TestGoldenCorpora_AToolPushesWhatItsCommandPushes is the third and last place
+// an invocation lands, and the one that carries the record off the machine:
+// **the remote** (§7, issue #204).
+//
+// A store.golden says what a Run left on the local branch and a tree.golden
+// what it wrote in the working tree; neither says whether the entry reached
+// `origin`, which is the half of §7's transport a second clone actually reads.
+// A Run pushes after each effect and once at the close, and a surface that did
+// that differently would be a surface whose Runs are invisible to everyone but
+// the machine that ran them.
+//
+// It is the milestone's closing check read over its own last axis: the two
+// surfaces write one Store, and one Store is the branch, the tree and the
+// remote together (ADR-0006, ADR-0026).
+func TestGoldenCorpora_AToolPushesWhatItsCommandPushes(t *testing.T) {
+	pairedAgainstTheCommandCorpus(t, pairing{
+		golden:  "remote.golden",
+		left:    "pushed a branch",
+		nothing: "no call case pushes to a remote; the claim that one invocation reaches one remote through two doors is held over nothing",
+	})
+}
+
 // pairedAgainstTheCommandCorpus holds one golden of every call case against the
 // file of the same name in the case one directory up, and is the two fences
 // above as one reading.
@@ -535,18 +557,50 @@ func refusalsWritten(t *testing.T) []string {
 func textBlock(t *testing.T, dir string) string {
 	t.Helper()
 
-	var held struct {
-		Content []struct {
-			Text string `json:"text"`
-		} `json:"content"`
-	}
-	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, "envelope.golden"))), &held); err != nil {
-		t.Fatalf("%s: its envelope.golden is not one JSON value: %v", dir, err)
-	}
+	held := readEnvelope(t, dir)
 	if len(held.Content) == 0 {
 		t.Fatalf("%s: its envelope carries no content block", dir)
 	}
 	return held.Content[0].Text
+}
+
+// heldEnvelope is a checked-in envelope as the fences read it back: the text of
+// each content block, the machine half, and the bit.
+//
+// **The shape is spelled here rather than taken from internal/mcp**, and it is
+// one shape rather than one per fence. The first half is textBlock's own
+// reason: a fence reading the corpus reads what is checked in, and a shape
+// borrowed from the package it is fencing would agree with that package by
+// construction. The second is that three fences asking one file three
+// questions were three readers of one format, which is three places for a
+// member to be renamed in.
+//
+// It is not the shape
+// TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue reads, and that one stays
+// its own: what it asserts is that the golden carries **these members and no
+// others**, which is a decoder configured to refuse an unknown field rather
+// than a value to read one out of.
+type heldEnvelope struct {
+	Content []struct {
+		Text string `json:"text"`
+	} `json:"content"`
+	StructuredContent structuredHalf `json:"structuredContent"`
+	IsError           bool           `json:"isError"`
+}
+
+// readEnvelope reads one case's checked-in envelope as JSON rather than by
+// line, for the reason the fences around it read what is checked in: the
+// rendering's layout is the corpus's own choice and the answer is what it
+// holds, so a fence that depended on the indent would be a fence on
+// renderEnvelope.
+func readEnvelope(t *testing.T, dir string) heldEnvelope {
+	t.Helper()
+
+	var held heldEnvelope
+	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(dir, "envelope.golden"))), &held); err != nil {
+		t.Fatalf("%s: its envelope.golden is not one JSON value: %v", dir, err)
+	}
+	return held
 }
 
 // TestGoldenCorpora_NoCallCaseNamesARepository is §9's own line held over the
@@ -657,6 +711,271 @@ func TestGoldenCorpora_ARowInAnEnvelopeIsTheRowTheStreamWrites(t *testing.T) {
 		t.Fatal("no row appears in both an envelope.golden and a --json stdout.golden; the rule was held over nothing")
 	}
 }
+
+// TestGoldenCorpora_AnEnvelopeIsTheStreamLessItsTerminalRow is this milestone's
+// most valuable assertion and it is one comparison: **where a case supplies
+// both an argv and a call, the rows in `envelope.golden` are the same rows, in
+// the same order, that `stdout.golden` carries under `--json`, less the
+// terminal row.** One list, two surfaces, checked — which is the whole of
+// ADR-0026 stated as a test rather than as a comment (§9, issue #204).
+//
+// It is the fence above read the other way round and it is a different claim.
+// TestGoldenCorpora_ARowInAnEnvelopeIsTheRowTheStreamWrites pairs by a row's
+// own identity across the whole corpus, so it says *this row is a row the
+// stream writes somewhere*; a tool that dropped a row, doubled one or answered
+// them in another order would pass it whole. This one holds one fixture's two
+// renderings against each other **in order and in full**, which is the only
+// reading that can say the two surfaces answer one list.
+//
+// **The pairing is `mcp/<tool>/<case>` against `<command>/<case>-json`**, the
+// `-json` twin being how every corpus here holds a command's second rendering,
+// and against `<command>/<case>` where that case is itself a stream. A call
+// case whose twin writes a page and opens no stream at all is passed over:
+// there is no row list on the other side to compare with, which is a `-json`
+// twin to write rather than a rule to weaken.
+//
+// **A twin that opened a stream and wrote nothing into it is a comparison and
+// not a gap.** That is what a Refusal does — the rendering goes where a person
+// reads it and stdout stays empty — and what the two surfaces say there is that
+// neither carried a row, which the fence holds rather than skips.
+//
+// **The truncation marker's `hint` is the one stated exception.** It names the
+// arguments a tool call can type where the terminal names its flags — *the only
+// wording an answer changes between the two surfaces* — so the marker is
+// compared member by member with `hint` set aside, and the exception is
+// asserted rather than tolerated: where one surface carries a hint the other
+// carries one too (§9, render.TruncationMarker.InArguments).
+func TestGoldenCorpora_AnEnvelopeIsTheStreamLessItsTerminalRow(t *testing.T) {
+	streams := map[string]goldenCase{}
+	for _, c := range goldenCases(t) {
+		if c.opensARowStream() {
+			streams[c.dir] = c
+		}
+	}
+
+	var compared int
+	var unpaired []string
+	for _, c := range goldenCases(t) {
+		if c.call == nil || c.answersAProtocolError() {
+			continue
+		}
+		twin, paired := twinOf(c.name)
+		if !paired {
+			continue
+		}
+		stream, driven := streams[twin+"-json"]
+		if !driven {
+			if stream, driven = streams[twin]; !driven {
+				if isDir(twin) {
+					unpaired = append(unpaired, c.name)
+				}
+				continue
+			}
+		}
+		compared++
+
+		carried := envelopeRows(t, c.dir)
+		golden := filepath.Join(stream.dir, "stdout.golden")
+		if !isFile(golden) {
+			// readFile answers the empty string for a file that is not
+			// there, and the branch below reads an empty stream as a
+			// Refusal — so a twin whose golden went missing would be a
+			// pairing that quietly stopped asserting the rows.
+			t.Errorf("case %s is paired against %s, which holds no stdout.golden", c.name, stream.name)
+			continue
+		}
+		if page := readFile(t, golden); page == "" {
+			// **A twin that wrote no stream at all is a Refusal**,
+			// which writes its rendering where a person reads it and
+			// leaves stdout empty on both surfaces (§8, §9). There is
+			// no terminal row to drop and nothing to lift out of one,
+			// so what the two say is that neither carried a row.
+			if len(carried) != 0 {
+				t.Errorf("case %s carries %d rows and %s wrote no stream at all; a Refusal answers rows on neither surface", c.name, len(carried), stream.name)
+			}
+			if got := readEnvelope(t, c.dir).StructuredContent.truncated(); got != "null" {
+				t.Errorf("case %s carries truncated %s and %s wrote no stream at all; there was no result set for a cap to have cut", c.name, got, stream.name)
+			}
+			continue
+		}
+
+		written := strings.Split(strings.TrimSuffix(readFile(t, golden), "\n"), "\n")
+		terminal := written[len(written)-1]
+		if !endsAStream(terminal) {
+			t.Errorf("case %s: %s does not end in a terminal row; its last line is %s", c.name, stream.name, terminal)
+			continue
+		}
+		written = written[:len(written)-1]
+
+		if len(carried) != len(written) {
+			t.Errorf("case %s carries %d rows and %s writes %d:\n through the tool:    %v\n through the command: %v", c.name, len(carried), stream.name, len(written), carried, written)
+			continue
+		}
+		for i := range carried {
+			// The values and the key order, and not the bytes: the
+			// JSON-RPC frame is the SDK's and its encoder escapes
+			// `<`, `>` and `&` where render.MarshalRow does not,
+			// which is a difference in the framing and not in the
+			// row (the fence above).
+			if got, want := decodedRow(t, carried[i]), decodedRow(t, written[i]); !reflect.DeepEqual(got, want) {
+				t.Errorf("case %s: its row %d is\n  %v\nand %s writes\n  %v", c.name, i+1, got, stream.name, want)
+				continue
+			}
+			if got, want := keysInOrder(t, carried[i]), keysInOrder(t, written[i]); !slices.Equal(got, want) {
+				t.Errorf("case %s: its row %d is keyed %q and %s writes it keyed %q", c.name, i+1, got, stream.name, want)
+			}
+		}
+		compareTruncation(t, c, stream, terminal)
+	}
+	if compared == 0 {
+		t.Fatal("no call case was paired against a --json stream of the same fixture; the rule was held over nothing")
+	}
+	// **What the fence could not reach is named rather than dropped
+	// quietly.** A case whose argv twin exists and was never given a `--json`
+	// rendering is a pairing waiting for a twin to be written, and a
+	// coverage bound nobody can see reads as *everything is covered*. It is
+	// reported rather than failed because writing those twins is a corpus
+	// edit and not this rule lapsing.
+	if len(unpaired) > 0 {
+		t.Logf("%d of %d call cases have an argv twin that writes a page and no --json stream, so their rows are held against nothing; each is a `-json` twin waiting to be written: %q", len(unpaired), compared+len(unpaired), unpaired)
+	}
+}
+
+// compareTruncation is the terminal fact half of the fence above: what the
+// envelope lifted out of the terminal row, held against what the terminal row
+// carried, with the `hint` set aside.
+//
+// A Run's terminal row carries no truncation at all — §8 makes the type the
+// discriminator, and a Run reports what it did rather than ranging over a
+// namespace — so what the envelope carries there is `null`, and that is
+// asserted rather than skipped (§8, §9, mcp's truncatedOf).
+func compareTruncation(t *testing.T, c, stream goldenCase, terminal string) {
+	t.Helper()
+
+	lifted := readEnvelope(t, c.dir).StructuredContent.truncated()
+	carried := memberOf(t, terminal, "truncated")
+	if carried == "" {
+		if lifted != "null" {
+			t.Errorf("case %s carries truncated %s and %s ends in a row carrying none; a Run has no result set for a cap to have cut", c.name, lifted, stream.name)
+		}
+		return
+	}
+
+	held, wrote := marker(t, lifted), marker(t, carried)
+	if held == nil || wrote == nil {
+		if lifted != carried {
+			t.Errorf("case %s carries truncated %s and %s writes %s", c.name, lifted, stream.name, carried)
+		}
+		return
+	}
+	compareHints(t, c, stream, held["hint"], wrote["hint"])
+	delete(held, "hint")
+	delete(wrote, "hint")
+	if !reflect.DeepEqual(held, wrote) {
+		t.Errorf("case %s carries the marker %v and %s writes %v; the hint is the only member that differs between the two surfaces", c.name, held, stream.name, wrote)
+	}
+}
+
+// compareHints is the exception stated rather than tolerated. Setting the
+// member aside and comparing the rest would let the exception be used the wrong
+// way round: a hint that regressed to naming `--since` would point a caller at
+// a flag no schema declares, and a fence that only deleted the key would pass
+// it (§9, render.Narrowing).
+//
+// So what is held is the difference itself. The hint is written on both
+// surfaces or on neither; the terminal's names **flags** and opens `--`; and
+// the envelope's names the tool's **arguments** and carries no flag spelling
+// anywhere in it.
+func compareHints(t *testing.T, c, stream goldenCase, lifted, written any) {
+	t.Helper()
+
+	if (lifted == nil) != (written == nil) {
+		t.Errorf("case %s carries the hint %v and %s writes %v; the hint is written on both surfaces or on neither", c.name, lifted, stream.name, written)
+		return
+	}
+	if lifted == nil {
+		return
+	}
+
+	tool, terminal := lifted.(string), written.(string)
+	if strings.Contains(tool, flagOpening) {
+		t.Errorf("case %s carries the hint %q; a tool's hint names its arguments, and nothing on this surface takes a flag", c.name, tool)
+	}
+	if !strings.Contains(terminal, flagOpening) {
+		t.Errorf("%s writes the hint %q; the terminal's names the flags a person types, which is what the exception is an exception to", stream.name, terminal)
+	}
+}
+
+// flagOpening is what a flag is spelled with on the command line and nowhere on
+// the second surface. It is the whole of the difference the truncation marker's
+// two hints carry, so it is what the comparison above is made of.
+const flagOpening = "--"
+
+// marker is one `truncated` member as an object, and nil where it is not one:
+// the member is the marker on a cut result and a bare boolean or `null`
+// otherwise, and only the first has members to set a hint aside from.
+func marker(t *testing.T, encoded string) map[string]any {
+	t.Helper()
+
+	if !strings.HasPrefix(encoded, "{") {
+		return nil
+	}
+	var held map[string]any
+	if err := json.Unmarshal([]byte(encoded), &held); err != nil {
+		t.Fatalf("%s is not one JSON value: %v", encoded, err)
+	}
+	return held
+}
+
+// memberOf is one member of one row as it was written, and the empty string
+// where the row carries none. It reads the raw value rather than a decoded one
+// so that what is compared is what crossed.
+func memberOf(t *testing.T, row, name string) string {
+	t.Helper()
+
+	var held map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(row), &held); err != nil {
+		t.Fatalf("%s is not one JSON value: %v", row, err)
+	}
+	return string(held[name])
+}
+
+// endsAStream says whether one line is §8's terminal row: a `result` or an
+// `outcome`, which are the two §8 states and the two an envelope does not carry
+// among its rows.
+func endsAStream(line string) bool {
+	var row struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal([]byte(line), &row); err != nil {
+		return false
+	}
+	return row.Type == "result" || row.Type == "outcome"
+}
+
+// envelopeRows is a case's checked-in envelope rows, each as the one line the
+// corpus holds it on.
+func envelopeRows(t *testing.T, dir string) []string {
+	t.Helper()
+
+	held := readEnvelope(t, dir).StructuredContent
+	lines := make([]string, 0, len(held.Rows))
+	for _, row := range held.Rows {
+		lines = append(lines, string(row))
+	}
+	return lines
+}
+
+// structuredHalf is the machine half of a checked-in envelope: §8's rows as the
+// corpus holds them, and the terminal fact the envelope lifted beside them.
+type structuredHalf struct {
+	Outcome   string            `json:"outcome"`
+	Rows      []json.RawMessage `json:"rows"`
+	Truncated json.RawMessage   `json:"truncated"`
+}
+
+// truncated is the terminal fact the envelope lifted, raw.
+func (s structuredHalf) truncated() string { return string(s.Truncated) }
 
 // keysInOrder is one row's keys in the order they were written, which is the
 // order §8 fixes: the `type` first, the rest in the row type's own declaration

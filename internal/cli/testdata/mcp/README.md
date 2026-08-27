@@ -44,6 +44,40 @@ presence when it runs, so `cloudflare-prod` is `present: true` in a case whose
 fence holds is that an envelope's row is **one of** the renderings the stream
 writes for that identity — keys in order, values as stated.
 
+**Where a case has a `--json` twin, the whole list is held in order.** The rows
+in its `envelope.golden` are that twin's rows, in that twin's order, less the
+terminal row — one list, two surfaces, checked
+(`TestGoldenCorpora_AnEnvelopeIsTheStreamLessItsTerminalRow`, issue #204). The
+truncation marker's `hint` is the assertion's one stated exception, naming the
+arguments a tool call can type where the terminal names its flags, and the fence
+states that exception rather than tolerating it: the terminal's hint opens `--`
+and the envelope's carries no flag spelling anywhere, so a hint that regressed
+to naming flags fails rather than passing a comparison the key was deleted from.
+
+**A case whose twin writes a page and opens no stream is passed over, and the
+fence names it.** There is no row list on the other side to compare with, which
+is a `-json` twin to write rather than a rule to weaken — so the count and the
+cases are logged rather than dropped quietly, and `go test ./internal/cli -run
+TestGoldenCorpora_AnEnvelopeIsTheStreamLessItsTerminalRow -v` is where the list
+of twins still owed is read.
+
+**`tools.golden` is the one file here that is not a case.** It holds what
+`tools/list` publishes — every tool's description and its two schemas, in the
+name order a client receives them — regenerated behind the corpus's one
+`-update` like every other golden. A `call` case holds what one call *answered*;
+nothing else here holds what a client is *told it may ask for*, so an argument
+widened from an enum to a bare string, a required member made optional, or an
+output member dropped from a closed object would pass every case that does not
+happen to exercise it. A schema is the contract an agent writes its calls
+against, and a schema that drifts between two releases is the one way this
+surface can break a caller without any answer changing.
+
+**Two fences hold the corpus rather than any answer**, on
+`../error_code_coverage_test.go`'s own shape: every one of the thirteen tools
+has a case, and every one of §9's six envelope shapes does — the ordinary
+answer, the answer with problems found, the guardrail declining, the Run
+refusing, the Run failing, and the protocol error (`../mcp_coverage_test.go`).
+
 **A case that declines holds an `error.golden` where the others hold an
 `envelope.golden`**, and which of the two it is says which half of §9's mapping
 the case is about (issue #196). A JSON-RPC error is not an envelope with a bit
@@ -69,14 +103,19 @@ call here is therefore a **Refusal envelope and not a protocol error**. A
 mapping that read the positional first would invert it, and the two cases are
 one claim written twice.
 
-`providers/truncated/repo` carries fifty Manifests, which is one more Provider
-than the default limit admits once the built-in is counted. That is the only
-way this surface can reach a truncated result at all: `providers()` takes no
-arguments, the `--limit` its command carries is not offered here, and the cut
-is therefore the default's. What comes back is fifty rows, `truncated: true`
-carrying the bare boolean — a namespace listing having no axis to name — and a
-text block that says so, there being no stderr on this surface for the line the
-CLI writes beside its table.
+`providers/truncated-at-the-default-limit/repo` carries fifty Manifests, which
+is one more Provider than the default limit admits once the built-in is counted.
+That is the only way this surface can reach a truncated result at all:
+`providers()` takes no arguments, the `--limit` its command carries is not
+offered here, and the cut is therefore the default's. **It is the one case here
+named for no case one directory up**, and the name is what makes that true:
+`../providers/truncated` is a two-Manifest repository cut with `--limit 2`, so a
+case sharing its name would be paired against a fixture it is not — which is
+what `TestGoldenCorpora_AnEnvelopeIsTheStreamLessItsTerminalRow` pairs by.
+
+What comes back is fifty rows, `truncated: true` carrying the bare boolean — a
+namespace listing having no axis to name — and a text block that says so, there
+being no stderr on this surface for the line the CLI writes beside its table.
 
 `operation/` is §9's third discovery question on this surface, and its cases are
 the derived block's own rules rather than the command's (issue #197).
@@ -118,8 +157,8 @@ found nothing, and a text block that says `no rows`.
 There is no truncated `targets` case, and that is the tool rather than a gap:
 `targets()` takes no arguments, so the only cut it could reach is the default's,
 where the `../targets/truncated` case one directory up reaches its own with a
-`--limit` this surface does not offer. `providers/truncated` is where the cut
-result is held.
+`--limit` this surface does not offer.
+`providers/truncated-at-the-default-limit` is where the cut result is held.
 
 `check/` and `review/` are §9's Authoring pair, and they are the two tools that
 reach nothing: no credential resolves, no network is touched, and nothing is
@@ -249,6 +288,14 @@ a `store.golden` and so does its twin, and the two are compared byte for byte
 (`TestGoldenCorpora_AToolLeavesTheBranchItsCommandLeaves`). One
 Run, two doors, one branch — *ergonomics is the whole of the difference between
 the two*, held as a comparison of bytes rather than as a claim.
+
+`what-the-run-wrote-reaches-the-remote` is that claim over the third place an
+invocation lands, and the one that carries the record off the machine: it stands
+a `git` fixture with an `origin` and holds a `remote.golden` its argv twin's
+matches byte for byte (`TestGoldenCorpora_AToolPushesWhatItsCommandPushes`,
+issue #204). A branch golden says what a Run left locally and a tree golden what
+it wrote in the working tree; neither says whether the entry reached the remote
+a second clone reads, which is the half of §7's transport a Run pushes for.
 
 `the-tracer-bullet` is the ordinary return: `outcome: completed`, the entry
 named whole, `dry_run: false` beside it, and a text block that is §8's terminal

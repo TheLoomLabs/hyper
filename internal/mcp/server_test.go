@@ -3,7 +3,6 @@ package mcp
 import (
 	"encoding/json"
 	"maps"
-	"net"
 	"reflect"
 	"slices"
 	"strconv"
@@ -1431,21 +1430,14 @@ func TestCall_NothingIsSentBetweenCalls(t *testing.T) {
 		return Answer{Terminal: render.NewResultRow(false), Rendering: reviewPage}
 	})
 
-	serverSide, clientSide := net.Pipe()
-	arriving := &frames{}
-
-	session, err := narrating.server().Connect(t.Context(), &sdk.IOTransport{Reader: serverSide, Writer: serverSide}, nil)
+	// The session Call and Tools are made over, stood here rather than
+	// driven through either: what this case is about is **two calls sharing
+	// one session**, which no door that makes one call can reach.
+	client, arriving, done, err := narrating.paired(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer session.Close()
-
-	client, err := sdk.NewClient(&sdk.Implementation{Name: "test", Version: "0"}, nil).
-		Connect(t.Context(), &sdk.IOTransport{Reader: arriving.tee(clientSide), Writer: clientSide}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer client.Close()
+	defer done()
 
 	// Two calls, and the second under a token of its own: a notification
 	// carrying the first call's token after the first call returned would be
