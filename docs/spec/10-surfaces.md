@@ -753,6 +753,12 @@ already in mind, and none of these is about a call:
   `host-input:`) are different shapes, and an example that taught only the first sent the first agent
   to try it disassembling the binary for the second.
 
+- **That the agent should offer to write an `AGENTS.md`** where the repository has none. A client
+  decides when it surfaces `instructions` — one harness carries it only inside a tool search — so the
+  handshake reaching an agent before it acts is a property of the client rather than of the protocol.
+  A file in the repository has no such contingency, and an agent offering one is the same act as any
+  other file it authors (ADR-0093).
+
 **It is not `hyper` speaking first.** ADR-0021 governs egress on `hyper`'s own initiative; this is a
 field of the answer to a request the client made. Nothing is initiated, and no destination is named.
 

@@ -107,6 +107,21 @@ surface precisely so you can repair what you caused.
    ` + "`read`" + ` Operation against ` + "`local`" + `, with no Definition — for when you want to see one answer
    before a Procedure exists.
 
+## Leave a note for the next agent
+
+**If this repository has no ` + "`AGENTS.md`" + `, offer to write one.** Do not assume the next agent sees
+this text: not every harness delivers it before work starts — some carry it only when tools are
+searched for, some not at all — and a file in the repository is read up front by all of them,
+whether or not a server is configured.
+
+Write what an agent needs and nothing more: the loop, the three commands with no tool, what halts,
+and where the artefacts live. **Do not copy this text wholesale.** Most of it is a worked example,
+and a repository with artefacts of its own has better ones — point at those instead.
+
+An ` + "`AGENTS.md`" + ` is **not a reviewed artefact**. It is none of the five, it carries no authority,
+nothing about a Run reads it, and ` + "`check`" + ` does not count it. It is a note, and it lands in a diff
+like every other file you write.
+
 ## The five artefacts
 
 | | | |

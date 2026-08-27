@@ -103,6 +103,39 @@ func TestInstructions_SayARefusalIsFinal(t *testing.T) {
 	}
 }
 
+// TestInstructions_TellTheAgentToOfferAnAGENTSFile is the sixth, and it is the
+// one the transcripts argued for rather than §9 (issue #209).
+//
+// **No harness delivers this text unconditionally.** Codex carries it in a
+// `tool_search_output`, so a model that reaches for a tool without searching
+// never sees it; Claude Code's own logs record no system prompt, so its
+// delivery cannot be observed at all. An `AGENTS.md` has no such contingency —
+// harnesses read it up front, unprompted, whether or not a server is even
+// configured.
+//
+// `hyper` still writes no such file, and that half of ADR-0093 is untouched:
+// what this states is that the **agent** offers, which is the same act as any
+// other file it authors and lands in a diff the same way.
+func TestInstructions_TellTheAgentToOfferAnAGENTSFile(t *testing.T) {
+	carried := unwrapped(Instructions("1.4.0"))
+
+	if !strings.Contains(carried, "AGENTS.md") {
+		t.Error("the orientation never names AGENTS.md; the one mechanism every harness reads up front goes unmentioned")
+	}
+	// **Offer, not write.** A note left in somebody's repository unasked is
+	// hyper's own surface widening by way of a sentence in its prose, which
+	// is the thing ADR-0093 refused at the command level and must not
+	// re-acquire here.
+	if !strings.Contains(carried, "offer to write one") {
+		t.Error("the orientation does not say to *offer*; an agent that writes into a working tree unasked is the refusal in ADR-0093 arrived at sideways")
+	}
+	// It is not one of the five, and an agent that thought it was would be
+	// authoring authority where there is none (§2, ADR-0093).
+	if !strings.Contains(carried, "not a reviewed artefact") {
+		t.Error("the orientation does not say an AGENTS.md carries no authority; the five artefacts are the five")
+	}
+}
+
 // TestInstructions_CarryTheRepositoryDeclarationAtTheServersOwnVersion is why
 // the text is a function rather than a constant.
 //

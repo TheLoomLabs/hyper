@@ -86,6 +86,26 @@ to open it. Everything else is a file somebody has to want, and a file somebody 
 agent can write for them once it has been oriented. So the README says that, and says nothing about a
 format `hyper` would then own.
 
+### What the transcripts qualified, and what they did not
+
+**The handshake is not as unconditional as this decision assumed.** Two harnesses were run against it
+(issue #209). Codex delivers a server's `instructions` inside a `tool_search_output` — the model sees
+it when it searches for the tools, and an agent that reaches for one without searching does not see it
+at all. Claude Code's session log records no system prompt, so its delivery cannot be observed from
+the harness's own artefacts. In neither case is *before the first tool call* a property the protocol
+guarantees; it is a property each client decides.
+
+That does not revive any of the three options above — every one of them still needs somebody to know
+to do something, and `hyper` writing into a working tree is still refused. What it changes is one
+sentence of the orientation: it now **tells the agent to offer to write an `AGENTS.md`** where the
+repository has none. Harnesses read that file up front, unprompted, whether or not a server is
+configured, so the second session in a repository is oriented by a mechanism with no contingency in it.
+
+The line holds because the **agent** offers and the **human** accepts: `hyper` writes nothing, the file
+carries no authority, `check` does not count it, and it lands in a diff like every other file an agent
+authors. An orientation that told an agent to write one unasked would be this decision's own refusal
+re-acquired by way of its prose, which is why the text says *offer*.
+
 ## Where the worked `http` example lives
 
 **In the `instructions` text**, as five artefacts written out under the repository paths they belong
