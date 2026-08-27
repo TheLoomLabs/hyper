@@ -1,0 +1,1 @@
+{"tool": "check", "arguments": {"paths": ["definitions/preview-dns-observed.yaml", "targets/local.yaml"]}}

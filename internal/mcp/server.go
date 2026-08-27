@@ -63,11 +63,12 @@ type Dispatch func(argv []string) Answer
 // milestone 11 was prefactored for: the rows a page is written from and the
 // rows an envelope carries are one list (destination.go, ADR-0026, issue #194).
 //
-// Rendering is the page the command wrote into the destination's buffer. The
-// tools this milestone builds do not put it on the wire — an ordinary return's
-// text block is one summary line (§9) — and it is carried anyway because it is
-// what `review`'s full rendering is, and a buffer that only some answers filled
-// would be one a later tool had to ask twice for.
+// Rendering is the page the command wrote into the destination's buffer. Most
+// tools do not put it on the wire — an ordinary return's text block is one
+// summary line (§9) — and it is filled on every answer anyway, because it is
+// what `review`'s text block *is*: the second row of §9's asymmetric table is a
+// tool handing back the whole rendering, and a buffer that only some answers
+// filled would be one that tool had to ask twice for (envelope.go, issue #198).
 //
 // **Refusal and Narration are what a surface with no exit code needs the exit
 // code's two other halves for** (§9, issue #196). A command that Refuses
@@ -188,6 +189,12 @@ func (s *Server) server() *sdk.Server {
 // and both travel the way an argument error travels, because both are the same
 // thing to the protocol.
 //
+// The one thing about the tool the mapping is told is which row of §9's
+// text-block table it is: *any ordinary return* or **`review`**. That is a
+// property of the tool rather than of the answer, so it crosses from the table
+// where the tool is declared rather than being read off a rendering here
+// (tools.go, issue #198).
+//
 // The error is answered unwrapped, which is the one asymmetry in this function.
 // An argument never reached a command, so the tool names itself; a message the
 // command wrote is the sentence a person would have read, and a tool name
@@ -200,7 +207,7 @@ func (s *Server) handler(t tool) sdk.ToolHandler {
 			return nil, fmt.Errorf("%s: %w", t.name, err)
 		}
 
-		envelope, err := envelopeOf(s.dispatch(argv))
+		envelope, err := envelopeOf(s.dispatch(argv), t.rendersInFull)
 		if err != nil {
 			return nil, err
 		}

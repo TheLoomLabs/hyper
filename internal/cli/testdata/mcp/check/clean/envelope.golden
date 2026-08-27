@@ -1,0 +1,10 @@
+{
+  "content": [
+    {"type":"text","text":"no rows"}
+  ],
+  "structuredContent": {
+    "rows": [],
+    "truncated": false
+  },
+  "isError": false
+}

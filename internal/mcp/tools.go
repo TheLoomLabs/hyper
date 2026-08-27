@@ -18,7 +18,7 @@ import (
 // argv would be a second place for a guardrail to be skipped, a Refusal to be
 // reworded or a row to be reshaped.
 //
-// §9 states thirteen tools, each named for the command it carries. Four are
+// §9 states thirteen tools, each named for the command it carries. Six are
 // here. The rest arrive with the milestones that build them, on tree.go's own
 // rule for the command surface: a name is real when the code behind it is, and
 // the table is where that becomes true rather than a list to be kept in step.
@@ -41,6 +41,19 @@ type tool struct {
 	// becomes a JSON-RPC error: an argument violating a schema is a
 	// malformed call (§9, server.go).
 	argv func(arguments json.RawMessage) ([]string, error)
+	// rendersInFull is §9's text-block table read as a property of the tool,
+	// which is how §9 states it: *any ordinary return* carries one summary
+	// line and **`review`** carries the full rendered review surface. The
+	// third row of that table is a Refusal's, which is a property of the
+	// path rather than of the tool and is therefore not here.
+	//
+	// It is a bit on the tool rather than a composition the tool supplies,
+	// because what it selects between is two readings of one answer the
+	// destination already retained — the rows counted, or the page the
+	// command wrote (destination.go). A tool that composed its own text
+	// would be a tool holding a rendering, which is the one thing *a tool
+	// is a schema, an argv, and nothing else* forbids.
+	rendersInFull bool
 }
 
 // declaration is the tool as the SDK publishes it in `tools/list`. It is the
@@ -57,8 +70,8 @@ func (t tool) declaration() *sdk.Tool {
 }
 
 // tools is the set, in §9's own order: Discovery first, and within it the order
-// §9's table states, then the repository.
-var tools = []tool{providersTool, providerTool, operationTool, targetsTool}
+// §9's table states, then the repository, then Authoring.
+var tools = []tool{providersTool, providerTool, operationTool, targetsTool, checkTool, reviewTool}
 
 // providersTool carries `hyper providers` — §9's first discovery question,
 // *which Provider*, and the one an agent asks before it can write a
@@ -361,6 +374,285 @@ var targetsTool = tool{
 	},
 }
 
+// problemRow is `check`'s row as a schema, written once because **two tools
+// answer it**: `check`, whose whole answer is these rows, and `review`, which
+// answers them where the artefact under review is found and will not load — an
+// artefact hyper could not read is reported rather than rendered (§9,
+// review.go).
+//
+// It is one fragment rather than one shape spelled twice for the reason §8
+// gives the row itself: there is one renderer behind the row and there should
+// be one schema in front of it. Two copies would be two copies to keep in step,
+// and they had already begun to drift — the second was written without the
+// descriptions the first carries, which is a client told less about one tool's
+// rows than about another's for no reason it could see.
+//
+// It is a bare object rather than a closedObject because it is not a schema of
+// its own: what it describes is a member of `rows`, and the closure it needs is
+// the one written into it here.
+const problemRow = `{
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["type", "file", "line", "column", "field", "error_code", "message"],
+	"description": "One problem, positioned. Rows are ordered by file path and then by line, which is the order the row stream is written in and the order a caller may not re-sort after printing.",
+	"properties": {
+		"type": {"const": "problem"},
+		"file": {"type": "string", "description": "The artefact's path, relative to the repository root, with forward slashes on every platform."},
+		"line": {
+			"type": "integer",
+			"minimum": 0,
+			"description": "The 1-indexed line. Zero is a fault with no line to go to — a whole-file comparison — and is the absence the empty field beside it also reads as."
+		},
+		"column": {
+			"type": "integer",
+			"minimum": 0,
+			"description": "The 1-indexed column, which rides on the wire only: the page has no column for a fact a consumer filters on."
+		},
+		"field": {"type": "string", "description": "A path into the artefact, in §8's remediation notation — steps[2].bound, auth.token — and empty where the fault has no position more specific than the file."},
+		"error_code": {
+			"type": "string",
+			"description": "One member of §12's closed error_code set, naming the check that declined. It is not enumerated here: the set is §12's and the checks' own, and a second copy of it on this surface would be a copy to keep in step."
+		},
+		"message": {"type": "string"}
+	}
+}`
+
+// checkTool carries `hyper check [path...]` — the first of §9's two Authoring
+// tools, and the first tool on this surface that answers **pass or fail**
+// rather than a fact about the repository.
+//
+// It is positioned so that the next act is an edit: a row is a file, a line, a
+// column, the field, the `error_code` §12 names the check by, and a message,
+// which is what makes *report and then edit* practical for an agent for the
+// same reason it is for a human (§9, ADR-0001).
+//
+// **`paths` is the CLI's positional list arriving as one typed argument**, and
+// it narrows what is *reported* and never what is *loaded*: every rule §4
+// states compares one artefact against another, so a subset of a repository is
+// not checkable on its own — only reportable on its own (§9, check.go). The
+// argument is optional because the command's positional list is, and the
+// absent list is every problem the repository has rather than none.
+//
+// **The paths resolve where the command resolves them, which is against the
+// process's working directory and not against the repository root**, and §9's
+// sketch calls them *repository-relative* — a disagreement this tool inherits
+// rather than settles. It cannot settle it: a tool builds the command line its
+// command would have received and holds no logic of its own, and it has no
+// repository in hand to re-root a path against even if it did. Nor is the
+// command obviously wrong — a person typing `hyper check a.yaml` from inside
+// `definitions/` means the file beside them, and repository-relative would
+// refuse it. What this surface can do is state which root it is, which the
+// schema above does, and leave the two spellings of one argument to a ticket
+// of their own (§9, check.go, issue #198).
+//
+// **There is no argument for a `--fix`**, because there is no `hyper check
+// --fix`: a checker that can also mutate is a checker you stop trusting, and a
+// repair flag on a gate is the shape ADR-0001 removed (§9). It carries no
+// `--limit` either, its command carrying none — a repository's problems are
+// not a result set to range over — so `truncated` is the bare `false` on every
+// call.
+var checkTool = tool{
+	name:        "check",
+	description: "Run every static rule this repository states and report each problem by file, line and error_code.",
+	input: closedObject(`{
+		"paths": {
+			"type": "array",
+			"items": {"type": "string", "minLength": 1},
+			"description": "Paths as the command's own positionals take them: relative to the working directory this server was started in, or absolute. Every artefact still loads and only the problems positioned in the ones named are reported; omit it to report every problem the repository has."
+		}
+	}`),
+	output: closedObject(`{
+		"rows": {
+			"type": "array",
+			"items": `+problemRow+`
+		},
+		"truncated": {"type": "boolean"}
+	}`, "rows", "truncated"),
+	argv: func(arguments json.RawMessage) ([]string, error) {
+		var named struct {
+			Paths []string `json:"paths"`
+		}
+		if err := readArguments(arguments, &named); err != nil {
+			return nil, err
+		}
+		// A member is refused for the reason a name is, and the reading is
+		// load-bearing rather than tidy here: the command resolves a path
+		// against the working directory before it stats one, so the empty
+		// string resolves to that directory, stats clean as a directory
+		// does, and then matches no problem's file — `check([""])` would
+		// answer *no problems found* over a repository full of them. The
+		// index is in the message because the list has more than one place
+		// to be wrong in.
+		for i, path := range named.Paths {
+			if err := namesSomething(fmt.Sprintf("paths[%d]", i), path, "path"); err != nil {
+				return nil, err
+			}
+		}
+		if len(named.Paths) == 0 {
+			return []string{"check"}, nil
+		}
+		// The paths go past one `--`, for providerTool's reason read over a
+		// list: a path is an arbitrary string, a file called `--json` is one
+		// a repository can hold, and the parser already states that "--"
+		// ends the flags (flags.go).
+		return append([]string{"check", "--"}, named.Paths...), nil
+	},
+}
+
+// reviewTool carries `hyper review <artefact>` — the second Authoring tool, and
+// **the one tool §9's text-block table names**: its `text` is the whole rendered
+// review surface, the gutter and `AUTHORITY` and `FLAGS` exactly as the command
+// writes them to stdout.
+//
+// That is the point of the tool rather than a convenience of it. An agent can
+// read what a human reviewer will read and hand it to them verbatim, before
+// asking them to read it — which is the same trade §8 makes for a Refusal, and
+// it is made for the same reason: with no bypass anywhere the rendering is the
+// whole of what a reviewer is given (§9, ADR-0001, ADR-0026).
+//
+// Three of the command's own rules carry over unchanged, and each is a rule
+// about what is *not* an error here. It runs offline against a repository whose
+// Store is unreachable, the header naming that absence once rather than the
+// tool failing. **A `FLAGS` row is a fact about the artefact rather than a
+// problem with it**, so a review that rendered is `isError: false` however many
+// flags it carried. And an artefact that loads and **names** one that is not
+// there renders, marks `unresolved`, and is not an error — the fault is
+// `check`'s to report and this surface's to annotate (§8, ADR-0064).
+//
+// **An artefact that is not there at all has no row to write**, which is the
+// usage error the command spends `2` on and arrives here as a JSON-RPC error:
+// a positional that satisfies every schema and still matches nothing is §9's
+// third member of the malformed set (§9, ADR-0060, envelopeOf). It is a
+// different refusal from the empty string namesSomething catches below, and
+// they are told apart by where each is decided — one never reaches a
+// repository and the other is what a repository answered.
+//
+// Its one argument is the command's one positional, typed as the positional is
+// and carrying both of its forms: a repository-relative path — one containing
+// `/` or ending `.yaml` — or the name the artefact declares for itself. It is
+// required, the positional being mandatory in both forms for a reason that is
+// symmetric: the built-in Manifest has no file, so a path can never reach it,
+// and `hyper.yaml` declares no name, so a path is the only thing that can (§9,
+// ADR-0060).
+//
+// It carries no `--limit`, because nothing on this screen is a result set: an
+// artefact has neither an order nor a cap, and a review that dropped lines
+// would be rendering something other than what is about to be approved (§8,
+// §9). So `truncated` is the bare `false` on every call.
+var reviewTool = tool{
+	name:        "review",
+	description: "Render §8's review of one artefact — the gutter, the AUTHORITY table and the FLAGS index — as text a human reviewer can be handed verbatim.",
+	input: closedObject(`{
+		"artefact": {
+			"type": "string",
+			"minLength": 1,
+			"description": "The artefact to review: a repository-relative path — one containing / or ending .yaml — or the name the artefact declares for itself."
+		}
+	}`, "artefact"),
+	rendersInFull: true,
+	output: closedObject(`{
+		"rows": {
+			"type": "array",
+			"items": {
+				"oneOf": [
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "kind"],
+						"description": "The header row, emitted first: what is being reviewed, and the revision the range opened at. baseline and baseline_absent are the two halves of one member and exactly one of them is written.",
+						"properties": {
+							"type": {"const": "artefact"},
+							"kind": {"enum": ["definition", "procedure", "provider", "target-declaration", "repository-declaration"]},
+							"path": {
+								"type": "string",
+								"description": "The artefact's file, relative to the repository root. Absent on the one artefact with no file in the repository, which ships in the binary."
+							},
+							"baseline": {"type": "string", "description": "The revision the range opened at, whole: the wire carries no fact to be recognised, so nothing here is abbreviated."},
+							"baseline_absent": {
+								"enum": ["built-in", "no-store", "not-run", "not-in-clone"],
+								"description": "Which of §12's four absences stands where a baseline would: no file at all, nothing to ask, asked and empty, or answered with the object not in this clone."
+							},
+							"cadence": {"type": "string", "description": "The recurrence expression exactly as the artefact wrote it."},
+							"phrase": {"type": "string"},
+							"rate": {"type": "number", "description": "Runs per month at the two significant figures §10 rounds to. Zero is a rate: an expression the calendar has no instance of matches nothing."},
+							"last_run": {
+								"type": "object",
+								"additionalProperties": false,
+								"required": ["run", "ended"],
+								"description": "The Journal entry the header read an age from. It carries the instant and not the age, an age being a subtraction against the reader's clock.",
+								"properties": {
+									"run": {"type": "string"},
+									"ended": {"type": "string"}
+								}
+							}
+						}
+					},
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "line"],
+						"description": "One rendered line the gutter has something to say about. The source is not on this list: a review does not decompose into rows, and the consumer already has the file.",
+						"properties": {
+							"type": {"const": "gutter"},
+							"line": {"type": "integer", "minimum": 1},
+							"marker": {
+								"type": "string",
+								"description": "The marker column's text with its alignment padding collapsed to single spaces, and the page's sigils spelled in words. It is one derived fact in one cell rather than a decomposition, a decomposition being a second rendering that can be wrong about the first."
+							},
+							"changed": {"type": "boolean", "description": "Whether the range touched the line. The revision it is relative to is named in the header, never once per line."}
+						}
+					},
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "definition", "target"],
+						"description": "One pairing of §5's two claims. The four list members are absent where the supply behind them did not load and [] where it loaded and names nothing, which is the distinction the whole table is built on.",
+						"properties": {
+							"type": {"const": "authority"},
+							"definition": {"type": "string"},
+							"target": {"type": "string"},
+							"definition_kinds": {"type": "array", "items": {"enum": ["read", "mutate", "destroy"]}},
+							"target_kinds": {"type": "array", "items": {"enum": ["read", "mutate", "destroy"]}},
+							"effective": {"type": "array", "items": {"enum": ["read", "mutate", "destroy"]}},
+							"destroy_operations": {"type": "array", "items": {"type": "string"}}
+						}
+					},
+					{
+						"type": "object",
+						"additionalProperties": false,
+						"required": ["type", "flag", "cites_line"],
+						"description": "One row of the index into the gutter above. A flag states nothing the gutter does not: it carries no state and no text, and the row on the line it cites is what says which.",
+						"properties": {
+							"type": {"const": "flag"},
+							"flag": {"enum": ["destroy", "opaque", "unbounded", "envelope", "unresolved", "widened", "narrowed", "changed"]},
+							"cites_line": {"type": "integer", "minimum": 1, "description": "The line this flag indexes, which is a line a gutter row above marked."},
+							"step": {"type": "string", "description": "The Step the flag cites, absent on a flag whose subject is the file rather than a Step."}
+						}
+					},
+					`+problemRow+`
+				]
+			}
+		},
+		"truncated": {"type": "boolean"}
+	}`, "rows", "truncated"),
+	argv: func(arguments json.RawMessage) ([]string, error) {
+		var named struct {
+			Artefact string `json:"artefact"`
+		}
+		if err := readArguments(arguments, &named); err != nil {
+			return nil, err
+		}
+		if err := namesSomething("artefact", named.Artefact, "artefact"); err != nil {
+			return nil, err
+		}
+		// Past one `--`, for providerTool's reason: the positional's name
+		// form is matched against namespaces that can hold anything, and its
+		// path form against a repository that can hold a file called
+		// `--json` (flags.go).
+		return []string{"review", "--", named.Artefact}, nil
+	},
+}
+
 // noArguments is the input schema of a tool that takes none: MCP requires an
 // object schema, and this is the closed empty one — no property is declared and
 // none is admitted, so `providers({"limit": 10})` is a malformed call rather
@@ -406,16 +698,17 @@ func closedObject(properties string, required ...string) json.RawMessage {
 	return compacted.Bytes()
 }
 
-// namesSomething is the empty-name reading every tool that takes a name shares,
-// and the whole of what it holds is that **the server is where a schema's claim
-// is made true**: `minLength` is a claim a client may or may not check, and a
-// name that is well-typed and names nothing is a malformed call (§9), which is
-// what an error here becomes.
+// namesSomething is the empty-string reading every tool that takes a name or a
+// path shares, and the whole of what it holds is that **the server is where a
+// schema's claim is made true**: `minLength` is a claim a client may or may not
+// check, and an argument that is well-typed and names nothing is a malformed
+// call (§9), which is what an error here becomes.
 //
 // It takes the argument's name and the noun apart, because the two are not one
 // word: `operation(provider, operation)` names two namespaces and each message
-// has to say which of them was asked. The sentence is composed once so that
-// three arguments cannot come to decline in three voices.
+// has to say which of them was asked, and `check(paths)` has an index to name
+// as well. The sentence is composed once so that five arguments cannot come to
+// decline in five voices.
 func namesSomething(argument, value, noun string) error {
 	if value != "" {
 		return nil

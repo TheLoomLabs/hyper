@@ -2,7 +2,9 @@ package mcp
 
 import (
 	"encoding/json"
+	"maps"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -33,13 +35,29 @@ type stubRow struct {
 
 func (r stubRow) Cells() []string { return []string{r.Name} }
 
+// reviewPage is a rendering standing in for §8's review surface: a header line,
+// the gutter beside a source line, and the two blocks beneath it. It is this
+// file's own rather than a command's, for stubRow's reason — what is exercised
+// is the crossing, not what any command renders — and it ends in a newline
+// because a page does.
+const reviewPage = "  DEFINITION  │  definitions/uptime.yaml\n" +
+	"  read        │ kinds: [read]\n\n" +
+	"  AUTHORITY   assembled from definitions/ and targets/\n\n" +
+	"  FLAGS   index into the gutter above\n"
+
 // answering is a server whose every tool answers the same rows, whatever argv
 // it was handed, with the argv recorded for the cases that are about it.
+//
+// It fills the rendering as well, because every command fills one: the
+// destination behind a tool writes the command's page into a buffer on every
+// answer, and a helper that left it empty would make a tool §9's table names a
+// fault in the server on cases that are about something else entirely
+// (destination.go, answerText).
 func answering(rows []render.Row, terminal render.Row) (*Server, *[]string) {
 	var argv []string
 	return NewServer("1.4.0", func(line []string) Answer {
 		argv = line
-		return Answer{Rows: rows, Terminal: terminal}
+		return Answer{Rows: rows, Terminal: terminal, Rendering: reviewPage}
 	}), &argv
 }
 
@@ -301,6 +319,13 @@ func TestCall_AnArgumentTheSchemaDoesNotAdmitIsAProtocolError(t *testing.T) {
 		{"the second positional named nothing at all", "operation", `{"provider":"shell","operation":""}`},
 		{"the first positional named nothing at all", "operation", `{"provider":"","operation":"destroy"}`},
 		{"a cap on a tool that takes no arguments", "targets", `{"limit":10}`},
+		{"a repair flag on a gate", "check", `{"fix":true}`},
+		{"a path list that is not a list", "check", `{"paths":"definitions/a.yaml"}`},
+		{"a path member of the wrong type", "check", `{"paths":[7]}`},
+		{"a path naming nothing at all", "check", `{"paths":[""]}`},
+		{"a second path naming nothing at all", "check", `{"paths":["definitions/a.yaml",""]}`},
+		{"the artefact to review left off", "review", `{}`},
+		{"an artefact naming nothing at all", "review", `{"artefact":""}`},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, _ := answering(nil, render.NewResultRow(false))
@@ -334,6 +359,12 @@ func TestCall_TheArgvIsTheCommandLineItsCommandWouldHaveReceived(t *testing.T) {
 		{"a tool taking two names", "operation", `{"provider":"shell","operation":"destroy"}`, []string{"operation", "--", "shell", "destroy"}},
 		{"two names spelled like flags", "operation", `{"provider":"--json","operation":"--limit"}`, []string{"operation", "--", "--json", "--limit"}},
 		{"a second tool taking no arguments", "targets", `{}`, []string{"targets"}},
+		{"a positional list left off", "check", `{}`, []string{"check"}},
+		{"a positional list with one member", "check", `{"paths":["definitions/a.yaml"]}`, []string{"check", "--", "definitions/a.yaml"}},
+		{"a positional list with two", "check", `{"paths":["definitions/a.yaml","targets/local.yaml"]}`, []string{"check", "--", "definitions/a.yaml", "targets/local.yaml"}},
+		{"a path spelled like a flag", "check", `{"paths":["--json"]}`, []string{"check", "--", "--json"}},
+		{"a tool taking an artefact by path", "review", `{"artefact":"procedures/deploy.yaml"}`, []string{"review", "--", "procedures/deploy.yaml"}},
+		{"a tool taking an artefact by name", "review", `{"artefact":"deploy"}`, []string{"review", "--", "deploy"}},
 	} {
 		t.Run(called.name, func(t *testing.T) {
 			server, argv := answering(nil, render.NewResultRow(false))
@@ -546,6 +577,124 @@ func TestCall_AGuardrailDecliningWithNothingRenderedIsAFaultInTheServer(t *testi
 	server := returning(Answer{Exit: 77})
 
 	envelope, err := server.Call(t.Context(), "providers", json.RawMessage(`{}`))
+	if err == nil {
+		t.Fatalf("the call answered %+v, want a fault in the server", envelope)
+	}
+}
+
+// The Authoring pair, and the one asymmetry they bring to the envelope (§9,
+// issue #198).
+//
+// What each of the two tools *finds* is the corpus's to state — a `call` case
+// drives them against the check and review corpora's own repositories and holds
+// the whole envelope byte for byte (internal/cli/golden_mcp_test.go). What is
+// here is §9's text-block table, which is a property of the tool rather than of
+// any repository: a fixture can show `review`'s rendering arriving as text, and
+// only a dispatch this file writes can show it arriving *instead of* a summary
+// line, arriving *after* a Refusal takes precedence over it, and failing where
+// there is no rendering at all.
+
+// TestCall_ReviewsTextBlockIsTheRenderingWholeAndUntouched is the second row of
+// §9's asymmetric table: **`review` carries the full rendered review surface**,
+// and the whole of it — the gutter, `AUTHORITY`, `FLAGS` — where every other
+// tool carries one summary line.
+//
+// The rendering is compared byte for byte, trailing newline included, because
+// that is the promise: what the tool hands back is what the command writes to
+// stdout, so that an agent can hand a human reviewer the page verbatim before
+// asking them to read it (§9, ADR-0026).
+func TestCall_ReviewsTextBlockIsTheRenderingWholeAndUntouched(t *testing.T) {
+	rows := []render.Row{stubRow{Type: "gutter", Name: "read"}}
+	server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(false), Rendering: reviewPage})
+
+	envelope, err := server.Call(t.Context(), "review", json.RawMessage(`{"artefact":"uptime"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := envelope.Content, []TextBlock{{Type: "text", Text: reviewPage}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("the text block is %q, want the rendering whole: %q", got, want)
+	}
+	if envelope.IsError {
+		t.Error("isError is true on a review that rendered; a FLAGS row is a fact about the artefact rather than a problem with it")
+	}
+	if got, want := len(envelope.StructuredContent.Rows), 1; got != want {
+		t.Errorf("the envelope carries %d rows, want %d: the rendering is the text and the rows travel beside it", got, want)
+	}
+}
+
+// TestCall_ATextBlockIsASummaryLineOnEveryToolTheTableDoesNotName is the first
+// row of the same table, held over the tool that would be easiest to widen into
+// the second: `check` answers a rendering of its own and still summarises, §9
+// naming `review` and nothing else.
+//
+// The rendering is supplied and deliberately not carried, which is what makes
+// this a case about the table rather than about an empty buffer.
+func TestCall_ATextBlockIsASummaryLineOnEveryToolTheTableDoesNotName(t *testing.T) {
+	rows := []render.Row{stubRow{Type: "problem", Name: "a"}, stubRow{Type: "problem", Name: "b"}}
+	server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(false), Rendering: "FILE  LINE\n", Exit: 1})
+
+	envelope, err := server.Call(t.Context(), "check", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := envelope.Content[0].Text, "2 problems"; got != want {
+		t.Errorf("the text block is %q, want the summary line %q", got, want)
+	}
+	if !envelope.IsError {
+		t.Error("isError is false on a repository with problems; the caller did not get what they asked for")
+	}
+	// The **members of the structured half**, and not a search through its
+	// bytes: every real `check` row carries an `error_code` of its own, so a
+	// search would either pass vacuously here or fail against a fixture
+	// repository. What §9 states is about the envelope — a tool that is not
+	// a Run carries no `outcome` key, and the code naming a check that
+	// declined belongs to the row rather than to the answer around it.
+	structured, err := json.Marshal(envelope.StructuredContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var members map[string]json.RawMessage
+	if err := json.Unmarshal(structured, &members); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := slices.Sorted(maps.Keys(members)), []string{"rows", "truncated"}; !slices.Equal(got, want) {
+		t.Errorf("the structured content is keyed %q, want %q: no outcome key, no error_code of the envelope's own, and nothing restating the bit", got, want)
+	}
+}
+
+// TestCall_ARefusalTakesPrecedenceOverAToolsOwnRendering is where the two
+// asymmetries meet, and the order they meet in: §9's table gives a Refusal its
+// own row, so a `review` the version pin gate declines carries **the Refusal**
+// and not the page — whatever the destination happened to have in its buffer.
+//
+// The two renderings are two buffers for exactly this reason (destination.go),
+// and the case supplies both so that the arm is choosing rather than finding
+// only one.
+func TestCall_ARefusalTakesPrecedenceOverAToolsOwnRendering(t *testing.T) {
+	refusal := "refused: version-pin-absent\n  hyper.yaml carries no version pin — run: hyper project\n"
+	server := returning(Answer{Exit: 77, Refusal: refusal, Rendering: reviewPage})
+
+	envelope, err := server.Call(t.Context(), "review", json.RawMessage(`{"artefact":"uptime"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := envelope.Content[0].Text; !strings.HasPrefix(got, refusal) {
+		t.Errorf("the text block is %q, want the Refusal rendered whole first", got)
+	}
+	if strings.Contains(envelope.Content[0].Text, "AUTHORITY") {
+		t.Error("the text block carries the page as well as the Refusal; §9's table gives a Refusal its own row")
+	}
+}
+
+// TestCall_ARenderingToolThatRenderedNothingIsAFaultInTheServer is the
+// rendering half of the rule TestCall_AGuardrailDecliningWithNothingRendered...
+// holds for a Refusal: where the text block *is* the rendering, an answer
+// carrying none has nothing left to say, and a wrong envelope is harder to
+// notice than a missing one.
+func TestCall_ARenderingToolThatRenderedNothingIsAFaultInTheServer(t *testing.T) {
+	server := returning(Answer{Terminal: render.NewResultRow(false)})
+
+	envelope, err := server.Call(t.Context(), "review", json.RawMessage(`{"artefact":"uptime"}`))
 	if err == nil {
 		t.Fatalf("the call answered %+v, want a fault in the server", envelope)
 	}

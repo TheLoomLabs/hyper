@@ -1,0 +1,13 @@
+{
+  "content": [
+    {"type":"text","text":"2 problems"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"problem","file":"definitions/preview-dns-observed.yaml","line":4,"column":9,"field":"kinds","error_code":"definition-kinds-mixed","message":"read stands in kinds: beside mutate or a destroy: claim — a Definition observes or it effects, never both"},
+      {"type":"problem","file":"targets/local.yaml","line":8,"column":3,"field":"auth","error_code":"local-reserved","message":"a declaration named local carries no auth: block — the reserved name leaves a Probe no credential to resolve"}
+    ],
+    "truncated": false
+  },
+  "isError": true
+}

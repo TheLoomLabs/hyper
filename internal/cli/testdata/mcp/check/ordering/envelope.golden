@@ -1,0 +1,16 @@
+{
+  "content": [
+    {"type":"text","text":"5 problems"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"problem","file":"definitions/a.yaml","line":6,"column":1,"field":"extra-key","error_code":"unknown-key","message":"\"extra-key\" is not a key the schema at this position admits"},
+      {"type":"problem","file":"procedures/e.yaml","line":6,"column":17,"field":"steps[0].definition","error_code":"artefact-absent","message":"definition: missing-definition resolves to nothing — no definitions/missing-definition.yaml"},
+      {"type":"problem","file":"providers/mid.yaml","line":15,"column":7,"field":"operations.op1.record","error_code":"identity-undeclared","message":"record: projects a Record and declares no identity: for it"},
+      {"type":"problem","file":"providers/mid.yaml","line":19,"column":18,"field":"operations.op2.concurrency","error_code":"manifest-inconsistent","message":"concurrency: is declared on an Operation that is not a read"},
+      {"type":"problem","file":"targets/d.yaml","line":5,"column":15,"field":"hosts","error_code":"target-inconsistent","message":"capabilities: grants http and this declaration carries no hosts:"}
+    ],
+    "truncated": false
+  },
+  "isError": true
+}

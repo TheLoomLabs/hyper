@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -568,27 +569,54 @@ func decodedRow(t *testing.T, line string) map[string]any {
 }
 
 // rowIdentity is what makes two renderings of one row the same row: its `type`,
-// and the members that name a row within a type — the `name` a listing's rows
-// carry, the `digest` that identifies the artefact a header row is about, and
-// the `source` an Operation's detail row stands for. All three are needed: a
-// Manifest header row carries no name, so two Manifests would otherwise be one
-// row seen twice, and an `operation_detail` row carries neither name nor digest,
-// so every Operation in the corpus would collapse onto one key and each case
-// would be compared against whichever row was read last (issue #197).
+// and **the members that name a row within that type** — which is each row
+// type's own lookup key and not a fixed pair.
 //
-// The source is the declaring lines themselves, which is a long key and the
-// honest one: the row has no shorter member that says **which** Operation it is
-// about, and a key that named less would be a fence quietly holding one row
-// against another.
+// The enumeration grows with the row types, and it has to: a key that named
+// less would be a fence quietly holding one row against another (issue #197).
+// A Manifest header row carries no name, so two Manifests would otherwise be
+// one row seen twice; an `operation_detail` row carries neither name nor
+// digest, so every Operation in the corpus would collapse onto one key; and the
+// Authoring pair's rows carry none of the three, so every `gutter` line
+// anywhere would be one key and an envelope's would be held against whichever
+// was read last (issue #198). What names each:
+//
+//	provider, target, manifest, operation   name, digest
+//	operation_detail                        source
+//	artefact                                kind, path
+//	gutter                                  line
+//	authority                               definition, target
+//	flag                                    flag, cites_line
+//	problem                                 file, line, error_code
+//
+// A `problem`'s three are exactly the key problem.Compare orders on, which is
+// the fence borrowing the command's own answer to *which problem is this*
+// rather than inventing a second one. The `source` is the declaring lines
+// themselves, which is a long key and the honest one: that row has no shorter
+// member saying **which** Operation it is about.
+//
+// The members are read into one flat struct rather than switched on per type,
+// because a key is the members a row happens to carry: a row type that carries
+// none of them beyond its `type` is one this list has not caught up with, which
+// is a fence to widen rather than a case to special-case.
 //
 // It is the empty string for a line that is not a row at all — a brace, a text
 // block, and the terminal row a stream carries and an envelope does not.
 func rowIdentity(line string) string {
 	var row struct {
-		Type   string `json:"type"`
-		Name   string `json:"name"`
-		Digest string `json:"digest"`
-		Source string `json:"source"`
+		Type       string `json:"type"`
+		Name       string `json:"name"`
+		Digest     string `json:"digest"`
+		Source     string `json:"source"`
+		Kind       string `json:"kind"`
+		Path       string `json:"path"`
+		Line       int    `json:"line"`
+		Definition string `json:"definition"`
+		Target     string `json:"target"`
+		Flag       string `json:"flag"`
+		CitesLine  int    `json:"cites_line"`
+		File       string `json:"file"`
+		ErrorCode  string `json:"error_code"`
 	}
 	if err := json.Unmarshal([]byte(line), &row); err != nil {
 		return ""
@@ -597,5 +625,84 @@ func rowIdentity(line string) string {
 	case "", "result", "outcome", "text":
 		return ""
 	}
-	return strings.Join([]string{row.Type, row.Name, row.Digest, row.Source}, "\x00")
+	return strings.Join([]string{
+		row.Type, row.Name, row.Digest, row.Source, row.Kind, row.Path,
+		strconv.Itoa(row.Line), row.Definition, row.Target, row.Flag,
+		strconv.Itoa(row.CitesLine), row.File, row.ErrorCode,
+	}, "\x00")
+}
+
+// TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout is §9's
+// text-block table held where its second row is: **`review` carries the full
+// rendered review surface**, and what makes that checkable is that the two
+// surfaces render one page (§9, ADR-0026, issue #198).
+//
+// It is the stdout half of the pairing
+// TestGoldenCorpora_WhatDeclinesInAnEnvelopeIsWhatTheCLIWroteOnStderr makes
+// over the calls that decline, and it is pairing **by name** for that fence's
+// own reason: there is nothing in a rendering to collect it by, so
+// `mcp/review/<case>` is held against `review/<case>` — one fixture repository,
+// one artefact, driven two ways.
+//
+// **It holds over `review` and no other tool**, which is the table rather than
+// a gap: §9 names one tool there, so a `check` case's text block is a summary
+// line and pairing it against `check`'s table would be asserting the opposite
+// of what §9 says. A tool joining the table joins this fence with it.
+func TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout(t *testing.T) {
+	var compared int
+	for _, c := range goldenCases(t) {
+		if c.call == nil || c.call.Tool != "review" || c.answersAProtocolError() {
+			continue
+		}
+		named, under := strings.CutPrefix(c.name, "mcp/")
+		if !under {
+			continue
+		}
+		twin := filepath.Join("testdata", filepath.FromSlash(named))
+		wrote := readFile(t, filepath.Join(twin, "stdout.golden"))
+		if wrote == "" {
+			t.Errorf("case %s has no twin at %s writing the page on stdout; the text block is held against nothing", c.name, twin)
+			continue
+		}
+		compared++
+		if got := textBlock(t, c.dir); got != wrote {
+			t.Errorf("case %s: its text block is\n  %q\nand %s writes\n  %q", c.name, got, twin, wrote)
+		}
+	}
+	if compared == 0 {
+		t.Fatal("no review case was paired against the page its command writes; the rule was held over nothing")
+	}
+}
+
+// TestGoldenCorpora_TheAuthoringToolsAreDrivenWithNothingButARepository is §9's
+// own sentence about the pair held as a property of every case that drives
+// them: `check` and `review` *reach nothing* — no credential resolves, no
+// network is touched, and nothing is invoked — so **both answer with no
+// credential present in the environment at all**.
+//
+// The whole environment is asserted rather than a list of names that look like
+// credentials, because a list is a guess about spelling and this is not: what a
+// case may set is the variable that fixes the repository, and a case that
+// needed a second one would be a case claiming one of the two tools reads
+// something. That is the claim worth catching, whatever the variable is called.
+//
+// It is a fence rather than a reading of the tools because the tools have
+// nothing to read: neither resolves a credential today, and what would change
+// that is a repository fixture written to need one.
+func TestGoldenCorpora_TheAuthoringToolsAreDrivenWithNothingButARepository(t *testing.T) {
+	var read int
+	for _, c := range goldenCases(t) {
+		if c.call == nil || (c.call.Tool != "check" && c.call.Tool != "review") {
+			continue
+		}
+		read++
+		for name := range c.variables(t) {
+			if name != "HYPER_REPO_DIR" {
+				t.Errorf("case %s sets %s; the two tools that reach nothing answer with no credential in the environment at all", c.name, name)
+			}
+		}
+	}
+	if read == 0 {
+		t.Fatal("no case under testdata/mcp/ drives check or review; the rule was held over nothing")
+	}
 }

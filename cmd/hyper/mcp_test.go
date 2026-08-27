@@ -103,7 +103,7 @@ func TestMCP_TheProcessSpeaksTheProtocolOnItsOwnStreamsAndDiesWithTheClient(t *t
 			t.Errorf("%s is listed with input schema %s and output schema %s; a tool publishes both", tool.Name, tool.InputSchema, tool.OutputSchema)
 		}
 	}
-	for _, want := range []string{"providers", "provider", "operation", "targets"} {
+	for _, want := range []string{"providers", "provider", "operation", "targets", "check", "review"} {
 		if !published[want] {
 			t.Errorf("tools/list does not answer %q", want)
 		}

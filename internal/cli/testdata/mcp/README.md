@@ -121,6 +121,68 @@ where the `../targets/truncated` case one directory up reaches its own with a
 `--limit` this surface does not offer. `providers/truncated` is where the cut
 result is held.
 
+`check/` and `review/` are §9's Authoring pair, and they are the two tools that
+reach nothing: no credential resolves, no network is touched, and nothing is
+invoked (issue #198). No case here sets any environment variable but the one
+that fixes the repository, which is the claim itself rather than a convention —
+`TestGoldenCorpora_TheAuthoringToolsAreDrivenWithNothingButARepository` holds
+it. They also reuse the repositories the two commands' own corpora already
+carry, one directory up, so that what an envelope states and what a table or a
+`--json` stream states are two readings of one fixture.
+
+`check/five-artefact-demo-faulty` is the ordinary failing run: six rows ordered
+by file path then line, `isError: true`, and — the part worth reading — **no
+`outcome` key and no `error_code` on the envelope**. A command reporting
+problems it found is §9's mapping row for exit `1`: the caller did not get what
+they asked for, it is not a Refusal, and the remedy is the rows themselves.
+`clean` is the other side, `rows: []` with the bit false. `ordering` is the
+half neither of those reaches: its repository has one file carrying **two**
+problems, so the rows are ordered by file path and then by line rather than by
+file path alone.
+
+`paths-narrow-the-report` calls the same repository with two of its six files
+named, and is meant to be read against `five-artefact-demo-faulty` beside it:
+one load, one rule set, four rows fewer. `paths-prove-the-full-load` is the
+claim that makes it honest — the file it names is clean **only because the
+artefacts it references loaded too**, so `rows: []` there is the full load
+answering. Every case here that names a path carries a `wd` as well as an
+`env`, and the `wd` is doing real work: `check` resolves a path argument
+against the **process's working directory** before it stats one, exactly as its
+command does, so a case whose working directory is not the repository would
+have every path it names refused. The `wd` is a client started in the
+repository it is asking about, which is the case §9's sketch has in mind when
+it calls the argument *repository-relative* — the two spellings of that one
+argument are named in `internal/mcp/tools.go` and are not this corpus's to
+settle.
+
+`path-not-found` and `an-empty-path-names-nothing` are the two malformed halves
+of one argument. The first is the command's own usage error, paired with
+`../../check/path-not-found` one directory up. The second never reaches a
+command at all: `paths: [""]` is well-typed and names no path, and the schema's
+`minLength` is made true on the server because it has to be — the command
+resolves the empty string to the working directory itself, stats it clean as a
+directory stats clean, and then matches no problem's file, so `check([""])`
+would answer *no problems found* over a repository full of them.
+
+`review/five-artefact-demo-procedure` is what the tool is for. Its `text` is the
+**whole rendered review surface** — the gutter, `AUTHORITY`, `FLAGS` — byte for
+byte what `../../review/five-artefact-demo-procedure` writes to stdout, and a
+fence holds the pairing
+(`TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout`). It carries
+`FLAGS` rows and is `isError: false`, a flag being a fact about the artefact
+rather than a problem with it. `gutter-marks-procedure` is the artefact that
+**names** ones that are not there: it renders, marks `unresolved` in the gutter
+and in the index, and is not an error either — the fault is `check`'s to report
+and this surface's to annotate (ADR-0064).
+
+`review/an-artefact-that-will-not-load` is the third of review's exit codes on
+this surface, and the case that says the text-block table is keyed on the
+**tool**: found and faulty writes `check`'s rows and `check`'s table, so the
+text block is that table and `isError` is true. `name-matching-nothing` is the
+fourth — an artefact that is not there at all has no row to write, which is the
+usage error, and it arrives as a protocol error paired with its twin one
+directory up.
+
 What a declining case is held against beyond its own golden is the rendering
 the CLI writes, and one fence holds both halves
 (`TestGoldenCorpora_WhatDeclinesInAnEnvelopeIsWhatTheCLIWroteOnStderr`). A

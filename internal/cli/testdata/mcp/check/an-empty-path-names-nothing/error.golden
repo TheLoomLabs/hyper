@@ -1,0 +1,1 @@
+check: paths[0] is the empty string, which names no path

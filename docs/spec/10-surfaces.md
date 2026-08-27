@@ -896,8 +896,26 @@ check(paths?)
 ```jsonc
 review(artefact)
 // text: the full rendered review surface
-// → rows: §8's gutter, authority and flag rows, unchanged
+// → rows: [{ type: "artefact", kind, path, baseline | baseline_absent,   // the header row,
+//            cadence, phrase, rate, last_run }]                          // emitted first
+//         §8's gutter, authority and flag rows, unchanged
+//         [{ type: "problem", … }]   // check's own rows, where the artefact under review
+//                                    // is found and will not load
 ```
+
+`review`'s `text` is what the command writes to stdout, byte for byte, on **every** path that answers
+at all. That includes the one where the artefact is found and will not load: the tool answers
+`check`'s rows and `check`'s table, with `isError: true` where the command exits `1`. The text-block
+table in the return envelope above is keyed on the **tool** rather than on what the tool found, and a
+reading that swapped in a summary line on one of the command's own paths would break the promise
+exactly where an agent is least able to check it. An artefact that is not there **at all** has no row
+to write and is the usage error, which arrives here as a JSON-RPC error like every other.
+
+The two extra row types are the sketch's list made complete rather than widened. The header is a row
+like any other, on the rule the envelope states above, and it is the row carrying the range the
+review opened at. The `problem` rows are the CLI half's *would not load* arm, which was always
+`check`'s row rendered under `review`; an `outputSchema` is declared once and for every call of the
+tool, so both belong in it.
 
 They stay two tools rather than one because they answer different questions at different moments —
 `check` answers pass or fail, `review` answers with a rendering — and merging them would make every

@@ -1,0 +1,12 @@
+{
+  "content": [
+    {"type":"text","text":"FILE                           LINE  FIELD  ERROR_CODE             MESSAGE\ndefinitions/half-written.yaml  1            strict-yaml-violation  did not find expected ',' or ']'\n"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"problem","file":"definitions/half-written.yaml","line":1,"column":1,"field":"","error_code":"strict-yaml-violation","message":"did not find expected ',' or ']'"}
+    ],
+    "truncated": false
+  },
+  "isError": true
+}

@@ -117,35 +117,47 @@ type Structured struct {
 // composed an empty structured half for `77` would drop the one fact §9 moves
 // up into it.
 //
+// **The exit code decides which text block, and the tool decides what an
+// ordinary one carries**, which is the second half of §9's asymmetric table
+// arriving here: `77` is the Refusal rendered whole and everything above it is
+// answerText's, over a bit the tool set supplies (tools.go, issue #198).
+//
 // **`130` and `143` are unreachable**: the server installs no signal watch, so
 // a command answering one is a fault in the server rather than an envelope this
 // surface knows how to compose. It travels as a protocol error, which is where
 // §9 puts a fault in the server, and it is stated rather than dressed as a
 // domain answer — a wrong envelope is harder to notice than a missing one.
-func envelopeOf(answered Answer) (Envelope, error) {
+func envelopeOf(answered Answer, rendersInFull bool) (Envelope, error) {
 	structured, kinds, err := structuredOf(answered)
 	if err != nil {
 		return Envelope{}, err
 	}
-	summarised := []TextBlock{{Type: "text", Text: summary(kinds, wasCut(structured.Truncated))}}
 
 	switch answered.Exit {
-	case exit.Clean:
-		return Envelope{Content: summarised, StructuredContent: structured}, nil
-
-	case exit.Problems, exit.StoreLost:
-		// The answer, with the bit set. `isError` means only *you did
-		// not get what you asked for*, which is true of a failure as
-		// much as of a Refusal, and nothing in the structured content
-		// restates it (§9).
+	case exit.Clean, exit.Problems, exit.StoreLost:
+		// The three codes that answer, and one arm because they answer
+		// **one shape**: the structured half composed the same way, the
+		// text block composed the same way — answerText's, over the
+		// tool rather than over the code — and the bit set on the two
+		// that mean *you did not get what you asked for*. `isError` is
+		// true of a failure as much as of a Refusal, and nothing in the
+		// structured content restates it (§9).
 		//
-		// **The two codes answer one shape and are not one piece of
-		// news**: `75` is the code a caller may retry and `1` is not,
-		// and neither the bit nor this arm says which happened. What
-		// says it is the answer itself — §12's `outcome`, and the text
-		// block naming it — and both arrive with `run`, the one command
-		// that reaches `75` at all (§9, issue #199).
-		return Envelope{Content: summarised, StructuredContent: structured, IsError: true}, nil
+		// **`1` and `75` are not one piece of news**, and neither the
+		// bit nor this arm says which happened: `75` is the code a
+		// caller may retry and `1` is not. What says it is the answer
+		// itself — §12's `outcome`, and the text block naming it — and
+		// both arrive with `run`, the one command that reaches `75` at
+		// all (§9, issue #199).
+		text, err := answerText(answered, rendersInFull, kinds, wasCut(structured.Truncated))
+		if err != nil {
+			return Envelope{}, err
+		}
+		return Envelope{
+			Content:           []TextBlock{{Type: "text", Text: text}},
+			StructuredContent: structured,
+			IsError:           answered.Exit != exit.Clean,
+		}, nil
 
 	case exit.Refused:
 		if answered.Refusal == "" {
@@ -198,6 +210,40 @@ func structuredOf(answered Answer) (Structured, []string, error) {
 		return Structured{}, nil, err
 	}
 	return Structured{Rows: rows, Truncated: truncated}, kinds, nil
+}
+
+// answerText is the text block of an ordinary return, which is the first two
+// rows of §9's asymmetric table: *any ordinary return* carries one summary
+// line, and **`review`** carries the full rendered review surface (§9).
+//
+// **The table is keyed on the tool and not on what the tool found**, which is
+// why the bit comes in from the tool set rather than being read off the answer
+// here (tools.go). A tool that renders in full renders on every path that
+// answers at all: `review` against an artefact that will not load writes
+// `check`'s rows and `check`'s table, and the text block is that table — what
+// the block promises is *what the command wrote to stdout*, byte for byte, and
+// a reading that swapped in a summary line on one of the command's own paths
+// would break the promise exactly where an agent is least able to check it.
+//
+// The rendering goes over **untouched**, trailing newline and all. It is the
+// page as the command's own writer produced it (destination.go), and a text
+// block trimmed here would be a rendering this surface had edited — which is
+// the one thing §9's *the rendering is the whole of it* forbids. The Refusal
+// path trims because it appends a sentence; this appends nothing.
+//
+// A rendering that is empty on a tool that renders in full is a fault in the
+// server rather than an empty answer: the page is the entire content of the
+// block, so there is nothing left to say. It is stated rather than carried,
+// for the reason the Refusal arm states its own — a wrong envelope is harder
+// to notice than a missing one.
+func answerText(answered Answer, rendersInFull bool, kinds []string, truncated bool) (string, error) {
+	if !rendersInFull {
+		return summary(kinds, truncated), nil
+	}
+	if answered.Rendering == "" {
+		return "", fmt.Errorf("the command exited %d and rendered no page, which is a fault in the server: this tool's text block is the rendering and nothing else (§9)", answered.Exit)
+	}
+	return answered.Rendering, nil
 }
 
 // retrySentence is what §9 requires **every** Refusal's text block to end with,
@@ -374,6 +420,12 @@ var nouns = map[string]string{
 	// noun (§8, issue #197).
 	"operation_detail": "Operation",
 	"target":           "Target",
+	// `problem` is spelled as itself, and the entry is here rather than
+	// left to the fallthrough on purpose: the glossary has no term for one,
+	// so the discriminator already *is* the English word, and a row type
+	// reading as its own name by accident and by decision should not look
+	// the same to whoever reads this table next (§12, CONTEXT.md).
+	"problem": "problem",
 }
 
 // noun is one row type in prose, pluralised by count. The plural is the English
