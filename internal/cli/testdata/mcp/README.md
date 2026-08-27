@@ -398,6 +398,55 @@ cannot (issue #202). *Nothing between calls* is one package further over, in
 is checked in the order it arrived — a gap a corpus driving one call at a time
 has no way to look into.
 
+`project/` is §9's one Lifecycle tool, and the only tool here that **writes a
+file into the working tree** (issue #203). The six cases that reach a command
+are each named for the case one directory up they are the same invocation as,
+and each carries a `repo/` of its own rather than an `env` naming a shared one:
+a `tree.golden` is read against the tree the case was driven in, so a shared
+repository would be a golden with no case to belong to — the rule the `project`
+corpus already keeps, and the reason these six repositories are copies rather
+than pointers. The seventh reaches no command and carries none, which is the
+usual shape of a `usage-` case here.
+
+The `tree.golden` is what the pairing is really for.
+`TestGoldenCorpora_AToolWritesTheTreeItsCommandWrites` holds each of them to its
+argv twin's byte for byte, which is
+`TestGoldenCorpora_AToolLeavesTheBranchItsCommandLeaves` read over the other
+place an invocation lands: one act, two doors, one tree. No case here holds a
+`store.golden`, and the absence is the fact — `project` derives from reviewed
+artefacts and touches no Store.
+
+`writes-the-workflow` is the ordinary return: one `workflow` row carrying the
+gloss's **parts** — `cadence`, `phrase` and `rate`, never the composed
+phrase-and-rate line the page stacks — and a text block reading `1 workflow`,
+the file and not the Procedure the glossary reserves the word away from.
+`two-procedures-one-read-only` is the pair, which is where the two glosses are
+two. `a-dropped-cadence-loses-its-file` is the row a removal writes: `path` and
+`procedure` and no gloss at all, beside the row of the file the same act
+rewrote.
+
+**No envelope here carries an `outcome` key and none carries a last Journal
+entry.** The first is the tool table's doing — `project` is not a Run, so it
+declares no execution half — and the second is §10's one stated absence: this
+surface writes a file and reports what it wrote, and what stands in the Store is
+no part of that.
+
+`the-pin-the-binary-disagrees-with` and `a-repository-with-no-pin` are the
+exemption reached through this door. Every other tool passes the version pin
+gate exactly as its command does; this one passes none, being the pin's only
+writer — a writer gated on what it writes is a bootstrap with no bootstrap — and
+the two cases are a repository pinning a version this binary is not and a
+repository pinning nothing at all, both projecting cleanly and both leaving the
+tree their twins leave.
+
+`no-release-under-the-tag` is the other half: `release-artefact-absent` arriving
+as `isError: true` with the Refusal rendered whole, and a `tree.golden` that is
+the repository untouched — the fetch stands before the first write, so a Refusal
+there leaves no half-written projection behind. `usage-a-procedure-is-not-an-argument`
+is the closure: `project()` takes no arguments, there being no per-Procedure
+projection for one to name, so a `procedure` argument is refused by the schema
+one layer above the sentence the command writes for its own positional.
+
 **The three ways a Run loses the Store are not here**, for the reason their argv
 twins are not: a lock is held by a live process and git's account of an
 unreachable remote names a temp directory, so neither is a directory of files.

@@ -12,7 +12,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// The tool set (§9, issues #195, #197, #198, #199, #200 and #201).
+// The tool set (§9, issues #195, #197, #198, #199, #200, #201 and #203).
 //
 // **A tool is a schema, an argv, and nothing else.** Each declares its
 // arguments typed and closed exactly as the flag or the positional it carries
@@ -22,10 +22,11 @@ import (
 // argv would be a second place for a guardrail to be skipped, a Refusal to be
 // reworded or a row to be reshaped.
 //
-// §9 states thirteen tools, each named for the command it carries. Twelve are
-// here. The rest arrive with the milestones that build them, on tree.go's own
-// rule for the command surface: a name is real when the code behind it is, and
-// the table is where that becomes true rather than a list to be kept in step.
+// §9 states thirteen tools, each named for the command it carries, and all
+// thirteen are here. The table is what made that true one milestone at a time,
+// on tree.go's own rule for the command surface — a name is real when the code
+// behind it is — and it stays the one place a fourteenth would have to be
+// written rather than a list to be kept in step.
 
 // tool is one entry of the set: what it is called, what a client is told it is
 // for, the two schemas, and the command line it builds.
@@ -92,9 +93,8 @@ func (t tool) declaration() *sdk.Tool {
 
 // tools is the set, in §9's own order: Discovery first, and within it the order
 // §9's table states, then the repository, then Authoring, then Execution, then
-// Inspection. Lifecycle's `project` stands in §9's table and is not here yet,
-// which is the rule above holding rather than a gap in the order.
-var tools = []tool{providersTool, providerTool, operationTool, targetsTool, checkTool, reviewTool, runTool, probeTool, runsTool, runShowTool, changesTool, recordsTool}
+// Inspection, and Lifecycle's `project` last (issue #203).
+var tools = []tool{providersTool, providerTool, operationTool, targetsTool, checkTool, reviewTool, runTool, probeTool, runsTool, runShowTool, changesTool, recordsTool, projectTool}
 
 // providersTool carries `hyper providers` — §9's first discovery question,
 // *which Provider*, and the one an agent asks before it can write a
@@ -440,6 +440,41 @@ const problemRow = `{
 	}
 }`
 
+// cadenceGlossMembers is §10's gloss as schema members, written once because
+// **two rows carry it**: `review`'s `artefact` row and `project`'s `workflow`
+// row, which is the pairing internal/cli already states — one value on the row
+// side, and neither row may carry a different group (cadence_gloss.go).
+//
+// It is one fragment for problemRow's reason: there is one reading of an
+// expression behind the three members and there should be one schema in front
+// of them. Wherever a Cadence renders, the gloss renders with it and there is
+// no surface exempt (ADR-0063), so a rule that is total is one no consumer may
+// hold a second copy of — and two schemas spelling it apart would be that copy
+// arriving on the wire.
+//
+// **The three are the whole of what crosses.** §10's two facts about how the
+// executor treats the declaration are derived from `cadence` and `phrase`,
+// which are already here, so a consumer derives them exactly as a page does;
+// and how the parts are *arranged* is each surface's own, which is why nothing
+// here is a composed line (§8, §9, §10).
+//
+// None of the three is required: all three are absent where the row's subject
+// declares no recurrence, and absent together where it declares one the grammar
+// does not admit.
+//
+// **Writing it once moved `review`'s published schema**, which is stated rather
+// than passed over: `phrase` had no description where it was spelled inline and
+// carries one here, so a client that had already read `review`'s
+// `outputSchema` is told more about a member than it was. That is the drift the
+// fragment exists to stop rather than a cost of stopping it — one of the two
+// copies had already been written with less than the other, which is a client
+// told less about one tool's rows than about another's for no reason it could
+// see (problemRow).
+const cadenceGlossMembers = `
+	"cadence": {"type": "string", "description": "The recurrence expression exactly as the artefact wrote it."},
+	"phrase": {"type": "string", "description": "The expression stated in words: the times of day, the days and the months it selects. It is a total function of the five fields — every expression the grammar admits gets one — and it is never truncated."},
+	"rate": {"type": "number", "description": "Runs per month at the two significant figures §10 rounds to. Zero is a rate: an expression the calendar has no instance of matches nothing."}`
+
 // checkTool carries `hyper check [path...]` — the first of §9's two Authoring
 // tools, and the first tool on this surface that answers **pass or fail**
 // rather than a fact about the repository.
@@ -594,9 +629,7 @@ var reviewTool = tool{
 								"enum": ["built-in", "no-store", "not-run", "not-in-clone"],
 								"description": "Which of §12's four absences stands where a baseline would: no file at all, nothing to ask, asked and empty, or answered with the object not in this clone."
 							},
-							"cadence": {"type": "string", "description": "The recurrence expression exactly as the artefact wrote it."},
-							"phrase": {"type": "string"},
-							"rate": {"type": "number", "description": "Runs per month at the two significant figures §10 rounds to. Zero is a rate: an expression the calendar has no instance of matches nothing."},
+							`+cadenceGlossMembers+`,
 							"last_run": {
 								"type": "object",
 								"additionalProperties": false,
@@ -1956,6 +1989,74 @@ var recordsTool = tool{
 		}
 		argv = append(argv, since...)
 		return append(argv, cappedAt(named.Limit)...), nil
+	},
+}
+
+// projectTool carries `hyper project` — §9's one Lifecycle tool, and the one
+// tool on this surface that **writes a file into the working tree** (issue
+// #203).
+//
+// **It is why the line between what an agent may reach and what it may not
+// falls where it does** rather than around writing at all. `install`, `store
+// init` and `compact` are the three commands §9 puts on the far side; `project`
+// is on the reachable side because a Cadence declared in a reviewed artefact
+// and left unprojected is the drift §10 states a check for, and an agent must
+// be able to repair what it caused. What it writes is derived from artefacts
+// already reviewed and lands in a diff like everything else (§9, §10).
+//
+// **It takes no arguments at all.** The command is repo-wide and all-or-nothing
+// — there is no `project <procedure>`, since per-Procedure projection would let
+// two Procedures pin different versions against one Store — so there is nothing
+// here for a per-Procedure argument to name, and the closed empty object is
+// what refuses one (§9, ADR-0060, project.go).
+//
+// **It carries no `outcome` key**, and the table is where that is declared: it
+// is not a Run, so it leaves `executes` nil and the envelope carries none (§9,
+// envelope.go). What ends its rows is `result`, so `truncated` is the bare
+// `false` on every ordinary return — `project` names no namespace to range
+// over, its command carries no `--limit`, and a projection cut at a cap would
+// be one nobody could review against the artefacts. It is `null` where the
+// command opened no row stream at all, which here is the Refusal below.
+//
+// **Everything it does on the way is the command's, unchanged**: the whole-file
+// overwrite of each workflow, the two scalars edited in the Repository
+// declaration with every other byte carried through, the version pin derived
+// from the binary that ran it, and the `release-artefact-absent` Refusal where
+// it cannot resolve a published artefact for its own version — which arrives
+// here as `isError: true` with the rendering whole, like any other guardrail
+// declining, and with nothing written (§11, ADR-0020).
+//
+// **And it stands outside the pin gate on this surface exactly as it does on
+// the CLI**, being the pin's only writer: a writer gated on what it writes is a
+// bootstrap with no bootstrap. The exemption is the command's own and this
+// inherits it by going through the same dispatch, which is the point of a tool
+// being a schema and an argv (§9, §11, RunProject).
+var projectTool = tool{
+	name:        "project",
+	description: "Regenerate the projection: one .github/workflows/ file per Procedure that declares a Cadence, and the two derived scalars in the Repository declaration. It is repo-wide and all-or-nothing — whole files overwritten, the ones no Procedure asks for any more taken away — and it reports what it wrote, the git diff being where a human reviews it.",
+	input:       noArguments,
+	output: closedObject(`{
+		"rows": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["type", "path"],
+				"description": "One file this call wrote or took away: one row per Procedure declaring a Cadence, all of them, and one per generated file no Procedure asks for any more. Rows are ordered by the Procedure name the path itself carries, which is the only name a removed file naming no Procedure has. It carries no last Journal entry — project writes a file and reports what it wrote, and what stands in the Store is no part of that.",
+				"properties": {
+					"type": {"const": "workflow"},
+					"path": {"type": "string", "description": "The file, relative to the repository root, with forward slashes on every platform."},
+					"procedure": {"type": "string", "description": "The Procedure that asked for the file. It is absent on a removed file whose name matches no Procedure the repository holds, and a removed file carries no gloss beside it either: the absence is the fact rather than a widening of the shape."},`+cadenceGlossMembers+`
+				}
+			}
+		},
+		"truncated": {"type": "boolean"}
+	}`, "rows", "truncated"),
+	argv: func(arguments json.RawMessage) ([]string, error) {
+		if err := readArguments(arguments, &struct{}{}); err != nil {
+			return nil, err
+		}
+		return []string{"project"}, nil
 	},
 }
 

@@ -971,15 +971,17 @@ func TestGoldenCorpora_EveryCaseThatWritesTheWorkingTreeHoldsATreeGolden(t *test
 // workflows must be what `hyper project` would write now, in the corpora's own
 // path spelling and with the reason each one is on the list (issue #181).
 //
-// **The division is written out because it cannot be inferred.** Twenty-two
+// **The division is written out because it cannot be inferred.** Twenty-three
 // fixture repositories under testdata/ hold a `hyper-*.yml`, and in the other
-// fourteen the staleness *is* the case: testdata/check/projection-stale holds
+// fifteen the staleness *is* the case: testdata/check/projection-stale holds
 // the code's three shapes and testdata/run/a-stale-projection its Refusal, while
 // testdata/project/ holds the overwrite, the two removals, the stale file
 // `project` declines to repair because the repository does not check, and the
 // four usage cases — whose repositories stand a workflow **no Procedure asks
 // for**, so that a command refused at the parse can be shown to have left it
-// exactly where it was. A guard that read *current* off *holds a workflow* would
+// exactly where it was. The fifteenth is the second surface's copy of one of
+// those removals, under testdata/mcp/project/, and it is stale for the reason
+// its twin is (issue #203). A guard that read *current* off *holds a workflow* would
 // repair every one of them, which is this guard's own failure mode wearing the
 // other hat. So the members are spelled here, in the idiom the error-code
 // rosters beside them already use (error_code_coverage_test.go).

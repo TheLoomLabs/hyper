@@ -1,0 +1,17 @@
+kind: procedure
+procedure: retire-preview-dns
+targets: [cloudflare-prod]
+cadence: "0 3 * * 1"
+steps:
+  - id: retire
+    definition: preview-dns
+    operation: delete_record
+    target: cloudflare-prod
+    over:
+      assets:
+        - field: name
+          starts_with: preview-
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $.id}
+    bound: 5

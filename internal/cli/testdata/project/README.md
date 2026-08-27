@@ -22,6 +22,13 @@ read against the working tree the case was driven in, so a shared repository
 would be a golden with no case to belong to — which is the rule
 `store.golden` already keeps one branch over, and the harness enforces both.
 
+Six of the cases are driven a second time through the MCP tool that carries this
+command, in `../mcp/project/`, and what pairs the two is the `tree.golden`:
+`TestGoldenCorpora_AToolWritesTheTreeItsCommandWrites` holds each twin's bytes
+to this corpus's, which is how *one act, two doors, one tree* is a comparison
+rather than a claim (issue #203). That is also why those twins copy a repository
+each instead of naming one here — the same rule, read one directory over.
+
 ## The repository the projecting cases are built from
 
 Seven files: a Repository declaration, a Manifest declaring `header:` auth over

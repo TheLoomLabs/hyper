@@ -523,6 +523,7 @@ func TestSummary_CountsTheRowsByTheirOwnDiscriminator(t *testing.T) {
 		{"one entry read back whole", []string{"entry", "provenance", "step", "provenance"}, false, "1 Journal entry, 2 Provenance rows, 1 Step"},
 		{"a plural that is not the English s", []string{"entry", "entry"}, false, "2 Journal entries"},
 		{"a Comparison", []string{"window", "asset", "observation", "code"}, false, "1 window, 1 Asset, 1 Observation, 1 code fact"},
+		{"a projection", []string{"workflow", "workflow"}, false, "2 workflows"},
 		{"nothing found", nil, false, "no rows"},
 		{"a row type the table does not name", []string{"widget"}, false, "1 widget"},
 	} {
@@ -1156,6 +1157,140 @@ func TestListTools_ProbeAnswersOneRowAndNoOutcome(t *testing.T) {
 	if got, want := schema.names(), []string{"rows", "truncated"}; !slices.Equal(got, want) {
 		t.Errorf("probe answers %q, want %q — a Probe is no Run, and carries no outcome key at all", got, want)
 	}
+}
+
+// TestListTools_ProjectTakesNoArgumentsAtAll is §9's signature for the one
+// Lifecycle tool, held where it is holdable: the published schema (issue #203).
+//
+// **The empty closed object is the whole claim.** `project` is repo-wide and
+// all-or-nothing — per-Procedure projection would let two Procedures pin
+// different versions against one Store — so there is nothing here for an
+// argument to name, and the closure is what says so to a client rather than
+// leaving `project({"procedure": "…"})` to be quietly ignored.
+func TestListTools_ProjectTakesNoArgumentsAtAll(t *testing.T) {
+	schema := declared(t, projectTool.input)
+
+	if !schema.closed() {
+		t.Error("project's input schema admits properties it does not state; a schema that admits a member it does not name is one under which an override argument is well-formed")
+	}
+	if got := schema.names(); len(got) != 0 {
+		t.Errorf("project takes %q, want nothing: projection is repo-wide and all-or-nothing, and there is no per-Procedure projection for an argument to name", got)
+	}
+	if got := schema.Required; len(got) != 0 {
+		t.Errorf("project requires %q, want nothing", got)
+	}
+}
+
+// TestListTools_ProjectAnswersWorkflowRowsAndNoOutcome is the other half of the
+// tool: what it answers, and the keys it does not carry (§9, §10, issue #203).
+//
+// **`project` is not a Run**, so the output schema names the rows and the
+// truncation marker and nothing beside them — no `outcome`, no `run_id`, no
+// `dry_run` — which the closure is what makes checkable rather than promised.
+// It is the same shape `probe` answers, for a different reason: a Probe has no
+// outcome to report because it wrote nothing, and this has none because writing
+// a file is not a Run.
+func TestListTools_ProjectAnswersWorkflowRowsAndNoOutcome(t *testing.T) {
+	schema := declared(t, projectTool.output)
+
+	if !schema.closed() {
+		t.Error("project's output schema admits members it does not state")
+	}
+	if got, want := schema.names(), []string{"rows", "truncated"}; !slices.Equal(got, want) {
+		t.Errorf("project answers %q, want %q — it is no Run, and carries no outcome key at all", got, want)
+	}
+}
+
+// TestListTools_ACadenceCrossesAsTheGlossParts is §10's rule held over the two
+// rows that carry a Cadence: **the parts, and never the
+// composed phrase-and-rate line** (§8, §9, §10, ADR-0063, issue #203).
+//
+// Wherever a Cadence renders, the gloss renders with it and there is no surface
+// exempt — so a rule that is total is one no consumer may hold a second copy
+// of, and two schemas spelling the group apart would be that copy arriving on
+// the wire. There is one fragment behind both (cadenceGlossMembers), and this is
+// what says the two rows still reach it.
+//
+// **The composed line is what it refuses by name.** The page stacks the three
+// under one another and a review's header joins them with `·`; how they are
+// arranged is the surface's and what they are is not, so a member carrying an
+// arrangement would be a page's layout landing in a machine contract.
+func TestListTools_ACadenceCrossesAsTheGlossParts(t *testing.T) {
+	for _, carrying := range []struct {
+		row     string
+		members map[string]json.RawMessage
+	}{
+		{"project's workflow row", rowMembers(t, projectTool.output, "workflow")},
+		{"review's artefact row", rowMembers(t, reviewTool.output, "artefact")},
+	} {
+		t.Run(carrying.row, func(t *testing.T) {
+			for _, part := range []string{"cadence", "phrase", "rate"} {
+				if _, declares := carrying.members[part]; !declares {
+					t.Errorf("%s declares no %s; the gloss crosses in its three parts wherever a Cadence does", carrying.row, part)
+				}
+			}
+			for _, composed := range []string{"gloss", "cadence_gloss", "cadence_line", "rate_text"} {
+				if _, declares := carrying.members[composed]; declares {
+					t.Errorf("%s declares %s; how the parts are arranged is the surface's, and a composed line is a page's layout in a machine contract", carrying.row, composed)
+				}
+			}
+		})
+	}
+}
+
+// rowMembers is the properties of one row type inside a tool's output schema,
+// found by the `type` const that discriminates it.
+//
+// It walks the schema rather than being handed a fragment, because what a fence
+// reads should be **what a client receives**: a fragment asserted directly would
+// agree with itself whether or not any row still composed it in.
+func rowMembers(t *testing.T, output json.RawMessage, discriminator string) map[string]json.RawMessage {
+	t.Helper()
+
+	var schema struct {
+		Properties struct {
+			Rows struct {
+				Items json.RawMessage `json:"items"`
+			} `json:"rows"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(output, &schema); err != nil {
+		t.Fatal(err)
+	}
+
+	// A row set is one object schema or a `oneOf` over several, which is the
+	// difference between a tool answering one row type and a tool answering
+	// the five a Journal entry read back carries.
+	var alternatives struct {
+		OneOf []json.RawMessage `json:"oneOf"`
+	}
+	if err := json.Unmarshal(schema.Properties.Rows.Items, &alternatives); err != nil {
+		t.Fatal(err)
+	}
+	candidates := alternatives.OneOf
+	if len(candidates) == 0 {
+		candidates = []json.RawMessage{schema.Properties.Rows.Items}
+	}
+
+	for _, candidate := range candidates {
+		var row struct {
+			Properties map[string]json.RawMessage `json:"properties"`
+		}
+		if err := json.Unmarshal(candidate, &row); err != nil {
+			t.Fatal(err)
+		}
+		var named struct {
+			Const string `json:"const"`
+		}
+		if err := json.Unmarshal(row.Properties["type"], &named); err != nil {
+			continue
+		}
+		if named.Const == discriminator {
+			return row.Properties
+		}
+	}
+	t.Fatalf("no row in the schema is discriminated %q", discriminator)
+	return nil
 }
 
 // TestListTools_RunsOutputSchemaStatesTheExecutionMembersAndNoSecret is the

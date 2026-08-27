@@ -290,35 +290,94 @@ func TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue(t *testing.T) {
 // **nothing at all**, a Probe writing no Record and no Journal entry (ADR-0009)
 // — and a store.golden is how the corpus says either without taking the tool's
 // word for it.
+func TestGoldenCorpora_AToolLeavesTheBranchItsCommandLeaves(t *testing.T) {
+	pairedAgainstTheCommandCorpus(t, pairing{
+		golden:  "store.golden",
+		left:    "left a branch",
+		nothing: "no case under testdata/mcp/ is paired with the command corpus; the claim that one invocation reaches one branch through two doors is held over nothing",
+	})
+}
+
+// TestGoldenCorpora_AToolWritesTheTreeItsCommandWrites is the same claim over
+// the one place the other half of it lands: the **working tree** (§10, issue
+// #203).
+//
+// `project` is the tool that writes files, and a store.golden has nothing to
+// say about it — the projection is workflows and two scalars in a reviewed
+// artefact, and none of that is a Store branch. What says a call wrote what its
+// command writes is the tree.golden the corpus already asks every projecting
+// case for: the two text streams say what a command *reported*, and only the
+// tree says what it *did* (testdata/project/README.md, issue #177).
+//
+// It is what makes the exemption assertable through this door too. A call
+// against a repository whose pin is absent, and one against a repository whose
+// pin this binary is not, each leave a tree — and holding those bytes to the
+// argv twin's is how the corpus says the tool passed no gate the command passes
+// either, without taking the dispatch's word for it (§11, ADR-0020).
+func TestGoldenCorpora_AToolWritesTheTreeItsCommandWrites(t *testing.T) {
+	pairedAgainstTheCommandCorpus(t, pairing{
+		golden:  "tree.golden",
+		left:    "wrote a tree",
+		nothing: "no call case writes the working tree; the claim that one invocation reaches one tree through two doors is held over nothing",
+	})
+}
+
+// pairedAgainstTheCommandCorpus holds one golden of every call case against the
+// file of the same name in the case one directory up, and is the two fences
+// above as one reading.
 //
 // **The pairing is by name and the name is the command corpus's**, which is what
-// makes the fence self-maintaining: a case under `testdata/mcp/<tool>/` named
+// makes both fences self-maintaining: a case under `testdata/mcp/<tool>/` named
 // for a case under the corpus of the command that tool carries is asserted
 // against it, and one named for nothing — every `usage-` case, which reaches no
-// invocation at all — carries no store.golden and is passed over. A twin
-// renamed on one side and not the other stops being compared, which the count
-// below is what catches.
-func TestGoldenCorpora_AToolLeavesTheBranchItsCommandLeaves(t *testing.T) {
+// invocation at all — carries neither golden and is passed over. A twin renamed
+// on one side and not the other stops being compared, which the count is what
+// catches.
+//
+// It takes one value rather than three strings because two of the three are
+// prose and only their position said which: a mid-sentence verb phrase and a
+// whole t.Fatal message read alike at a call site, and naming them is what
+// stops the two being passed the wrong way round.
+func pairedAgainstTheCommandCorpus(t *testing.T, held pairing) {
+	t.Helper()
+
 	var paired int
-	walkTestdata(t, "store.golden", func(dir string) {
+	walkTestdata(t, held.golden, func(dir string) {
 		name := filepath.ToSlash(strings.TrimPrefix(dir, "testdata"+string(filepath.Separator)))
 		twin, under := twinOf(name)
 		if !under {
 			return
 		}
-		beside := filepath.Join(twin, "store.golden")
+		beside := filepath.Join(twin, held.golden)
 		if !isFile(beside) {
-			t.Errorf("case %s holds a store.golden and %s holds none; a call is named for the invocation through the command it is the same invocation as", name, twin)
+			t.Errorf("case %s holds a %s and %s holds none; a call is named for the invocation through the command it is the same invocation as", name, held.golden, twin)
 			return
 		}
 		paired++
-		if through, command := readFile(t, filepath.Join(dir, "store.golden")), readFile(t, beside); through != command {
-			t.Errorf("case %s left a branch its argv twin did not:\n through the tool:    %q\n through the command: %q", name, through, command)
+		if through, command := readFile(t, filepath.Join(dir, held.golden)), readFile(t, beside); through != command {
+			t.Errorf("case %s %s its argv twin did not:\n through the tool:    %q\n through the command: %q", name, held.left, through, command)
 		}
 	})
 	if paired == 0 {
-		t.Fatal("no case under testdata/mcp/ is paired with the command corpus; the claim that one invocation reaches one branch through two doors is held over nothing")
+		t.Fatal(held.nothing)
 	}
+}
+
+// pairing is one of the two fences above as a value: which golden is compared,
+// and the two sentences that differ between them.
+type pairing struct {
+	// golden is the file compared, and the file whose presence finds the
+	// cases to compare: a case holding one opts into the pairing by holding
+	// it, which is how both fences stay self-maintaining.
+	golden string
+	// left is what the golden is a record of, as the middle of the one
+	// sentence that reports a difference — `case X left a branch its argv
+	// twin did not`.
+	left string
+	// nothing is what the fence says where it compared nothing at all,
+	// which is a rule held over an empty corpus and therefore a failure
+	// rather than a pass.
+	nothing string
 }
 
 // TestGoldenCorpora_EveryErrorGoldenIsDrivenBySomething is

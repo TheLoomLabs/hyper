@@ -73,7 +73,11 @@ import (
 // tracked file whose diff is the review (§9, §11, ADR-0020).
 //
 // That sentence is this command's, and the surfaces that assert the exemption
-// point back at it rather than restating it (golden_test.go).
+// point back at it rather than restating it (golden_test.go). **The MCP tool is
+// one of them**: it inherits the exemption by going through the same dispatch
+// rather than declaring one, which is what makes *ergonomics is the whole of the
+// difference between the two* true of the one command that stands outside the
+// gate (§9, internal/mcp's projectTool, issue #203).
 func RunProject(args []string, to destination, process Process, wd, binaryVersion string) int {
 	// No --limit: `project` names no namespace to range over — it writes
 	// what the repository asks for, all of it, and a cap on that would be a

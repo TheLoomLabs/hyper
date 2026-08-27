@@ -728,6 +728,15 @@ var nouns = map[string]noun{
 	// rendered, and a caller who asked for a Probe is told they got one
 	// rather than told the wire's discriminator back (§9, issue #201).
 	"probe_result": {singular: "Probe"},
+	// `workflow` is the **file** and never the Procedure that asked for it.
+	// The glossary spends an _Avoid_ line on the word for exactly that
+	// reason (CONTEXT.md), which is why the entry is written out rather
+	// than left to the fallthrough: a reader of this table has to be able
+	// to tell a word that reads as itself by decision from one that reads
+	// as itself by accident. §10 names the thing *the generated workflow*
+	// and this is that noun with the adjective the row's `path` already
+	// carries dropped (§9, §10, issue #203).
+	"workflow": {singular: "workflow"},
 	// The Inspection four's own (issue #199). `entry` is a **Journal**
 	// entry, which is what the glossary calls one and what tells it from
 	// the Step entries a Procedure holds.
