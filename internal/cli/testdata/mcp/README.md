@@ -270,6 +270,17 @@ both, which is §7's one exception to the absence rule holding here for the
 reason it holds in the Store: without it the sentence a Run that reached the
 world writes and the sentence a rehearsal writes are the same bytes.
 
+**Where that answer stops is on a row**, and this case is what holds it there:
+the `publish` Step carries `withheld: true` and the *never reached* `read`
+behind it carries no such key (§8, ADR-0091, issue #206). It is the second half
+of what a `dry_run` call asks, and until it was a member it was on the page
+alone — the text block here is `run`'s summary line rather than the page, so the
+structured half was the only place it could land. The row object is the one
+`run/a-rehearsal-stops-at-the-first-effect-json` writes, member for member, which
+is the one renderer behind both forms visible in two checked-in files — what
+differs is the indent and the trailing comma an envelope's array puts around it
+(ADR-0026).
+
 **A Refusal comes back rendered in full**, and `run` is where that rendering is
 the command's own page rather than its stderr. `an-expansion-past-its-bound` is
 the whole of it — the Step table, the caret excerpt, the `=` notes, `EDIT ONE OF`

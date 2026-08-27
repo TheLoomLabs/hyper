@@ -1233,6 +1233,17 @@ var runShowTool = tool{
 // The schema is closed, so every one of those names is refused by the schema
 // rather than by a check written here (closedObject).
 //
+// **A `dry_run` call is answered in both halves**, and the `step` row's
+// `withheld` is the half that used to be missing. An agent calling it asks
+// *what would this do, and where does it stop*, and where it stopped was a
+// page fact: the withheld Step's Disposition is *never reached*, which is the
+// one it shares with every Step behind it. The member is on the row, so this
+// surface reads the boundary of a partial answer rather than inferring it from
+// `outcome` and `dry_run` — an inference a Run the world resisted breaks (§8,
+// ADR-0091, issue #206). No composition here changes: the rows are §8's, one
+// renderer writes both forms, and this schema declares what that renderer now
+// writes (ADR-0026, envelope.go).
+//
 // **`secret_sink` is the CLI's `--secret-out` under the name of the thing it
 // supplies**, a flag named for a direction having no direction to name in an
 // argument object. It is chosen by the caller and **never defaulted by
@@ -1317,6 +1328,10 @@ var runTool = tool{
 								"type": "integer",
 								"minimum": 0,
 								"description": "What the Expansion resolved to, where the Step stopped short of it and the count above accounts for only part. Which Records those are is run_show under expansion and nowhere else."
+							},
+							"withheld": {
+								"const": true,
+								"description": "The Step a rehearsal stopped at, written true on that one Step and absent on every other and on every Run that is not a rehearsal. It is the boundary of a partial answer: this Step's effect was withheld rather than simulated, and the Steps after it are never-reached behind it. Do not read the first never-reached row as this — a Run the world resisted leaves those rows too."
 							}
 						}
 					},

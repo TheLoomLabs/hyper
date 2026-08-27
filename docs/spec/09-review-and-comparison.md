@@ -1464,6 +1464,17 @@ The same count reaches `run_show` as the identities themselves, under the same k
 number where a Run reports on itself and the members where an entry is read back (§9), one set in the
 two shapes the two surfaces are for.
 
+**A rehearsal's withheld Step carries `withheld: true`**, and no other row carries the key at all. It is
+the fact the page states in the sentence beneath its table — *stopped at publish* — written where a Step's
+facts live: a fact one surface states and the other does not is the two surfaces disagreeing about what
+happened rather than differing in shape, and that sentence reads in both directions. §7's absence rule is
+the whole of the member's semantics, and carrying no key is what tells every other Step from this one. It
+has to be the member because no Disposition is one — the withheld Step's is *never reached*, which is what
+it shares with every Step behind it. A consumer does not infer it from the first *never reached* row: a Run
+the world resisted leaves those rows too, and the inference would put the boundary of a partial answer under
+a Run that failed. A rehearsal that reached the end of a Procedure with no effectful Step in it withheld
+nothing and writes the key nowhere.
+
 Provenance splits on the wire exactly as it splits in the Store (§7): one `provenance` row carrying the
 Run-wide members and one per Step file written, distinguished by `step` the way §7 distinguishes the two
 files themselves. A member with no value at a level is absent rather than `null` — `origin_digest` above

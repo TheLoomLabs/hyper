@@ -294,10 +294,12 @@ rendering rather than the Run's, and `changes` is what emits it (§8).
 **`--dry-run`** is accepted on `run` and on no other command. It performs the reads it reaches and
 stops rather than simulating an effect, and it writes a Journal entry marked as a dry-run (§6). A
 dry-run that stopped renders that it stopped and why — the withheld Step whose output the next one
-would have read — with the Steps after it *never reached*. Its outcome is `completed` and it exits 0,
-a halted rehearsal being the correct outcome of a correct operation rather than a failure; the answer
-is partial, and it says so on the page rather than in the code. The flag is not global: a `records
---dry-run` or a `check --dry-run` would have to mean something, and neither does.
+would have read — with the Steps after it *never reached*. **Which Step that was is a row's fact and
+not the page's alone**: that Step's `step` row carries `withheld: true`, and no other row carries the
+key (§8). Its outcome is `completed` and it exits 0, a halted rehearsal being the correct outcome of a
+correct operation rather than a failure; the answer is partial, and it says so on the page rather than
+in the code. The flag is not global: a `records --dry-run` or a `check --dry-run` would have to mean
+something, and neither does.
 
 **`--secret-out <path>`** names the Secret sink. A Run reaching a Step whose Operation declares a
 secret output Refuses when none was supplied (`secret-sink-absent`, §12), which is a fact about the
@@ -977,6 +979,7 @@ run(procedure, dry_run?, secret_sink?)
 // → outcome: §12's triple
 // → rows: §8's step, refusal, remediation and provenance rows, unchanged
 //         provenance in both scopes: the Run-wide row, then one per Step file written
+//         a rehearsal that stopped: withheld: true on the Step it withheld, and on no other row
 ```
 
 **`run` takes a Procedure and nothing else**, as the command does: every Run is a Run of a Procedure
@@ -989,6 +992,13 @@ resolved by no command is a malformed call for a Procedure that is there (ADR-00
 **There is no `inputs` argument.** A Procedure is fully bound by its artefact, and a value supplied at
 call time is Step behaviour appearing on no reviewed line — authority arriving after review, which is
 the shape ADR-0008 removed and the same shape as the `--force` that is absent everywhere else.
+
+**A `dry_run` call is answered in both halves**, which is what the `withheld` member on §8's `step` row
+is for. An agent calling it asks *what would this do, and where does it stop*, and the second half is a
+fact about one Step that no Disposition carries: the Step a rehearsal withheld is *never reached* like
+every Step behind it. The rows carry it on that one Step, so this surface reads the boundary of a
+partial answer rather than inferring it from an outcome and a marker — an inference sound only under
+`completed` and `dry_run: true`, and one a Run the world resisted breaks (§8, ADR-0091).
 
 `secret_sink` is the CLI's `--secret-out` under the name of the thing it supplies, a flag named for a
 direction having no direction to name in an argument object. It is chosen by the caller and never

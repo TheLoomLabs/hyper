@@ -107,3 +107,93 @@ func TestStepRow_TheThreeCellForms(t *testing.T) {
 		})
 	}
 }
+
+// **A rehearsal's withheld Step is on that Step's row** (§8, §9, ADR-0091,
+// issue #206).
+//
+// The page has said so in prose since milestone 5 — *stopped at publish* under
+// the table — and neither machine surface carried it: the withheld Step's row
+// was the *never reached* row it shared with every Step behind it. The member
+// is what closes that, and what it has to get right is the discrimination the
+// page's sentence already makes, which is why the three answers below are
+// three: the Step a rehearsal stopped at, the rehearsal that stopped at none,
+// and the Run whose *never reached* rows are the world's rather than a
+// rehearsal's.
+//
+// It is over `runRows` rather than `stepRowOf` because the operand is the
+// Answer's, and over the bytes rather than the field because absence is half of
+// what the member says: §7's absence rule makes carrying no key the
+// discriminator, so a `false` written out would be every Step claiming to be a
+// Step some rehearsal did not withhold.
+
+// TestRunRows_TheWithheldStepIsTheOneRowThatSaysSo walks the three answers a
+// `step` row can be written under and holds the member to the one Step of the
+// one Run that has it.
+func TestRunRows_TheWithheldStepIsTheOneRowThatSaysSo(t *testing.T) {
+	const member = `"withheld":true`
+
+	for name, c := range map[string]struct {
+		answer run.Answer
+		// on is the Step position whose row carries the member, and zero
+		// where no row does.
+		on int
+	}{
+		"a rehearsal that stopped at the first effect": {
+			answer: run.Answer{
+				Steps: []run.Step{
+					{Position: 1, ID: "status", Kind: store.KindRead, Disposition: store.DispositionRan, Records: 1, Concluded: true},
+					{Position: 2, ID: "publish", Kind: store.KindMutate, Disposition: store.DispositionNeverReached},
+					{Position: 3, ID: "confirm", Kind: store.KindRead, Disposition: store.DispositionNeverReached},
+				},
+				Withheld: 2,
+			},
+			on: 2,
+		},
+		"a rehearsal that reached the end": {
+			// Every Step of a read-only Procedure ran, so the
+			// rehearsal withheld nothing and there is no position for
+			// the member to be written at (§9, ADR-0010).
+			answer: run.Answer{
+				Steps: []run.Step{
+					{Position: 1, ID: "status", Kind: store.KindRead, Disposition: store.DispositionRan, Records: 1, Concluded: true},
+					{Position: 2, ID: "cert", Kind: store.KindRead, Disposition: store.DispositionRan, Records: 1, Concluded: true},
+				},
+			},
+			on: 0,
+		},
+		"a Run the world resisted": {
+			// The case the obvious inference gets wrong. A halt
+			// leaves *never reached* rows exactly as a rehearsal
+			// does, and a consumer that read the first of them as
+			// the withheld Step would report the boundary of a
+			// partial answer under a Run that failed (withheldStep).
+			answer: run.Answer{
+				Steps: []run.Step{
+					{Position: 1, ID: "status", Kind: store.KindRead, Disposition: store.DispositionRan, Records: 1, Concluded: true},
+					{Position: 2, ID: "publish", Kind: store.KindMutate, Disposition: store.DispositionAttemptedWorldUntouched},
+					{Position: 3, ID: "confirm", Kind: store.KindRead, Disposition: store.DispositionNeverReached},
+				},
+			},
+			on: 0,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, row := range runRows(c.answer, t.TempDir()) {
+				step, is := row.(stepRow)
+				if !is {
+					continue
+				}
+				encoded, err := json.Marshal(step)
+				if err != nil {
+					t.Fatal(err)
+				}
+				held := strings.Contains(string(encoded), member)
+				if want := step.Step == c.on; held != want {
+					t.Errorf("step %d %s %s, want it %s: %s", step.Step,
+						map[bool]string{true: "carries", false: "omits"}[held], member,
+						map[bool]string{true: "carried", false: "omitted"}[want], encoded)
+				}
+			}
+		})
+	}
+}

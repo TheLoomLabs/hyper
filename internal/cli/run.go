@@ -229,13 +229,14 @@ func RunRun(args []string, to destination, process Process, wd, binaryVersion st
 // withheldStep is the Step a rehearsal stopped at, named as the page names it,
 // and "" where the Run withheld none (§9, issue #155).
 //
-// It reads the position off the Answer and the name off the Step at it, rather
-// than taking the first *never reached* row: a Run the world resisted leaves
-// those rows too, and a page that inferred a rehearsal from them would put the
-// sentence under a Run that failed.
+// It asks the Answer rather than taking the first *never reached* row: a Run the
+// world resisted leaves those rows too, and a page that inferred a rehearsal
+// from them would put the sentence under a Run that failed. `runRows` asks the
+// same predicate for the row's `withheld` member, which is what makes the
+// sentence and the member two renderings of one fact (run.Answer.Withholds).
 func withheldStep(answer run.Answer) string {
 	for _, step := range answer.Steps {
-		if step.Position == answer.Withheld {
+		if answer.Withholds(step) {
 			return namedStep(step.Path, step.ID)
 		}
 	}
@@ -730,7 +731,13 @@ const noRecords = "–"
 func runRows(answer run.Answer, repoRoot string) []render.Row {
 	rows := make([]render.Row, 0, 2*len(answer.Steps)+len(answer.Refusal)+1)
 	for _, step := range answer.Steps {
-		rows = append(rows, stepRowOf(step))
+		// The withheld Step's row is written here rather than in
+		// stepRowOf because the fact is the Answer's and not the Step's,
+		// and it is asked through the predicate the page's sentence is
+		// asked through (§8, ADR-0091, run.Answer.Withholds).
+		row := stepRowOf(step)
+		row.Withheld = answer.Withholds(step)
+		rows = append(rows, row)
 	}
 	// One `refusal` row per problem, in the array's order, and never one row
 	// carrying an array: a consumer's `select(.type=="refusal")` returns one
@@ -1028,6 +1035,14 @@ func rowsOf[T render.Row](rows []render.Row) []render.Row {
 // path is the invocation chain a Step reached through a nested Procedure was
 // reached under, beside its own id and absent on a top-level Step — the same
 // pair the Step file carries (§7, issue #141).
+//
+// withheld is the Step a rehearsal stopped at, and §7's absence rule is the
+// whole of its semantics: written `true` on the one Step and carrying no key
+// anywhere else, so the member is itself the discriminator. It has to be one,
+// because no Disposition is — the withheld Step's is *never reached*, which is
+// what it shares with every Step behind it (§8, ADR-0091, issue #206). It is
+// the one member here written from the Answer rather than the Step, and
+// `runRows` is what writes it.
 type stepRow struct {
 	Type        string `json:"type"`
 	Step        int    `json:"step"`
@@ -1037,6 +1052,7 @@ type stepRow struct {
 	Disposition string `json:"disposition"`
 	Records     *int   `json:"records,omitempty"`
 	Expanded    *int   `json:"expanded,omitempty"`
+	Withheld    bool   `json:"withheld,omitempty"`
 }
 
 // stepRowOf is one Step of the answer as a row. Records is written where the

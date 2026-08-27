@@ -223,10 +223,14 @@ type Answer struct {
 	// It is the position and not a Disposition of its own, because §12's
 	// seven are closed and the withheld Step is one of them: the Run ended
 	// before it, it wrote no file, and *never reached* is what an entry
-	// reads back from that silence (§7). What this carries is the fact
-	// §9 puts on the **page** — *it stopped, and here is where* — which the
-	// entry holds as the first Step of the run of silent ones and the
-	// surface would otherwise have to re-derive.
+	// reads back from that silence (§7). What this carries is *it stopped,
+	// and here is where* — which the entry holds as the first Step of the
+	// run of silent ones and the surface would otherwise have to re-derive.
+	//
+	// **Every surface reads it from here**, through Withholds below: the
+	// page's sentence beneath the Step table, and the `withheld` member on
+	// that Step's row, which is what carries the same fact to `--json` and
+	// to MCP (§8, §9, ADR-0091, issue #206).
 	Withheld int
 	// Provenance is the Run-wide half: what `run.json` carries, and what the
 	// Run-wide `provenance` row renders (§7, §8, ADR-0043).
@@ -247,6 +251,22 @@ type Answer struct {
 	// the outcome itself.
 	Fault error
 }
+
+// Withholds is *this is the Step the rehearsal stopped at*, asked of one Step
+// of this Answer's own Steps (§9, ADR-0091, issue #206).
+//
+// It is a method rather than a comparison each surface writes because the page
+// and the row must be **one fact and not two that have to agree**: the sentence
+// beneath the Step table and the `withheld` member on the row are two renderings
+// of this predicate, and a copy of it is a place they can drift apart (§8,
+// ADR-0026).
+//
+// A Run that withheld nothing carries zero, and no Step is at position zero — so
+// a Run the world resisted answers false everywhere, however many *never
+// reached* Steps it left behind it. That is the discrimination the fact exists
+// to make: the withheld Step's Disposition is *never reached* like theirs, and
+// nothing but this says which one it was.
+func (a Answer) Withholds(step Step) bool { return step.Position == a.Withheld }
 
 // Step is one Step of a Run as a surface reads it back.
 type Step struct {
