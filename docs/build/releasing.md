@@ -32,8 +32,9 @@ binary is unknown*. That is the honest answer and it is also a dead end:
 `hyper project` on such a binary asks the release host for a tag named for it,
 is answered `404`, and Refuses `release-artefact-absent` — so an unstamped
 binary runs and checks and cannot project, which §11 states as the consequence
-it is. `go install`, a `go build` with no flags, and a `go test` binary are all
-unstamped builds.
+it is. A flagless `go install`, a `go build` with no flags, and a `go test` binary
+are all unstamped builds; `go install` stamps like any other build when it is
+given `-ldflags`.
 
 ## What a release publishes
 

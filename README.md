@@ -163,27 +163,24 @@ BASE=https://github.com/TheLoomLabs/hyper/releases/download/v$VERSION
 curl -fLO $BASE/hyper-$VERSION-$PLATFORM.tar.gz
 curl -fLO $BASE/checksums.txt
 grep " hyper-$VERSION-$PLATFORM.tar.gz$" checksums.txt | sha256sum -c -
+# macOS has no sha256sum:                              | shasum -a 256 -c -
 
 tar -xzf hyper-$VERSION-$PLATFORM.tar.gz
 install -m 755 hyper ~/bin/hyper   # anywhere on your PATH
 hyper version
 ```
 
-**On macOS `sha256sum` is `shasum -a 256`**, and the rest is unchanged. The macOS archives are
-cross-compiled on the Linux runner and are neither signed nor notarised: `curl` sets no
-quarantine attribute so a fetched archive runs, but one pulled through a browser needs
-`xattr -d com.apple.quarantine ./hyper` first.
-
-**`0.0.1-alpha` is the first release, and until its tag is pushed those URLs answer `404`.**
-That is the same absence `hyper project` reports as `release-artefact-absent` — see
-[below](#one-step-here-is-a-workaround-and-it-is-the-digest). Build from source until then.
-
 ### From source
 
-Go 1.25 or newer, which `go.mod` carries. `hyper` learns its own version from the linker, and
-a build that omits the flag reports `unknown` and Refuses the version-pin gate on every
-repository it touches — so the stamp is not optional
-([`docs/build/releasing.md`](docs/build/releasing.md) owns the invocation).
+Go 1.25 or newer, which `go.mod` carries. `go install` is fine — it takes `-ldflags` like any
+other build:
+
+```bash
+go install -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" \
+  github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.1-alpha
+```
+
+From a clone, the same stamp against a path:
 
 ```bash
 mkdir -p ~/bin   # anywhere on your PATH
@@ -191,9 +188,11 @@ go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.
   -o ~/bin/hyper ./cmd/hyper
 ```
 
-Neither `go install` nor a bare `go build` stamps anything, and what an unstamped binary
-Refuses is the first of [three things that will catch
+**It is the flag that matters, not the command.** `hyper` learns its own version from the
+linker, so a bare `go install` or `go build` stamps nothing, reports `unknown`, and Refuses the
+version-pin gate on every repository it touches — the first of [three things that will catch
 you](#three-things-that-will-catch-you-and-why-each-is-a-rule).
+[`docs/build/releasing.md`](docs/build/releasing.md) owns the invocation.
 
 ## Quickstart
 
@@ -336,8 +335,8 @@ local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1   
   ([§11](docs/spec/12-distribution-and-version-pinning.md),
   [ADR-0020](docs/adr/0020-the-hyper-version-is-pinned-by-the-repository.md)). `project` is the
   sixteenth and stands outside the gate, for being the pin's only writer — it Refuses
-  `release-artefact-absent` instead, which is the next section. `go install` and a flagless
-  `go build` are both unstamped builds.
+  `release-artefact-absent` instead, which is the next section. a flagless `go install` and a flagless
+  `go build` are both unstamped builds, and either stamps when given `-ldflags`.
 - **A Run needs a commit.** Provenance is the record of which code produced something, and
   `repo_revision` is one of its members; a `HEAD` resolving to no commit leaves it nothing to
   write, and the Run fails rather than inventing one.
