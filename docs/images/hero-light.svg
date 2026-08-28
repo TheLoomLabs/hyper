@@ -1,47 +1,81 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400" role="img" aria-label="hyper: author, check, review, a human decides, run — and the records read back">
-  <!-- hero-light.svg and hero-dark.svg differ only in the five colour values; every coordinate
-       below is identical in both, so an edit made to one and not the other shows up as a diff.
-       No external font, no script, no raster — this file is read the way an artefact is. -->
-  <rect width="1280" height="400" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 490" width="1280" height="490" role="img" aria-label="hyper — the review surface catching an agent that widened a destroy Bound from 3 to 5, before anything ran">
+  <!-- hero-light.svg and hero-dark.svg are generated from one template and differ only in
+       colour. Every coordinate is identical in both, so an edit made to one and not the other
+       shows up as a diff. No external font, no script, no raster — read it like an artefact. -->
+  <defs>
+    <linearGradient id="wm" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0969da"/>
+      <stop offset="1" stop-color="#8250df"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#0969da" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#0969da" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#1f2328" flood-opacity="0.10"/>
+    </filter>
+  </defs>
 
-  <!-- Wordmark and claim -->
-  <text x="88" y="165" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-size="104" font-weight="700" letter-spacing="-3" fill="#1f2328">hyper</text>
-  <line x1="88" y1="195" x2="400" y2="195" stroke="#d1d9e0" stroke-width="2"/>
-  <text x="88" y="241" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-size="23" fill="#1f2328">Nothing reaches the world unreviewed;</text>
-  <text x="88" y="273" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-size="23" fill="#1f2328">nothing changes unseen.</text>
-  <text x="88" y="315" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-size="15" fill="#59636e">AI-authored, human-reviewable infrastructure automation.</text>
+  <rect width="1280" height="490" fill="#ffffff"/>
+  <ellipse cx="1010" cy="110" rx="540" ry="380" fill="url(#glow)"/>
 
-  <!-- The loop -->
-  <g stroke="#d1d9e0" stroke-width="1.5" fill="none">
-    <rect x="770" y="16" width="300" height="52" rx="8"/>
-    <rect x="770" y="88" width="300" height="52" rx="8"/>
-    <rect x="770" y="168" width="300" height="52" rx="8"/>
-    <rect x="770" y="332" width="300" height="52" rx="8"/>
+  <!-- Wordmark, claim, and three things it will not do -->
+  <text x="72" y="195" font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="86" font-weight="800" letter-spacing="-4" fill="url(#wm)">hyper</text>
+  <text x="72" y="247" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="21" fill="#1f2328">Nothing reaches the world unreviewed;</text>
+  <text x="72" y="277" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="21" fill="#1f2328">nothing changes unseen.</text>
+  <text x="72" y="314" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" fill="#59636e">AI-authored, human-reviewable infrastructure automation.</text>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13" fill="#59636e">
+    <rect x="72" y="340" width="92" height="32" rx="16" fill="none" stroke="#d1d9e0" stroke-width="1.5"/>
+    <text x="118" y="360" text-anchor="middle">no plan</text>
+    <rect x="176" y="340" width="108" height="32" rx="16" fill="none" stroke="#d1d9e0" stroke-width="1.5"/>
+    <text x="230" y="360" text-anchor="middle">no daemon</text>
+    <rect x="296" y="340" width="132" height="32" rx="16" fill="none" stroke="#d1d9e0" stroke-width="1.5"/>
+    <text x="362" y="360" text-anchor="middle">no telemetry</text>
   </g>
-  <rect x="770" y="260" width="300" height="52" rx="8" fill="#0969da"/>
 
-  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-size="19" text-anchor="middle">
-    <text x="920" y="48" fill="#1f2328">author</text>
-    <text x="920" y="120" fill="#1f2328">check</text>
-    <text x="920" y="200" fill="#1f2328">review</text>
-    <text x="920" y="292" fill="#ffffff" font-weight="700">a human decides</text>
-    <text x="920" y="364" fill="#1f2328">run</text>
+  <!-- The review surface: an agent widened a destroy Bound, and it is not invisible -->
+  <g filter="url(#sh)">
+    <rect x="600" y="65" width="610" height="360" rx="14" fill="#f6f8fa" stroke="#d1d9e0" stroke-width="1.5"/>
+  </g>
+  <circle cx="624" cy="84" r="5" fill="#ff5f57"/>
+  <circle cx="642" cy="84" r="5" fill="#febc2e"/>
+  <circle cx="660" cy="84" r="5" fill="#28c840"/>
+  <text x="905" y="89" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5" fill="#59636e">hyper review retire-preview-envs</text>
+  <line x1="600" y1="103" x2="1210" y2="103" stroke="#d1d9e0" stroke-width="1.5"/>
+
+  <line x1="790" y1="127" x2="790" y2="275" stroke="#d1d9e0" stroke-width="1.5"/>
+  <line x1="628" y1="167" x2="1182" y2="167" stroke="#d1d9e0" stroke-width="1.5"/>
+
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13.5">
+    <text x="778" y="151" text-anchor="end" fill="#59636e">PROCEDURE</text>
+    <text x="806" y="151" fill="#59636e">a91f0c2 → working tree</text>
+
+    <text x="778" y="199" text-anchor="end" fill="#cf222e" font-weight="700">DESTROY</text>
+    <text x="806" y="199" fill="#1f2328">- id: retire</text>
+    <text x="778" y="225" text-anchor="end" fill="#59636e">staging</text>
+    <text x="806" y="225" fill="#1f2328">operation: delete_server</text>
   </g>
 
-  <!-- Nothing crosses this line unreviewed -->
-  <line x1="770" y1="240" x2="1070" y2="240" stroke="#0969da" stroke-width="1.5" stroke-dasharray="5 5"/>
-
-  <g stroke="#59636e" stroke-width="1.5" fill="#59636e">
-    <line x1="920" y1="68" x2="920" y2="81"/>
-    <polygon points="913,80 927,80 920,88" stroke="none"/>
-    <line x1="920" y1="140" x2="920" y2="161"/>
-    <polygon points="913,160 927,160 920,168" stroke="none"/>
-    <line x1="920" y1="220" x2="920" y2="253"/>
-    <polygon points="913,252 927,252 920,260" stroke="none"/>
-    <line x1="920" y1="312" x2="920" y2="325"/>
-    <polygon points="913,324 927,324 920,332" stroke="none"/>
-    <path d="M1070,358 H1138 A12,12 0 0 0 1150,346 V54 A12,12 0 0 0 1138,42 H1078" fill="none"/>
-    <polygon points="1078,35 1078,49 1070,42" stroke="none"/>
+  <rect x="628" y="237" width="554" height="24" fill="#0969da" fill-opacity="0.10"/>
+  <rect x="628" y="237" width="3" height="24" fill="#0969da"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13.5">
+    <text x="806" y="254" fill="#0969da" font-weight="700">~</text>
+    <text x="826" y="254" fill="#1f2328">bound: 5</text>
   </g>
-  <text x="1168" y="196" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, Liberation Mono, monospace" font-size="14" fill="#59636e">records</text>
+
+  <text x="628" y="313" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" letter-spacing="1.6" fill="#59636e">FLAGS</text>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12.5">
+    <text x="628" y="341" fill="#cf222e" font-weight="700">DESTROY</text>
+    <text x="734" y="341" fill="#59636e">line 24</text>
+    <text x="816" y="341" fill="#1f2328">delete_server, bound 5</text>
+
+    <text x="628" y="367" fill="#9a6700" font-weight="700">WIDENED</text>
+    <text x="734" y="367" fill="#59636e">line 34</text>
+    <text x="816" y="367" fill="#1f2328">bound 3 → 5 since a91f0c2</text>
+
+    <text x="628" y="393" fill="#1a7f37" font-weight="700">ENVELOPE</text>
+    <text x="734" y="393" fill="#59636e">line 3</text>
+    <text x="816" y="393" fill="#59636e">no step reaches a target outside [local, staging]</text>
+  </g>
 </svg>

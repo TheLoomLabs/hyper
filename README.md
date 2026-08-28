@@ -1,10 +1,12 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.svg">
-  <img src="docs/images/hero-light.svg" alt="hyper — an agent authors the artefact, check verifies it offline, review renders it in a gutter, a human decides, and only then does hyper run it; the records it leaves are the baseline the next review reads. Nothing reaches the world unreviewed; nothing changes unseen.">
+  <img src="docs/images/hero-light.svg" alt="hyper — the review surface, abridged: an agent widened a destroy Step's Bound from 3 to 5, and the review flags DESTROY, WIDENED and ENVELOPE beside the lines that made the claim, before anything ran. Nothing reaches the world unreviewed; nothing changes unseen.">
 </picture>
 
-[![licence Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
-[![Go 1.25+](https://img.shields.io/badge/go-1.25%2B-00ADD8.svg)](go.mod)
+# hyper
+
+[![licence](https://img.shields.io/github/license/TheLoomLabs/hyper?style=flat-square)](LICENSE)
+[![Go version](https://img.shields.io/github/go-mod/go-version/TheLoomLabs/hyper?style=flat-square&logo=go)](go.mod)
 
 > **Nothing reaches the world unreviewed; nothing changes unseen.**
 
@@ -61,8 +63,8 @@ repository, with no credential and no infrastructure — so the half of the thes
 
 ## What it looks like
 
-One Procedure, one command, one review. An agent widened a `destroy` Step's Bound from 3 to 5
-in a Procedure that retires preview environments. `check` reports nothing, and it is right not
+That is the hero above, and here it is in full. An agent widened a `destroy` Step's Bound from
+3 to 5 in a Procedure that retires preview environments. `check` reports nothing, and it is right not
 to: a Bound is declared, so `bound-missing` does not apply, and whether an Expansion exceeds
 one is not decidable from the artefacts at all. The edit is legal. It is not invisible.
 
