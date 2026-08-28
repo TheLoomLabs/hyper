@@ -47,7 +47,7 @@ their own, each written for the one edge it drives.
 | `an-effectful-operation` | a Probe invokes a `read` Operation and nothing else |
 | `a-manifest-that-names-no-host-input` | a candidate set and a grant intersecting to two hosts, on a repository that checks clean: the fault is decidable only at a binding, and a Probe is a binding no artefact wrote |
 | `a-deadline-the-call-cannot-meet` | the Operation's `deadline:` bounds the call and is reported rather than hung on |
-| `a-provider-matching-nothing`, `an-operation-matching-nothing`, `one-positional`, `an-input-the-operation-does-not-declare`, `a-declared-input-left-out`, `an-input-with-no-value` | the six usage errors, all `2`, all with stdout completely silent |
+| `a-provider-matching-nothing`, `an-operation-matching-nothing`, `one-positional`, `an-input-the-operation-does-not-declare`, `a-declared-input-left-out`, `an-input-with-no-value`, `usage-unknown-flag` | the seven usage errors, all `2`, all with stdout completely silent — the last of them a near miss of `--input` itself, answered with the flags this command takes (issue #215) |
 | `version-pin-mismatch-and-a-bad-operation` | the gate fires before either positional resolves: `77`, not `2` |
 | `writes-nothing-at-all`, `-json` | a Probe beside a Store branch, and `store.golden` shows the branch it did not touch |
 

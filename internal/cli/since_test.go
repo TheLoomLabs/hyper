@@ -127,6 +127,10 @@ func TestParseArgs_SinceRequiresAValue(t *testing.T) {
 // §9's on three commands and on no other: a listing over a namespace has no
 // time axis for a window to cut, and offering it there would be a parameter
 // that narrows nothing.
+//
+// The second line is the gate read back: `providers` is told what it *does*
+// take, which is the whole of the namespace `--since` resolved against and did
+// not reach (flags.go, issue #215).
 func TestParseArgs_ACommandThatTakesNoSinceRefusesTheFlag(t *testing.T) {
 	var stderr bytes.Buffer
 	_, _, code := parseArgs("providers", []string{"--since", "2026-08-04T09:12:00Z"}, parameters{limit: defaultListLimit}, environment(nil), streams{stderr: &stderr})
@@ -134,8 +138,10 @@ func TestParseArgs_ACommandThatTakesNoSinceRefusesTheFlag(t *testing.T) {
 	if code != ExitUsage {
 		t.Fatalf("parseArgs() = %d, want %d", code, ExitUsage)
 	}
-	if got, want := stderr.String(), "hyper providers: unknown flag --since\n"; got != want {
-		t.Errorf("stderr = %q, want %q", got, want)
+	want := "hyper providers: unknown flag --since\n" +
+		"  providers takes --limit, past --json, --repo-dir and --no-color\n"
+	if got := stderr.String(); got != want {
+		t.Errorf("stderr is\n%s\nwant\n%s", got, want)
 	}
 }
 

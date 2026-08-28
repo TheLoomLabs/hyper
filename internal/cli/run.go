@@ -74,7 +74,10 @@ func RunRun(args []string, to destination, process Process, wd, binaryVersion st
 
 	// No --limit: a Run reports what it just did rather than ranging over a
 	// namespace, so there is no result set for a cap to cut (§9).
-	parsed, to, code := parseArgs(runCommand, rest, parameters{limit: takesNoLimit}, process.LookupEnv, to)
+	// `--secret-out` and `--dry-run` are named here though they were taken
+	// off the line above: the value states this command's flag namespace,
+	// which is what a caller who typed a fourth flag is told (flags.go).
+	parsed, to, code := parseArgs(runCommand, rest, parameters{limit: takesNoLimit, secretOut: true, dryRun: true}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}

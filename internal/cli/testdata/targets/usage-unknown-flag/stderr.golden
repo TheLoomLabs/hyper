@@ -1,1 +1,2 @@
 hyper targets: unknown flag --cursor
+  targets takes --limit, past --json, --repo-dir and --no-color

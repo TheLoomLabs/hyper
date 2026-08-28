@@ -1,1 +1,2 @@
 hyper runs: unknown flag --procedures
+  runs takes --limit, --since, --procedure, --target and --outcome, past --json, --repo-dir and --no-color

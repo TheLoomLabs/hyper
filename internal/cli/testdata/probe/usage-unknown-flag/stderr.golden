@@ -1,0 +1,2 @@
+hyper probe: unknown flag --inputs
+  probe takes --input, past --json, --repo-dir and --no-color

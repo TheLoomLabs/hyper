@@ -1,1 +1,2 @@
 hyper project: unknown flag --dry-run
+  project takes no flags of its own, past --json, --repo-dir and --no-color

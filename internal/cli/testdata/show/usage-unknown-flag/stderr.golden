@@ -1,1 +1,2 @@
 hyper show: unknown flag --steps
+  show takes --expansion, past --json, --repo-dir and --no-color

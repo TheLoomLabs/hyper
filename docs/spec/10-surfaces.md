@@ -56,11 +56,29 @@ things a positional matching nothing writes, applied to the command name, and it
 for the same reason (ADR-0047). It is the pointer and not the page: the tree is what the argument-less
 invocation answers with, and rendering it after every typo is narration nobody asked for.
 
-Neither adds a command, an alias or a seventeenth entry. `help` and `--help` are not among the sixteen
-and answer `unknown command` as any other word does; nothing above is hidden, and printing the list is
-the opposite of hiding one. There is no per-command usage text either: a positional that resolves to
-nothing is the usage error above, naming the command that enumerates its namespace, and what stands in
-place of a manual page is Discovery — `providers`, `provider` and `operation` (ADR-0094).
+**An unknown flag names what that command takes.** A flag is a name resolved against a namespace like
+any other, so it writes the first two of those three — the name that was typed, and the namespace it was
+resolved against, which here is the command's own parameters together with the three configuration flags
+below. There is no third, and that is the one place this differs: the namespace is a handful of words
+rather than a page, so the second line **is** the enumeration and there is no further invocation to point
+at. A command with parameters of its own names them; a command with none says so rather than rendering an
+empty list. The line is composed from the parameters the command declares, so no command carries a list
+of its own flags for this message to read and none can drift from what that command accepts. A token
+spelled with one hyphen resolves against that same namespace, there being no single-hyphen flag anywhere
+here for one to be, so `hyper check -h` is this message and not a path that does not exist; `-` alone is
+a file name and stays a positional, and `--` is what names any other file whose own name begins with a
+hyphen, exactly as it was before. It suggests no near miss either, and the ground is stronger than
+ADR-0047's rather than borrowed from it: the whole namespace is on the line already, so a candidate
+picked out of it would be a name resolved on the caller's behalf out of a list they are reading
+(ADR-0098).
+
+None of the three adds a command, an alias, a seventeenth entry or a fourth global. `help` and `--help`
+are not among the sixteen and answer `unknown command` as any other word does; `--help` after a command
+is an unknown flag as any other token does; nothing above is hidden, and printing the list is the
+opposite of hiding one. There is no per-command usage text either: a name that resolves to nothing —
+a positional, a command or a flag — is the usage error above, naming the namespace it was resolved
+against, and what stands in place of a manual page is Discovery — `providers`, `provider` and
+`operation` (ADR-0094, ADR-0098).
 
 Fifteen of the sixteen compare themselves against the version pin in the Repository declaration before
 reading a second file and Refuse on mismatch, on a laptop and in CI alike; where there is no pin they

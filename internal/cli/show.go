@@ -71,7 +71,10 @@ func RunShow(args []string, to destination, process Process, wd, binaryVersion s
 	// What a cap would do instead is hand back a Run's account with its last
 	// Steps dropped, which is the partial answer wearing a complete one's
 	// shape that §9 forbids `--history` for in as many words.
-	parsed, to, code := parseArgs(showCommand, rest, parameters{limit: takesNoLimit}, process.LookupEnv, to)
+	// `--expansion` is named here though splitExpansion took it off the
+	// line above, for the reason `run`'s two are: this value is the
+	// command's flag namespace and not the loop's cases (flags.go).
+	parsed, to, code := parseArgs(showCommand, rest, parameters{limit: takesNoLimit, expansion: true}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}

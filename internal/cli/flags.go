@@ -160,6 +160,113 @@ type parameters struct {
 	// Comparison to one of its two Record tables.
 	between bool
 	kind    bool
+	// input, secretOut, dryRun and expansion are §9's four remaining
+	// parameters — `probe`'s, `run`'s two, and `show`'s — and they are the
+	// four members the loop below never reads. Each of those commands takes
+	// its own flag off the argument list before the globals are parsed, for
+	// the reason splitInputs, splitSecretOut, splitDryRun and splitExpansion
+	// each state: a parser that knew about all four is one every other
+	// command's signature would have to admit, and `hyper compact --dry-run`
+	// would stop being the unknown flag it is.
+	//
+	// They are members anyway, because what this value states is **the
+	// command's flag namespace** and not the loop's list of cases. That
+	// namespace is what the message naming an unknown flag is composed from,
+	// and a `run` answering *takes no flags of its own* would be naming a
+	// namespace two of whose members it had accepted three lines earlier
+	// (spelled, ADR-0098, issue #215).
+	input     bool
+	secretOut bool
+	dryRun    bool
+	expansion bool
+}
+
+// spelled is the flags this command takes, in the spelling a caller types and
+// in the order the members above are declared in.
+//
+// It is derived from the value the dispatch already states rather than written
+// out per command, which is the property the message below needs: a parameter
+// §9 adds reaches a caller who typed the wrong flag by the edit that adds it,
+// and there is no second list to forget. The order is the members' own for the
+// same reason — §9's prose names each command's parameters in an order of its
+// own, and following that here would be exactly the second transcription this
+// avoids (flags_test.go, ADR-0098, issue #215).
+func (p parameters) spelled() []string {
+	var named []string
+	for _, parameter := range []struct {
+		flag  string
+		taken bool
+	}{
+		// --limit is the one member that is not a boolean, its default
+		// and its presence being one fact, so what says the command
+		// takes it is the same test the loop below makes.
+		{"--limit", p.limit != takesNoLimit},
+		{"--since", p.since},
+		{"--procedure", p.procedure},
+		{"--target", p.target},
+		{"--outcome", p.outcome},
+		{"--definition", p.definition},
+		{"--name", p.name},
+		{"--history", p.history},
+		{"--between", p.between},
+		{"--kind", p.kind},
+		{"--input", p.input},
+		{"--secret-out", p.secretOut},
+		{"--dry-run", p.dryRun},
+		{"--expansion", p.expansion},
+	} {
+		if parameter.taken {
+			named = append(named, parameter.flag)
+		}
+	}
+	return named
+}
+
+// whereTheFlagsAre is the second line of an unknown flag: the namespace the
+// name was resolved against, written out.
+//
+// It is §9's own rule for a name that resolves to nothing — *the name that was
+// typed, the namespace it was resolved against, and the command that enumerates
+// that namespace* — applied to a flag, which is a name resolved against a
+// namespace like any other. ADR-0094 gave the **command** namespace that second
+// line and the flag namespace never got one, which left `hyper check --help`
+// naming the first of the three and stopping (issue #215).
+//
+// **It is the page and not the pointer, which is the one thing that differs.**
+// ADR-0094 points at the tree because the tree is twenty-eight lines and a
+// caller who missed a keystroke did not ask for a tour; a command's flags are
+// five words, they are enumerated nowhere else, and a line that pointed at a
+// second invocation would cost the round trip this exists to remove.
+//
+// The three globals close every one of these, because they are the rest of the
+// namespace and are what a caller on a command taking nothing of its own needs
+// to hear. They are read off tree.go's list — the spellings the usage page
+// renders and a completion offers — rather than written out a second time here.
+//
+// **No `--help` flag is added, and none is implied.** This is the message an
+// unknown flag has always written with the namespace on it: `--help` reaches it
+// exactly as `--sicne` does, exits `2` exactly as `--sicne` does, and names
+// nothing in the tree either way (§9, ADR-0094, ADR-0098).
+func (p parameters) whereTheFlagsAre(command string) string {
+	// A command that takes none says so rather than rendering an empty
+	// list: *takes , past --json* is a sentence with a hole in it, and the
+	// fact a caller needs from it is that the hole is the whole answer.
+	own := "no flags of its own"
+	if named := p.spelled(); len(named) > 0 {
+		own = inSequence(named)
+	}
+	return fmt.Sprintf("  %s takes %s, past %s\n", command, own, inSequence(globals))
+}
+
+// inSequence writes a run of names the way a sentence carries one: commas
+// between all but the last two, and `and` before the last. arityFault below
+// joins two nouns with the same `and` and needs no commas, its lists being two
+// long at most.
+func inSequence(names []string) string {
+	if len(names) < 2 {
+		return strings.Join(names, "")
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
 }
 
 // defaultListLimit is the modest default §9 leaves to the implementation, and
@@ -176,17 +283,20 @@ const defaultListLimit = 50
 // parseArgs reads one command's arguments: the three globals — --json,
 // --repo-dir (also spelled --repo-dir=), --no-color — plus --limit and --since
 // where the command takes them, and everything else a positional. Anything else
-// beginning "--" is a usage error, and so is a --limit that is not a positive
-// integer: a limit of none is the flag left off, and a limit of zero is a
-// question with no answer in it. A --since that is not an RFC 3339 timestamp is
-// readSince's own refusal below.
+// beginning with a hyphen — `-` alone excepted, which is a file name and not a
+// spelling — is a usage error naming the namespace it resolved against, and so
+// is a --limit that is not a positive integer: a limit of none is the flag left
+// off, and a limit of zero is a question with no answer in it. A --since that
+// is not an RFC 3339 timestamp is readSince's own refusal below.
 //
 // Which of the two valued flags a command takes is named at its call site, in
 // the parameters value above, so a command's argument surface is legible where
 // the command is dispatched rather than by reading this loop for the guards on
 // each case.
 //
-// "--" ends the flags, so a positional beginning with a hyphen is reachable.
+// "--" ends the flags, so a positional beginning with a hyphen is reachable,
+// which is what lets a hyphenated token elsewhere on the line be read as a flag
+// — `-` alone excepted, which stays a positional wherever it stands.
 // command names the command in every message, which is the whole reason it is a
 // parameter: one parser, and a caller still reads `hyper providers: unknown
 // flag --sicne`.
@@ -339,8 +449,17 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 			if code := parsed.readOutcome(command, strings.TrimPrefix(a, "--outcome="), stderr); code != 0 {
 				return parsed, to, code
 			}
-		case strings.HasPrefix(a, "--"):
-			fmt.Fprintf(stderr, "hyper %s: unknown flag %s\n", command, a)
+		// A token spelled like a flag and matching none of the arms
+		// above resolved to nothing in this command's flag namespace,
+		// and one hyphen is as much of a spelling as two: §9 has no
+		// single-hyphen flag anywhere for `-h` to be, and a caller who
+		// typed one was asking about the interface rather than naming a
+		// file. `-` alone is left to the positionals — it is a whole
+		// conventional file name and resolves against nothing — and a
+		// file spelled either way is still reachable past a `--`
+		// (§9, ADR-0098).
+		case a != "-" && strings.HasPrefix(a, "-"):
+			fmt.Fprintf(stderr, "hyper %s: unknown flag %s\n%s", command, a, takes.whereTheFlagsAre(command))
 			return parsed, to, ExitUsage
 		default:
 			parsed.positional = append(parsed.positional, a)

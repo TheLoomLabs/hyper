@@ -60,6 +60,11 @@ each on its own ground rather than on one blanket rule:
   the command that enumerates the namespace it resolved against (§9). What stands in place of a manual
   page here is Discovery: three commands whose whole job is answering *which Provider, which Operation,
   how do I call it*.
+  _ADR-0098 amends the observation, not the refusal:_ issue #214's session is the transcript this
+  bullet did not have — an agent that already knew the command names, on an MCP-only surface, typing
+  `check --help` three times. There is still no per-command usage text and no fourth global; what an
+  unknown **flag** gained is the second line this ADR gave an unknown **command**, naming the namespace
+  the name was resolved against, which is the rule this bullet already cites applied to a flag.
 
 None of the three is needed, because the defect is not a missing command. The message that already
 exists for exactly this case — the branch `Main` already owns, at the exit code it already returns —

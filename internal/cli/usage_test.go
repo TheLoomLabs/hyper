@@ -282,3 +282,58 @@ func firstLine(page string) string {
 	line, _, _ := strings.Cut(page, "\n")
 	return line
 }
+
+// TestUsage_AnUnknownFlagNamesWhereTheFlagsAre is issue #215, and it is
+// ADR-0094's own fix applied one namespace down. `hyper --help` names the
+// namespace it was resolved against and the invocation that enumerates it;
+// `hyper check --help` named the flag and stopped, which left a caller who had
+// already learnt the sixteen exactly where the empty usage line left the one
+// who had not.
+//
+// A flag is a name resolved against a namespace like any other, so §9's rule
+// applies to it unchanged — and the namespace here is short enough to write
+// out, which is the one thing that differs: the sixteen get a pointer because
+// the page is twenty-eight lines, and a command's flags get the list because it
+// is five words.
+//
+// **It adds no `--help` flag.** `--help` is still unknown on every command in
+// the tree, still exit `2`, still stderr, and the case drives it precisely
+// because it is the token both observed agents typed (§9, ADR-0094).
+func TestUsage_AnUnknownFlagNamesWhereTheFlagsAre(t *testing.T) {
+	for _, command := range cli.Tree() {
+		t.Run(command, func(t *testing.T) {
+			p := &process{wd: t.TempDir()}
+			var stdout, stderr bytes.Buffer
+
+			if exit := cli.Main([]string{command, "--help"}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitUsage {
+				t.Errorf("exit = %d, want %d", exit, cli.ExitUsage)
+			}
+			if stdout.Len() != 0 {
+				t.Errorf("stdout = %q, want it untouched", stdout.String())
+			}
+
+			lines := strings.Split(strings.TrimSuffix(stderr.String(), "\n"), "\n")
+			if len(lines) != 2 {
+				t.Fatalf("stderr is\n%s\nwant two lines: the flag, and where the flags are", stderr.String())
+			}
+			// The first line is unchanged by this: it names the
+			// command and the flag that resolved to nothing, exactly
+			// as it did before the second line existed.
+			if want := "hyper " + command + ": unknown flag --help"; lines[0] != want {
+				t.Errorf("the first line is %q, want %q", lines[0], want)
+			}
+			if want := "  " + command + " takes "; !strings.HasPrefix(lines[1], want) {
+				t.Errorf("the second line is %q, want it to open %q", lines[1], want)
+			}
+			// The three globals close the line wherever it goes,
+			// because they are the rest of the namespace: a caller
+			// on a command that takes nothing of its own has been
+			// told the whole of what it accepts.
+			for _, global := range cli.Globals() {
+				if !strings.Contains(lines[1], global) {
+					t.Errorf("the second line is %q, want it to name the global %s", lines[1], global)
+				}
+			}
+		})
+	}
+}

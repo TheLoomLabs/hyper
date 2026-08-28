@@ -1,1 +1,2 @@
 hyper providers: unknown flag --cursor
+  providers takes --limit, past --json, --repo-dir and --no-color

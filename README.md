@@ -512,11 +512,14 @@ Three more stand outside the tree, because none of them reads a repository: `ver
 
 `hyper` with no arguments writes that table — the six groups, the sixteen names with their
 positionals, the three outside the tree, and the three configuration flags below — on
-stderr, exiting `2`. A word that names no command writes where that list is. There is no
+stderr, exiting `2`. A word that names no command writes where that list is, and a flag a
+command does not take writes what that command does take — its own parameters and the three
+globals, on one line, `check takes no flags of its own` where it has none. There is no
 `help` command and no `--help`: neither is among the sixteen, and the list is printed rather
 than hidden behind one. That is
-[ADR-0094](docs/adr/0094-the-argument-less-invocation-writes-the-tree-and-there-is-no-help.md),
-and the reasoning is that the defect was a message saying nothing, not a missing command.
+[ADR-0094](docs/adr/0094-the-argument-less-invocation-writes-the-tree-and-there-is-no-help.md)
+and [ADR-0098](docs/adr/0098-an-unknown-flag-names-the-flags-that-command-takes.md), and the
+reasoning is that the defect was a message saying nothing, not a missing command.
 
 **Thirteen MCP tools**, over stdio, each named for the command it carries:
 

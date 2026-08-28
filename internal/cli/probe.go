@@ -64,7 +64,10 @@ func RunProbe(args []string, to destination, process Process, wd, binaryVersion 
 		return ExitUsage
 	}
 
-	parsed, to, code := parseArgs("probe", rest, parameters{limit: takesNoLimit}, process.LookupEnv, to)
+	// `--input` is named here though splitInputs took it off the line
+	// above, for the reason `run`'s two are: this value is the command's
+	// flag namespace and not the loop's cases (flags.go).
+	parsed, to, code := parseArgs("probe", rest, parameters{limit: takesNoLimit, input: true}, process.LookupEnv, to)
 	if code != 0 {
 		return code
 	}

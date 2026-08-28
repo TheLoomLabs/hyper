@@ -1,1 +1,2 @@
 hyper check: unknown flag --secret-out
+  check takes no flags of its own, past --json, --repo-dir and --no-color

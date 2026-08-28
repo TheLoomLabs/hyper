@@ -1,1 +1,2 @@
 hyper records: unknown flag --sicne
+  records takes --limit, --since, --target, --definition, --name and --history, past --json, --repo-dir and --no-color
