@@ -1,6 +1,6 @@
 {
   "content": [
-    {"type":"text","text":"5 problems"}
+    {"type":"text","text":"5 problems\n\nFILE                LINE  FIELD                       ERROR_CODE             MESSAGE\ndefinitions/a.yaml  6     extra-key                   unknown-key            \"extra-key\" is not a key the schema at this position admits\nprocedures/e.yaml   6     steps[0].definition         artefact-absent        definition: missing-definition resolves to nothing — no definitions/missing-definition.yaml\nproviders/mid.yaml  15    operations.op1.record       identity-undeclared    record: projects a Record and declares no identity: for it\nproviders/mid.yaml  19    operations.op2.concurrency  manifest-inconsistent  concurrency: is declared on an Operation that is not a read\ntargets/d.yaml      5     hosts                       target-inconsistent    capabilities: grants http and this declaration carries no hosts:\n"}
   ],
   "structuredContent": {
     "rows": [

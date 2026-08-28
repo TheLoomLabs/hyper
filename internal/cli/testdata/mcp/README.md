@@ -174,7 +174,12 @@ by file path then line, `isError: true`, and — the part worth reading — **no
 `outcome` key and no `error_code` on the envelope**. A command reporting
 problems it found is §9's mapping row for exit `1`: the caller did not get what
 they asked for, it is not a Refusal, and the remedy is the rows themselves.
-`clean` is the other side, `rows: []` with the bit false. `ordering` is the
+Which is why the **text block carries them**: a summary line, a blank line, and
+then the table its twin one directory up writes to stdout, byte for byte
+(ADR-0097, issue #214). `TestGoldenCorpora_AChecksTextBlockIsItsSummaryLineAndThenWhatTheCLIWroteOnStdout`
+holds the two against each other, and holds the other arm on the cases that
+found nothing — the summary line alone, with no table beneath it. `clean` is
+that side, `rows: []` with the bit false. `ordering` is the
 half neither of those reaches: its repository has one file carrying **two**
 problems, so the rows are ordered by file path and then by line rather than by
 file path alone.

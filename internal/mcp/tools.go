@@ -46,19 +46,26 @@ type tool struct {
 	// becomes a JSON-RPC error: an argument violating a schema is a
 	// malformed call (§9, server.go).
 	argv func(arguments json.RawMessage) ([]string, error)
-	// rendersInFull is §9's text-block table read as a property of the tool,
-	// which is how §9 states it: *any ordinary return* carries one summary
-	// line and **`review`** carries the full rendered review surface. The
-	// third row of that table is a Refusal's, which is a property of the
-	// path rather than of the tool and is therefore not here.
+	// text is §9's text-block table read as a property of the tool, which is
+	// how §9 states three of its four rows: *any ordinary return* carries
+	// one summary line, **`check`** carries its rows beneath that line, and
+	// **`review`** carries the full rendered review surface. The remaining
+	// row is a Refusal's, which is a property of the path rather than of the
+	// tool and is therefore not here.
 	//
-	// It is a bit on the tool rather than a composition the tool supplies,
-	// because what it selects between is two readings of one answer the
-	// destination already retained — the rows counted, or the page the
-	// command wrote (destination.go). A tool that composed its own text
-	// would be a tool holding a rendering, which is the one thing *a tool
-	// is a schema, an argv, and nothing else* forbids.
-	rendersInFull bool
+	// It is a member on the tool rather than a composition the tool
+	// supplies, because what it selects between is three readings of one
+	// answer the destination already retained — the rows counted, the rows
+	// counted and then drawn, or the page the command wrote
+	// (destination.go). A tool that composed its own text would be a tool
+	// holding a rendering, which is the one thing *a tool is a schema, an
+	// argv, and nothing else* forbids.
+	//
+	// It is one member rather than two bits for the reason the table has
+	// cases rather than axes: *the whole page* and *the rows beneath the
+	// line* are alternatives, and a pair of booleans has a fourth state that
+	// names no row of §9's table at all.
+	text textBlock
 	// executes is §9's execution half read as a property of the tool: `run`
 	// is the one of the thirteen whose answer carries §12's triple, and a
 	// tool that leaves this nil is one that carries no `outcome` key at all
@@ -77,6 +84,46 @@ type tool struct {
 	// (runArguments).
 	executes func(arguments json.RawMessage) (execution, error)
 }
+
+// textBlock is which shape an ordinary return's `text` takes on this tool:
+// §9's asymmetric table, minus the row a Refusal takes on every tool at once.
+//
+// The zero value is the table's first row, which is what makes a tool that
+// declares nothing here the ordinary case — eleven of the thirteen — rather
+// than a tool that forgot to.
+type textBlock int
+
+const (
+	// summaryLine is *one summary line, outcome first*: the counted rows,
+	// or §8's terminal line as a sentence where the tool is a Run. It is
+	// what a listing carries, because a listing is a result set and not a
+	// remediation.
+	summaryLine textBlock = iota
+	// rowsBeneathSummary is the summary line and, under it, the rows as the
+	// command's own renderer drew them.
+	//
+	// **It is `check` and nothing else** (issue #214). What earns a tool
+	// this row is that its rows are the *remediation path* rather than an
+	// answer: a `problem` row is a file, a line, a column, a field, an
+	// `error_code` and a message, and an agent that is told how many of
+	// them there are and not what they say cannot repair what it wrote — it
+	// can only guess, which is what a headless session did across 180 tool
+	// calls. That is the same argument §9 already makes for a Refusal, over
+	// the return an agent meets far more often.
+	//
+	// It is not *every ordinary return carrying rows*, which would put a
+	// full table in the text block of every listing and say twice what the
+	// structured half says once, and it is not *every return with
+	// `isError`*, which would append a Run's page to the summary line §9
+	// composes for `run` on purpose.
+	rowsBeneathSummary
+	// wholeRendering is the command's page, byte for byte, in place of any
+	// line of this surface's own. It is `review`'s, and the promise is what
+	// makes it a case of its own: what the block carries is what the
+	// command wrote to stdout, so a human reviewer can be handed it
+	// verbatim (§9, ADR-0026).
+	wholeRendering
+)
 
 // declaration is the tool as the SDK publishes it in `tools/list`. It is the
 // one place a tool of this package's is expressed in the SDK's terms, and what
@@ -484,6 +531,15 @@ const cadenceGlossMembers = `
 // which is what makes *report and then edit* practical for an agent for the
 // same reason it is for a human (§9, ADR-0001).
 //
+// **So its rows travel in the text block as well as beside it**, which is the
+// `check`'s own row of §9's asymmetric table, and no other tool's (textBlock, issue
+// #214). A client that surfaces only `content` to the model behind it is the
+// common case rather than the broken one, and an agent told *how many* problems
+// there are and not *what* they are has, in place of the edit the row already
+// describes, a count to binary-search the schema against. The summary line
+// stands first and the rows go beneath it untouched; `structuredContent.rows`
+// is unchanged, this being a second channel for one row set and not a move.
+//
 // **`paths` is the CLI's positional list arriving as one typed argument**, and
 // it narrows what is *reported* and never what is *loaded*: every rule §4
 // states compares one artefact against another, so a subset of a repository is
@@ -512,6 +568,7 @@ const cadenceGlossMembers = `
 var checkTool = tool{
 	name:        "check",
 	description: "Run every static rule this repository states and report each problem by file, line and error_code.",
+	text:        rowsBeneathSummary,
 	input: closedObject(`{
 		"paths": {
 			"type": "array",
@@ -557,9 +614,11 @@ var checkTool = tool{
 }
 
 // reviewTool carries `hyper review <artefact>` — the second Authoring tool, and
-// **the one tool §9's text-block table names**: its `text` is the whole rendered
-// review surface, the gutter and `AUTHORITY` and `FLAGS` exactly as the command
-// writes them to stdout.
+// **the one tool whose text block is the page and nothing else**: its `text` is
+// the whole rendered review surface, the gutter and `AUTHORITY` and `FLAGS`
+// exactly as the command writes them to stdout. `check` is named by §9's
+// text-block table too and is the other shape — a line of this surface's own,
+// and then the page (textBlock, issue #214).
 //
 // That is the point of the tool rather than a convenience of it. An agent can
 // read what a human reviewer will read and hand it to them verbatim, before
@@ -599,6 +658,7 @@ var checkTool = tool{
 var reviewTool = tool{
 	name:        "review",
 	description: "Render §8's review of one artefact — the gutter, the AUTHORITY table and the FLAGS index — as text a human reviewer can be handed verbatim.",
+	text:        wholeRendering,
 	input: closedObject(`{
 		"artefact": {
 			"type": "string",
@@ -606,7 +666,6 @@ var reviewTool = tool{
 			"description": "The artefact to review: a repository-relative path — one containing / or ending .yaml — or the name the artefact declares for itself."
 		}
 	}`, "artefact"),
-	rendersInFull: true,
 	output: closedObject(`{
 		"rows": {
 			"type": "array",

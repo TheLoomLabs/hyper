@@ -1167,7 +1167,7 @@ func twinOf(name string) (string, bool) {
 var commands = map[string]string{"run_show": "show"}
 
 // TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout is §9's
-// text-block table held where its second row is: **`review` carries the full
+// text-block table held where `review`'s row is: **`review` carries the full
 // rendered review surface**, and what makes that checkable is that the two
 // surfaces render one page (§9, ADR-0026, issue #198).
 //
@@ -1178,10 +1178,10 @@ var commands = map[string]string{"run_show": "show"}
 // `mcp/review/<case>` is held against `review/<case>` — one fixture repository,
 // one artefact, driven two ways.
 //
-// **It holds over `review` and no other tool**, which is the table rather than
-// a gap: §9 names one tool there, so a `check` case's text block is a summary
-// line and pairing it against `check`'s table would be asserting the opposite
-// of what §9 says. A tool joining the table joins this fence with it.
+// **It holds over `review` alone because `review` alone hands back the page and
+// nothing else.** `check` is in the table too and is fenced beneath this one,
+// where the assertion is the same fact in a different shape: its block is a
+// summary line the CLI does not write, and then the page (issue #214).
 func TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout(t *testing.T) {
 	var compared int
 	for _, c := range goldenCases(t) {
@@ -1204,6 +1204,69 @@ func TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout(t *testing.T) 
 	}
 	if compared == 0 {
 		t.Fatal("no review case was paired against the page its command writes; the rule was held over nothing")
+	}
+}
+
+// TestGoldenCorpora_AChecksTextBlockIsItsSummaryLineAndThenWhatTheCLIWroteOnStdout
+// is the same fence over `check`'s row of the table: **its rows travel in the
+// text block**, drawn by the one renderer both surfaces answer through, so the
+// block is a line of this surface's own and then the command's page byte for
+// byte (§9, ADR-0026, ADR-0097, issue #214).
+//
+// **It is total over the check cases rather than a pairing where one happens to
+// exist**, which is the difference between this and the fence above it. A case
+// with no rows has no page to hold — a clean `check` writes a sentence about a
+// count, and §9 gives the block the summary line alone — so what is asserted
+// there is that the block is that one line and carries no table at all. The two
+// arms together are the rule: *the summary line always, the rows beneath it
+// wherever there are rows*, with no case falling through the middle.
+//
+// **A twin that opens a row stream is not the twin**, and it is skipped by
+// asking the twin rather than by naming the case: `--json` writes §8's NDJSON
+// to stdout, which is the same rows in the other of the two forms one renderer
+// produces, and holding a table against a stream would be this fence asserting
+// that the two forms are one string.
+func TestGoldenCorpora_AChecksTextBlockIsItsSummaryLineAndThenWhatTheCLIWroteOnStdout(t *testing.T) {
+	cases := goldenCases(t)
+	named := make(map[string]goldenCase, len(cases))
+	for _, c := range cases {
+		named[c.name] = c
+	}
+
+	var compared int
+	for _, c := range cases {
+		if c.call == nil || c.call.Tool != "check" || c.answersAProtocolError() {
+			continue
+		}
+		block := textBlock(t, c.dir)
+		if len(readEnvelope(t, c.dir).StructuredContent.Rows) == 0 {
+			if strings.Contains(block, "\n") {
+				t.Errorf("case %s found nothing and its text block is\n  %q\nwant the summary line alone: what goes beneath the line is the row set", c.name, block)
+			}
+			continue
+		}
+		twin, paired := twinOf(c.name)
+		if !paired {
+			continue
+		}
+		if pair, held := named[strings.TrimPrefix(twin, "testdata"+string(filepath.Separator))]; held && pair.opensARowStream() {
+			continue
+		}
+		wrote := readFile(t, filepath.Join(twin, "stdout.golden"))
+		if wrote == "" {
+			continue
+		}
+		compared++
+		line, table, cut := strings.Cut(block, "\n\n")
+		if !cut || table != wrote {
+			t.Errorf("case %s: its text block is\n  %q\nwant a summary line, a blank line, and then what %s writes:\n  %q", c.name, block, twin, wrote)
+		}
+		if strings.Contains(line, "\n") {
+			t.Errorf("case %s: what stands above its table is %q, want one line", c.name, line)
+		}
+	}
+	if compared == 0 {
+		t.Fatal("no check case that found rows was paired against the page its command writes; the rule was held over nothing")
 	}
 }
 

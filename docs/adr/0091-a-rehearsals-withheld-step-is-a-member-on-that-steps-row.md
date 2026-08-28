@@ -119,3 +119,6 @@ would be the two-surface disagreement this ADR exists to close, reintroduced one
   *never reached* on the Step and on every Step behind it, which is what happened.
 - **The text block still does not say it.** §9's text-block table is closed at three rows and `run`'s is
   the summary line. The fact is in the structured half, which is where a machine surface answers.
+  _ADR-0097 amends the count:_ the table has four rows, `check` having gained one. `run`'s is still the
+  summary line and this consequence is otherwise unchanged — the row `check` gained is granted to a tool
+  whose rows are a remediation, which a Step table is not.

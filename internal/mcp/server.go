@@ -127,7 +127,7 @@ type Progress func(position, of int, step string)
 // Rendering is the page the command wrote into the destination's buffer. Most
 // tools do not put it on the wire — an ordinary return's text block is one
 // summary line (§9) — and it is filled on every answer anyway, because it is
-// what `review`'s text block *is*: the second row of §9's asymmetric table is a
+// what `review`'s text block *is*: `review`'s row of §9's asymmetric table is a
 // tool handing back the whole rendering, and a buffer that only some answers
 // filled would be one that tool had to ask twice for (envelope.go, issue #198).
 //
@@ -254,10 +254,10 @@ func (s *Server) server() *sdk.Server {
 // thing to the protocol.
 //
 // The one thing about the tool the mapping is told is which row of §9's
-// text-block table it is: *any ordinary return* or **`review`**. That is a
-// property of the tool rather than of the answer, so it crosses from the table
-// where the tool is declared rather than being read off a rendering here
-// (tools.go, issue #198).
+// text-block table it is: *any ordinary return*, **`check`** or **`review`**.
+// That is a property of the tool rather than of the answer, so it crosses from
+// the table where the tool is declared rather than being read off a rendering
+// here (tools.go, issue #198, issue #214).
 //
 // The error is answered unwrapped, which is the one asymmetry in this function.
 // An argument never reached a command, so the tool names itself; a message the
@@ -294,7 +294,7 @@ func (s *Server) handler(t tool) sdk.ToolHandler {
 			Argv:     argv,
 			Progress: progressTo(ctx, request),
 		})
-		envelope, err := envelopeOf(answered, t.rendersInFull, called)
+		envelope, err := envelopeOf(answered, t.text, called)
 		if err != nil {
 			return nil, err
 		}

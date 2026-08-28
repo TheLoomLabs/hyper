@@ -39,9 +39,9 @@ import (
 type Envelope struct {
 	// Content is the unstructured half, and on every tool this milestone
 	// builds it is one text block. §9's asymmetry — a summary line, a
-	// review's full rendering, a Refusal's full rendering — is a fact about
-	// which tool answered and which path it took, so the member is a list
-	// and the composition is below.
+	// check's rows beneath one, a review's full rendering, a Refusal's full
+	// rendering — is a fact about which tool answered and which path it
+	// took, so the member is a list and the composition is below.
 	Content []TextBlock `json:"content"`
 	// StructuredContent is the machine half: §8's rows, and the terminal
 	// fact moved up beside them.
@@ -63,7 +63,8 @@ type TextBlock struct {
 	// else is a block this surface did not compose (envelopeFrom).
 	Type string `json:"type"`
 	// Text is what §9's asymmetry decides: one summary line on an ordinary
-	// return, `review`'s full rendering, or a Refusal's.
+	// return, `check`'s rows beneath that line, `review`'s full rendering,
+	// or a Refusal's.
 	Text string `json:"text"`
 }
 
@@ -202,7 +203,7 @@ const outcomeType = "outcome"
 // surface knows how to compose. It travels as a protocol error, which is where
 // §9 puts a fault in the server, and it is stated rather than dressed as a
 // domain answer — a wrong envelope is harder to notice than a missing one.
-func envelopeOf(answered Answer, rendersInFull bool, called *execution) (Envelope, error) {
+func envelopeOf(answered Answer, block textBlock, called *execution) (Envelope, error) {
 	structured, kinds, err := structuredOf(answered, called)
 	if err != nil {
 		return Envelope{}, err
@@ -226,7 +227,7 @@ func envelopeOf(answered Answer, rendersInFull bool, called *execution) (Envelop
 		// — an act is required past a `77` and time is all that is
 		// required past a `75` — and that distinction survives the loss
 		// of the code intact (§9, §12, ADR-0061, issue #200).
-		text, err := answerText(answered, rendersInFull, structured, kinds)
+		text, err := answerText(answered, block, structured, kinds)
 		if err != nil {
 			return Envelope{}, err
 		}
@@ -400,12 +401,14 @@ func outcomeFor(code int) (string, bool) {
 	return "", false
 }
 
-// answerText is the text block of an ordinary return, which is the first two
-// rows of §9's asymmetric table: *any ordinary return* carries one summary
-// line, and **`review`** carries the full rendered review surface (§9).
+// answerText is the text block of an ordinary return, which is the three rows
+// of §9's asymmetric table that are a property of the tool: *any ordinary
+// return* carries one summary line, **`check`** carries its rows beneath that
+// line, and **`review`** carries the full rendered review surface (§9, issue
+// #214). The fourth is a Refusal's, and it is envelopeOf's.
 //
 // **The table is keyed on the tool and not on what the tool found**, which is
-// why the bit comes in from the tool set rather than being read off the answer
+// why the case comes in from the tool set rather than being read off the answer
 // here (tools.go). A tool that renders in full renders on every path that
 // answers at all: `review` against an artefact that will not load writes
 // `check`'s rows and `check`'s table, and the text block is that table — what
@@ -413,34 +416,81 @@ func outcomeFor(code int) (string, bool) {
 // a reading that swapped in a summary line on one of the command's own paths
 // would break the promise exactly where an agent is least able to check it.
 //
+// **`check`'s row is keyed on the tool too, and what varies under it is the row
+// set rather than the path.** `check` promises *the summary line, and beneath
+// it the rows*, so a repository with nothing wrong with it puts nothing there —
+// the same sentence, read where the list is empty. That is not the swap the
+// paragraph above forbids: the block still says exactly what it promised, and
+// the alternative — carrying a clean check's page, which is a sentence about a
+// count — would have this surface state the count twice and call one of them
+// rows.
+//
+// **Outcome first survives `check`'s row, and costs one line.** It is what this
+// surface has in place of an exit code (§9), and a table arriving with no line
+// above it would put an agent back to counting rows to learn whether it had
+// been told about problems at all. The truncation marker rides on that line,
+// which is what keeps *a truncated result must never look complete* true where
+// the rows themselves are in the block — a reader meets the marker before the
+// table rather than after it.
+//
 // The rendering goes over **untouched**, trailing newline and all. It is the
 // page as the command's own writer produced it (destination.go), and a text
 // block trimmed here would be a rendering this surface had edited — which is
 // the one thing §9's *the rendering is the whole of it* forbids. The Refusal
-// path trims because it appends a sentence; this appends nothing.
+// path trims because it appends a sentence; this prepends one and so trims
+// nothing.
 //
-// A rendering that is empty on a tool that renders in full is a fault in the
-// server rather than an empty answer: the page is the entire content of the
-// block, so there is nothing left to say. It is stated rather than carried,
-// for the reason the Refusal arm states its own — a wrong envelope is harder
-// to notice than a missing one.
-func answerText(answered Answer, rendersInFull bool, structured Structured, kinds []string) (string, error) {
-	if !rendersInFull {
-		// **Outcome first, and on `run` that means the outcome instead of
-		// the counts**: §8's terminal line arriving here as a sentence
-		// (§9, issue #200). It is selected on the answer rather than
-		// declared per tool for summary's own reason — a tool is a schema
-		// and an argv — and what selects it is the one thing that is true
-		// of a Run's answer and of nothing else: it carries the triple.
-		if structured.Outcome != "" {
-			return outcomeSummary(structured), nil
+// A rendering that is empty where one was promised is a fault in the server
+// rather than an empty answer: the page is the whole of the block on `review`,
+// and on a `check` that found rows it is the whole of what the line above it
+// promised, so there is nothing left to say. A `check` that found nothing
+// promised no page and is not the case — the line stands alone there, and the
+// buffer is not read. It is stated rather than carried, for the reason the
+// Refusal arm states its own — a wrong envelope is harder to notice than a
+// missing one.
+func answerText(answered Answer, block textBlock, structured Structured, kinds []string) (string, error) {
+	// **Outcome first, and on `run` that means the outcome instead of the
+	// counts**: §8's terminal line arriving here as a sentence (§9, issue
+	// #200). It is selected on the answer rather than declared per tool for
+	// summary's own reason — a tool is a schema and an argv — and what
+	// selects it is the one thing that is true of a Run's answer and of
+	// nothing else: it carries the triple.
+	//
+	// It is composed above both of the rows that carry a line rather than
+	// inside one arm, so that a tool which both executes and draws its rows
+	// would put the outcome above them rather than a count. Nothing is both
+	// today; the line is where it is because *outcome first* is a rule about
+	// the line and not about which tool asked for one.
+	line := summary(kinds, wasCut(structured.Truncated))
+	if structured.Outcome != "" {
+		line = outcomeSummary(structured)
+	}
+
+	switch block {
+	case summaryLine:
+		return line, nil
+
+	case rowsBeneathSummary:
+		if len(structured.Rows) == 0 {
+			return line, nil
 		}
-		return summary(kinds, wasCut(structured.Truncated)), nil
+		if answered.Rendering == "" {
+			return "", fmt.Errorf("the command exited %d and found %d rows and rendered none of them, which is a fault in the server: this tool's text block promises the rows and there is nothing to keep the promise with (§9)", answered.Exit, len(structured.Rows))
+		}
+		return line + "\n\n" + answered.Rendering, nil
+
+	case wholeRendering:
+		if answered.Rendering == "" {
+			return "", fmt.Errorf("the command exited %d and rendered no page, which is a fault in the server: this tool's text block is the rendering and nothing else (§9)", answered.Exit)
+		}
+		return answered.Rendering, nil
 	}
-	if answered.Rendering == "" {
-		return "", fmt.Errorf("the command exited %d and rendered no page, which is a fault in the server: this tool's text block is the rendering and nothing else (§9)", answered.Exit)
-	}
-	return answered.Rendering, nil
+
+	// A case with no arm is a row of §9's table this function was not told
+	// about, which is a fault in this package rather than in any answer: the
+	// table is closed and the type enumerates it, so what reaches here is a
+	// member added above and not handled here (tools.go).
+	return "", fmt.Errorf("the tool declares text block %d, which is not a row of §9's asymmetric table this server composes", block)
 }
 
 // retrySentence is what §9 requires **every** Refusal's text block to end with,

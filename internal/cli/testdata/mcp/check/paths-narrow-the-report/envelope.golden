@@ -1,6 +1,6 @@
 {
   "content": [
-    {"type":"text","text":"2 problems"}
+    {"type":"text","text":"2 problems\n\nFILE                                   LINE  FIELD  ERROR_CODE              MESSAGE\ndefinitions/preview-dns-observed.yaml  4     kinds  definition-kinds-mixed  read stands in kinds: beside mutate or a destroy: claim — a Definition observes or it effects, never both\ntargets/local.yaml                     8     auth   local-reserved          a declaration named local carries no auth: block — the reserved name leaves a Probe no credential to resolve\n"}
   ],
   "structuredContent": {
     "rows": [

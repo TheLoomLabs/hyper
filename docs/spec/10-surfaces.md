@@ -912,6 +912,7 @@ question, and a truncated result must never look complete.
 | case | `text` carries |
 | --- | --- |
 | any ordinary return | one summary line, outcome first |
+| `check` | that line, and beneath it the rows as §8's renderer drew them |
 | `review` | the full rendered review surface — the gutter, `AUTHORITY`, `FLAGS` |
 | a Refusal | the full rendered Refusal — Step table, caret excerpt, `EDIT ONE OF`, retry sentence |
 
@@ -922,6 +923,23 @@ to read and no scrollback to search, so an entry the envelope does not name is o
 only by asking which Run was the last, on a Store two environments write. The two full renderings
 are the same trade §8 made for the same reason — with no bypass anywhere, the Refusal rendering is the
 entire remediation path (ADR-0001).
+
+**`check` has a row of its own because a `problem` row is a remediation and not a result** (ADR-0097). A
+client is not obliged to surface `structuredContent` to the model behind it, and most do not; an agent
+told *how many* problems there are and not *what* they are has, in place of the edit the row already
+describes, only the count to guess against. That is the Refusal's argument arriving on the return an
+agent meets far more often — it is `check` an agent calls after every write — and it is what MCP's own
+guidance asks of a server returning structured content: serialise it into the `text` block as well.
+`structuredContent.rows` is unchanged; this is one row set on two channels, drawn by §8's one renderer,
+and the terminal and this surface still cannot drift apart.
+
+The summary line survives above the rows, and carries the truncation marker where there is one: a
+result cut on an axis says so on the line a reader meets **before** the table rather than after it,
+which is how *a truncated result must never look complete* stays true once the rows are in the block.
+What goes beneath the line is the row set, so a `check` that found nothing puts nothing there — the
+clean answer is the summary line alone, `check`'s own page being a sentence about a count and not a
+table. No other ordinary return carries its rows: a listing is a result set, and a table in its `text`
+block would say twice what `structuredContent` says once.
 
 **`outcome` is the discriminator, and `isError` is not.**
 
@@ -1041,6 +1059,7 @@ check(paths?)
 //               as the command reads them: an absolute path inside the repository is admitted,
 //               and one resolving outside it is refused (ADR-0089). Every artefact still loads;
 //               only the problems positioned in the ones named are reported
+// text: the summary line, and beneath it the rows as §8's renderer drew them (ADR-0097)
 // → rows: [{ type: "problem", file, line, column, field, error_code, message }]   // error_code: §12
 ```
 

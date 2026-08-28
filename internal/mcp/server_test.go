@@ -722,10 +722,10 @@ func TestCall_AGuardrailDecliningWithNothingRenderedIsAFaultInTheServer(t *testi
 // line, arriving *after* a Refusal takes precedence over it, and failing where
 // there is no rendering at all.
 
-// TestCall_ReviewsTextBlockIsTheRenderingWholeAndUntouched is the second row of
+// TestCall_ReviewsTextBlockIsTheRenderingWholeAndUntouched is `review`'s row of
 // §9's asymmetric table: **`review` carries the full rendered review surface**,
-// and the whole of it — the gutter, `AUTHORITY`, `FLAGS` — where every other
-// tool carries one summary line.
+// and the whole of it — the gutter, `AUTHORITY`, `FLAGS` — where no other tool
+// carries a line of the command's page that the command did not draw as rows.
 //
 // The rendering is compared byte for byte, trailing newline included, because
 // that is the promise: what the tool hands back is what the command writes to
@@ -751,25 +751,61 @@ func TestCall_ReviewsTextBlockIsTheRenderingWholeAndUntouched(t *testing.T) {
 }
 
 // TestCall_ATextBlockIsASummaryLineOnEveryToolTheTableDoesNotName is the first
-// row of the same table, held over the tool that would be easiest to widen into
-// the second: `check` answers a rendering of its own and still summarises, §9
-// naming `review` and nothing else.
+// row of the same table, held over a tool that answers a rendering of its own
+// and still summarises: §9 names three cases and a listing is none of them.
 //
 // The rendering is supplied and deliberately not carried, which is what makes
 // this a case about the table rather than about an empty buffer.
 func TestCall_ATextBlockIsASummaryLineOnEveryToolTheTableDoesNotName(t *testing.T) {
+	rows := []render.Row{stubRow{Type: "entry", Name: "a"}, stubRow{Type: "entry", Name: "b"}}
+	server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(false), Rendering: reviewPage})
+
+	envelope, err := server.Call(t.Context(), "runs", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := envelope.Content[0].Text, "2 Journal entries"; got != want {
+		t.Errorf("the text block is %q, want the summary line %q", got, want)
+	}
+	if strings.Contains(envelope.Content[0].Text, "AUTHORITY") {
+		t.Error("the text block carries the page; §9 gives the whole rendering to review and to a Refusal, and to nothing else")
+	}
+}
+
+// TestCall_ChecksTextBlockCarriesItsRowsBeneathTheSummaryLine is §9's third
+// row, and the one an agent walks most: **a `check` that found problems carries
+// them in the text block**, file, line, field, `error_code` and message, as the
+// command's own renderer drew them (§9, issue #214).
+//
+// The summary line survives and stands first, because outcome-first is what
+// this surface has in place of an exit code, and the rows go beneath it
+// untouched — the composition prepends and so trims nothing, where the Refusal
+// path trims because it appends.
+//
+// A repository with problems still answers `isError: true` and still carries
+// every row in the structured half: this adds a channel and moves none. The
+// keys of that half are asserted here rather than in a case of their own,
+// because *the rows did not move* is the half of the change a text-block
+// assertion cannot see — a block that carried the rows and a structured half
+// that had lost them would satisfy every line above.
+func TestCall_ChecksTextBlockCarriesItsRowsBeneathTheSummaryLine(t *testing.T) {
+	table := "FILE                      LINE  FIELD    ERROR_CODE   MESSAGE\n" +
+		"definitions/probe_d.yaml  4     binding  unknown-key  \"binding\" is not a key the schema at this position admits\n"
 	rows := []render.Row{stubRow{Type: "problem", Name: "a"}, stubRow{Type: "problem", Name: "b"}}
-	server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(false), Rendering: "FILE  LINE\n", Exit: 1})
+	server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(false), Rendering: table, Exit: 1})
 
 	envelope, err := server.Call(t.Context(), "check", json.RawMessage(`{}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := envelope.Content[0].Text, "2 problems"; got != want {
-		t.Errorf("the text block is %q, want the summary line %q", got, want)
+	if got, want := envelope.Content[0].Text, "2 problems\n\n"+table; got != want {
+		t.Errorf("the text block is %q, want the summary line and the rows beneath it: %q", got, want)
 	}
 	if !envelope.IsError {
 		t.Error("isError is false on a repository with problems; the caller did not get what they asked for")
+	}
+	if got, want := len(envelope.StructuredContent.Rows), 2; got != want {
+		t.Errorf("the envelope carries %d rows, want %d: the text block is a second channel and not a move", got, want)
 	}
 	// The **members of the structured half**, and not a search through its
 	// bytes: every real `check` row carries an `error_code` of its own, so a
@@ -787,6 +823,67 @@ func TestCall_ATextBlockIsASummaryLineOnEveryToolTheTableDoesNotName(t *testing.
 	}
 	if got, want := slices.Sorted(maps.Keys(members)), []string{"rows", "truncated"}; !slices.Equal(got, want) {
 		t.Errorf("the structured content is keyed %q, want %q: no outcome key, no error_code of the envelope's own, and nothing restating the bit", got, want)
+	}
+}
+
+// TestCall_ACheckThatFoundNothingCarriesTheSummaryLineAlone is the same row
+// read where there are no rows: what goes beneath the line is the row set, so
+// an empty one puts nothing there.
+//
+// That is what keeps `check`'s row a fact about the **rows** rather than about
+// the path a command took — the objection §9's `review` row answers by promising
+// the page byte for byte on every path `review` answers at all. A clean check's
+// page is a sentence about a count and not a table, and a text block that
+// carried it would be this surface saying twice what it has already said once.
+func TestCall_ACheckThatFoundNothingCarriesTheSummaryLineAlone(t *testing.T) {
+	server := returning(Answer{Terminal: render.NewResultRow(false), Rendering: "checked 5 artefacts: no problems found\n"})
+
+	envelope, err := server.Call(t.Context(), "check", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := envelope.Content[0].Text, "no rows"; got != want {
+		t.Errorf("the text block is %q, want the summary line alone: %q", got, want)
+	}
+	if envelope.IsError {
+		t.Error("isError is true on a repository with no problems")
+	}
+}
+
+// TestCall_ACheckCarryingRowsAndNoRenderingIsAFaultInTheServer is
+// TestCall_ARenderingToolThatRenderedNothing...'s rule read over `check`'s row:
+// where the text block promises the rows and the command rendered none, the
+// promise is unkeepable, and a wrong envelope is harder to notice than a
+// missing one.
+func TestCall_ACheckCarryingRowsAndNoRenderingIsAFaultInTheServer(t *testing.T) {
+	rows := []render.Row{stubRow{Type: "problem", Name: "a"}}
+	server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(false), Exit: 1})
+
+	envelope, err := server.Call(t.Context(), "check", json.RawMessage(`{}`))
+	if err == nil {
+		t.Fatalf("the call answered %+v, want a fault in the server", envelope)
+	}
+}
+
+// TestCall_ACutResultSaysSoAboveTheRowsItCarries is §9's *a truncated result
+// must never look complete*, held where the rows themselves enter the text
+// block: the marker rides on the summary line, which stands **first**, so a
+// reader meets it before the table rather than after it.
+//
+// `check` carries no `--limit` and its command cuts nothing, so no fixture
+// repository produces this answer; the case is here because the rule is about
+// the composition and not about what any command found.
+func TestCall_ACutResultSaysSoAboveTheRowsItCarries(t *testing.T) {
+	rows := []render.Row{stubRow{Type: "problem", Name: "a"}}
+	server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(true), Rendering: "FILE  LINE\n", Exit: 1})
+
+	envelope, err := server.Call(t.Context(), "check", json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	line, _, _ := strings.Cut(envelope.Content[0].Text, "\n")
+	if got, want := line, "1 problem, truncated"; got != want {
+		t.Errorf("the first line of the text block is %q, want %q: a truncated result must never read as complete", got, want)
 	}
 }
 
