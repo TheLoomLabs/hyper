@@ -1,4 +1,10 @@
-# hyper
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.svg">
+  <img src="docs/images/hero-light.svg" alt="hyper — an agent authors the artefact, check verifies it offline, review renders it in a gutter, a human decides, and only then does hyper run it; the records it leaves are the baseline the next review reads. Nothing reaches the world unreviewed; nothing changes unseen.">
+</picture>
+
+[![licence Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
+[![Go 1.25+](https://img.shields.io/badge/go-1.25%2B-00ADD8.svg)](go.mod)
 
 > **Nothing reaches the world unreviewed; nothing changes unseen.**
 
@@ -18,13 +24,127 @@ where that is argued. Neither is accountability alone: one acts on what has not 
 and knows nothing about the world; the other accounts for what has happened and stops
 nothing.
 
+**What it will not do** is as short a list and as deliberate: no plan, no query language, no
+daemon, no telemetry, no team features, and it never updates itself. That is
+[below](#what-hyper-deliberately-is-not), with a reason attached to each.
+
+## The loop
+
+```mermaid
+flowchart TD
+    A["an agent authors<br/>a Definition · a Procedure · a Target declaration"]
+    C["hyper check<br/>every static rule, offline"]
+    V["hyper review<br/>the artefact in a gutter, against the last Run"]
+    H{"a human<br/>decides"}
+    X["hyper run<br/>the step that reaches the world"]
+    S[("the Store<br/>Records and the Journal,<br/>on a branch of this repository")]
+
+    A --> C
+    C --> V
+    V --> H
+    H -- "back to the agent" --> A
+    H -- "merged" --> X
+    X --> S
+    S -- "the baseline the next review reads" --> V
+```
+
+<sub>Renders [§0](docs/spec/01-what-hyper-is.md), and the sequence
+[ADR-0093](docs/adr/0093-orientation-is-a-handshake-field-and-hyper-writes-no-file-to-carry-it.md)
+states. The gate is the loop's, not the tool's: there is no per-Run approval
+([§13](docs/spec/14-non-goals-and-honest-limits.md)) and nothing in `hyper` withholds a Run from
+an unreviewed tree. What it makes certain is that the change was legible before anyone merged
+it — who may make it stick is who may merge.</sub>
+
+Everything above the gate is free to watch. `check` and a review reach nothing outside the
+repository, with no credential and no infrastructure — so the half of the thesis that says
+*nothing reaches the world unreviewed* costs a clone and nothing else.
+
+## What it looks like
+
+One Procedure, one command, one review. An agent widened a `destroy` Step's Bound from 3 to 5
+in a Procedure that retires preview environments. `check` reports nothing, and it is right not
+to: a Bound is declared, so `bound-missing` does not apply, and whether an Expansion exceeds
+one is not decidable from the artefacts at all. The edit is legal. It is not invisible.
+
+```
+$ hyper review procedures/retire-preview-envs.yaml
+
+  PROCEDURE         │  procedures/retire-preview-envs.yaml     a91f0c2 → working tree
+                    │  03:00 UTC every Monday · ≈4.3 runs/month · last ran 41 days ago
+  ──────────────────┼──────────────────────────────────────────────────────────────
+  envelope ✓        │   targets: [local, staging]
+
+  DESTROY  staging  │     - id: retire
+                    │       definition: hetzner-staging
+                    │       operation: delete_server
+                    │       over:
+                    │         assets:
+                    │           - field: labels.role
+                    │             equals: preview
+                    │           - field: created_at
+                    │             older_than: 14d
+                    │ ~     bound: 5
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  DESTROY    line 24  step retire  delete_server, bound 5
+  WIDENED    line 34  step retire  bound 3 → 5 since a91f0c2
+  ENVELOPE   line 3   ok           no step reaches a target outside [local, staging]
+```
+
+`WIDENED` is the review surface reporting that an agent widened a `destroy` Bound — before
+anything ran, against no infrastructure, beside the line that made the claim. Who may make the
+edit stick is who may merge it, and there is no second authority axis inside the tool.
+
+This is [§0](docs/spec/01-what-hyper-is.md)'s worked example, abridged there and here to the
+Step the agent touched. Its `hetzner-staging` Definition is illustrative — the Provider that
+ships in the binary is `shell`, and the quickstart below runs against that one.
+
+## The five artefacts
+
+```mermaid
+flowchart TB
+    RD["Repository declaration<br/>hyper.yaml"]
+    P["Procedure<br/>procedures/"]
+    D["Definition<br/>definitions/"]
+    M["Manifest — the Provider<br/>providers/"]
+    T["Target declaration<br/>targets/"]
+
+    RD -. "governs every Run" .-> P
+    P -- "a Step names a definition:" --> D
+    P -- "a Step binds a target:" --> T
+    D -- "provider:" --> M
+    D -- "targets:" --> T
+    M -. "requires the Capabilities<br/>the Target grants" .-> T
+```
+
+<sub>Renders [§2](docs/spec/03-the-model.md) and [§3](docs/spec/04-the-authoring-format.md).
+Every artefact lives at a fixed, `hyper`-owned path and carries a `kind:` that must agree with
+its directory; `hyper.yaml` is the one exception, agreeing with its filename instead.</sub>
+
+The edges are the diagram's job; what each one carries is short enough to say:
+
+- **Manifest** — the whole of a Provider: its schemas, its Operations and the Kind each
+  declares, and the Capabilities it requires. Data, never code.
+- **Target declaration** — the reviewed half of a Target: which Kinds it accepts, which
+  Capabilities it grants, which endpoint it names. It holds no credentials, which is why every
+  static check runs without them.
+- **Definition** — a named, authority-scoped use of one Provider: the Kinds it claims and the
+  Targets it may bind. It carries no argument values; those belong to the Step.
+- **Procedure** — an ordered list of Steps, and the full set of Targets it and everything it
+  invokes may touch — authored rather than derived, so a reviewer sees the envelope without
+  tracing every nested invocation.
+- **Repository declaration** — which version of `hyper` may act here, and how long Records are
+  kept. It admits only facts that govern every Run and belong to no other artefact.
+
+These five are the whole of what a Run can reach the world through, and they are the whole of
+what there is to read. There is nothing behind a Manifest to fetch, build or isolate — which
+is why reviewing it is enough, and why `install` moves data rather than code.
+
 ## Quickstart
 
-Half of the thesis is free to watch — `check` and a review reach nothing outside the
-repository, with no credential and no infrastructure. The sequence below goes further and
-runs, against the built-in `shell` Provider on your own machine.
+The sequence below runs, against the built-in `shell` Provider, on your own machine.
 
-**Build a stamped binary.** `hyper` learns its own version from the linker, and a build that
+**1. Build a stamped binary.** `hyper` learns its own version from the linker, and a build that
 omits the flag reports `unknown` and Refuses the version-pin gate on every repository it
 touches. The stamp is not optional — see [`docs/build/releasing.md`](docs/build/releasing.md).
 
@@ -34,14 +154,14 @@ go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=1.4.
   -o ~/bin/hyper ./cmd/hyper
 ```
 
-**Make a repository.** The Store is a branch of it, so there has to be one.
+**2. Make a repository.** The Store is a branch of it, so there has to be one.
 
 ```bash
 mkdir demo && cd demo && git init -b main
 mkdir targets definitions procedures
 ```
 
-**Write four artefacts.** The Repository declaration, a Target, a Definition, a Procedure —
+**3. Write four artefacts.** The Repository declaration, a Target, a Definition, a Procedure —
 the fifth artefact `check` counts is the built-in `shell` Manifest, which ships inside the
 binary.
 
@@ -89,16 +209,16 @@ steps:
       command: [echo, hello from hyper]
 ```
 
-**Check them.** Every static rule, offline, against no credential.
+**4. Check them.** Every static rule, offline, against no credential.
 
 ```console
 $ hyper check
 checked 5 artefacts: no problems found
 ```
 
-**Read the review.** This is the surface the thesis's first clause is made of: the artefact in
-a gutter, the authority assembled from `definitions/` and `targets/`, and a `FLAGS` index that
-states nothing the gutter does not.
+**5. Read the review.** This is the surface the thesis's first clause is made of: the artefact
+in a gutter, the authority assembled from `definitions/` and `targets/`, and a `FLAGS` index
+that states nothing the gutter does not.
 
 ```console
 $ hyper review say-hello
@@ -124,8 +244,8 @@ $ hyper review say-hello
   ENVELOPE  line 3  ok          no step reaches a target outside [local]
 ```
 
-**Create the Store, and commit.** `store init` is a human's act — no MCP tool can perform it.
-The commit is not ceremony: a Run's Provenance records `repo_revision`, so a Run against a
+**6. Create the Store, and commit.** `store init` is a human's act — no MCP tool can perform
+it. The commit is not ceremony: a Run's Provenance records `repo_revision`, so a Run against a
 tree with no commit has nothing to record and fails.
 
 ```bash
@@ -133,7 +253,7 @@ hyper store init
 git add -A && git commit -m artefacts
 ```
 
-**Run it, and read the record back.**
+**7. Run it, and read the record back.**
 
 ```console
 $ hyper run say-hello
@@ -195,7 +315,61 @@ workflow that verifies against sixty-four zeros.
 Once `v1.4.0` is cut ([`docs/build/releasing.md`](docs/build/releasing.md)), the first step
 becomes `hyper project`, the hand-written pin goes away, and the `AGENTS.md` comes with it.
 
+## What a Run leaves behind
+
+```mermaid
+flowchart TD
+    R["a Run of a Procedure"]
+    J["the Journal<br/>one entry per Run: its outcome, its Provenance,<br/>and every Step's Disposition"]
+    REC["Records<br/>immutable, versioned series, identified by<br/>Target, Definition and name"]
+    O["Observation<br/>a fact read from the world"]
+    AS["Asset<br/>something hyper's own effect reached,<br/>and is accountable for"]
+    TS["Tombstone<br/>the version saying what the Asset<br/>described was destroyed"]
+    ST[("the Store<br/>Records and the Journal,<br/>on branch hyper-store of this repository")]
+
+    R --> J
+    R --> REC
+    REC --> O
+    REC --> AS
+    AS -- "a destroy writes one" --> TS
+    J --> ST
+    O --> ST
+    AS --> ST
+    TS --> ST
+```
+
+<sub>Renders [§7](docs/spec/08-the-record.md). The Journal is the only place a Refusal is
+recorded, since a Refusal writes no Record.</sub>
+
+The Store being **a branch of your own repository** is the fact people disbelieve. It is an
+orphan branch named `hyper-store`, fixed rather than chosen — no setting, no flag — written by
+every environment that runs. It is `hyper`'s account of the world rather than part of it, so it
+is never a Target and reaching it costs no Capability.
+
+A Comparison reads one Run against the previous Run of the same Procedure, split by which actor
+did the changing: the Assets `hyper` changed, the Observations the world changed, and the code
+that changed between the two. That third table is what the repository buys — an agent widening
+a `destroy` Bound between two Runs is a change of the same class as a server going quiet.
+
 ## The two surfaces
+
+```mermaid
+flowchart TB
+    MCP["the MCP server<br/>thirteen tools, over stdio"]
+    CLI["the CLI<br/>sixteen commands"]
+    H["install · store · compact"]
+    D{{"one dispatch"}}
+    W["the repository, and the world"]
+
+    H -- "reachable only here" --> CLI
+    MCP -- "builds the command line its<br/>command would have received" --> D
+    CLI --> D
+    D --> W
+```
+
+<sub>Renders [§9](docs/spec/10-surfaces.md). The three commands that carry *no tool* are the
+fact about the shape: an agent may read the record and add to it, and may not create it, prune
+it, or bring anything new into the repository.</sub>
 
 One core, two ways in. [§9](docs/spec/10-surfaces.md) fixes that *ergonomics is the whole of
 the difference between them*: an MCP tool builds the command line its command would have
@@ -275,20 +449,6 @@ amends it.
 No artefact is scaffolded. The worked example is a fenced block in a Markdown file — it teaches
 the format, grants nothing, and is counted by no `check`.
 
-## Where the real documentation is
-
-- [`CONTEXT.md`](CONTEXT.md) — the vocabulary. Every term above is defined there, with the
-  synonyms it deliberately avoids.
-- [`docs/spec/`](docs/spec/) — the specification, in fourteen sections. It is the authority:
-  where the code and the spec disagree, the spec is right.
-- [`docs/adr/`](docs/adr/) — ninety-odd records of why, including the options that lost.
-- [`docs/build/milestones.md`](docs/build/milestones.md) — the build sequence, and the only
-  place it is written down.
-
-**Together they are about 270k tokens, and no session reads them whole.** Do not point a tool
-at `docs/spec/` in one pass; it does not fit, and the sections are layers where any one change
-is a slice through all of them. `docs/spec/README.md` states which file carries which section.
-
 ## What `hyper` deliberately is not
 
 These are decisions, and [§13](docs/spec/14-non-goals-and-honest-limits.md) records each with
@@ -311,6 +471,20 @@ past a Refusal that no artefact records. And `hyper` **never updates itself**
 
 Half the people who would bounce off `hyper` should bounce off it here, rather than three
 weeks in. That is what this section is for.
+
+## Where the real documentation is
+
+- [`CONTEXT.md`](CONTEXT.md) — the vocabulary. Every term above is defined there, with the
+  synonyms it deliberately avoids.
+- [`docs/spec/`](docs/spec/) — the specification, in fourteen sections. It is the authority:
+  where the code and the spec disagree, the spec is right.
+- [`docs/adr/`](docs/adr/) — ninety-odd records of why, including the options that lost.
+- [`docs/build/milestones.md`](docs/build/milestones.md) — the build sequence, and the only
+  place it is written down.
+
+**Together they are about 270k tokens, and no session reads them whole.** Do not point a tool
+at `docs/spec/` in one pass; it does not fit, and the sections are layers where any one change
+is a slice through all of them. `docs/spec/README.md` states which file carries which section.
 
 ## Contributing, security, licence
 
