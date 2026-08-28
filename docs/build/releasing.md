@@ -16,7 +16,7 @@ the spec is right and this file is stale.
 One symbol, written by the linker:
 
 ```
-go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=1.4.0" ./cmd/hyper
+go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" ./cmd/hyper
 ```
 
 `internal/version.Version` is a `var` for exactly this reason. `-X` writes a
@@ -41,8 +41,8 @@ Two kinds of file under one tag, and the binary names both by a template it
 holds and cannot be argued out of (§11's four compiled-in constants):
 
 ```
-https://github.com/TheLoomLabs/hyper/releases/download/v1.4.0/hyper-1.4.0-x86_64-linux.tar.gz
-https://github.com/TheLoomLabs/hyper/releases/download/v1.4.0/checksums.txt
+https://github.com/TheLoomLabs/hyper/releases/download/v0.0.1-alpha/hyper-0.0.1-alpha-x86_64-linux.tar.gz
+https://github.com/TheLoomLabs/hyper/releases/download/v0.0.1-alpha/checksums.txt
 ```
 
 The **tag carries the `v` and no filename under it does.** Each archive holds
@@ -54,12 +54,20 @@ declaration, and the only thing the pin ever reaches the network for.
 
 Exactly one platform is `hyper`'s business: the one the projection's `runs-on`
 names, `x86_64-linux`. What a release publishes beyond it is the release
-process's own, and `aarch64-linux` is published beside it for laptops.
+process's own, and three are published beside it for laptops —
+`aarch64-linux`, `x86_64-darwin` and `aarch64-darwin`. There is no Windows
+build: no `runs-on` here names one, so it would be a platform the release
+carried and nothing tested.
+
+The macOS archives are **cross-compiled from the Linux runner and are neither
+signed nor notarised.** `curl` sets no quarantine attribute so a fetched
+archive runs, and a browser download does — `xattr -d com.apple.quarantine
+./hyper` is the repair, and the README says so where it says to download.
 
 ## Cutting one
 
 1. Land everything, on `main`, with the tests green.
-2. Push the tag: `git tag v1.4.0 && git push origin v1.4.0`.
+2. Push the tag: `git tag v0.0.1-alpha && git push origin v0.0.1-alpha`.
 3. [`.github/workflows/release.yml`](../../.github/workflows/release.yml) does
    the rest — it pins the toolchain to go.mod's directive, builds through
    [`scripts/release.sh`](../../scripts/release.sh), checks that the binary
@@ -74,7 +82,7 @@ The same script builds locally, which is what the cases in
 [`cmd/hyper/release_test.go`](../../cmd/hyper/release_test.go) run:
 
 ```
-scripts/release.sh 1.4.0 dist x86_64-linux
+scripts/release.sh 0.0.1-alpha dist x86_64-linux
 ```
 
 ## The first release, and what it unlocks

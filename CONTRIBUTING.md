@@ -75,13 +75,9 @@ golden; read the diff it produces the way you would read any other.
 ## The spec is the authority
 
 Where the code and [`docs/spec/`](docs/spec/) disagree, **the spec is right and
-the code is the defect.** The same holds for the process documents that sit
-beside it — [`docs/build/milestones.md`](docs/build/milestones.md) and
-[`docs/build/releasing.md`](docs/build/releasing.md) both say so of themselves.
-
-**Read [`docs/build/milestones.md`](docs/build/milestones.md) first.** It names
-the strata, what each one reads, what each one delivers, and the
-session-per-phase protocol.
+the code is the defect.** The same holds for the process document that sits
+beside it — [`docs/build/releasing.md`](docs/build/releasing.md) says so of
+itself.
 
 `docs/spec/` plus `docs/adr/` plus [`CONTEXT.md`](CONTEXT.md) are about 270k
 tokens. **Never run a tool over `docs/spec/` in one pass** — it does not fit,

@@ -178,6 +178,10 @@ func hostPlatform(t *testing.T) string {
 		return "x86_64-linux"
 	case "linux/arm64":
 		return "aarch64-linux"
+	case "darwin/amd64":
+		return "x86_64-darwin"
+	case "darwin/arm64":
+		return "aarch64-darwin"
 	}
 	t.Skipf("the release publishes nothing for %s/%s; a released binary cannot be run here", runtime.GOOS, runtime.GOARCH)
 	return ""

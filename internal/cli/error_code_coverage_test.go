@@ -21,8 +21,7 @@ const checkCorpus = "testdata/check"
 
 // milestoneOneErrorCodes is the closed set issue #87 fixes for that
 // milestone: the thirty-seven error_code members milestone 1 brings to `hyper
-// check` (docs/build/milestones.md's milestone 1, "Which codes land, and
-// which do not"). It was every code reaching `check` until milestone 9 added
+// check`. It was every code reaching `check` until milestone 9 added
 // one, and it is milestone 1's contribution rather than the whole set now —
 // what `check` owes a fixture for is checkCorpusErrorCodes below. It is:
 //
@@ -86,8 +85,7 @@ var milestoneOneErrorCodes = []string{
 }
 
 // milestoneNineCheckCodes is what milestone 9 adds to the same set: §10's two
-// static Cadence codes that are not the transitive walk's (docs/build/
-// milestones.md's milestone 9).
+// static Cadence codes that are not the transitive walk's.
 //
 // `cadence-malformed` is here rather than in the list above because the grammar
 // was stated and unenforced until the milestone that projects a Cadence into a
@@ -107,8 +105,7 @@ var milestoneNineCheckCodes = []string{
 }
 
 // milestoneTenErrorCodes is what milestone 10 adds: §11's Extension codes,
-// each one a thing a Manifest in providers/ may never be (docs/build/
-// milestones.md's milestone 10).
+// each one a thing a Manifest in providers/ may never be.
 //
 // `provider-name-collision` is a Manifest taking a built-in Provider's name. It
 // is here rather than in the milestone-1 list because it is the one code in the

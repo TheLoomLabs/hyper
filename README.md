@@ -150,23 +150,29 @@ daemon and no post-install step, and it never updates itself
 
 ### From a release
 
-Releases publish **`x86_64-linux` and `aarch64-linux`, and nothing else** — there is no macOS
-and no Windows build. `checksums.txt` is `sha256sum`'s own output, and verifying against it is
-the same act `hyper project` performs when it freezes the digest into your Repository
-declaration.
+Releases publish four archives — **`x86_64-linux`, `aarch64-linux`, `x86_64-darwin` and
+`aarch64-darwin`**. There is no Windows build. `checksums.txt` is `sha256sum`'s own output,
+and checking against it by hand is the same act `hyper project` performs when it freezes the
+digest into your Repository declaration.
 
 ```bash
 VERSION=0.0.1-alpha
+PLATFORM=x86_64-linux   # or aarch64-linux, x86_64-darwin, aarch64-darwin
 BASE=https://github.com/TheLoomLabs/hyper/releases/download/v$VERSION
 
-curl -fLO $BASE/hyper-$VERSION-x86_64-linux.tar.gz
+curl -fLO $BASE/hyper-$VERSION-$PLATFORM.tar.gz
 curl -fLO $BASE/checksums.txt
-sha256sum --check --ignore-missing checksums.txt
+grep " hyper-$VERSION-$PLATFORM.tar.gz$" checksums.txt | sha256sum -c -
 
-tar -xzf hyper-$VERSION-x86_64-linux.tar.gz
+tar -xzf hyper-$VERSION-$PLATFORM.tar.gz
 install -m 755 hyper ~/bin/hyper   # anywhere on your PATH
 hyper version
 ```
+
+**On macOS `sha256sum` is `shasum -a 256`**, and the rest is unchanged. The macOS archives are
+cross-compiled on the Linux runner and are neither signed nor notarised: `curl` sets no
+quarantine attribute so a fetched archive runs, but one pulled through a browser needs
+`xattr -d com.apple.quarantine ./hyper` first.
 
 **`0.0.1-alpha` is the first release, and until its tag is pushed those URLs answer `404`.**
 That is the same absence `hyper project` reports as `release-artefact-absent` — see
@@ -193,6 +199,15 @@ you](#three-things-that-will-catch-you-and-why-each-is-a-rule).
 
 With a stamped `hyper` on your `PATH`, the sequence below runs against the built-in `shell`
 Provider on your own machine.
+
+**You are about to write four small files by hand, and only three of them stay your job.**
+`hyper.yaml` is `hyper project`'s to write once a release exists —
+[that is the workaround below](#one-step-here-is-a-workaround-and-it-is-the-digest). The other
+three `hyper` scaffolds on purpose: there is no `init`, no template and no generator, because
+a Definition is what an **agent** writes and you review. Three is the floor rather than a
+tutorial's padding — a Run needs a Target to act on, a Definition to act through, and a
+Procedure to sequence. Write them once to see how small the format is and what `review` does
+with it, then [wire up the MCP server](#the-two-surfaces) and stop writing them by hand.
 
 **1. Make a repository.** The Store is a branch of it, so there has to be one.
 
@@ -519,8 +534,6 @@ weeks in. That is what this section is for.
 - [`docs/spec/`](docs/spec/) — the specification, in fourteen sections. It is the authority:
   where the code and the spec disagree, the spec is right.
 - [`docs/adr/`](docs/adr/) — ninety-odd records of why, including the options that lost.
-- [`docs/build/milestones.md`](docs/build/milestones.md) — the build sequence, and the only
-  place it is written down.
 
 ## Contributing, security, licence
 

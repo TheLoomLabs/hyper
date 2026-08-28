@@ -37,10 +37,11 @@ fi
 # The published set. It is the release process's business rather than the
 # tool's — §11 fixes one platform, the one `runs-on` names and the one the
 # projection's compiled-in template fetches, and says that what a release
-# publishes beyond that is no property of the binary. This is the set a laptop
-# can also download.
+# publishes beyond that is no property of the binary. The other three are the
+# set a laptop can also download — two Linux, two macOS, and no Windows, which
+# no `runs-on` here names and nobody has asked for.
 if [ ${#platforms[@]} -eq 0 ]; then
-	platforms=(x86_64-linux aarch64-linux)
+	platforms=(x86_64-linux aarch64-linux x86_64-darwin aarch64-darwin)
 fi
 
 # The one flag that stamps. It writes internal/version's `Version`, which is a
@@ -57,6 +58,8 @@ for platform in "${platforms[@]}"; do
 	case $platform in
 	x86_64-linux) goos=linux goarch=amd64 ;;
 	aarch64-linux) goos=linux goarch=arm64 ;;
+	x86_64-darwin) goos=darwin goarch=amd64 ;;
+	aarch64-darwin) goos=darwin goarch=arm64 ;;
 	*)
 		echo "release.sh: no build is defined for $platform" >&2
 		exit 2
