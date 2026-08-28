@@ -19,7 +19,8 @@ exposes **Operations**, a **Definition** is a named, authority-scoped use of one
 **Procedure** sequences **Steps**, and every invocation acts against a **Target** and produces
 **Records**. A Provider is a Manifest — data, never code — so reviewing the artefact is
 reviewing the whole of what will run, and every effect it describes is performed by `hyper`
-itself from a closed set of Capabilities that only `hyper` defines.
+itself from a closed set of Capabilities that only `hyper` defines. Every capitalised term
+here has a one-line answer in the [glossary](#glossary).
 
 The two clauses cover each other's blind spot, and [§0](docs/spec/01-what-hyper-is.md) is
 where that is argued. Neither is accountability alone: one acts on what has not happened yet
@@ -29,6 +30,22 @@ nothing.
 **What it will not do** is as short a list and as deliberate: no plan, no query language, no
 daemon, no telemetry, no team features, and it never updates itself. That is
 [below](#what-hyper-deliberately-is-not), with a reason attached to each.
+
+## Contents
+
+- [The loop](#the-loop)
+- [What it looks like](#what-it-looks-like)
+- [The five artefacts](#the-five-artefacts)
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [Your first repository](#your-first-repository)
+  - [Telling the agent what to do](#telling-the-agent-what-to-do)
+- [What a Run leaves behind](#what-a-run-leaves-behind)
+- [The two surfaces](#the-two-surfaces)
+- [Glossary](#glossary)
+- [What `hyper` deliberately is not](#what-hyper-deliberately-is-not)
+- [Where the real documentation is](#where-the-real-documentation-is)
+- [Contributing, security, licence](#contributing-security-licence)
 
 ## The loop
 
@@ -369,6 +386,55 @@ workflow that verifies against sixty-four zeros.
 Once `v0.0.1-alpha` is cut ([`docs/build/releasing.md`](docs/build/releasing.md)), the first step
 becomes `hyper project`, the hand-written pin goes away, and the `AGENTS.md` comes with it.
 
+## Your first repository
+
+The quickstart is a throwaway. This is the same loop in a repository you mean to keep, and
+**the order is not a suggestion** — until `hyper.yaml` carries a pin, every command that reads
+the repository Refuses `version-pin-absent` and tells you to run `hyper project`.
+
+| | Run | What it does |
+| --- | --- | --- |
+| 1 | `hyper project` | Writes `hyper.yaml` — the version pin and the release digest — and an `AGENTS.md` where you have none. **Nothing that reads the repository works before it** — every command in the tree Refuses `version-pin-absent`, and only `version`, `completions` and `mcp` stand outside. |
+| 2 | `hyper store init` | Creates the `hyper-store` branch. A human's act: no MCP tool performs it. |
+| 3 | *the agent writes artefacts* | A Target declaration, a Definition, a Procedure. See below. |
+| 4 | `hyper check` | Every static rule, offline, against no credential. |
+| 5 | `hyper review <name>` | The artefact in a gutter, with what changed since the last Run. **This is the step that is yours.** |
+| 6 | `git commit`, and merge | A Run's Provenance records `repo_revision`; a tree with no commit has nothing to record and fails. |
+| 7 | `hyper run <procedure>` | The first thing here that reaches the world. |
+| 8 | `hyper changes` · `hyper records` | What the Run left behind, and what moved since the one before it. |
+
+Steps 1 and 2 happen once. **Steps 3 to 8 are the loop you stay in.** `hyper` on its own prints
+the whole command tree, so what is available is never more than one invocation away.
+
+Step 1 cannot succeed until a release is published — see
+[the workaround](#one-step-here-is-a-workaround-and-it-is-the-digest), which is to write those
+four lines of `hyper.yaml` by hand.
+
+### Telling the agent what to do
+
+Wire the server once — [the config block is below](#the-two-surfaces) — and the agent arrives
+oriented. MCP's `initialize` hands it what `hyper` is, the five artefacts and where each lives,
+the loop, the three commands that are yours, and a worked example that checks clean. `hyper
+project` writes the same text to `AGENTS.md`, which every harness reads whether or not a server
+is configured. There is nothing to paste and nothing to explain first.
+
+So ask for the outcome rather than the file. The agent holds thirteen tools and can `check`,
+`probe` and `review` its own work before handing it back:
+
+> Add a Procedure that gets the HTTP status of these three URLs every morning and records them.
+
+> `host-ops` needs to restart the service on staging, not just read it. Widen it.
+
+> The last run refused. Why, and what would fix it?
+
+**Three commands are yours alone, and no tool reaches them**: `install`, `store` and `compact`.
+An agent may read the record and add to it, and may not create it, prune it, or bring anything
+new into the repository.
+
+The fourth thing it cannot do for you is the review. It wrote the artefact; the gutter, the
+`AUTHORITY` table and the `FLAGS` index are for you — and who may make an edit stick is who may
+merge it.
+
 ## What a Run leaves behind
 
 ```mermaid
@@ -502,6 +568,65 @@ amends it.
 
 No artefact is scaffolded. The worked example is a fenced block in a Markdown file — it teaches
 the format, grants nothing, and is counted by no `check`.
+
+## Glossary
+
+Every term below is defined in full in [`CONTEXT.md`](CONTEXT.md), which is the authority and
+which also lists, for each one, the synonyms this project deliberately avoids. This is the
+short version, for the first read.
+
+**What a Provider is made of**
+
+| Term | What it is |
+| --- | --- |
+| **Provider** | A named capability for talking to one kind of system — its schemas, its Operations, and the Capabilities it requires. It is a Manifest and nothing else. |
+| **Manifest** | The whole of a Provider: data rather than code. There is no implementation behind it to review, which is why reviewing it is enough. |
+| **Operation** | A single callable a Provider exposes, carrying a declared Kind. |
+| **Kind** | An Operation's declared blast radius — `read`, `mutate` or `destroy`. Always declared in the Manifest, never inferred from an Operation's name. |
+| **Capability** | One effect `hyper` can perform on a Manifest's behalf, from a closed set only `hyper` defines. A Manifest declares the ones it requires; a Target declaration grants them; an Operation reaches only what both name. |
+| **Opaque** | A Capability whose effects `hyper` cannot describe — running a command, say. Orthogonal to Kind, so an Opaque Operation still declares whether it destroys. |
+| **Repeatability** | What an Operation does when a Procedure is run again: `repeatable`, `skip-if-recorded`, or run-once. Declared in the Manifest, never inferred. |
+| **Extension** | A Provider authored by someone other than `hyper`. Being a Manifest, it contains no code, and the Capabilities reserved to built-ins are never granted to it. |
+
+**What you write** — the five reviewed artefacts
+
+| Term | Where it lives | What it is |
+| --- | --- | --- |
+| **Repository declaration** | `hyper.yaml` | Which version of `hyper` may act here, and how long Records are kept. |
+| **Target declaration** | `targets/` | The reviewed half of a Target: which Kinds it accepts, which Capabilities it grants, which endpoint it names. Holds no credentials, so every static check runs without them. |
+| **Definition** | `definitions/` | A named, authority-scoped use of one Provider: the Kinds it claims and the Targets it may bind. Nothing is invoked except through one. |
+| **Procedure** | `procedures/` | An ordered set of Steps, declaring the full set of Targets it may touch. |
+| **Manifest** | `providers/` | As above — the Provider itself, as data. Built-ins ship inside the binary. |
+| **Step** | in a Procedure | One Operation, invoked through one Definition, against one Target. |
+| **Bound** | on a Step | The most Records an effectful Step may affect. Mandatory on a `destroy` Step, where an absent Bound means unbounded rather than unchecked. |
+| **Cadence** | on a Procedure | Its declared recurrence, as a UTC cron expression. `hyper` projects it into an external executor's clock rather than keeping one of its own, so it is a lower bound on staleness rather than a promise of coverage. |
+
+**The world it acts on**
+
+| Term | What it is |
+| --- | --- |
+| **Target** | A concrete system an Operation acts on, and the unit of both blast radius and credentials. |
+| **Target credentials** | The unreviewed half: the secrets the declaration names as environment variables. They live where your environment already keeps them, never in the repository. |
+| **Local** | The Target meaning this machine. Its *name* is reserved, not its file — you author its declaration like any other, and it is what a Probe binds. |
+| **Expansion** | The resolution of a Step's selector to the concrete Records it will act on. |
+
+**What a Run leaves behind**
+
+| Term | What it is |
+| --- | --- |
+| **Run** | A single execution of a Procedure, and the unit against which change is reviewed. |
+| **Record** | An immutable, versioned series of what an Operation produced. Every Record is either an Observation or an Asset. |
+| **Observation** | A fact read from the world at a point in time. `hyper` is not accountable for what it describes. |
+| **Asset** | Something `hyper`'s own effect reached and is therefore accountable for. A thing merely observed is never an Asset. |
+| **Tombstone** | The version of an Asset recording that what it described was destroyed, and what its last known state was. |
+| **Store** | Where Records and the Journal live: the `hyper-store` branch of your own repository. It is `hyper`'s account of the world rather than part of it, so it is never a Target. |
+| **Journal** | The append-only series of Run entries. The only place a Refusal is recorded, since a Refusal writes no Record. |
+| **Refusal** | A guardrail declining before any effect reached the world. Distinct from failure, which means the world resisted. |
+| **Disposition** | What a Step did in a Run — ran, skipped, refused, never reached, or attempted with the outcome unknown. |
+| **Probe** | A `read` Operation against `local` without a Definition, writing no Record and no Journal entry. A lookup rather than a Run. |
+| **Rehearsal** | A Run under `--dry-run`. It performs the reads it reaches and *withholds* the first effectful Step rather than simulating it. |
+| **Provenance** | The record of which code produced something: the revisions, the digests, and the version of `hyper` that performed it. |
+| **Comparison** | One Run read against the previous Run of the same Procedure. Retrospective by construction, so it reports what happened rather than proposing what would. |
 
 ## What `hyper` deliberately is not
 
