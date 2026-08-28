@@ -72,6 +72,31 @@ than as a surprise:
 Regenerating is not review. `-update` will happily write a wrong answer into a
 golden; read the diff it produces the way you would read any other.
 
+## The acceptance harness
+
+The suite says whether the code does what the spec says. It cannot say whether
+an **agent** can author a correct artefact against the surface, and that
+question is answered by transcripts:
+
+```bash
+scripts/acceptance/run.sh scripts/acceptance/tasks/<task>.md /somewhere/outside/the/checkout
+```
+
+It builds a stamped binary, materialises a repository in the README's quickstart
+shape with `providers/` absent, writes the `AGENTS.md` the handshake carries, and
+runs one headless agent session against it — **inside a mount namespace where no
+`hyper` source checkout exists**. That last part is the point
+([ADR-0099](docs/adr/0099-the-acceptance-harness-is-sealed-and-the-foraging-was-the-blind-check.md)):
+three earlier runs left the repository and read `docs/spec/`, and a transcript
+that was handed the specification records a success the shipped product cannot
+reproduce, there being no `docs/spec/` on the machine a user installs `hyper` on.
+The script asserts the seal and stops if it does not hold.
+
+The output directory has to be outside this checkout, since the checkout is what
+the seal hides. `TestAcceptance_TheSealedHarnessHandsAnAgentTheQuickstartAndNothingElse`
+runs the setup half in the suite, so the harness cannot rot between the handful
+of runs a year it is used for.
+
 ## The spec is the authority
 
 Where the code and [`docs/spec/`](docs/spec/) disagree, **the spec is right and
