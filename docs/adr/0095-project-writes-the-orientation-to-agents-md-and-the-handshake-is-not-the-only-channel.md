@@ -95,6 +95,12 @@ worked Provider became a four-line fragment showing the single-host request and 
 and every fact §9 lists as a thing the orientation must state is still there, the four verbs
 included.
 
+_ADR-0096 amends this:_ which of the two shapes is the fragment was the wrong way round. The shape
+carried whole was the one #209's acceptance task asks for, so the transcript that met this decision's
+criterion met it by copying the example; the shape cut to four lines was the one carrying the rules an
+agent cannot infer. They swap, and the text grows by 21% in doing it — 11,398 characters rather than
+the 9,396 stated here, still below the 13,191 this decision started from.
+
 Getting to the ~5,000 characters issue #211 measured a hand-written draft at would have meant dropping
 the `hyper.yaml`, the Definition and the Procedure from the worked example — which §9 requires it to
 carry, and which is a spec change rather than an edit. The reduction stops where the facts start.

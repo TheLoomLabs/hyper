@@ -798,7 +798,13 @@ already in mind, and none of these is about a call:
   act** (ADR-0020). It carries **both request shapes**, and the second is not decoration: a
   single-host request with an `auth:` scheme, and a multi-host one (`host: "{from-target}"` with
   `host-input:`) are different shapes, and an example that taught only the first sent the first agent
-  that needed the second to disassemble the binary for it.
+  that needed the second to disassemble the binary for it. **One of the two is carried whole and the
+  other as a fragment, and which is which is fixed here**: the whole one is effectful — a `mutate`
+  beside a `destroy`, an `auth:` scheme, a `record:` whose `identity:` is a hole, a Step with a
+  selector and a Bound — because those are the rules no tool call and no format prose state, and
+  because the multi-host `read` is the task a fresh repository's first agent is asked for, which an
+  example carrying it whole answers by transcription. Carrying both whole is refused for length, this
+  text being paid for on every session in every harness (ADR-0096).
 
 - **That the agent should offer to add a section to an `AGENTS.md` that already stands.** `project`
   writes the file where a repository holds none and never overwrites one that does, so a repository

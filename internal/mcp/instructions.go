@@ -5,7 +5,7 @@ import "fmt"
 // Instructions is the orientation: what `hyper` is, the five artefacts, the
 // loop an agent drives them through, the three commands that are the human's
 // and why, that a Refusal is final, and a worked example of each artefact (§9,
-// ADR-0093, ADR-0095, issues #209 and #211).
+// ADR-0093, ADR-0095, ADR-0096, issues #209, #211 and #212).
 //
 // **It reaches an agent two ways, and the text is one text.** The `initialize`
 // handshake carries it in the field the protocol has for exactly this —
@@ -62,6 +62,16 @@ func Instructions(version string) string {
 // call or a command already answers stays one. The example is the shape to
 // author against and not a tour: one whole repository, two request shapes, and
 // the rules that do not show up in either stated as prose beside them.
+//
+// **Which shape is carried whole is a decision and not a preference.** The
+// effectful one is, because its rules are the ones nothing else states — a
+// `record:` fixed by Kind, an `identity:` that must resolve before the call, a
+// `destroy:` claim naming Operations, a selector, a Bound — and because the
+// multi-host `read` is the task a fresh repository's first agent is asked for,
+// which an example carrying it whole answers by transcription rather than by
+// teaching. The `read` is the fragment beside it, and **both shapes whole is
+// the length #211 cut, re-acquired** (ADR-0096, issue #212,
+// internal/cli/instructions_test.go).
 const orientation = `# hyper
 
 ` + "`hyper`" + ` runs infrastructure automation you author, a human reviews, and it records. **You write the
@@ -121,91 +131,129 @@ header the Manifest's ` + "`auth:`" + ` names, and no rendering prints it.
 ## Two request shapes
 
 Single host — ` + "`host: \"{from-target}\"`" + ` resolves to the one host the bound Target grants, and ` + "`auth:`" + `
-names the header its credential goes in:
+names the header its credential goes in. This is the shape for anything that *creates* or *ends*
+something.
 
-` + "```" + `yaml
-http: {method: POST, host: "{from-target}", path: /zones/{zone}/records,
-       body: {name: "{name}", content: "{address}"}}
-auth: {header: {name: Authorization, prefix: "Bearer "}}
-` + "```" + `
-
-Many hosts — the same hole expands to every host the Target grants, and ` + "`host-input:`" + ` names which input
-picks one per Step. This is the shape for anything that *checks* rather than *creates*.
-
-` + "`providers/site-uptime.yaml`" + `
+` + "`providers/preview-dns.yaml`" + `
 
 ` + "```" + `yaml
 kind: provider
-provider: site-uptime
+provider: preview-dns
 schema-version: 1
-class: website
+class: cloudflare
 capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
 operations:
-  check_site:
-    kind: read
-    repeatability: repeatable
-    deadline: 10s
+  create_record:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 30s
     http:
-      method: GET
+      method: POST
       host: "{from-target}"
-      path: /
-      host-input: host
+      path: /zones/{zone}/records
+      body: {type: A, name: "{name}", content: "{address}"}
     input:
       type: object
-      properties:
-        host: {type: string}
+      properties: {zone: {type: string}, name: {type: string}, address: {type: string}}
     record:
-      identity: $.host
-      fields: {host: $.host, status: $.status, days_left: $.tls.days_left}
+      identity: "{name}"
+      fields: {id: $.body.result.id, created_on: $.body.result.created_on}
+  delete_record:
+    kind: destroy
+    repeatability: repeatable
+    deadline: 30s
+    http:
+      method: DELETE
+      host: "{from-target}"
+      path: /zones/{zone}/records/{record_id}
+    input:
+      type: object
+      properties: {zone: {type: string}, record_id: {type: string}}
 ` + "```" + `
 
-Nothing declares which statuses are acceptable, and that is not an omission: a ` + "`read`" + ` never halts on
-one, so ` + "`status: $.status`" + ` records a ` + "`503`" + ` as readily as a ` + "`200`" + ` and a later Step's ` + "`when:`" + ` decides what
-to do about it. A host the Target does **not** grant comes from an ` + "`enumerations:`" + ` block of the
-Operation's own instead.
+Three rules there that nothing else will teach you. **A ` + "`record:`" + ` is mandatory on a ` + "`read`" + ` and a
+` + "`mutate`" + `, and forbidden on a ` + "`destroy`" + `** — a Tombstone lands under the Asset's own identity. **An
+Operation declaring ` + "`skip-if-recorded`" + ` takes its ` + "`identity:`" + ` from a hole, not from a ` + "`$.`" + ` path**: the
+test reads the head of the series the call would write under *before* deciding whether to call, so an
+identity that exists only once the response is back is a test the Manifest cannot perform. Take it from
+what you sent. And **` + "`repeatability:`" + ` is declared here or defaulted here**, never downstream — an
+effectful Operation declaring none is run-once.
+
+Many hosts — the same hole expands to every host the Target grants, and ` + "`host-input:`" + ` names which input
+picks one per Step. This is the shape for anything that *checks*, and it is three keys of a ` + "`read`" + `
+Operation sitting where the two above sit.
+
+` + "```" + `yaml
+http: {method: GET, host: "{from-target}", path: /, host-input: host}
+input: {type: object, properties: {host: {type: string}}}
+record: {identity: $.host, fields: {host: $.host, status: $.status}}
+` + "```" + `
+
+A ` + "`read`" + ` projects what came back, so its ` + "`identity:`" + ` is a path, and a host the Target does **not**
+grant comes from an ` + "`enumerations:`" + ` block of the Operation's own instead.
 
 ## The rest of the repository
 
-The Target grants what the Manifest requires; ` + "`hosts:`" + ` and an ` + "`http`" + ` Capability go together or not at all.
+The Target grants what the Manifest requires, and ` + "`hosts:`" + ` and an ` + "`http`" + ` Capability go together or not
+at all.
 
-` + "`targets/websites.yaml`" + `
+` + "`targets/cloudflare-prod.yaml`" + `
 
 ` + "```" + `yaml
 kind: target-declaration
-target: websites
-class: website
-kinds: [read]
+target: cloudflare-prod
+class: cloudflare
+kinds: [read, mutate, destroy]
 capabilities: [http]
-hosts: [example.com, status.example.org]
+hosts: [api.cloudflare.com]
+auth:
+  token: {env: CLOUDFLARE_API_TOKEN}
 ` + "```" + `
 
-` + "`definitions/uptime-checks.yaml`" + `
+A Target's ` + "`kinds:`" + ` admits ` + "`destroy`" + ` and **a Definition's ` + "`kinds:`" + ` has no such member**: there a
+` + "`destroy:`" + ` claim names the Operations it allows one by one, granularity following severity. Reading
+back what this Definition creates is a second Definition — ` + "`kinds: [read]`" + `, same Provider, same
+Target — because one observes or it effects.
+
+` + "`definitions/preview-dns.yaml`" + `
 
 ` + "```" + `yaml
 kind: definition
-definition: uptime-checks
-provider: site-uptime
-kinds: [read]
-targets: [websites]
+definition: preview-dns
+provider: preview-dns
+kinds: [mutate]
+destroy: [delete_record]
+targets: [cloudflare-prod]
 ` + "```" + `
 
-` + "`procedures/check-uptime.yaml`" + `
+A Step's ` + "`over:`" + ` is the selector naming which Records it acts on — a different key from the ` + "`over:`" + `
+inside a ` + "`record:`" + ` — and ` + "`{item: …}`" + ` addresses whatever it resolved to. A Step declaring none is invoked
+once, which is the shape for creating something; a ` + "`destroy`" + ` Step always declares one.
+
+` + "`procedures/refresh-preview-dns.yaml`" + `
 
 ` + "```" + `yaml
 kind: procedure
-procedure: check-uptime
-targets: [websites]
+procedure: refresh-preview-dns
+targets: [cloudflare-prod]
 steps:
-  - id: example-com
-    definition: uptime-checks
-    operation: check_site
-    target: websites
-    args: {host: example.com}
-  - id: status-example-org
-    definition: uptime-checks
-    operation: check_site
-    target: websites
-    args: {host: status.example.org}
+  - id: publish
+    definition: preview-dns
+    operation: create_record
+    target: cloudflare-prod
+    args: {zone: example.com, name: preview-42.example.com, address: 203.0.113.10}
+  - id: retire
+    definition: preview-dns
+    operation: delete_record
+    target: cloudflare-prod
+    over:
+      assets:
+        - field: created_on
+          older_than: 14d
+    args: {zone: example.com, record_id: {item: $.id}}
+    bound: 5
 ` + "```" + `
 
 **` + "`hyper.yaml`" + ` is written by ` + "`project`" + `** and is the one artefact here to read rather than copy: the pin
