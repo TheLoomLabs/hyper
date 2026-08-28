@@ -88,7 +88,7 @@ init` and `compact` out of reach as **the human's** rather than as *absent from 
 old wording rested the guardrail on the tool set's shape, and an agent holding a terminal reads *there
 is no tool for it here* as permission.
 
-**The text was cut by 28% in the same change**, from 13,191 characters to about 9,440. It is now paid
+**The text was cut by 29% in the same change**, from 13,191 characters to 9,396. It is now paid
 for twice — once as a handshake field on every session, once as a file every harness reads — so length
 is a design constraint rather than a matter of taste. What went was prose, not facts: the second
 worked Provider became a four-line fragment showing the single-host request and the `auth:` scheme,
