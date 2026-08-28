@@ -60,7 +60,10 @@ import (
 func Main(args []string, stdout, stderr io.Writer, process Process, facts version.Facts) int {
 	to := Streams(stdout, stderr)
 	if len(args) == 0 {
-		fmt.Fprintln(to.narrate(), "usage: hyper <command> [args...]")
+		// The one invocation that asks what this binary is, answered
+		// with §9's tree rather than with the word `<command>`
+		// (usage.go, issue #210).
+		fmt.Fprint(to.narrate(), usage())
 		return ExitUsage
 	}
 

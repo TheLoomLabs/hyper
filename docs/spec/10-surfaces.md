@@ -39,6 +39,20 @@ glossary defines, where every name in the tree above is one — which is the sec
 and not as a seventeenth command (ADR-0088). None of the three ever checks whether a newer version exists
 (ADR-0019).
 
+**`hyper` with no arguments writes that tree.** The six groups above, the sixteen names carrying the
+positionals this section's table states beside them, and the three commands outside the tree named as
+such — on stderr, exiting `2`, like the usage error it is. It is the only place the command line says
+what it can do: `completions <shell>` emits every name and emits them as a shell script, which is not a
+thing anybody runs to find out what a binary does, and the orientation below reaches an agent on the
+other surface alone. A caller told only `usage: hyper <command> [args...]` has been given nowhere else
+to look, and what it does next is read whatever is nearby.
+
+It adds no command, no alias and no seventeenth entry. `help` and `--help` are not among the sixteen
+and answer `unknown command` as any other word does; nothing above is hidden, and printing the list is
+the opposite of hiding one. There is no per-command usage text either: a positional that resolves to
+nothing is the usage error above, naming the command that enumerates its namespace, and what stands in
+place of a manual page is Discovery — `providers`, `provider` and `operation` (ADR-0094).
+
 Fifteen of the sixteen compare themselves against the version pin in the Repository declaration before
 reading a second file and Refuse on mismatch, on a laptop and in CI alike; where there is no pin they
 Refuse naming `hyper project` (§4, ADR-0020). The pin gate is stated once here and presupposed by

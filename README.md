@@ -215,6 +215,13 @@ skipped or a Refusal to be reworded.
 Three more stand outside the tree, because none of them reads a repository: `version`,
 `completions <shell>`, and `mcp`.
 
+`hyper` with no arguments writes that table — the six groups, the sixteen names with their
+positionals, and the three outside the tree — on stderr, exiting `2`. There is no `help`
+command and no `--help`: neither is among the sixteen, and the list is printed rather than
+hidden behind one. That is
+[ADR-0094](docs/adr/0094-the-argument-less-invocation-writes-the-tree-and-there-is-no-help.md),
+and the reasoning is that the defect was a message saying nothing, not a missing command.
+
 **Thirteen MCP tools**, over stdio, each named for the command it carries:
 
 `providers` · `provider` · `operation` · `targets` · `check` · `review` · `run` · `probe` ·
