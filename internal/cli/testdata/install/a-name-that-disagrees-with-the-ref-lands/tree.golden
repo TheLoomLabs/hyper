@@ -3,6 +3,7 @@ no .github/workflows/ directory
 kind: repository-declaration
 version: 1.4.0
 digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+no AGENTS.md
 === providers/dns.yaml (665 bytes)
 kind: provider
 provider: acme-dns

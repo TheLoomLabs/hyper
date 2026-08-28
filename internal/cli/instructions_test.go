@@ -12,8 +12,12 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/mcp"
 )
 
-// The worked example the handshake carries, held to the only standard that
-// matters for it: **it checks clean** (issue #209).
+// The worked example the orientation carries, held to the only standard that
+// matters for it: **it checks clean** (issues #209 and #211).
+//
+// It is carried twice over — as the `instructions` field of the handshake, and
+// as the `AGENTS.md` `project` writes where a repository holds none — and this
+// case is about the artefacts in it rather than about either channel.
 //
 // It is asserted here rather than beside the text because a `check` is not
 // reachable from internal/mcp and must not become so — the surface hands a Call
@@ -31,6 +35,12 @@ import (
 // TestInstructions_TheWorkedExampleChecksClean writes every artefact the
 // orientation names into a repository of its own and runs `check` over it.
 //
+// **A fenced block that names no path is not an artefact and is not written.**
+// The single-host request shape is a fragment — a `http:` block and an `auth:`
+// scheme, four lines of a Manifest that does not exist — and the parser below
+// picks up only the blocks a repository path stands over, which is the same
+// line a reader reads them by (§3).
+//
 // The version is the one the pin gate compares, threaded into the text the same
 // way the server threads its own: an example carrying any other version would
 // Refuse the gate before a single artefact was read, which would say nothing
@@ -41,9 +51,10 @@ func TestInstructions_TheWorkedExampleChecksClean(t *testing.T) {
 
 	// **The five kinds §2 counts, not a file count.** An example that
 	// dropped a kind is one an agent cannot author that kind against, and
-	// it would otherwise check clean by being smaller — while a second
-	// Manifest carrying a second request shape is a thing this example is
-	// free to grow, and did (issue #209).
+	// it would otherwise check clean by being smaller. What the example is
+	// free to move is everything else: the second request shape stopped
+	// being a whole second Manifest and became a fragment, which costs this
+	// case nothing and the reader four lines instead of thirty (issue #211).
 	carried := map[string]bool{}
 	for _, content := range written {
 		carried[kindOf(content)] = true
@@ -63,7 +74,7 @@ func TestInstructions_TheWorkedExampleChecksClean(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	exit := cli.RunCheck([]string{"--repo-dir", root}, cli.Streams(&stdout, &stderr), emptyEnvironment, t.TempDir(), "1.4.0")
 	if exit != cli.ExitClean {
-		t.Fatalf("the worked example the handshake teaches does not check clean (exit %d):\n%s%s", exit, stdout.String(), stderr.String())
+		t.Fatalf("the worked example the orientation teaches does not check clean (exit %d):\n%s%s", exit, stdout.String(), stderr.String())
 	}
 }
 

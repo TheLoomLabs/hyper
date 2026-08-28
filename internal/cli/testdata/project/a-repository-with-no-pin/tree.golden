@@ -55,6 +55,7 @@ jobs:
 kind: repository-declaration
 version: 1.4.0
 digest: sha256:9f2c1b7a4e6d038c5b1f92a7de40cb83f5710e2d9a6c4b83fe012d75c9a4e6b1
+=== AGENTS.md (the orientation, verbatim)
 === providers/preview-dns.yaml (846 bytes)
 kind: provider
 provider: preview-dns

@@ -2,38 +2,43 @@ package mcp
 
 import "fmt"
 
-// Instructions is the orientation the `initialize` handshake carries: what
-// `hyper` is, the five artefacts, the loop an agent drives them through, the
-// three commands that have no tool and why, that a Refusal is final, and one
-// worked example of each artefact (§9, ADR-0093, issue #209).
+// Instructions is the orientation: what `hyper` is, the five artefacts, the
+// loop an agent drives them through, the three commands that are the human's
+// and why, that a Refusal is final, and a worked example of each artefact (§9,
+// ADR-0093, ADR-0095, issues #209 and #211).
 //
-// **It is the only thing on this surface that reaches an agent before its first
-// tool call.** Every tool carries a description, and `operation` goes further —
-// it answers *the Manifest's own lines, verbatim*, which teaches the authoring
-// format at the moment a caller needs it (§9). Both arrive with a call already
-// in mind. What none of them can say is that `hyper` is here at all, what the
-// five artefacts are, or which order to do things in, and an agent that does not
-// know those shells out or invents a config file. MCP's `initialize` result has
-// a field for exactly this — *instructions describing how to use the server and
-// its features* — and filling it puts the orientation in the protocol, with no
-// file in the user's repository and no setup beyond the client config they
-// already need.
+// **It reaches an agent two ways, and the text is one text.** The `initialize`
+// handshake carries it in the field the protocol has for exactly this —
+// *instructions describing how to use the server and its features* — and
+// `hyper project` writes it to `AGENTS.md` where a repository has none. Neither
+// channel is sufficient alone: a client decides when it surfaces `instructions`
+// and one harness carries it only inside a tool search, while a file reaches
+// only a repository somebody has already run `project` in. Both are the same
+// bytes, from here, because two orientations disagree the first time either is
+// edited (ADR-0095, internal/cli's RunProject).
 //
-// **It is not `hyper` speaking first.** It is a field of the response to a
-// request the client made, so nothing is initiated and ADR-0021's own test is
-// not engaged; the argument is ADR-0093's and is not restated here.
+// **So it is worded for a reader on either surface**, and that is a constraint
+// on every sentence in it. It names commands rather than tools — `show` and not
+// `run_show` — and it puts `install`, `store init` and `compact` out of reach as
+// *the human's*, which is true of both surfaces, rather than as *absent from
+// this one*, which is true only of the server. A text that said *no tool here
+// writes a Definition* would be read as permission by the agent holding a
+// terminal.
 //
 // **It is a function of the version, and that is load-bearing rather than
 // tidy.** The Repository declaration below pins which version of `hyper` may
-// act, and the version that would act is the version of the server the client
-// started (§9, ADR-0020). A constant here would teach every agent to author a
-// pin that Refuses the gate on every repository but the one the text was
-// written in.
+// act, and the version that would act is the version of the binary the reader
+// is standing next to (§9, ADR-0020). A constant here would teach every agent
+// to author a pin that Refuses the gate on every repository but the one the
+// text was written in.
 //
-// It is exported for the corpus one package over, which writes the artefacts
-// below into a repository and runs `check` over them: what the handshake
-// teaches is held to checking clean rather than to reading well
-// (internal/cli/instructions_test.go).
+// **It is exported because internal/cli writes it**, `project` being the second
+// channel — and the corpus one package over reads it for a second reason, to
+// write the artefacts below into a repository and run `check` over them: what
+// the orientation teaches is held to checking clean rather than to reading well
+// (internal/cli's RunProject, internal/cli/instructions_test.go). The dependency
+// runs one way, `internal/cli` → `internal/mcp`, and the surface still knows no
+// command (server.go, ADR-0093).
 func Instructions(version string) string {
 	return fmt.Sprintf(orientation, version)
 }
@@ -43,245 +48,93 @@ func Instructions(version string) string {
 //
 // **What it may not contain is a claim the tools do not keep.** It is prose
 // with no schema, and nothing validates it against §9. What the cases beside it
-// hold is the **list** — that each of §9's five orientation facts is stated at
-// all (instructions_test.go) — and what a `check` holds is the worked example
+// hold is the **list** — that each of §9's orientation facts is stated at all
+// (instructions_test.go) — and what a `check` holds is the worked example
 // (internal/cli/instructions_test.go). Every sentence between those is on a
 // reader, and a sentence that drifts from the surface is worse than an absent
 // one: an agent believes it, and spends its next turns repairing an artefact
 // this text taught it. Cite §9 when editing one.
 //
-// It is deliberately shorter than the documentation it stands in front of. A
-// client pays for it on every session whether or not the model reads it, so it
-// carries what an agent cannot get any other way and stops: the five facts §9
-// names, and one example to author against. Anything a tool call already
-// answers stays a tool call.
+// **Its length is a design constraint rather than an aesthetic one.** It is
+// paid for on every session in every harness — as a handshake field whether or
+// not the model reads it, and as a file the harness reads up front — so it
+// carries what an agent cannot get any other way and stops. Anything a tool
+// call or a command already answers stays one. The example is the shape to
+// author against and not a tour: one whole repository, two request shapes, and
+// the rules that do not show up in either stated as prose beside them.
 const orientation = `# hyper
 
-` + "`hyper`" + ` is a tool for AI-authored, human-reviewable infrastructure automation. **You author
-the artefacts; a human reviews them like code before anything runs; every effect on the
-world is recorded.** Its spine is procedural rather than desired-state: a Provider knows how
-to talk to a kind of system and exposes Operations, a Definition is a named, authority-scoped
-use of one, a Procedure sequences Steps, and every invocation acts against a Target and
-produces Records.
+` + "`hyper`" + ` runs infrastructure automation you author, a human reviews, and it records. **You write the
+artefacts; a human approves the diff; only then does anything run.** A Provider knows how to talk to a
+kind of system and exposes Operations; a Definition is a named, authority-scoped use of one; a Procedure
+sequences Steps; every invocation acts against a Target and produces Records.
 
-A Provider is **data, never code** — reviewing the artefact is reviewing the whole of what
-will run — and every effect it describes is performed by ` + "`hyper`" + ` itself from a closed set of
-Capabilities that only ` + "`hyper`" + ` defines.
+A Provider is **data, never code** — reviewing the artefact is reviewing the whole of what will run —
+and every effect is performed by ` + "`hyper`" + ` from a closed set of Capabilities only ` + "`hyper`" + ` defines.
 
-## What you will be asked to do
-
-Four verbs, and the loop below is the same for all four. Each has one fact you need before
-you start.
-
-- **Author** something new — a Provider, a Definition, a Procedure, a Target declaration.
-- **Change** something that exists. A reviewed artefact is reviewed again: ` + "`review`" + ` renders it
-  against the last Run that read it, so what you altered is what a human reads.
-- **Retire** something. **Deleting a Definition does not destroy what it made.** Its Assets
-  become Orphaned — still recorded, still ` + "`hyper`" + `'s account of things it created, and now
-  unreachable by anything ` + "`hyper`" + ` can do. They are reported for as long as they stand. Say
-  that before you delete one; the operator may want the Assets destroyed through a Step first.
-- **Operate** — run a Procedure, then read the record back with ` + "`runs`" + `, ` + "`run_show`" + `, ` + "`records`" + `
-  and ` + "`changes`" + `. ` + "`changes`" + ` is the one that answers *what moved*, field by field, against the
-  last Run as its baseline.
-
-**If you add a ` + "`cadence:`" + ` to a Procedure, you are not finished.** A declared recurrence with no
-projected workflow beside it is ` + "`projection-stale`" + ` at ` + "`check`" + `. Call ` + "`project`" + `, which is on this
-surface precisely so you can repair what you caused.
+You will be asked to **author** something new, to **change** something already reviewed, to **retire**
+something, or to **operate** — run a Procedure and read the record back. The loop is the same for all
+four, and each has one fact below that you need before you start.
 
 ## The loop
 
-1. **Read what is here.** ` + "`providers`" + ` lists every Provider and ` + "`targets`" + ` lists what this
-   repository may reach. ` + "`provider`" + ` reports one Manifest's facts and the Operations it exposes;
-   ` + "`operation`" + ` answers **the Manifest's own lines, verbatim** — which is the format you are
-   expected to author in.
-2. **Author with your own file tools.** No tool here writes a Definition, a Procedure or a
-   Target declaration: ` + "`hyper`" + ` writes what it derives, and you write what is reviewed.
-3. **` + "`check`" + `.** It is offline, needs no credential, and answers file, line, column and an
-   ` + "`error_code`" + ` — positioned so that the next act is an edit. Repair and check again until
+1. **Read** — ` + "`providers`" + `, ` + "`targets`" + `, ` + "`provider`" + `. ` + "`operation`" + ` answers **the Manifest's own lines,
+   verbatim**: that is the format you author in.
+2. **Author with your own file tools.** No ` + "`hyper`" + ` command writes a reviewed artefact: ` + "`hyper`" + ` writes
+   what it derives, and you write what is reviewed.
+3. **` + "`check`" + `** — offline, no credential, answers file, line, column and an ` + "`error_code`" + `. Repair until
    it is clean.
-4. **` + "`review`" + `.** The rendering of what is about to be approved, artefact by artefact.
-5. **Stop there and hand the diff to the human.** This is the step to get right. Nothing you
-   authored has authority until somebody has read it, and there is no approval tool here
-   because approval is not a thing an agent grants itself.
-6. **` + "`run`" + `**, once they have. ` + "`probe`" + ` is the throwaway question that writes nothing — a
-   ` + "`read`" + ` Operation against ` + "`local`" + `, with no Definition — for when you want to see one answer
-   before a Procedure exists.
+4. **` + "`review`" + `** — the rendering of what is about to be approved. An artefact you changed is reviewed
+   again, against the last Run that read it.
+5. **Stop. Hand the diff to the human.** Nothing you authored has authority until somebody has read it,
+   and there is no approval command: approval is not a thing an agent grants itself.
+6. **` + "`run`" + `**, once they have. ` + "`probe`" + ` is the throwaway question that writes nothing — a ` + "`read`" + ` against
+   ` + "`local`" + `, no Definition — for one answer before a Procedure exists.
 
-## Leave a note for the next agent
+Read the record back with ` + "`runs`" + `, ` + "`show`" + `, ` + "`records`" + ` and ` + "`changes`" + `. ` + "`changes`" + ` answers *what moved*,
+field by field, against the last Run.
 
-**If this repository has no ` + "`AGENTS.md`" + `, offer to write one.** Do not assume the next agent sees
-this text: not every harness delivers it before work starts — some carry it only when tools are
-searched for, some not at all — and a file in the repository is read up front by all of them,
-whether or not a server is configured.
+**Add a ` + "`cadence:`" + ` and you are not finished**: an unprojected recurrence is ` + "`projection-stale`" + ` at
+` + "`check`" + `, and ` + "`project`" + ` is the repair.
 
-Write what an agent needs and nothing more: the loop, the three commands with no tool, what halts,
-and where the artefacts live. **Do not copy this text wholesale.** Most of it is a worked example,
-and a repository with artefacts of its own has better ones — point at those instead.
-
-An ` + "`AGENTS.md`" + ` is **not a reviewed artefact**. It is none of the five, it carries no authority,
-nothing about a Run reads it, and ` + "`check`" + ` does not count it. It is a note, and it lands in a diff
-like every other file you write.
+**Deleting a Definition does not destroy what it made.** Its Assets become Orphaned — still recorded,
+now unreachable by anything ` + "`hyper`" + ` can do, and reported for as long as they stand. Say so before you
+delete one; the operator may want them destroyed through a Step first.
 
 ## The five artefacts
 
 | | | |
 | --- | --- | --- |
-| **Manifest** | ` + "`providers/`" + ` | A Provider whole: its class, the Capabilities it requires, its auth scheme, and its Operations — each with a Kind (` + "`read`" + `, ` + "`mutate`" + `, ` + "`destroy`" + `), a request, an input schema and a ` + "`record:`" + ` projection. |
-| **Target declaration** | ` + "`targets/`" + ` | One system that may be acted on: which Kinds it admits, which Capabilities it grants, which hosts it permits, and where its credential is read from. |
-| **Definition** | ` + "`definitions/`" + ` | A named, authority-scoped use of a Provider: which Kinds it claims and which Targets it may act on. It observes or it effects, never both. |
-| **Procedure** | ` + "`procedures/`" + ` | An ordered set of Steps, each one Operation through one Definition against one Target, with the arguments beside it. |
-| **Repository declaration** | ` + "`hyper.yaml`" + ` | Which version of ` + "`hyper`" + ` may act here, and how long Records are kept. |
+| **Manifest** | ` + "`providers/`" + ` | A Provider whole: class, Capabilities, auth scheme, and Operations — each with a Kind (` + "`read`" + `, ` + "`mutate`" + `, ` + "`destroy`" + `), a request, an input schema and a ` + "`record:`" + ` projection. |
+| **Target declaration** | ` + "`targets/`" + ` | One system that may be acted on: Kinds admitted, Capabilities granted, hosts permitted, credential source. |
+| **Definition** | ` + "`definitions/`" + ` | A named, authority-scoped use of a Provider: Kinds claimed, Targets it may act on. It observes or it effects, never both. |
+| **Procedure** | ` + "`procedures/`" + ` | Ordered Steps: one Operation, one Definition, one Target, args beside it. |
+| **Repository declaration** | ` + "`hyper.yaml`" + ` | Which ` + "`hyper`" + ` version may act here, how long Records are kept. **Written by ` + "`project`" + `** — never hand-write the ` + "`digest:`" + `. |
 
-The format is a strict YAML subset: no anchors, no aliases, no merge keys, no tags, no
-expression language. A ` + "`{hole}`" + ` in a request is filled from a Step's ` + "`args:`" + `; ` + "`$.body.…`" + ` in a
-` + "`record:`" + ` is a path into the response. An effectful Step may declare a ` + "`bound:`" + ` — the maximum
-number of Records it may affect — and on a ` + "`destroy`" + ` Step it is mandatory.
+**Format** — a strict YAML subset: no anchors, aliases, merge keys, tags or expression language. A
+` + "`{hole}`" + ` in a request is filled from a Step's ` + "`args:`" + `; ` + "`$.body.…`" + ` in a ` + "`record:`" + ` is a path into the
+response, and an ` + "`over:`" + ` beside it projects a collection into one Record each. An effectful Step may
+declare a ` + "`bound:`" + `, the maximum Records it may affect; on a ` + "`destroy`" + ` it is **mandatory**. **The
+credential is never in an artefact** — the Target names the environment variable, ` + "`hyper`" + ` puts it in the
+header the Manifest's ` + "`auth:`" + ` names, and no rendering prints it.
 
-## What is not reachable from here, and why
+## Two request shapes
 
-Thirteen of ` + "`hyper`" + `'s sixteen commands have a tool here, each named for the command it carries
-— ` + "`run_show`" + ` for ` + "`show`" + ` is the one name that differs, a bare ` + "`show`" + ` naming nothing in a
-client's flat namespace. The other three have **no tool at all**, and one line puts all three
-on the far side of it: an agent may read the record and add to it, and **may not create it,
-prune it, or bring anything new into the repository**.
+Single host — ` + "`host: \"{from-target}\"`" + ` resolves to the one host the bound Target grants, and ` + "`auth:`" + `
+names the header its credential goes in:
 
-- ` + "`install`" + ` is the single point at which third-party data enters the repository. An agent
-  that can install can author against what it installed and run it in the same turn, which
-  is a whole supply-chain sequence with no human between acquisition and effect.
-- ` + "`store init`" + ` creates the record. Creating it is the human's act, and your part in it is to
-  say that it has not happened.
-- ` + "`compact`" + ` removes from the record permanently — the one command that would let you prune
-  the account you are held to.
-
-**Do not shell out to them.** The absence is the guardrail, and reaching around it with a
-terminal is the exact bypass it exists to prevent. Where a tool Refuses naming one of the
-three, say so and stop; the human runs it.
-
-## What halts, and what is merely an answer
-
-This is the rule agents get wrong, and it decides how you read a result.
-
-**A ` + "`read`" + ` never halts on what came back.** Any status is recorded — a ` + "`503`" + ` as readily as a
-` + "`200`" + ` — and where **no response arrived at all** (a refused connection, a name that does not
-resolve) the response object is **the host and nothing else**. The Step still mints an
-Observation and its Disposition is still ` + "`ran`" + `: an answer that is an absence is still an answer,
-and a projected field that has gone quiet is how *down* is recorded. A Run does **not** stop
-because a host was unreachable, and Steps after it are not skipped.
-
-**An effectful Operation is the opposite**: it completes on ` + "`2xx`" + ` and halts on everything else, a
-` + "`destroy`" + ` completing on ` + "`404`" + ` besides. Where no response arrived its Disposition is *attempted,
-world untouched*.
-
-What still halts a ` + "`read`" + ` is its **projection** — a path that found nothing, a collection that was
-not there. An empty collection and a wrong path are not the same fact.
-
-**Narration is not an outcome.** ` + "`probe`" + ` prints ` + "`no response arrived: …`" + ` and exits ` + "`0`" + `; a Step
-whose host was unreachable narrates the same way and is ` + "`ran`" + `. Read the Disposition and the
-outcome, never the prose beside them, and never generalise from a ` + "`probe`" + ` to what a Run will do.
-
-## A Refusal is final
-
-A Refusal is a guardrail declining a well-formed call, and it comes back carrying its own
-remediation. **The same call retried refuses identically.** Retrying it unchanged is not a
-strategy, and no argument anywhere widens your own authority — there is no bypass flag, no
-approval tool, and no per-Run exemption. Read what the Refusal says to change, change that,
-and call again; or say what needs to happen and let the human do it.
-
-An error is different: a malformed call comes back as a protocol error carrying the sentence
-a person would have read, and that one is worth fixing and repeating.
-
-## A worked example
-
-Five artefacts that check clean, for a Provider that talks HTTP to a Proxmox server. Nothing
-about them is special — they are what ` + "`check`" + ` accepts, written out — and the shape is what to
-copy: the request block with its holes, the ` + "`auth:`" + ` scheme naming a header, the ` + "`record:`" + `
-projection, and the Target that grants what the Manifest requires.
-
-**` + "`hyper.yaml`" + ` is written by ` + "`project`" + `, not by hand**, and it is the one artefact below to read
-rather than copy. ` + "`project`" + ` derives the pin from the binary that ran it and freezes the digest of
-the release beside it; the sixty-four zeros here stand in for a value only ` + "`project`" + ` can know.
-A digest you invent is inert to everything you can call, and it is **not** inert in a generated
-workflow, where the digest is the line a runner checks fetched bytes against.
-
-` + "`hyper.yaml`" + `
-
-` + "```yaml" + `
-kind: repository-declaration
-version: %s
-digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-retention: 90d
+` + "```" + `yaml
+http: {method: POST, host: "{from-target}", path: /zones/{zone}/records,
+       body: {name: "{name}", content: "{address}"}}
+auth: {header: {name: Authorization, prefix: "Bearer "}}
 ` + "```" + `
 
-` + "`providers/proxmox.yaml`" + `
-
-` + "```yaml" + `
-kind: provider
-provider: proxmox
-schema-version: 1
-class: proxmox
-capabilities: [http]
-auth:
-  header: {name: Authorization, prefix: "PVEAPIToken="}
-operations:
-  list_vms:
-    kind: read
-    repeatability: repeatable
-    deadline: 30s
-    http:
-      method: GET
-      host: "{from-target}"
-      path: /api2/json/nodes/{node}/qemu
-    input:
-      type: object
-      properties:
-        node: {type: string}
-    record:
-      over: $.body.data
-      identity: $.vmid
-      fields: {vmid: $.vmid, name: $.name, status: $.status}
-  create_vm:
-    kind: mutate
-    repeatability: skip-if-recorded
-    deadline: 5m
-    http:
-      method: POST
-      host: "{from-target}"
-      path: /api2/json/nodes/{node}/qemu
-      body: {vmid: "{vmid}", name: "{name}", cores: "{cores}", memory: "{memory}"}
-    input:
-      type: object
-      properties:
-        node: {type: string}
-        vmid: {type: string}
-        name: {type: string}
-        cores: {type: string}
-        memory: {type: string}
-    record:
-      identity: "{vmid}"
-      fields: {task: $.body.data}
-  destroy_vm:
-    kind: destroy
-    repeatability: repeatable
-    deadline: 5m
-    http:
-      method: DELETE
-      host: "{from-target}"
-      path: /api2/json/nodes/{node}/qemu/{vmid}
-    input:
-      type: object
-      properties:
-        node: {type: string}
-        vmid: {type: string}
-` + "```" + `
-
-A second Manifest, because **the request shape above is not the only one**. Where an Operation
-reaches many hosts rather than one, ` + "`host: \"{from-target}\"`" + ` expands to every host the bound
-Target grants and ` + "`host-input:`" + ` names which of the Operation's inputs picks one per Step. This is
-the shape to copy for anything that *checks* rather than *creates*.
+Many hosts — the same hole expands to every host the Target grants, and ` + "`host-input:`" + ` names which input
+picks one per Step. This is the shape for anything that *checks* rather than *creates*.
 
 ` + "`providers/site-uptime.yaml`" + `
 
-` + "```yaml" + `
+` + "```" + `yaml
 kind: provider
 provider: site-uptime
 schema-version: 1
@@ -290,6 +143,7 @@ capabilities: [http]
 operations:
   check_site:
     kind: read
+    repeatability: repeatable
     deadline: 10s
     http:
       method: GET
@@ -302,15 +156,21 @@ operations:
         host: {type: string}
     record:
       identity: $.host
-      fields:
-        host: $.host
-        status: $.status
-        days_left: $.tls.days_left
+      fields: {host: $.host, status: $.status, days_left: $.tls.days_left}
 ` + "```" + `
+
+Nothing declares which statuses are acceptable, and that is not an omission: a ` + "`read`" + ` never halts on
+one, so ` + "`status: $.status`" + ` records a ` + "`503`" + ` as readily as a ` + "`200`" + ` and a later Step's ` + "`when:`" + ` decides what
+to do about it. A host the Target does **not** grant comes from an ` + "`enumerations:`" + ` block of the
+Operation's own instead.
+
+## The rest of the repository
+
+The Target grants what the Manifest requires; ` + "`hosts:`" + ` and an ` + "`http`" + ` Capability go together or not at all.
 
 ` + "`targets/websites.yaml`" + `
 
-` + "```yaml" + `
+` + "```" + `yaml
 kind: target-declaration
 target: websites
 class: website
@@ -319,57 +179,95 @@ capabilities: [http]
 hosts: [example.com, status.example.org]
 ` + "```" + `
 
-Nothing there declares which statuses are acceptable, and that is not an omission — a ` + "`read`" + ` never
-halts on one, so ` + "`status: $.status`" + ` records a ` + "`503`" + ` as readily as a ` + "`200`" + ` and a later Step's
-` + "`when:`" + ` decides what to do about it. Where the host is **not** one the Target grants — an
-enumeration of the Operation's own — declare it under ` + "`enumerations:`" + ` in the Manifest and let the
-hole draw on that instead.
+` + "`definitions/uptime-checks.yaml`" + `
 
-` + "`targets/proxmox-lab.yaml`" + `
-
-` + "```yaml" + `
-kind: target-declaration
-target: proxmox-lab
-class: proxmox
-kinds: [read, mutate, destroy]
-capabilities: [http]
-hosts: [pve.lab.example.com]
-auth:
-  token: {env: PROXMOX_API_TOKEN}
-` + "```" + `
-
-` + "`definitions/lab-vms.yaml`" + `
-
-` + "```yaml" + `
+` + "```" + `yaml
 kind: definition
-definition: lab-vms
-provider: proxmox
-kinds: [mutate]
-destroy: [destroy_vm]
-targets: [proxmox-lab]
+definition: uptime-checks
+provider: site-uptime
+kinds: [read]
+targets: [websites]
 ` + "```" + `
 
-` + "`procedures/provision-lab-vm.yaml`" + `
+` + "`procedures/check-uptime.yaml`" + `
 
-` + "```yaml" + `
+` + "```" + `yaml
 kind: procedure
-procedure: provision-lab-vm
-targets: [proxmox-lab]
+procedure: check-uptime
+targets: [websites]
 steps:
-  - id: create
-    definition: lab-vms
-    operation: create_vm
-    target: proxmox-lab
-    args:
-      node: pve1
-      vmid: "9001"
-      name: lab-9001
-      cores: "2"
-      memory: "4096"
-    bound: 1
+  - id: example-com
+    definition: uptime-checks
+    operation: check_site
+    target: websites
+    args: {host: example.com}
+  - id: status-example-org
+    definition: uptime-checks
+    operation: check_site
+    target: websites
+    args: {host: status.example.org}
 ` + "```" + `
 
-The credential is never in an artefact. The Target names the environment variable it is read
-from, ` + "`hyper`" + ` puts it in the header the Manifest's ` + "`auth:`" + ` scheme names, and no rendering
-anywhere prints it.
+**` + "`hyper.yaml`" + ` is written by ` + "`project`" + `** and is the one artefact here to read rather than copy: the pin
+comes from the binary that ran it, and the sixty-four zeros stand in for a digest only ` + "`project`" + ` can
+know. An invented digest is inert to everything you can call, and **not** inert in a generated workflow,
+where it is the line a runner checks fetched bytes against.
+
+` + "`hyper.yaml`" + `
+
+` + "```" + `yaml
+kind: repository-declaration
+version: %s
+digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+retention: 90d
+` + "```" + `
+
+## What halts, and what is merely an answer
+
+**A ` + "`read`" + ` never halts on what came back.** Any status is recorded, and where *no response arrived at
+all* — a refused connection, a name that does not resolve — the response object is the host alone. The
+Step still mints an Observation and is still ` + "`ran`" + `: a projected field gone quiet is how *down* is
+recorded. The Run does **not** stop, and later Steps are not skipped.
+
+**An effectful Operation is the opposite**: it completes on ` + "`2xx`" + ` and halts on everything else, a
+` + "`destroy`" + ` completing on ` + "`404`" + ` besides. Where no response arrived it is *attempted, world untouched*.
+
+What does halt a ` + "`read`" + ` is its **projection** — a path that found nothing. An empty collection and a
+wrong path are not the same fact.
+
+**Narration is not an outcome.** ` + "`probe`" + ` prints ` + "`no response arrived: …`" + ` and exits ` + "`0`" + `; a Step whose
+host was unreachable narrates the same way and is ` + "`ran`" + `. Read the Disposition, never the prose beside
+it, and never generalise from a ` + "`probe`" + ` to a Run.
+
+## Three of the sixteen commands are the human's
+
+` + "`install`" + `, ` + "`store init`" + ` and ` + "`compact`" + ` have no tool on the MCP surface, and are not yours to type into a
+terminal either. One line puts all three on the far side: you may read the record and add to it, and
+**may not create it, prune it, or bring anything new into the repository**.
+
+- ` + "`install`" + ` is the single point at which third-party data enters — installing and running in one turn is
+  a supply-chain sequence with no human between acquisition and effect.
+- ` + "`store init`" + ` creates the record. Creating it is the human's act; your part is to say it has not happened.
+- ` + "`compact`" + ` removes from the record permanently: the one command that would let you prune the account
+  you are held to.
+
+**Do not reach around this.** Where a call Refuses naming one of the three, say so and stop; the human
+runs it.
+
+## A Refusal is final
+
+A Refusal is a guardrail declining a well-formed call, and it carries its own remediation. **The same
+call retried refuses identically.** No argument anywhere widens your authority — no bypass flag, no
+approval command, no per-Run exemption. Change what it names, or say what needs to happen and let the
+human do it. A malformed call is different: that is an error carrying the sentence a person would have
+read, and it is worth fixing and repeating.
+
+## Leave a note for the next agent
+
+` + "`hyper project`" + ` writes this text to ` + "`AGENTS.md`" + ` where a repository has none, and never overwrites one
+that stands. **So where an ` + "`AGENTS.md`" + ` exists and says nothing about ` + "`hyper`" + `, offer to add a section to
+it** — that is the one case in which nothing here reaches the next agent.
+
+An ` + "`AGENTS.md`" + ` is **not a reviewed artefact**: none of the five, no authority, nothing about a Run reads
+it, and ` + "`check`" + ` does not count it. It is a note, and it lands in a diff like every other file you write.
 `

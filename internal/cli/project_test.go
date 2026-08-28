@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
+	"github.com/TheLoomLabs/hyper/internal/mcp"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/workflow"
 )
@@ -102,12 +103,12 @@ func TestRunProject_AWriteThatFailsNamesTheFileItDiedOn(t *testing.T) {
 }
 
 // TestRunProject_TouchesNothingOutsideTheNamespaceAndTheDeclaration is the
-// criterion the tree goldens can only half state: they render the three places
-// `hyper` writes — `.github/workflows/`, `hyper.yaml` and `providers/` — and say
-// nothing about the rest of the repository, so what says the rest is untouched
-// is a weighing of it either side of the command.
+// criterion the tree goldens can only half state: they render the four places
+// `hyper` writes — `.github/workflows/`, `hyper.yaml`, `AGENTS.md` and
+// `providers/` — and say nothing about the rest of the repository, so what says
+// the rest is untouched is a weighing of it either side of the command.
 //
-// One of the three used to be part of what this test alone said. Since the
+// One of the four used to be part of what this test alone said. Since the
 // goldens render `providers/`, every `project` case in the corpus states that a
 // Manifest is not touched (issue #184); what is left here is `definitions/`,
 // `procedures/`, `targets/` and everything else the repository holds.
@@ -124,6 +125,12 @@ func TestRunProject_AWriteThatFailsNamesTheFileItDiedOn(t *testing.T) {
 // changes no byte of the declaration**, which is the property that makes a
 // `project` on a current repository an empty diff rather than a whitespace one
 // (§11).
+//
+// `AGENTS.md` cannot be weighed that way and is left out of the weighing for
+// the one reason that matters: it is **created**, so there is no before to hold
+// an after against. What it does instead is stated by the two cases that own it
+// — the bytes it lands with, and that a file already standing is not taken
+// (ADR-0095, issue #211).
 func TestRunProject_TouchesNothingOutsideTheNamespaceAndTheDeclaration(t *testing.T) {
 	root := projectRepository(t)
 	before := treeOutsideTheNamespace(t, root)
@@ -140,7 +147,7 @@ func TestRunProject_TouchesNothingOutsideTheNamespaceAndTheDeclaration(t *testin
 	}
 	for path, content := range before {
 		if after[path] != content {
-			t.Errorf("%s moved; `project` writes inside %s and into %s, and nowhere else", path, workflow.Dir, repository.DeclarationPath)
+			t.Errorf("%s moved; `project` writes inside %s, into %s and into %s, and nowhere else", path, workflow.Dir, repository.DeclarationPath, notePath)
 		}
 	}
 }
@@ -159,7 +166,7 @@ func treeOutsideTheNamespace(t *testing.T, root string) map[string]string {
 		if err != nil {
 			return err
 		}
-		if slash := filepath.ToSlash(rel); !strings.HasPrefix(slash, workflow.Dir+"/") {
+		if slash := filepath.ToSlash(rel); !strings.HasPrefix(slash, workflow.Dir+"/") && slash != notePath {
 			data, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -380,5 +387,102 @@ func TestRunProject_TheRoundTripIsProjectThenCheck(t *testing.T) {
 	}
 	if !bytes.Equal(repaired, written) {
 		t.Errorf("the file `project` rewrote is not the file it wrote the first time:\n%s", repaired)
+	}
+}
+
+// TestRunProject_WritesTheOrientationWhereTheRepositoryHasNone is the third
+// place this command writes, and the reason it is a place at all (ADR-0095,
+// issue #211).
+//
+// **The handshake is not the unconditional channel ADR-0093 took it for.** A
+// client decides when it surfaces `instructions`; one harness carries them only
+// inside a tool search, and a session observed against a fresh repository spent
+// six of its twenty-eight calls running `strings` over the binary and then
+// copied, verbatim, the Manifest it dug out of the orientation. An `AGENTS.md`
+// has no such contingency — every harness reads it up front, unprompted,
+// whether or not a server is configured — and `project` is where it is written
+// because `project` is the documented first act on a new repository (§9, §11).
+//
+// **The bytes are the orientation's own, and that is what makes one text one
+// text.** A hand-maintained file beside `internal/mcp`'s would disagree the
+// first time either was edited, and the reader of the one that drifted has no
+// way to tell which (§9).
+func TestRunProject_WritesTheOrientationWhereTheRepositoryHasNone(t *testing.T) {
+	root := projectRepository(t)
+
+	p := &process{wd: root}
+	var stdout, stderr bytes.Buffer
+	if exit := cli.Main([]string{"project", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want %d: %s", exit, cli.ExitClean, stderr.String())
+	}
+
+	written, err := os.ReadFile(filepath.Join(root, notePath))
+	if err != nil {
+		t.Fatalf("the repository held no %s and `project` left none: %s", notePath, err)
+	}
+	// At the binary's own version, like everything else this command
+	// derives: the orientation carries a Repository declaration, and a pin
+	// naming any other version is one that Refuses the gate on the
+	// repository the file is standing in (§11, ADR-0020).
+	if string(written) != mcp.Instructions(testFacts.Version) {
+		t.Error("AGENTS.md is not the orientation at the binary's version; two orientations disagree the first time either is edited")
+	}
+}
+
+// TestRunProject_NeverOverwritesAnAGENTSFileThatStands is the half of the rule
+// that is not the write, and the half ADR-0093 was right about: whole-file,
+// always-overwriting semantics are correct for a generated workflow and wrong
+// for a note addressed to a reader (§10, ADR-0095).
+//
+// `AGENTS.md` is a shared file most repositories already hold for reasons
+// having nothing to do with `hyper`, so the one thing this command may not do
+// is take it. Where one stands, the orientation reaches that agent through the
+// handshake, and the text's own closing paragraph is what covers the gap: the
+// agent offers to add a section, and the human decides.
+func TestRunProject_NeverOverwritesAnAGENTSFileThatStands(t *testing.T) {
+	root := projectRepository(t)
+	standing := "# this repository\n\nRun the linter before you push.\n"
+	if err := os.WriteFile(filepath.Join(root, notePath), []byte(standing), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &process{wd: root}
+	var stdout, stderr bytes.Buffer
+	if exit := cli.Main([]string{"project", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want %d: %s", exit, cli.ExitClean, stderr.String())
+	}
+
+	after, err := os.ReadFile(filepath.Join(root, notePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != standing {
+		t.Errorf("the note moved:\n%s\nit is a note somebody wrote, and `project` creates it or leaves it alone", after)
+	}
+}
+
+// TestRunProject_ARepositoryThatDoesNotCheckGetsNoOrientationEither is the
+// pre-write rule read over the new path: a projection derived from a repository
+// nobody could review is not written, and the note is written in the same act
+// (§10, issue #179).
+//
+// It is stated of this path rather than left to the case above because the
+// note is the one thing `project` writes that does not derive from an artefact
+// — an orientation is as true of a repository that fails `check` as of one that
+// passes — so *nothing is written* has to be asserted of it rather than
+// inferred.
+func TestRunProject_ARepositoryThatDoesNotCheckGetsNoOrientationEither(t *testing.T) {
+	root := projectRepository(t)
+	if err := os.WriteFile(filepath.Join(root, "definitions", "heartbeat.yaml"), []byte("kind: definition\ndefinition: heartbeat\nprovider: nothing-of-that-name\nkinds: [read]\ntargets: [staging]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	p := &process{wd: root}
+	var stdout, stderr bytes.Buffer
+	if exit := cli.Main([]string{"project", "--repo-dir", root}, &stdout, &stderr, p.value(), testFacts); exit != cli.ExitProblems {
+		t.Fatalf("exit = %d, want %d: %s%s", exit, cli.ExitProblems, stdout.String(), stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, notePath)); !os.IsNotExist(err) {
+		t.Errorf("stat %[2]s = %[1]v, want it never written: the pass that stops the projection stops the whole act", err, notePath)
 	}
 }

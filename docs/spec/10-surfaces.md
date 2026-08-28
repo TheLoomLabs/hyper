@@ -45,7 +45,8 @@ such — then, in a block of its own, the three configuration flags below, title
 take them and the three outside the tree do not. On stderr, exiting `2`, like the usage error it is. It
 is the only place the command line says what it can do: `completions <shell>` emits every name and emits
 them as a shell script, which is not a thing anybody runs to find out what a binary does, and the
-orientation below reaches an agent on the other surface alone. A caller told only
+orientation below reaches this surface only where somebody has already run `project`. A caller told
+only
 `usage: hyper <command> [args...]` has been given nowhere else to look, and what it does next is read
 whatever is nearby.
 
@@ -536,6 +537,15 @@ derived facts. Where the repository holds none, `project` creates one carrying `
 `digest:` and **no `retention:`** — a repository that has not stated a policy has not agreed to lose
 anything (§3, §11).
 
+**`AGENTS.md` is the third thing it writes, and it is created or left alone.** Where the repository
+holds none, `project` writes the orientation below into it, at the version of the binary that ran;
+where one stands it is not touched, on any run, ever. This is the one path in the namespace that is
+not derived from an artefact and the one that is not regenerated, and both follow from what the file
+is: a note addressed to a reader, which most repositories already hold for reasons having nothing to
+do with `hyper`, and which whole-file overwriting would take. It carries no authority, no Run reads
+it, `check` does not count it, and it writes no row — like the declaration, it lands in the diff
+`project` is read in (ADR-0093, ADR-0095).
+
 `store init` creates the orphan branch §7 names and writes `STORE.md`, and does nothing else: there is
 no configuration to write (ADR-0014), and no example Definition is scaffolded, `hyper` authoring a
 reviewed artefact being the line the whole surface does not cross. It touches no file in the working
@@ -739,11 +749,24 @@ disambiguates it against every other server the client has loaded.
 ## The handshake carries the orientation
 
 **`initialize` answers an `instructions` field, and `hyper` fills it.** It is the one thing on this
-surface that reaches an agent *before its first tool call*, and it is the whole of what a fresh
-repository does to orient one: no file in the working tree, no setup beyond the client config a user
-already writes, and nothing for the user to know to do.
+surface that reaches an agent *before its first tool call*, and it needs no setup beyond the client
+config a user already writes.
 
-It states six things, each of them something the tool set cannot teach. Every tool carries a
+**It is the same text `project` writes to `AGENTS.md`, and the two channels are one text for that
+reason.** A client decides when it surfaces `instructions` — one harness carries them only inside a
+tool search, and a session observed against a fresh repository recovered the orientation by running
+`strings` over the binary rather than reading it — so *before the first tool call* is a property of
+the client and not of the protocol. A file in the repository has no such contingency; a repository
+nobody has run `project` in has no file. Neither channel reaches every cold start alone, and a
+second orientation maintained beside the first disagrees with it the first time either is edited
+(ADR-0095).
+
+**So it is worded for a reader on either surface.** It names commands rather than tools — `show` and
+not `run_show` — and it puts `install`, `store init` and `compact` out of reach as *the human's*,
+which is true of both, rather than as *absent from this surface*, which is true only of the server and
+is read as permission by the reader holding a terminal.
+
+It states nine things, each of them something the tool set cannot teach. Every tool carries a
 description and `operation` goes further — it answers *the Manifest's own lines, verbatim*, which
 teaches the authoring format at the moment a caller needs it — but all of them arrive with a call
 already in mind, and none of these is about a call:
@@ -762,31 +785,34 @@ already in mind, and none of these is about a call:
   otherwise. Narration is not an outcome — `probe` prints `no response arrived` and exits `0` — and an
   agent that reads the prose beside a result rather than its Disposition reports a Run that halted when
   none did.
-- **The three commands with no tool, and why** — an agent that does not know the absence is
-  deliberate shells out to them, which is the exact bypass the absence exists to prevent.
+- **The three commands that are the human's, and why** — an agent that does not know runs them, which
+  is the exact bypass their absence from the tool set exists to prevent. They are stated as *the
+  human's* rather than as *absent here*, because the second is true only of this surface and the same
+  text is read by an agent holding a terminal, where absence is read as permission (ADR-0095).
 - **That a Refusal is final**: the same call retried refuses identically, and no argument anywhere
   widens the caller's own authority.
 - **One worked example of all five artefacts, which checks clean.** A fresh repository holds only the
   built-in `shell` Manifest, whose request block is `shell: {}` — so an agent asked for an HTTP
   Provider has no worked example of a request, an `auth:` scheme or a `record:` projection anywhere in
-  reach. The example carries the Repository declaration at **the server's own version**, that being
-  the version of the binary that would act (ADR-0020). It carries **two** Manifests, and the second is
-  not decoration: a single-host request and a multi-host one (`host: "{from-target}"` with
+  reach. The example carries the Repository declaration at **the version of the binary that would
+  act** (ADR-0020). It carries **both request shapes**, and the second is not decoration: a
+  single-host request with an `auth:` scheme, and a multi-host one (`host: "{from-target}"` with
   `host-input:`) are different shapes, and an example that taught only the first sent the first agent
-  to try it disassembling the binary for the second.
+  that needed the second to disassemble the binary for it.
 
-- **That the agent should offer to write an `AGENTS.md`** where the repository has none. A client
-  decides when it surfaces `instructions` — one harness carries it only inside a tool search — so the
-  handshake reaching an agent before it acts is a property of the client rather than of the protocol.
-  A file in the repository has no such contingency, and an agent offering one is the same act as any
-  other file it authors (ADR-0093).
+- **That the agent should offer to add a section to an `AGENTS.md` that already stands.** `project`
+  writes the file where a repository holds none and never overwrites one that does, so a repository
+  that held the file for its own reasons is the single case neither channel reaches — and offering a
+  section is what closes it. The agent offers and the human accepts, which is the same act as any
+  other file it authors (ADR-0093, ADR-0095).
 
 **It is not `hyper` speaking first.** ADR-0021 governs egress on `hyper`'s own initiative; this is a
 field of the answer to a request the client made. Nothing is initiated, and no destination is named.
 
-`hyper` writes no orientation file into the working tree — no `AGENTS.md`, no scaffolded artefact —
-and nothing here widens what `project` may write. An agent that wants a note left for the next one
-authors it like any other file, with its own file tools, and it lands in a diff (ADR-0093).
+**No artefact is scaffolded.** `project` writes the orientation and nothing else: the worked example
+is a fenced block in a Markdown file, which teaches the format while granting nothing and being
+counted by no `check`, and a Target or a Definition on disk would be `hyper` authoring authority — the
+line the whole surface does not cross (ADR-0093, ADR-0095).
 
 ## The tool set
 
@@ -828,7 +854,9 @@ say that it has not happened.
 `project` is on the reachable side, and it is why the line falls where it does rather than around
 writing at all: a Cadence declared in a reviewed artefact and left unprojected is the drift §10 states
 a check for, and an agent must be able to repair what it caused. What `project` writes is derived from
-artefacts already reviewed and lands in a diff like everything else.
+artefacts already reviewed — the note beside them being the one exception, and an orientation carrying
+no authority is not a thing to guard a surface against — and all of it lands in a diff like everything
+else.
 
 ## The return envelope
 

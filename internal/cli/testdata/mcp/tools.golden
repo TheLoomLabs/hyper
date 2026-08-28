@@ -612,7 +612,7 @@ Invoke a read Operation against local without a Definition, and answer the proje
   }
 }
 === project
-Regenerate the projection: one .github/workflows/ file per Procedure that declares a Cadence, and the two derived scalars in the Repository declaration. It is repo-wide and all-or-nothing — whole files overwritten, the ones no Procedure asks for any more taken away — and it reports what it wrote, the git diff being where a human reviews it.
+Regenerate the projection: one .github/workflows/ file per Procedure that declares a Cadence, and the two derived scalars in the Repository declaration. It is repo-wide and all-or-nothing — those files are overwritten whole, and the ones no Procedure asks for any more are taken away. It also writes an AGENTS.md carrying this orientation where the repository holds none, and never touches one that already stands. It reports the workflows it wrote, the git diff being where a human reviews all of it.
 --- input
 {
   "type": "object",

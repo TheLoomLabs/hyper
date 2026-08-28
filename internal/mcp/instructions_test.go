@@ -5,8 +5,12 @@ import (
 	"testing"
 )
 
-// The orientation the handshake carries, held to what §9 fixes about it (issue
-// #209).
+// The orientation, held to what §9 fixes about it (issues #209 and #211).
+//
+// It reaches an agent two ways — the `initialize` handshake carries it, and
+// `hyper project` writes it to `AGENTS.md` where a repository has none — and
+// these cases are about the text rather than about either channel, which is why
+// they stand here beside it (ADR-0093, ADR-0095).
 //
 // **These cases are about the claims, not about the prose.** What the text says
 // is a paragraph anybody may rewrite; what it must *state* is a list §9 writes
@@ -16,7 +20,7 @@ import (
 // keeps a rewrite that dropped one from landing silently.
 //
 // The worked example is asserted one package over, where a `check` is
-// reachable: what the handshake teaches is held to checking clean rather than
+// reachable: what the orientation teaches is held to checking clean rather than
 // to looking right (internal/cli/instructions_test.go).
 
 // TestInitialize_CarriesTheOrientationInTheHandshake is the field itself.
@@ -67,20 +71,20 @@ func TestInstructions_StateTheLoop(t *testing.T) {
 	// agent skips by default: nothing here authors an artefact, and a
 	// human reads it before it runs (§9, ADR-0001).
 	if !strings.Contains(unwrapped(carried), "you write what is reviewed") {
-		t.Error("the orientation never says the agent authors with its own file tools; no tool here writes a reviewed artefact")
+		t.Error("the orientation never says the agent authors with its own file tools; no hyper command writes a reviewed artefact")
 	}
 }
 
-// TestInstructions_PutTheThreeAbsentCommandsOutOfReachAndSayWhy is the third,
-// and the one with teeth. `install`, `store init` and `compact` have no tool
-// **deliberately**, and an agent that does not know that shells out to them —
-// which is the exact bypass the absence exists to prevent (§9).
-func TestInstructions_PutTheThreeAbsentCommandsOutOfReachAndSayWhy(t *testing.T) {
+// TestInstructions_PutTheThreeCommandsOutOfReachAndSayWhy is the third,
+// and the one with teeth. `install`, `store init` and `compact` are the human's
+// **deliberately**, and an agent that does not know that runs them — which is
+// the exact bypass their absence from the tool set exists to prevent (§9).
+func TestInstructions_PutTheThreeCommandsOutOfReachAndSayWhy(t *testing.T) {
 	carried := Instructions("1.4.0")
 
 	for _, absent := range []string{"install", "store init", "compact"} {
 		if !strings.Contains(carried, absent) {
-			t.Errorf("the orientation never names %q; a command absent without a reason is one an agent shells out to", absent)
+			t.Errorf("the orientation never names %q; a command out of reach without a reason is one an agent reaches for", absent)
 		}
 	}
 	// §9's own line, and the whole reason all three sit on the far side:
@@ -103,36 +107,67 @@ func TestInstructions_SayARefusalIsFinal(t *testing.T) {
 	}
 }
 
-// TestInstructions_TellTheAgentToOfferAnAGENTSFile is the sixth, and it is the
-// one the transcripts argued for rather than §9 (issue #209).
+// TestInstructions_TellTheAgentToOfferASectionWhereAnAGENTSFileStands is the
+// sixth, and it is the one the transcripts argued for rather than §9 (issues
+// #209 and #211).
 //
 // **No harness delivers this text unconditionally.** Codex carries it in a
 // `tool_search_output`, so a model that reaches for a tool without searching
-// never sees it; Claude Code's own logs record no system prompt, so its
-// delivery cannot be observed at all. An `AGENTS.md` has no such contingency —
-// harnesses read it up front, unprompted, whether or not a server is even
-// configured.
+// never sees it; a Claude Code session spent six calls running `strings` over
+// the binary and copied the Manifest it dug out. So `project` writes the text
+// to `AGENTS.md`, which every harness reads up front, and the orientation's own
+// paragraph about the file is what is left over once it does.
 //
-// `hyper` still writes no such file, and that half of ADR-0093 is untouched:
-// what this states is that the **agent** offers, which is the same act as any
-// other file it authors and lands in a diff the same way.
-func TestInstructions_TellTheAgentToOfferAnAGENTSFile(t *testing.T) {
+// **What is left over is one case.** `project` never overwrites, so a
+// repository that already holds an `AGENTS.md` for its own reasons gets
+// nothing — and that is the repository where the agent offers. The paragraph
+// used to say *offer to write one*, which was the fallback for an orientation
+// that had not arrived, gated on the orientation arriving; what it says now
+// fires where the file that would have carried it could not be written
+// (ADR-0095).
+func TestInstructions_TellTheAgentToOfferASectionWhereAnAGENTSFileStands(t *testing.T) {
 	carried := unwrapped(Instructions("1.4.0"))
 
 	if !strings.Contains(carried, "AGENTS.md") {
 		t.Error("the orientation never names AGENTS.md; the one mechanism every harness reads up front goes unmentioned")
 	}
-	// **Offer, not write.** A note left in somebody's repository unasked is
-	// hyper's own surface widening by way of a sentence in its prose, which
-	// is the thing ADR-0093 refused at the command level and must not
-	// re-acquire here.
-	if !strings.Contains(carried, "offer to write one") {
-		t.Error("the orientation does not say to *offer*; an agent that writes into a working tree unasked is the refusal in ADR-0093 arrived at sideways")
+	// **Offer, and a section rather than a file.** The file is `project`'s
+	// to write and only where the repository holds none; an agent that
+	// wrote one itself would be widening `hyper`'s surface by way of a
+	// sentence in its prose, and one that offered to *write* a file that
+	// already stands is offering an act with no effect.
+	if !strings.Contains(carried, "offer to add a section to it") {
+		t.Error("the orientation does not say to *offer a section*; the file itself is `project`'s to write, and only where none stands")
 	}
 	// It is not one of the five, and an agent that thought it was would be
 	// authoring authority where there is none (§2, ADR-0093).
 	if !strings.Contains(carried, "not a reviewed artefact") {
 		t.Error("the orientation does not say an AGENTS.md carries no authority; the five artefacts are the five")
+	}
+}
+
+// TestInstructions_AreWordedForAReaderOnEitherSurface is the constraint the
+// second channel put on every sentence in the text (ADR-0095, issue #211).
+//
+// The same bytes reach an agent through the handshake and through the
+// `AGENTS.md` `project` writes, and the second reader may hold nothing but a
+// terminal. So the text names **commands**, which both surfaces have, rather
+// than tools, which only one does — and the three commands out of reach are
+// *the human's* rather than *absent from this surface*, because absent-from-here
+// is read as permission by the reader holding the other one.
+func TestInstructions_AreWordedForAReaderOnEitherSurface(t *testing.T) {
+	carried := unwrapped(Instructions("1.4.0"))
+
+	// The one tool whose name differs from its command's, and therefore the
+	// one spelling that would be a name in a client's namespace and nothing
+	// at all on a command line (§9).
+	if strings.Contains(carried, "run_show") {
+		t.Error("the orientation names a tool rather than a command; `run_show` names nothing on the surface half its readers are standing on")
+	}
+	// The absence is not what puts the three out of reach — a terminal has
+	// all sixteen — so the text may not rest the guardrail on it.
+	if !strings.Contains(carried, "not yours to type into a terminal either") {
+		t.Error("the orientation puts the three out of reach as absent tools; an agent holding a terminal reads that as permission")
 	}
 }
 

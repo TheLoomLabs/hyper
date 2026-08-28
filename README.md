@@ -174,10 +174,11 @@ local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1   
 
 ### One step here is a workaround, and it is the `digest:`
 
-The documented first act on a new repository is `hyper project`, which writes the version pin
-and freezes the digest of the released artefact beside it
-([§11](docs/spec/12-distribution-and-version-pinning.md)). It cannot succeed today, because no
-release of `hyper` has been published:
+The documented first act on a new repository is `hyper project`, which writes the version pin,
+freezes the digest of the released artefact beside it
+([§11](docs/spec/12-distribution-and-version-pinning.md)), and leaves an `AGENTS.md` where the
+repository has none. It cannot succeed today, because no release of `hyper` has been
+published:
 
 ```console
 $ hyper project
@@ -192,7 +193,7 @@ checks fetched bytes against. `hyper project` on this repository would happily w
 workflow that verifies against sixty-four zeros.
 
 Once `v1.4.0` is cut ([`docs/build/releasing.md`](docs/build/releasing.md)), the first step
-becomes `hyper project` and the hand-written pin goes away.
+becomes `hyper project`, the hand-written pin goes away, and the `AGENTS.md` comes with it.
 
 ## The two surfaces
 
@@ -257,16 +258,22 @@ and short effectful Runs; long unattended work is a Cadence on an executor.
 
 **The handshake orients the agent.** MCP's `initialize` result carries an `instructions` field,
 and `hyper` fills it: what `hyper` is, the five artefacts and where each lives, the
-author → `check` → `review` → *hand it to a human* → `run` loop, the three commands that have
-no tool and why, that a Refusal retried unchanged refuses identically, and one worked example
-of all five artefacts against an HTTP Provider that checks clean. It arrives before the first
-tool call, so there is nothing to paste, nothing to read first, and no file in your repository.
+author → `check` → `review` → *hand it to a human* → `run` loop, the three commands that are
+the human's and why, that a Refusal retried unchanged refuses identically, and one worked
+example of all five artefacts against an HTTP Provider that checks clean. There is nothing to
+paste and nothing to read first.
 
-`hyper` writes no orientation file of its own — no scaffolded `AGENTS.md`, no example artefact.
-If you want one, ask your agent for it once it has been oriented; it will land in a diff you
-read like everything else it writes. That is [ADR-0093](docs/adr/0093-orientation-is-a-handshake-field-and-hyper-writes-no-file-to-carry-it.md),
-and the reasoning is that a file somebody has to know to want cannot be what closes a cold
-start.
+**`hyper project` writes the same text to `AGENTS.md`** where your repository has none, and
+never touches one that already stands. A client decides when it surfaces `instructions` — one
+harness carries them only when the model searches for tools — and a file in the repository has
+no such contingency: every harness reads it up front, whether or not a server is configured.
+One text, two channels, because two would disagree the first time either was edited. That is
+[ADR-0093](docs/adr/0093-orientation-is-a-handshake-field-and-hyper-writes-no-file-to-carry-it.md)
+as [ADR-0095](docs/adr/0095-project-writes-the-orientation-to-agents-md-and-the-handshake-is-not-the-only-channel.md)
+amends it.
+
+No artefact is scaffolded. The worked example is a fenced block in a Markdown file — it teaches
+the format, grants nothing, and is counted by no `check`.
 
 ## Where the real documentation is
 

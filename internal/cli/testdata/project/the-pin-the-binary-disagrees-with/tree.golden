@@ -60,6 +60,7 @@ digest: sha256:9f2c1b7a4e6d038c5b1f92a7de40cb83f5710e2d9a6c4b83fe012d75c9a4e6b1
 
 # ninety days of interior versions, agreed when we turned the Cadence on
 retention: 90d
+=== AGENTS.md (the orientation, verbatim)
 === providers/preview-dns.yaml (846 bytes)
 kind: provider
 provider: preview-dns

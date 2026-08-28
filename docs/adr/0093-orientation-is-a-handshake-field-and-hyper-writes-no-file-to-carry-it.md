@@ -8,6 +8,11 @@ seventeenth command that writes one, and `project`'s namespace does not widen pa
 `.github/workflows/` and `hyper.yaml`. A repository that wants such a file gets it the way it gets
 every other file an agent authors: somebody asks, the agent writes it, and it lands in a diff.
 
+_ADR-0095 amends this:_ `project` writes the orientation to `AGENTS.md` where the repository holds
+none, create-if-absent and never overwritten, and the namespace widens by that one path. The
+refusal of a seventeenth command and of a scaffolded artefact stands untouched; what moved is that
+`project` turned out to *be* the cold start rather than something that happens after it.
+
 ## The gap
 
 The tool set teaches more than it looks like. Every tool carries a description; `operation` answers
@@ -71,7 +76,10 @@ write one solves the problem the issue states**, and each costs something real:
   already authored them without the orientation. It would also widen `project`'s namespace past
   `.github/workflows/` — a §9 change — and put whole-file, always-overwriting, never-merging semantics
   onto a file users will want to edit, which is correct for a generated workflow and wrong for a note
-  addressed to a reader.
+  addressed to a reader. _ADR-0095 amends this:_ §9 and the README both make `hyper project` the
+  documented **first** act on a new repository, so once a release exists `project` *is* the cold
+  start. The namespace does widen, and is stated as widening. The whole-file objection is kept and
+  is exactly why the write is create-if-absent.
 - **A seventeenth command.** The largest of the three. §9's tree is *sixteen commands, flat, no
   aliases and no hidden commands*, and the count is load-bearing — §9 counts to sixteen throughout,
   and ADR-0088 refused a seventeenth on exactly that ground. It would also be the first name in the
@@ -106,6 +114,12 @@ carries no authority, `check` does not count it, and it lands in a diff like eve
 authors. An orientation that told an agent to write one unasked would be this decision's own refusal
 re-acquired by way of its prose, which is why the text says *offer*.
 
+_ADR-0095 amends this:_ a third transcript showed the fallback to be circular — the agent offered only
+after it had recovered the orientation by running `strings` over the binary, so it fired exactly when
+it was not needed. `project` writes the file, and the orientation's paragraph narrows to offering a
+**section** in an `AGENTS.md` that already stands. The rest of the paragraph holds: the file still
+carries no authority, `check` still does not count it, and it still lands in a diff.
+
 ## Where the worked `http` example lives
 
 **In the `instructions` text**, as five artefacts written out under the repository paths they belong
@@ -123,7 +137,10 @@ a fresh directory holds no docs, and the second is a thing to do *as well*, late
 Definition, a Procedure and a Repository declaration — enough shape to author against, carried because
 the format cannot be inferred, and not a tour of the thirty-two static codes. The text is paid for on
 every session whether the model reads it or not, so anything a tool call already answers stays a tool
-call.
+call. _ADR-0095 amends the count:_ the text is now paid for twice, as a handshake field and as a file,
+and the example is one Provider, one Target, a Definition, a Procedure and a Repository declaration,
+with the single-host request shape kept as a four-line fragment. The rule above is what did the
+cutting rather than what was cut.
 
 **The second Manifest was bought with evidence, and it is the shape of the argument for anything else
 going in.** The first transcript run against this text (issue #209) was asked for a multi-host `read`
@@ -133,6 +150,11 @@ byte scans — to recover `host-input:` and `enumerations:`. It never read `docs
 same machine; it went to the executable. That is what an insufficient example costs, and it is not a
 cost the prose can pay off: the agent did not need a better sentence, it needed the other request
 shape. A third goes in the same way or not at all — a transcript showing an agent hunting for it.
+
+_ADR-0095 amends this:_ the second shape is still carried and is still what that transcript bought,
+but it is a fragment rather than a whole Manifest — a `http:` block and an `auth:` scheme, which is
+the whole of what the agent went to the executable for. The evidence rule for adding a third is
+unchanged.
 
 ## Consequences
 
@@ -153,7 +175,10 @@ shape. A third goes in the same way or not at all — a transcript showing an ag
   earn their bytes; facts a tool already answers do not.
 - **Nothing widens.** No tool is added, no command is added, `project`'s namespace does not move,
   `install`, `store init` and `compact` stay unreachable, and no artefact permits anything it did not
-  permit before. What changed is a field in a handshake.
+  permit before. What changed is a field in a handshake. _ADR-0095 amends this:_ `project`'s
+  namespace moves by one path, `AGENTS.md`. The rest of the sentence holds — no tool, no command,
+  the three still the human's, and no artefact permitting anything new — and the path that was added
+  carries no authority, is counted by no `check`, and is read by no Run.
 - **`CONTEXT.md` gains no term.** `instructions` is the protocol's word for a protocol's field.
 - **Harness coverage is a claim about clients, not about `hyper`.** The field is in the specification
   and the Go SDK carries it; whether a given harness surfaces it to the model varies, and a harness

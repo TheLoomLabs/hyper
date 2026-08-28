@@ -1,21 +1,31 @@
 # What `project` wrote, and what it left alone
 
-Twenty-four cases, each with a repository of its own, and every one of them
-holds a `tree.golden` (issues #177, #178 and #179). That is the corpus's own rule and
+Twenty-five cases, each with a repository of its own, and every one of them
+holds a `tree.golden` (issues #177, #178, #179 and #211). That is the corpus's own rule and
 the reason it exists: the two text streams say what the command **reported**,
 and only the tree says what it **did** — a case checking its stdout alone would
 pass on a command that printed the right table and wrote nothing, or wrote it
 somewhere else.
 
 A `tree.golden` renders the places `hyper` writes: `.github/workflows/`,
-`hyper.yaml` and `providers/`. The first two are the ones `project` writes — the
-declaration is where the pin and the frozen digest land, and a golden that
-showed only the workflows would assert half of one edit. The third is where an
-installed Manifest lands (issue #184), and it is on the list for that criterion
-rather than as an exception for one command; rendering it here is also what
-makes these cases say a thing they could not before, that `project` writes those
-two places and does **not** touch a Manifest. A repository holding none of a
-place renders a stated absence line rather than nothing.
+`hyper.yaml`, `AGENTS.md` and `providers/`. The first three are the ones
+`project` writes — the declaration is where the pin and the frozen digest land,
+the note is the orientation an agent reads before it does anything at all, and a
+golden that showed only the workflows would assert a third of one edit. The
+fourth is where an installed Manifest lands (issue #184), and it is on the list
+for that criterion rather than as an exception for one command; rendering it
+here is also what makes these cases say a thing they could not before, that
+`project` writes those three places and does **not** touch a Manifest. A
+repository holding none of a place renders a stated absence line rather than
+nothing.
+
+`AGENTS.md` is the one place rendered by name rather than by its bytes where it
+holds what `project` wrote. The orientation is a constant `internal/mcp` states,
+checked against the file by the case that owns that criterion and run through
+`check` by the corpus one directory over; copying it into every case here would
+put nine kilobytes of prose in each and move all of them whenever a sentence was
+re-flowed. Anything **else** standing at that path renders verbatim, which is
+what makes `an-agents-file-that-stands-is-left-alone` legible (issue #211).
 
 Each case carries its own `repo/` rather than sharing one. A `tree.golden` is
 read against the working tree the case was driven in, so a shared repository
@@ -70,6 +80,7 @@ retirement. Both bind one Target under one scheme, so both carry the same one
 | `no-release-under-the-tag` | `release-artefact-absent`: the checksums file answers `404`, which is a tag with no release and a release with no checksums file alike |
 | `no-line-for-the-artefact` | the same code's third shape: the file is there and names no artefact for the platform `runs-on` fixes |
 | `a-checksum-that-never-arrived` | the connection is refused: exit `1`, the world resisting rather than a check declining, and nothing written |
+| `an-agents-file-that-stands-is-left-alone` | an `AGENTS.md` about the repository's linter, standing before the command ran and byte-identical after it: the note is created or left alone, never overwritten |
 
 `a-hand-edit-does-not-survive` is the corpus's half of §10's own sentence, the
 other half being `check`'s: a hand-edit to a generated file does not survive the

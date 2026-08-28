@@ -3,4 +3,5 @@ no .github/workflows/ directory
 kind: repository-declaration
 version: 1.4.0
 digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+no AGENTS.md
 no providers/ directory

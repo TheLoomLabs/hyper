@@ -12,6 +12,7 @@ import (
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/capability"
+	"github.com/TheLoomLabs/hyper/internal/mcp"
 	"github.com/TheLoomLabs/hyper/internal/pin"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/release"
@@ -61,6 +62,23 @@ import (
 // repository holds none. What that costs and why it is not the whole-file rule
 // the workflows are written under is internal/pin's to state; what is this
 // command's is that the edit happens in the same act the workflows do.
+//
+// **And it writes `AGENTS.md` where the repository holds none**, which is the
+// third path in its namespace and the only one that is not derived from an
+// artefact. The bytes are the orientation internal/mcp already states, at this
+// binary's version, because two orientations disagree the first time either is
+// edited. ADR-0093 refused this and is amended rather than reversed: what moved
+// is that `project` is the documented first act on a new repository, so the
+// cold start the ADR said `project` could not reach is exactly the moment
+// `project` runs (§9, §11, ADR-0095, issue #211).
+//
+// **It is create-if-absent and never an overwrite**, which is the one place
+// this command departs from whole-file regeneration. `AGENTS.md` is a shared
+// file most repositories already hold for reasons having nothing to do with
+// `hyper`, and ADR-0093 is right that always-overwriting semantics are correct
+// for a generated workflow and wrong for a note addressed to a reader. Where
+// one stands, `hyper` leaves it, and the orientation's own closing paragraph is
+// what covers the gap: the agent offers to add a section, and the human decides.
 //
 // **And this one stands outside the pin gate**, the only command in §9's tree
 // that does. It is exempt not for being read-only, which §11 refuses as a ground
@@ -150,8 +168,9 @@ func RunProject(args []string, to destination, process Process, wd, binaryVersio
 	pinned := pin.Written(declared.bytes, declared.present, binaryVersion, digest)
 	wanted := verify.Projection(loaded, binaryVersion, digest)
 	unwanted := verify.UnwantedWorkflows(loaded, wanted)
+	note := mcp.Instructions(binaryVersion)
 
-	if path, err := writeDerived(repoRoot, pinned, wanted, unwanted); err != nil {
+	if path, err := writeDerived(repoRoot, pinned, wanted, unwanted, note); err != nil {
 		// The file it died on, named, and the tree left as it stands.
 		// git is the undo, the tree is under review, and a rollback path
 		// is code that runs only when something has already gone wrong
@@ -188,8 +207,9 @@ func blockingProblems(problems []problem.Problem) []problem.Problem {
 }
 
 // writeDerived is the one act: the Repository declaration, then every wanted
-// file written whole, then every unwanted one removed. It answers the path it
-// died on and the reason, and the empty path where it wrote everything.
+// file written whole, then every unwanted one removed, then the note where the
+// repository holds none. It answers the path it died on and the reason, and the
+// empty path where it wrote everything.
 //
 // It is named for what it writes rather than for the namespace, because the
 // declaration is not part of the projection: it is a reviewed artefact carrying
@@ -204,7 +224,13 @@ func blockingProblems(problems []problem.Problem) []problem.Problem {
 // The directory is created where a file goes into it and never otherwise: a
 // repository that projects nothing gets no empty `.github/workflows/`, an empty
 // directory being a thing git will not carry anyway.
-func writeDerived(repoRoot string, pinned []byte, wanted []verify.ProjectedWorkflow, unwanted []string) (string, error) {
+//
+// **The note goes last, and that is the same choice read once more.** It is the
+// only thing written here that no artefact derives, so a tree interrupted
+// before it is a repository that projected correctly and lacks a note — which
+// is the reading that costs a reader least, and the one running this again
+// repairs (§10, ADR-0095).
+func writeDerived(repoRoot string, pinned []byte, wanted []verify.ProjectedWorkflow, unwanted []string, note string) (string, error) {
 	// The declaration first, because it is the fact the rest of this act
 	// derives from: a tree interrupted after it names the version its
 	// workflows are converging on, where the other order leaves a repository
@@ -230,7 +256,44 @@ func writeDerived(repoRoot string, pinned []byte, wanted []verify.ProjectedWorkf
 			return path, err
 		}
 	}
+	if err := writeNote(repoRoot, note); err != nil {
+		return notePath, err
+	}
 	return "", nil
+}
+
+// notePath is where the orientation lands. It is the convention's own name and
+// not `hyper`'s: harnesses read `AGENTS.md` up front, unprompted, which is the
+// whole of why the file is worth writing (ADR-0095).
+//
+// It is a literal here rather than a constant somewhere shared because nothing
+// but this command and the cases over it has any business naming it — no
+// artefact resolves through it, `check` does not count it, and no Run reads it
+// (§9, ADR-0093).
+const notePath = "AGENTS.md"
+
+// writeNote writes the orientation where the repository holds no `AGENTS.md`,
+// and leaves any file that stands exactly as it is.
+//
+// **The absence is tested by the write rather than before it.** `O_EXCL` is the
+// one form in which *is it there* and *claim it* are a single syscall; a `Stat`
+// followed by a `WriteFile` is a window in which a file appears and is then
+// taken, and the file this is about is one somebody may be authoring in the
+// next pane. An `EEXIST` is therefore the ordinary outcome rather than a
+// failure, and it is the only error swallowed here.
+func writeNote(repoRoot, note string) error {
+	file, err := os.OpenFile(filepath.Join(repoRoot, notePath), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if os.IsExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := file.WriteString(note); err != nil {
+		file.Close()
+		return err
+	}
+	return file.Close()
 }
 
 // standingDeclaration is the Repository declaration as it stands before

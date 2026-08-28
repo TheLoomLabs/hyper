@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/TheLoomLabs/hyper/internal/mcp"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/store"
 	"github.com/TheLoomLabs/hyper/internal/workflow"
@@ -643,6 +644,35 @@ const providersDir = "providers"
 // `install` creates the directory out of (§12, issue #184).
 const absentProviders = "no " + providersDir + "/ directory\n"
 
+// notePath is the fourth place `hyper` writes: the `AGENTS.md` `project`
+// creates where a repository holds none (ADR-0095, issue #211). Written out
+// here for the reason providersDir is — internal/cli holds it unexported, and a
+// tree golden is not reason enough to give it an exported home.
+const notePath = "AGENTS.md"
+
+// absentNote is what a tree golden holds where the repository carries no
+// `AGENTS.md` — every case but a `project` that ran, and the state `project`
+// creates one out of.
+const absentNote = "no " + notePath + "\n"
+
+// carriedNote is what a tree golden holds where `AGENTS.md` is the orientation
+// this binary states, byte for byte.
+//
+// **The bytes are named rather than copied, and that is the one departure from
+// *verbatim beneath* this golden makes.** They are a constant internal/mcp
+// holds, asserted against `AGENTS.md` by the case that owns that criterion and
+// run through `check` by the corpus one file over; a golden that copied them
+// would put nine kilobytes of prose into every `project` case, move all of them
+// whenever a sentence was re-flowed, and say nothing at any of them but *the
+// constant is still the constant*. What a tree golden is for is what the
+// command **did**, and *it wrote the orientation here* is that fact whole
+// (issue #211, internal/cli/instructions_test.go).
+//
+// Anything else standing at that path is rendered verbatim like every other
+// file, which is what keeps the never-overwrite cases legible: a file `project`
+// left alone is one whose own bytes are on the page.
+const carriedNote = "=== " + notePath + " (the orientation, verbatim)\n"
+
 // renderTree is the working tree as a tree golden holds it: the places `hyper`
 // writes into, each on render's own shape — every path under them in path
 // order, each under a header line naming it and its length, with the bytes
@@ -659,9 +689,9 @@ const absentProviders = "no " + providersDir + "/ directory\n"
 // then reviews in a diff, and a golden read off HEAD would be reading the commit
 // the fixture made before the command ran (§10).
 //
-// **Three places are rendered, on one criterion rather than a list that grew by
-// exception.** `.github/workflows/` and `hyper.yaml` are the two halves of a
-// single `project` edit — the pin and the digest go into the declaration in the
+// **Four places are rendered, on one criterion rather than a list that grew by
+// exception.** `.github/workflows/`, `hyper.yaml` and `AGENTS.md` are the three
+// files of a single `project` edit — the pin and the digest go into the declaration in the
 // same act the workflows are written in, and a golden that showed only the
 // workflows would assert half of one edit (§11, issue #178). `providers/` is
 // the third because `install` writes there (§12): a corpus that could not see
@@ -670,13 +700,37 @@ const absentProviders = "no " + providersDir + "/ directory\n"
 // `project` cases say something they could not before — that `project` writes
 // the workflows and the declaration and does **not** touch a Manifest.
 //
+// `AGENTS.md` joined on the same criterion and nothing else: `project` writes
+// it, so a corpus that could not see it would hold what that command reported
+// and never that the note landed — or, in the case that matters more, that a
+// note already standing was left exactly as it was (ADR-0095, issue #211).
+//
 // Nothing else is rendered, and a golden over the whole tree still is not what
 // this is: it would move every time a case's own artefacts did. `providers/` is
 // no counterexample to that. It is rendered for being a place `hyper` writes,
 // and a case whose `providers/` fixture changes is a case whose golden *should*
 // move.
 func (fx gitFixture) renderTree(t *testing.T) string {
-	return fx.renderWorkflows(t) + fx.renderDeclaration(t) + fx.renderProviders(t)
+	return fx.renderWorkflows(t) + fx.renderDeclaration(t) + fx.renderNote(t) + fx.renderProviders(t)
+}
+
+// renderNote is `AGENTS.md` as a tree golden holds it: the stated line where
+// the repository carries none, the named line where it carries the orientation
+// this binary states, and the file's own bytes where it carries anything else.
+func (fx gitFixture) renderNote(t *testing.T) string {
+	t.Helper()
+
+	data, err := os.ReadFile(filepath.Join(fx.root, notePath))
+	if os.IsNotExist(err) {
+		return absentNote
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) == mcp.Instructions(testFacts.Version) {
+		return carriedNote
+	}
+	return fmt.Sprintf("=== %s (%d bytes)\n%s", notePath, len(data), data)
 }
 
 // renderDeclaration is `hyper.yaml` as a tree golden holds it: the same header

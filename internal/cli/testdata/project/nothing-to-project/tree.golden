@@ -4,6 +4,7 @@ kind: repository-declaration
 version: 1.4.0
 digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
 retention: 90d
+=== AGENTS.md (the orientation, verbatim)
 === providers/preview-dns.yaml (846 bytes)
 kind: provider
 provider: preview-dns

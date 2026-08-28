@@ -2021,10 +2021,18 @@ var recordsTool = tool{
 // **Everything it does on the way is the command's, unchanged**: the whole-file
 // overwrite of each workflow, the two scalars edited in the Repository
 // declaration with every other byte carried through, the version pin derived
-// from the binary that ran it, and the `release-artefact-absent` Refusal where
-// it cannot resolve a published artefact for its own version — which arrives
-// here as `isError: true` with the rendering whole, like any other guardrail
-// declining, and with nothing written (§11, ADR-0020).
+// from the binary that ran it, the `AGENTS.md` created where the repository
+// holds none and never taken where one stands, and the
+// `release-artefact-absent` Refusal where it cannot resolve a published
+// artefact for its own version — which arrives here as `isError: true` with the
+// rendering whole, like any other guardrail declining, and with nothing written
+// (§11, ADR-0020, ADR-0095).
+//
+// **The description names the note even though no row reports it**, on the same
+// ground the declaration is named there: a caller is told what a call writes
+// into its tree, and a third file appearing in a diff that the tool's own
+// description did not mention is a surprise this surface has no way to explain
+// (§9, issue #211).
 //
 // **And it stands outside the pin gate on this surface exactly as it does on
 // the CLI**, being the pin's only writer: a writer gated on what it writes is a
@@ -2033,7 +2041,7 @@ var recordsTool = tool{
 // being a schema and an argv (§9, §11, RunProject).
 var projectTool = tool{
 	name:        "project",
-	description: "Regenerate the projection: one .github/workflows/ file per Procedure that declares a Cadence, and the two derived scalars in the Repository declaration. It is repo-wide and all-or-nothing — whole files overwritten, the ones no Procedure asks for any more taken away — and it reports what it wrote, the git diff being where a human reviews it.",
+	description: "Regenerate the projection: one .github/workflows/ file per Procedure that declares a Cadence, and the two derived scalars in the Repository declaration. It is repo-wide and all-or-nothing — those files are overwritten whole, and the ones no Procedure asks for any more are taken away. It also writes an AGENTS.md carrying this orientation where the repository holds none, and never touches one that already stands. It reports the workflows it wrote, the git diff being where a human reviews all of it.",
 	input:       noArguments,
 	output: closedObject(`{
 		"rows": {
