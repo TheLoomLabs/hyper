@@ -41,13 +41,21 @@ and not as a seventeenth command (ADR-0088). None of the three ever checks wheth
 
 **`hyper` with no arguments writes that tree.** The six groups above, the sixteen names carrying the
 positionals this section's table states beside them, and the three commands outside the tree named as
-such — on stderr, exiting `2`, like the usage error it is. It is the only place the command line says
-what it can do: `completions <shell>` emits every name and emits them as a shell script, which is not a
-thing anybody runs to find out what a binary does, and the orientation below reaches an agent on the
-other surface alone. A caller told only `usage: hyper <command> [args...]` has been given nowhere else
-to look, and what it does next is read whatever is nearby.
+such — then, in a block of its own, the three configuration flags below, titled to say that the sixteen
+take them and the three outside the tree do not. On stderr, exiting `2`, like the usage error it is. It
+is the only place the command line says what it can do: `completions <shell>` emits every name and emits
+them as a shell script, which is not a thing anybody runs to find out what a binary does, and the
+orientation below reaches an agent on the other surface alone. A caller told only
+`usage: hyper <command> [args...]` has been given nowhere else to look, and what it does next is read
+whatever is nearby.
 
-It adds no command, no alias and no seventeenth entry. `help` and `--help` are not among the sixteen
+**An unknown command names where that list is.** A word that is not one of the nineteen writes what was
+typed, the namespace it was resolved against, and the invocation that enumerates it — the same three
+things a positional matching nothing writes, applied to the command name, and it suggests no near miss
+for the same reason (ADR-0047). It is the pointer and not the page: the tree is what the argument-less
+invocation answers with, and rendering it after every typo is narration nobody asked for.
+
+Neither adds a command, an alias or a seventeenth entry. `help` and `--help` are not among the sixteen
 and answer `unknown command` as any other word does; nothing above is hidden, and printing the list is
 the opposite of hiding one. There is no per-command usage text either: a positional that resolves to
 nothing is the usage error above, naming the command that enumerates its namespace, and what stands in

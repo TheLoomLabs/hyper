@@ -109,7 +109,21 @@ func Main(args []string, stdout, stderr io.Writer, process Process, facts versio
 		// #195).
 		return RunMCP(args[1:], stderr, process, facts)
 	default:
-		fmt.Fprintf(stderr, "hyper: unknown command %q\n", args[0])
+		// §9's rule for a positional that matches nothing, applied to
+		// the command name: what was typed, the namespace it was
+		// resolved against, and the command that enumerates that
+		// namespace. `help` and `--help` are correctly unknown — no
+		// command is added here — but a message saying only *unknown*
+		// leaves a caller exactly where the empty usage line did, and
+		// both agents that went foraging reached this branch before
+		// they reached the bare invocation (usage.go, issue #210).
+		//
+		// It writes the pointer and not the page: the tree is what a
+		// bare `hyper` answers with, and twenty-eight lines in front
+		// of somebody who missed a keystroke is narration nobody
+		// asked for. It suggests no near miss either, for the reason
+		// nothing here ever does (§9, ADR-0047).
+		fmt.Fprintf(stderr, "hyper: unknown command %q\n%s", args[0], whereTheCommandsAre)
 		return ExitUsage
 	}
 }

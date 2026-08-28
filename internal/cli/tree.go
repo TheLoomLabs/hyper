@@ -155,15 +155,28 @@ var storeSubVerbs = []string{
 	"init",
 }
 
-// globals is the three configuration flags §9 closes at three and no more:
+// globalFlags is the three configuration flags §9 closes at three and no more:
 // --json, --repo-dir (HYPER_REPO_DIR) and --no-color (honouring NO_COLOR).
-// They are named here in the spelling a caller types, which is what a
-// completion offers; internal/cli's own parsing of them is check.go's.
-var globals = []string{
-	"--json",
-	"--repo-dir",
-	"--no-color",
-}
+// They are named in the spelling a caller types, which is what a completion
+// offers and what the usage page renders; internal/cli's own parsing of them
+// is check.go's.
+//
+// It is a group like the tree's six so that the page renders it the way it
+// renders them, and its title carries the one thing a caller cannot see from
+// the flags themselves: **the three govern the sixteen and none of the three
+// outside the tree**, which is the same distinction that stops a completion
+// script offering `--json` after `version` (§9, usage.go, issue #210).
+var globalFlags = group{"The three configuration flags, on the sixteen alone", []entry{
+	{name: "--json"},
+	{name: "--repo-dir", positional: "<dir>"},
+	{name: "--no-color"},
+}}
+
+// globals is those three as the spellings alone, on the same footing as `tree`
+// and `outsideTree` above: what a completion offers is the flag, and the
+// directory `--repo-dir` takes is completed by a rule of its own
+// (completions.go).
+var globals = names(globalFlags)
 
 // shells is the closed set `hyper completions` writes a script for, in the
 // order its usage error names them, which is alphabetical. It belongs beside
