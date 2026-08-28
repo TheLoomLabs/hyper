@@ -142,28 +142,66 @@ These five are the whole of what a Run can reach the world through, and they are
 what there is to read. There is nothing behind a Manifest to fetch, build or isolate — which
 is why reviewing it is enough, and why `install` moves data rather than code.
 
-## Quickstart
+## Install
 
-The sequence below runs, against the built-in `shell` Provider, on your own machine.
+`hyper` is one binary and installs by being put on your `PATH`. It has no installer, no
+daemon and no post-install step, and it never updates itself
+([ADR-0019](docs/adr/0019-hyper-never-updates-itself.md)).
 
-**1. Build a stamped binary.** `hyper` learns its own version from the linker, and a build that
-omits the flag reports `unknown` and Refuses the version-pin gate on every repository it
-touches. The stamp is not optional — see [`docs/build/releasing.md`](docs/build/releasing.md).
+### From a release
+
+Releases publish **`x86_64-linux` and `aarch64-linux`, and nothing else** — there is no macOS
+and no Windows build. `checksums.txt` is `sha256sum`'s own output, and verifying against it is
+the same act `hyper project` performs when it freezes the digest into your Repository
+declaration.
+
+```bash
+VERSION=0.0.1-alpha
+BASE=https://github.com/TheLoomLabs/hyper/releases/download/v$VERSION
+
+curl -fLO $BASE/hyper-$VERSION-x86_64-linux.tar.gz
+curl -fLO $BASE/checksums.txt
+sha256sum --check --ignore-missing checksums.txt
+
+tar -xzf hyper-$VERSION-x86_64-linux.tar.gz
+install -m 755 hyper ~/bin/hyper   # anywhere on your PATH
+hyper version
+```
+
+**`0.0.1-alpha` is the first release, and until its tag is pushed those URLs answer `404`.**
+That is the same absence `hyper project` reports as `release-artefact-absent` — see
+[below](#one-step-here-is-a-workaround-and-it-is-the-digest). Build from source until then.
+
+### From source
+
+Go 1.25 or newer, which `go.mod` carries. `hyper` learns its own version from the linker, and
+a build that omits the flag reports `unknown` and Refuses the version-pin gate on every
+repository it touches — so the stamp is not optional
+([`docs/build/releasing.md`](docs/build/releasing.md) owns the invocation).
 
 ```bash
 mkdir -p ~/bin   # anywhere on your PATH
-go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=1.4.0" \
+go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" \
   -o ~/bin/hyper ./cmd/hyper
 ```
 
-**2. Make a repository.** The Store is a branch of it, so there has to be one.
+Neither `go install` nor a bare `go build` stamps anything, and what an unstamped binary
+Refuses is the first of [three things that will catch
+you](#three-things-that-will-catch-you-and-why-each-is-a-rule).
+
+## Quickstart
+
+With a stamped `hyper` on your `PATH`, the sequence below runs against the built-in `shell`
+Provider on your own machine.
+
+**1. Make a repository.** The Store is a branch of it, so there has to be one.
 
 ```bash
 mkdir demo && cd demo && git init -b main
 mkdir targets definitions procedures
 ```
 
-**3. Write four artefacts.** The Repository declaration, a Target, a Definition, a Procedure —
+**2. Write four artefacts.** The Repository declaration, a Target, a Definition, a Procedure —
 the fifth artefact `check` counts is the built-in `shell` Manifest, which ships inside the
 binary.
 
@@ -171,7 +209,7 @@ binary.
 
 ```yaml
 kind: repository-declaration
-version: 1.4.0
+version: 0.0.1-alpha
 digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
 retention: 90d
 ```
@@ -211,14 +249,14 @@ steps:
       command: [echo, hello from hyper]
 ```
 
-**4. Check them.** Every static rule, offline, against no credential.
+**3. Check them.** Every static rule, offline, against no credential.
 
 ```console
 $ hyper check
 checked 5 artefacts: no problems found
 ```
 
-**5. Read the review.** This is the surface the thesis's first clause is made of: the artefact
+**4. Read the review.** This is the surface the thesis's first clause is made of: the artefact
 in a gutter, the authority assembled from `definitions/` and `targets/`, and a `FLAGS` index
 that states nothing the gutter does not.
 
@@ -246,7 +284,7 @@ $ hyper review say-hello
   ENVELOPE  line 3  ok          no step reaches a target outside [local]
 ```
 
-**6. Create the Store, and commit.** `store init` is a human's act — no MCP tool can perform
+**5. Create the Store, and commit.** `store init` is a human's act — no MCP tool can perform
 it. The commit is not ceremony: a Run's Provenance records `repo_revision`, so a Run against a
 tree with no commit has nothing to record and fails.
 
@@ -255,7 +293,7 @@ hyper store init
 git add -A && git commit -m artefacts
 ```
 
-**7. Run it, and read the record back.**
+**6. Run it, and read the record back.**
 
 ```console
 $ hyper run say-hello
@@ -268,11 +306,11 @@ completed · exit 0 · run 01a043df-521e-7a0a-b723-05eaa2bb0588
 
 $ hyper runs
 RUN             STARTED                   TRIGGER      OUTCOME    CONTESTED  PROCEDURE  TARGETS  HYPER
-01a043df-521e…  2026-08-27T15:38:24.158Z  you@machine  completed             say-hello  local    1.4.0
+01a043df-521e…  2026-08-27T15:38:24.158Z  you@machine  completed             say-hello  local    0.0.1-alpha
 
 $ hyper records
 TARGET  DEFINITION  RECORD                       ORDINAL  RUN             STEP  KIND         TOMBSTONE  ORPHANED  SECRETS  HYPER
-local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1     observation                                1.4.0
+local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1     observation                                0.0.1-alpha
 ```
 
 ### Three things that will catch you, and why each is a rule
@@ -305,7 +343,7 @@ published:
 ```console
 $ hyper project
 refused: release-artefact-absent
-  https://github.com/TheLoomLabs/hyper/releases/download/v1.4.0/checksums.txt answered 404 — publish a release for 1.4.0, or install a released hyper
+  https://github.com/TheLoomLabs/hyper/releases/download/v0.0.1-alpha/checksums.txt answered 404 — publish a release for 0.0.1-alpha, or install a released hyper
 ```
 
 So the quickstart writes `hyper.yaml` by hand, with a placeholder digest. That placeholder is
@@ -314,7 +352,7 @@ digest — and it is **not** inert in a generated workflow, where the digest is 
 checks fetched bytes against. `hyper project` on this repository would happily write a
 workflow that verifies against sixty-four zeros.
 
-Once `v1.4.0` is cut ([`docs/build/releasing.md`](docs/build/releasing.md)), the first step
+Once `v0.0.1-alpha` is cut ([`docs/build/releasing.md`](docs/build/releasing.md)), the first step
 becomes `hyper project`, the hand-written pin goes away, and the `AGENTS.md` comes with it.
 
 ## What a Run leaves behind
@@ -483,10 +521,6 @@ weeks in. That is what this section is for.
 - [`docs/adr/`](docs/adr/) — ninety-odd records of why, including the options that lost.
 - [`docs/build/milestones.md`](docs/build/milestones.md) — the build sequence, and the only
   place it is written down.
-
-**Together they are about 270k tokens, and no session reads them whole.** Do not point a tool
-at `docs/spec/` in one pass; it does not fit, and the sections are layers where any one change
-is a slice through all of them. `docs/spec/README.md` states which file carries which section.
 
 ## Contributing, security, licence
 
