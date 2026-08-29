@@ -25,43 +25,110 @@ import (
 // from inside the namespace, for a checkout and for a `hyper` on `PATH`, and
 // exits non-zero on finding either or on the search not having run at all — so
 // a case that runs the script to completion has asserted it.
+//
+// **It ranges over the tasks directory rather than naming a task** (issue
+// #222). A task file and the `.setup.sh` beside it are one artefact, and the
+// setup script runs on the repository an agent is handed — so a task named
+// here and the rest fenced by nothing is the same rot in a narrower place:
+// the second task's setup could leave a repository that does not check clean
+// and the suite would stay green. Adding a task file is the whole of what
+// fencing it takes, which is what makes the directory the right thing to
+// drive.
+//
+// What each task is asserted to hold, once its own setup has run: the script
+// ran to completion, which is the seal's assertion above; the setup script is
+// one `run.sh` would actually run; `providers/` is absent; the repository
+// checks clean; and `AGENTS.md` is the orientation this binary holds. Each
+// task gets a subtest of its own so that a failure names the task that caused
+// it, and an empty directory is a failure, since a loop over nothing passes
+// for the wrong reason.
 func TestAcceptance_TheSealedHarnessHandsAnAgentTheQuickstartAndNothingElse(t *testing.T) {
 	needTools(t, "bash", "bwrap", "git", "go", "python3")
 	needSeal(t)
 
-	into := t.TempDir()
-	command := exec.Command("bash", "scripts/acceptance/run.sh",
-		filepath.Join("scripts", "acceptance", "tasks", "snapshot-lifecycle.md"), into)
-	command.Dir = root(t)
-	command.Env = append(command.Environ(), "ACCEPTANCE_SETUP_ONLY=1")
-	if out, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("scripts/acceptance/run.sh: %v\n%s", err, out)
-	}
-	repo := filepath.Join(into, "repo")
-
-	// The absence is the point. A task that asks for a Provider is asking for
-	// the one artefact the repository has no example of, and a harness that
-	// scaffolded one would be answering the question it was built to ask.
-	if _, err := os.Stat(filepath.Join(repo, "providers")); !os.IsNotExist(err) {
-		t.Errorf("the harness left a providers/ directory; its absence is the gap under test")
-	}
-
-	stdout, stderr, exit := run(t, filepath.Join(into, "bin", "hyper"), "check", "--repo-dir", repo)
-	if exit != 0 || !strings.Contains(stdout, "no problems found") {
-		t.Errorf("the repository the harness hands over does not check clean: exit %d\n%s%s", exit, stdout, stderr)
-	}
-
-	// `project` would write this file, and cannot while no release is
-	// published; the harness takes the bytes from the handshake instead, the
-	// two channels carrying one text (ADR-0095). What this catches is the
-	// copy-that-went-stale failure that shortcut invites.
-	note, err := os.ReadFile(filepath.Join(repo, "AGENTS.md"))
+	directory := filepath.Join(root(t), "scripts", "acceptance", "tasks")
+	entries, err := os.ReadDir(directory)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := mcp.Instructions(pinnedBy(t, repo)); string(note) != want {
-		t.Errorf("the harness's AGENTS.md is not the orientation this binary holds (%d bytes against %d)", len(note), len(want))
+	var tasks []string
+	for _, entry := range entries {
+		// Every `.md` here is a task but one: a subtree documents itself
+		// (CONTRIBUTING), and a `README.md` handed to `run.sh` as a task would
+		// be a sealed session prompted with the directory's own prose.
+		if !strings.HasSuffix(entry.Name(), ".md") || entry.Name() == "README.md" {
+			continue
+		}
+		tasks = append(tasks, filepath.Join(directory, entry.Name()))
 	}
+	if len(tasks) == 0 {
+		t.Fatal("scripts/acceptance/tasks holds no task file; a fence that ranges over nothing is green for the wrong reason")
+	}
+
+	for _, task := range tasks {
+		t.Run(strings.TrimSuffix(filepath.Base(task), ".md"), func(t *testing.T) {
+			// `run.sh` runs a task's setup script only if it is executable,
+			// and skips it in silence otherwise — so a setup script committed
+			// without its bit is a task whose repository is missing what the
+			// task names, fenced by a loop that stays green. The mode is the
+			// one part of "a task and its setup script are one artefact" the
+			// harness cannot assert for itself.
+			if setup := strings.TrimSuffix(task, ".md") + ".setup.sh"; !executable(t, setup) {
+				t.Errorf("%s exists but is not executable; run.sh would skip it and this task would run against a repository without it", filepath.Base(setup))
+			}
+
+			into := t.TempDir()
+			command := exec.Command("bash", "scripts/acceptance/run.sh", task, into)
+			command.Dir = root(t)
+			command.Env = append(command.Environ(), "ACCEPTANCE_SETUP_ONLY=1")
+			if out, err := command.CombinedOutput(); err != nil {
+				t.Fatalf("scripts/acceptance/run.sh: %v\n%s", err, out)
+			}
+			repo := filepath.Join(into, "repo")
+
+			// The absence is the point, and it is asserted for every task
+			// rather than only the ones that ask for a Provider: it is a
+			// property of the fixture the harness materialises, and a `.setup.sh`
+			// that scaffolded one would be answering the question the flagship
+			// task is being written to ask.
+			if _, err := os.Stat(filepath.Join(repo, "providers")); !os.IsNotExist(err) {
+				t.Errorf("the harness left a providers/ directory; its absence is the gap under test")
+			}
+
+			stdout, stderr, exit := run(t, filepath.Join(into, "bin", "hyper"), "check", "--repo-dir", repo)
+			if exit != 0 || !strings.Contains(stdout, "no problems found") {
+				t.Errorf("the repository the harness hands over does not check clean: exit %d\n%s%s", exit, stdout, stderr)
+			}
+
+			// `project` would write this file, and cannot while no release is
+			// published; the harness takes the bytes from the handshake
+			// instead, the two channels carrying one text (ADR-0095). What this
+			// catches is the copy-that-went-stale failure that shortcut invites.
+			note, err := os.ReadFile(filepath.Join(repo, "AGENTS.md"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := mcp.Instructions(pinnedBy(t, repo)); string(note) != want {
+				t.Errorf("the harness's AGENTS.md is not the orientation this binary holds (%d bytes against %d)", len(note), len(want))
+			}
+		})
+	}
+}
+
+// executable answers whether a task's setup script is one `run.sh` would run:
+// a script that is not there is in order — a task naming nothing on the machine
+// brings nothing with it — and one that is there with no executable bit is not.
+func executable(t *testing.T, path string) bool {
+	t.Helper()
+
+	info, err := os.Stat(path)
+	switch {
+	case os.IsNotExist(err):
+		return true
+	case err != nil:
+		t.Fatal(err)
+	}
+	return info.Mode().Perm()&0o111 != 0
 }
 
 // pinnedBy answers the version a Repository declaration pins, which is also

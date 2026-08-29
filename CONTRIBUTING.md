@@ -97,6 +97,15 @@ the seal hides. `TestAcceptance_TheSealedHarnessHandsAnAgentTheQuickstartAndNoth
 runs the setup half in the suite, so the harness cannot rot between the handful
 of runs a year it is used for.
 
+**A task is fenced by existing.** That test ranges over every task file in
+`scripts/acceptance/tasks/` rather than naming one, so adding a task file — and
+the `.setup.sh` beside it, which is part of the same artefact — is the whole of
+what fencing it takes. A setup script that fails, or that leaves a repository
+`hyper check` does not call clean, fails the suite under the task's own name.
+**Commit the setup script executable**: `run.sh` runs it only if it is, and one
+committed without its bit is skipped in silence, which the fence asserts against
+rather than inherits.
+
 ## The spec is the authority
 
 Where the code and [`docs/spec/`](docs/spec/) disagree, **the spec is right and
