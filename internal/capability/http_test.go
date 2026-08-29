@@ -280,6 +280,31 @@ http:
 	}
 }
 
+// TestCallURL_AFilledHoleCarriesADelimiterPercentEncoded is what a path:
+// carrying no ? of its own still leaves reachable. §4 refuses the delimiter
+// where it is authored, in the file and offline; a value that arrives at Run
+// time is read against no path grammar and is escaped by url.URL like any
+// other text, so a path segment holding a literal ? or # is written by
+// putting it in the input the hole names (issue #229).
+func TestCallURL_AFilledHoleCarriesADelimiterPercentEncoded(t *testing.T) {
+	request, _ := capability.ReadRequest(operation(t, `
+http:
+  method: GET
+  host: "{from-target}"
+  path: /v1/monitors/{monitor_id}
+`))
+
+	call, err := request.Build(servedHost, map[string]schema.Scalar{
+		"monitor_id": read1(t, schema.String, "a?b#c"),
+	})
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if got, want := call.URL(), "https://status.hyper.dev/v1/monitors/a%3Fb%23c"; got != want {
+		t.Errorf("URL = %q, want %q", got, want)
+	}
+}
+
 // TestBuild_ABodyCarryingANull is the one scalar a body: position cannot hold.
 // There is no null in the vocabulary (§12), the loader refuses one at every
 // position of every artefact, and a Probe re-runs no check (ADR-0009) — so this

@@ -106,11 +106,13 @@ Target-class type-check get their names here: an Operation projecting a Record a
 identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
 
-Twelve further checks are one fact wearing twelve shapes — a Manifest whose own declarations disagree
-with each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an
+Thirteen further checks are one fact wearing thirteen shapes — a Manifest whose own declarations
+disagree with each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an
 Operation whose `record:` carries no collection path, a `host-input:` naming a property the Operation's
-input schema does not define, a `headers:` entry taking the request position its Auth scheme owns, a
-Provider declaring only the `shell` Capability while carrying an `auth:` block, a
+input schema does not define, a `path:` carrying a `?` or a `#` — the two delimiters that end a path,
+and neither of which `hyper` will read as one, a query belonging in the `query:` key beside it and a
+fragment being never sent at all (§3, ADR-0107) — a `headers:` entry taking the request position its
+Auth scheme owns, a Provider declaring only the `shell` Capability while carrying an `auth:` block, a
 Target declaration's credential slots not covering the scheme's slots for a binding a Definition makes
 (§3), a template hole naming an input the same file declares `object` or `array` — a hole fills a
 scalar position, and a whole object is no more interpolable than it is referenceable (§3, ADR-0078) —
@@ -126,9 +128,9 @@ Kind disagreeing with what the Operation projects, with what its Repeatability w
 with what its Expansion could ever do,
 and they earn no code of their own because they point a reader at one file, one Operation, and two
 adjacent keys — which is the discrimination `name-mismatch` was split out to preserve and this does not
-lose. The fifth is checked per (Definition, Target) pair rather than on the Target declaration alone,
-which is the one place a Target's own artefact is not sufficient — a Target declaration is written
-without knowing which Provider will bind it, and the scheme is the Provider's.
+lose. Target slot coverage is checked per (Definition, Target) pair rather than on the Target
+declaration alone, which is the one place a Target's own artefact is not sufficient — a Target
+declaration is written without knowing which Provider will bind it, and the scheme is the Provider's.
 
 A Capability an Operation's request names and the bound Target's declaration does not grant is
 `capability-not-granted`, checked per (Definition, Target) pair for the reason slot coverage is: a Target

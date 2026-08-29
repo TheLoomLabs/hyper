@@ -56,7 +56,7 @@ Provider is unwritable until `hyper` grows the primitive and ships one. The ceil
 than a slope, and it is what the closed sets §12 states cost rather than an accident of them
 (ADR-0004).
 
-Twenty-one victims stand at it, each a thing an author can want, describe precisely, and not write.
+Twenty-two victims stand at it, each a thing an author can want, describe precisely, and not write.
 The count read *seventeen* against nineteen entries until ADR-0081 counted them, ADR-0078 having added
 two without moving the word — which is the shape §12's opening rule refuses in a closed set, arriving
 in the prose that introduces one, and the reason the word moves with every entry now:
@@ -87,6 +87,16 @@ in the prose that introduces one, and the reason the word moves with every entry
   convention. Slack's incoming webhooks are exactly that shape, the whole path being the credential.
   The workaround is usually a token-authenticated API beside the webhook, which is the better artefact
   anyway; where there is none, there is none.
+- **A path segment holding a literal `?` or `#`.** `path:` is written as text and `hyper`
+  percent-encodes it (§3), so neither character can be authored inline: a `?` there is a query written
+  in the wrong key and a `#` is a fragment no request carries, and both are refused at `check`
+  (`manifest-inconsistent`, §4, ADR-0107). Unlike the rest of this list the primitive is not missing.
+  A hole's value arrives at Run time, is read against no path grammar, and is escaped like any other
+  text, so the segment is reachable by naming it in an input — and that route costs what an input
+  costs: every input an Operation declares is supplied by every Step that binds it (ADR-0081), so a
+  fixed `?` in a path stops being the Manifest's and becomes an argument every call site writes out.
+  What is behind the wall is therefore the *constant*, and the wall is the price of deciding offline
+  the mistake that character is almost always a symptom of.
 - **Load-shaped retry.** Retry follows only a failure that provably preceded the request (ADR-0018),
   so an API that fails under load, with 5xx, on an effectful call, and genuinely wants retrying, has
   no route but waiting for one to ship.

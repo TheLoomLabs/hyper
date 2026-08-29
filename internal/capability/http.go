@@ -152,6 +152,13 @@ type Call struct {
 // URL is the address the call reaches, and it is where the one scheme is
 // written. It is a method rather than a field so that no caller can hold a
 // Call whose scheme says one thing and whose host says another.
+//
+// Path is url.URL's Path and not its RawPath, so what a Manifest wrote is
+// text and the percent-encoding is hyper's: a ? or a # in it is escaped
+// into the path rather than opening a query or a fragment. An authored one
+// is manifest-inconsistent and never reaches here (§3, §4, ADR-0107); one
+// that arrives in a filled hole does, and is escaped like any other text,
+// which is what leaves a path segment holding a literal ? reachable at all.
 func (c Call) URL() string {
 	address := url.URL{Scheme: Scheme, Host: c.Host, Path: c.Path}
 	if query := c.rawQuery(); query != "" {

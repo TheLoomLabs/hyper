@@ -6,7 +6,7 @@
 // declarations against each other, with nothing but the file in hand
 // (§4, issue #92). capability-mismatch and identity-undeclared read what an
 // Operation's own request and record: imply against what the Manifest
-// declares elsewhere; manifest-inconsistent is eleven decidable-from-one-
+// declares elsewhere; manifest-inconsistent is twelve decidable-from-one-
 // file shapes of one fact sharing one code; header-reserved and
 // capability-reserved refuse a name the tool holds rather than an internal
 // contradiction, the second of them being the one check here whose subject
@@ -73,15 +73,21 @@ const CodeCapabilityReserved = "capability-reserved"
 // identify (§3, §4).
 const CodeIdentityUndeclared = "identity-undeclared"
 
-// CodeManifestInconsistent is the one code eleven decidable-from-one-
+// CodeManifestInconsistent is the one code twelve decidable-from-one-
 // Manifest shapes of a Manifest disagreeing with itself share, each
 // pointing a reader at one file, one Operation, and two adjacent keys
-// rather than earning a code of its own (§3, §4). The twelfth shape —
+// rather than earning a code of its own (§3, §4). The thirteenth shape —
 // Target slot coverage — needs a (Definition, Target) binding to decide
-// and is #93's, and the thirteenth — a candidate set and a bound Target's
+// and is #93's, and the fourteenth — a candidate set and a bound Target's
 // grant intersecting to several hosts under an Operation declaring no
 // host-input: — needs a Step's binding and is #98's, emitted from
 // procedure.go where that binding is read.
+//
+// The twelfth of the twelve is a path: carrying a ? or a #. The ? is the
+// two adjacent keys in the plainest form the code has — the value is in
+// path: and it belongs in query: — and the # is the same fault with no key
+// to move to, a fragment being a thing no request carries at all
+// (ADR-0107, issue #229).
 const CodeManifestInconsistent = "manifest-inconsistent"
 
 // CodeHeaderReserved is the code drawn on the five headers hyper computes
@@ -937,6 +943,7 @@ func checkHTTPRequest(file, field string, node *yaml.Node, enumNames, inputProps
 	}
 	if pathVal := fields["path"]; pathVal != nil && pathVal.Kind == yaml.ScalarNode {
 		problems = append(problems, checkOrdinaryHoles(file, field+".path", pathVal, inputProps, inputTypes)...)
+		problems = append(problems, checkPathDelimiters(file, field+".path", pathVal)...)
 	}
 	problems = append(problems, checkStringMapping(file, field+".query", fields["query"], inputProps, inputTypes)...)
 	problems = append(problems, checkStringMapping(file, field+".headers", fields["headers"], inputProps, inputTypes)...)
@@ -952,6 +959,46 @@ func checkHTTPRequest(file, field string, node *yaml.Node, enumNames, inputProps
 		})
 	}
 	return problems
+}
+
+// checkPathDelimiters reports manifest-inconsistent on a path: carrying a
+// ? or a #: the two gen-delims that end a path in RFC 3986 and that neither
+// url.URL nor hyper will read as one, since path: is written as text and
+// hyper does the percent-encoding — so a query written there goes out as
+// %3F inside the path and reaches nothing (§3, §4, ADR-0107, issue #229).
+//
+// It is manifest-inconsistent rather than a code of its own because it is
+// the same shape the other eleven here have: one file, one Operation, and
+// two adjacent keys — the value is in path: and it belongs in query:,
+// which is the key beside it. The # has no key to move to and is refused
+// with it anyway: a fragment is never transmitted, so admitting the one
+// character an author cannot use while refusing the one they can move
+// would be the wrong half of the pair.
+//
+// A ? wins over a #, and one row is the whole of it. In a URI the ? opens
+// the query and everything after it is inside what the author meant as one,
+// so a second row on the same line would name a second fault that is not
+// there, and the edit that fixes the first fixes both.
+//
+// Holes are elided before the text is read. A hole's text is a name, and a
+// name is checked as a name — by checkOrdinaryHoles, on the same node — so
+// reading one as path text would put two rows on one line for one fault.
+func checkPathDelimiters(file, field string, node *yaml.Node) []problem.Problem {
+	text := holePattern.ReplaceAllString(node.Value, "")
+	var message string
+	switch {
+	case strings.Contains(text, "?"):
+		message = "path: carries a ? — a query is written in the query: key beside it, and a ? here is escaped into the path rather than opening one"
+	case strings.Contains(text, "#"):
+		message = "path: carries a # — a fragment is never sent to a server, and a # here is escaped into the path rather than becoming one"
+	default:
+		return nil
+	}
+	return []problem.Problem{{
+		File: file, Line: node.Line, Column: node.Column, Field: field,
+		ErrorCode: CodeManifestInconsistent,
+		Message:   message,
+	}}
 }
 
 // checkHeadersReserved reports header-reserved on every headers: entry

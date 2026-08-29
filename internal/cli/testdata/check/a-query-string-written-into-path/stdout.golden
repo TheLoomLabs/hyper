@@ -1,0 +1,2 @@
+FILE                    LINE  FIELD                               ERROR_CODE             MESSAGE
+providers/lookout.yaml  13    operations.list_monitors.http.path  manifest-inconsistent  path: carries a ? — a query is written in the query: key beside it, and a ? here is escaped into the path rather than opening one

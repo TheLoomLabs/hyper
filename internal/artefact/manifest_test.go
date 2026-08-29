@@ -1622,3 +1622,182 @@ operations:
 `
 	mustNone(t, checkManifest(t, "providers/broken.yaml", doc))
 }
+
+// TestCheckManifest_ManifestInconsistentPathCarriesAQueryString is the
+// twelfth shape read from the file alone: a query string written into
+// path:, which url.URL escapes into the path rather than sending as a query
+// (issue #229). The row cites the path: line and names query:, which is the
+// key beside it that the value belongs in.
+func TestCheckManifest_ManifestInconsistentPathCarriesAQueryString(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: lookout
+capabilities: [http]
+operations:
+  list:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /v1/monitors?limit=100
+    record:
+      over: $.body.data.monitors
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := checkManifest(t, "providers/broken.yaml", doc)
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.list.http.path" {
+		t.Errorf("Field = %q, want operations.list.http.path", p.Field)
+	}
+	if !strings.Contains(p.Message, "query:") {
+		t.Errorf("Message = %q, want it to name the query: key", p.Message)
+	}
+}
+
+// TestCheckManifest_ManifestInconsistentPathCarriesAFragment is the same
+// fault one delimiter over, decided with it rather than left open: a
+// fragment is never sent to a server, so a # in path: is a client-side
+// construct written into a request and it reaches the wire percent-encoded
+// like the ? does (issue #229).
+func TestCheckManifest_ManifestInconsistentPathCarriesAFragment(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: lookout
+capabilities: [http]
+operations:
+  list:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /v1/monitors#current
+    record:
+      over: $.body.data.monitors
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := checkManifest(t, "providers/broken.yaml", doc)
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.list.http.path" {
+		t.Errorf("Field = %q, want operations.list.http.path", p.Field)
+	}
+	if !strings.Contains(p.Message, "fragment") {
+		t.Errorf("Message = %q, want it to say a fragment is never sent", p.Message)
+	}
+}
+
+// TestCheckManifest_APathCarryingBothDelimitersEarnsOneRow holds the row
+// count where an author wrote a whole URL query into path:. In a URI the ?
+// opens the query and everything after it — the # included — is what the
+// author meant as one, so a second row would name a second fault that is
+// not there and point at the same line (issue #229).
+func TestCheckManifest_APathCarryingBothDelimitersEarnsOneRow(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: lookout
+capabilities: [http]
+operations:
+  list:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /v1/monitors?limit=100#current
+    record:
+      over: $.body.data.monitors
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := checkManifest(t, "providers/broken.yaml", doc)
+	var rows int
+	for _, p := range got {
+		if p.Field == "operations.list.http.path" {
+			rows++
+		}
+	}
+	if rows != 1 {
+		t.Errorf("rows on operations.list.http.path = %d, want 1: %+v", rows, got)
+	}
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if !strings.Contains(p.Message, "query:") {
+		t.Errorf("Message = %q, want the ? to be what the row names", p.Message)
+	}
+}
+
+// TestCheckManifest_APathHoleIsNotPathText is what keeps the check reading
+// the path and not the names written into it. A hole's text is a name, and
+// what is wrong with a name has its own codes; a path whose only delimiter
+// is inside one draws no path row (issue #229).
+func TestCheckManifest_APathHoleIsNotPathText(t *testing.T) {
+	doc := `kind: provider
+provider: broken
+schema-version: 1
+class: lookout
+capabilities: [http]
+operations:
+  get:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /v1/monitors/{monitor?id}
+    input:
+      type: object
+      properties:
+        monitor_id: {type: string}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	got := checkManifest(t, "providers/broken.yaml", doc)
+	for _, p := range got {
+		if p.Field == "operations.get.http.path" && p.ErrorCode == CodeManifestInconsistent {
+			t.Errorf("a hole's own text drew a path row: %+v", p)
+		}
+	}
+}
+
+// TestCheckManifest_APathWithAFilledHoleIsClean is the false-positive fence
+// the check is worth nothing without: the ordinary path, holes and all,
+// carries neither delimiter and earns no row (issue #229).
+func TestCheckManifest_APathWithAFilledHoleIsClean(t *testing.T) {
+	doc := `kind: provider
+provider: lookout
+schema-version: 1
+class: lookout
+capabilities: [http]
+operations:
+  get:
+    kind: read
+    deadline: 1h
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /v1/monitors/{monitor_id}
+      query:
+        limit: "100"
+    input:
+      type: object
+      properties:
+        monitor_id: {type: string}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+	if got := checkManifest(t, "providers/lookout.yaml", doc); len(got) != 0 {
+		t.Errorf("want no problems, got %+v", got)
+	}
+}

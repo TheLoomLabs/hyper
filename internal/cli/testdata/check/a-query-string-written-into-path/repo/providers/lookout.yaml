@@ -1,0 +1,29 @@
+kind: provider
+provider: lookout
+schema-version: 1
+class: lookout
+capabilities: [http]
+operations:
+  list_monitors:
+    kind: read
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /v1/monitors?limit=100
+    record:
+      over: $.body.data.monitors
+      identity: $.id
+      fields: {id: $.id, url: $.url}
+  list_incidents:
+    kind: read
+    deadline: 30s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /v1/incidents
+      query: {limit: "100"}
+    record:
+      over: $.body.data.incidents
+      identity: $.id
+      fields: {id: $.id, url: $.url}

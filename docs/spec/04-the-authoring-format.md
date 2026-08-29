@@ -608,6 +608,18 @@ type to carry into and schema-directed typing has nothing to guess at. `body:` i
 request that is not text, and it is stated below. A form-encoded, XML, or raw body is not writable, and
 joins the limits §13 states rather than becoming a second serialisation this format learns.
 
+`path:` is written as text and `hyper` percent-encodes it — `url.URL`'s `Path`, not a second convention
+— so an author writes the path a reader would say out loud and the escaping is `hyper`'s. Two characters
+therefore cannot mean there what they mean in a URL, and neither is silently accepted. A `?` does not
+open a query: it is escaped into the path as `%3F`, and what an author meant by it belongs in the
+`query:` key beside `path:`. A `#` does not open a fragment: a fragment is a client-side construct that
+is never sent, and there is no key it belongs in. A `path:` carrying either is `manifest-inconsistent`
+(§4), cited at the `path:` line, and the `?` is what the row names where a path carries both — in a URL
+the `?` opens the query and the `#` is inside what the author wrote as one. The cost is stated rather
+than left to be found: a path *segment* holding a literal `?` or `#` is not writable inline and joins the
+limits §13 states, and what remains is the hole, whose value arrives at Run time, is read against no path
+grammar, and is escaped like any other text ([ADR-0107](../adr/0107-a-query-string-in-path-is-refused-where-it-is-written.md)).
+
 The five headers `hyper` computes for itself — `Host`, `Content-Length`, `Content-Type`,
 `Transfer-Encoding`, `Connection` — are reserved against every writer rather than against an Auth
 scheme alone, and a `headers:` entry naming one is `header-reserved` (§4), compared case-insensitively
