@@ -72,6 +72,17 @@ checkout, over `$HOME/bin`, and over every cache that holds this project's text 
 transcripts under `~/.claude/projects`, the prompt history, the file history. It needs no privilege
 and no daemon.
 
+_ADR-0109 amends this:_ the list is longer by three. Go's build cache is covered, because it holds a
+linked copy of the fixture's binary; **the harness's own output directory** is covered, which this
+decision left uncovered and which holds a stamped `hyper`, a compiled copy of the acceptance
+fixture's API, the fixture's credential three times over and the session's transcript as it is
+written; and so is every output directory a *previous* run left on the machine, found by searching
+for the `mcp.json` this harness writes rather than by a path anything remembers. The rule below is what condemned it (issue #231). Two of the files in that directory can
+never be hidden — the MCP server is a child of the sealed session and reads `mcp.json` and the binary
+it names from inside the namespace — so what the seal claims is narrower than it reads here: no
+source checkout, no second binary, no fixture internals, and the one binary that is reachable is the
+one the MCP server is.
+
 **It is not a security boundary and is not trying to be one.** The sealed session runs as the same
 user against the same filesystem and is not being kept from anything it sets out to reach. What it
 does is make the specification *absent*, which is the one property the evidence depends on: a
@@ -81,12 +92,13 @@ records a success the shipped product cannot reproduce, because on the machine a
 
 **The seal is asserted rather than assumed.** Inside it the script searches for a `go.mod` naming
 this module and for a `hyper` on `PATH` — issue #214's other condition, and one that covering
-`$HOME/bin` is not the same fact as — and exits non-zero on finding either. It says `SEALED` when the
-search has run, and an answer arriving without that line is a failure rather than a pass: a `bwrap`
-that could not build a namespace returns nothing, and nothing is what a held seal also returns. That
-is the check that survives the list going stale,
-and it is the difference between a harness that is sealed and a harness that was sealed on the day it
-was written. ADR-0095 logged the same hazard from the other side — two solved copies in sibling
+`$HOME/bin` is not the same fact as — and exits non-zero on finding either. _ADR-0109 amends this:_
+it also inventories the output directory and exits non-zero on anything reachable there that was not
+deliberately bound back. It says `SEALED` when the search has run, and an answer arriving without
+that line is a failure rather than a pass: a `bwrap` that could not build a namespace returns
+nothing, and nothing is what a held seal also returns. That is the check that survives the list going
+stale, and it is the difference between a harness that is sealed and a harness that was sealed on the
+day it was written. ADR-0095 logged the same hazard from the other side — two solved copies in sibling
 directories went untouched *that time* — and the answer to *that time* is not a better setup, it is a
 setup where the outcome is not a property of the run.
 

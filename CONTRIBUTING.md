@@ -97,6 +97,24 @@ the seal hides. `TestAcceptance_TheSealedHarnessHandsAnAgentTheQuickstartAndNoth
 runs the setup half in the suite, so the harness cannot rot between the handful
 of runs a year it is used for.
 
+**The output directory is covered too**, so a setup script may leave in it what
+it likes: a `--tmpfs` goes over it, and what binds back on top is the
+repository, `bin/hyper`, `mcp.json`, and any path a task's `endpoint.env` names
+inside the directory
+([ADR-0109](docs/adr/0109-the-seal-covers-the-output-directory-the-harness-writes.md)).
+`bin/hyper` and `mcp.json` cannot be hidden and never could: the MCP server is a
+child of the sealed session, which reads `mcp.json` from inside the namespace
+and execs the binary it names — so what the harness claims is the narrower *no
+source checkout, no second binary, no fixture internals*. Everything else it
+writes there — the fixture's binary, its credential, the reports, the logs and
+the transcript being written as the session runs — is not reachable from inside.
+
+**A previous run's output directory is covered as well**, found by searching for
+the `mcp.json` this harness writes rather than by remembering a path, so a
+machine that has run the harness before does not hand the next session an older
+run's answer key. If you keep transcripts around, they stay where they are and
+the harness works around them.
+
 **A task is fenced by existing.** That test ranges over every task file in
 `scripts/acceptance/tasks/` rather than naming one, so adding a task file — and
 the `.setup.sh` beside it, which is part of the same artefact — is the whole of
@@ -122,7 +140,10 @@ trusted through `SSL_CERT_FILE` in the `hyper` process's environment and through
 nothing any artefact could name
 ([ADR-0105](docs/adr/0105-the-acceptance-endpoint-is-a-local-tls-server-and-no-artefact-trusts-it.md)).
 The lifetime is `run.sh`'s rather than the setup script's because the fence runs
-the setup half on every `go test ./cmd/hyper`.
+the setup half on every `go test ./cmd/hyper`. A **path** `endpoint.env` names
+inside the output directory is bound back through the seal, since the process
+that opens it is the sealed session's own child; that is how `SSL_CERT_FILE`
+reaches a certificate the cover would otherwise hide.
 
 ## The spec is the authority
 

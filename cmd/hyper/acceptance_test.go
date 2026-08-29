@@ -19,12 +19,21 @@ import (
 // three properties the evidence rests on: the repository it hands over is the
 // quickstart shape and checks clean, its `AGENTS.md` is the orientation this
 // binary holds rather than a copy that went stale, and the `hyper` source
-// checkout is not reachable from inside the seal. All three are questions with
-// answers, and a harness used a handful of times a year is exactly the kind
-// that rots between uses. The seal is the script's own assertion — it searches,
-// from inside the namespace, for a checkout and for a `hyper` on `PATH`, and
-// exits non-zero on finding either or on the search not having run at all — so
-// a case that runs the script to completion has asserted it.
+// checkout is not reachable from inside the seal — nor, in the output directory
+// the harness writes, anything but the repository and the files the sealed
+// session's own processes must open. All three are questions with answers, and
+// a harness used a handful of times a year is exactly the kind that rots
+// between uses. The seal is the script's own assertion — it searches, from
+// inside the namespace, for a checkout and for a `hyper` on `PATH`, inventories
+// what is reachable in the output directory against what was deliberately bound
+// back there (issue #231, ADR-0109), and exits non-zero on any of them or on
+// the search not having run at all — so a case that runs the script to
+// completion has asserted it.
+//
+// **The setup half runs in no namespace, and that is what this case needs.**
+// The cover goes up around the session; everything below runs against the
+// output directory on the host, where the repository the harness materialised
+// and the binary it stamped are both still where the script left them.
 //
 // **It ranges over the tasks directory rather than naming a task** (issue
 // #222). A task file and the `.setup.sh` beside it are one artefact, and the

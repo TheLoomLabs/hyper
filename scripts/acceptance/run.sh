@@ -22,15 +22,35 @@
 # pin, a Target, a Definition, a Procedure, and no `providers/` — with a Store
 # initialised (ADR-0104), the MCP server wired, `AGENTS.md` written by
 # `hyper project`, and a headless Claude Code session run inside a mount
-# namespace where the source checkout, the neighbouring checkouts, and every
-# cached copy of their text are not there to be read. The session's own
-# transcript is the output.
+# namespace where the source checkout, the neighbouring checkouts, every cached
+# copy of their text, and this script's own output directory are not there to be
+# read. The session's own transcript is the output.
 #
 # The seal is `bwrap(1)`, which needs no privilege and no daemon. It is not a
 # security boundary and is not trying to be one: the sandboxed session runs as
 # the same user against the same filesystem, and a determined process inside it
 # is not being kept from anything. What it does is make the specification
 # absent, which is the one property the evidence depends on.
+#
+# **Two things in here cannot be hidden, and the claim is written to say so**
+# (issue #231). §9 states one transport — the server is the same binary, started
+# by the client over stdio, one process per client, dying with it — and there is
+# no `serve`, no daemon and no remote transport (ADR-0088). So `hyper mcp` is a
+# *child of the sealed session*: `claude` reads `mcp.json` from inside the
+# namespace and execs the binary that file names from inside it. Both stay
+# reachable and no amount of binding changes that, which makes ADR-0099's *no
+# `hyper` to invoke* true of `PATH` and of nothing else. The credential in
+# `mcp.json` is reachable for the same reason and costs nothing: it is a
+# fixture's, worth nothing outside the process that checks it (ADR-0105). The
+# certificate that process trusts is bound back on a different ground — it
+# *could* be hidden and the fixture would simply stop working, so it is kept
+# deliberately, by the rule below rather than by necessity.
+#
+# So what this harness claims, and what the assertion below holds it to, is
+# narrower than *nothing is reachable*: **no source checkout, no second binary,
+# no fixture internals — and the one binary that is reachable is the one the MCP
+# server is** (ADR-0109). The gap is not an oversight and closing it is not
+# available.
 set -euo pipefail
 
 task=${1:?usage: run.sh <task-file> <output-directory>}
@@ -228,21 +248,38 @@ HYPER_REPO_DIR=$repo "$outdir/bin/hyper" store init >/dev/null
 # carries a root, a pin or a verification mode, so trust is a property of the
 # process and is unreachable from anywhere the agent writes. A missing file is
 # the ordinary case and reads as no additions.
-python3 -c '
-import json, sys
+#
+# **This is the only reading of `endpoint.env` there is**, and what it prints
+# back is the values that are existing paths inside the output directory. The
+# seal has to bind those through, the process that opens them being the sealed
+# session's own child (issue #231) — and a second reading of this file in shell
+# would be a second `strip()` and a second answer to *what is a line carrying no
+# `=`*, with nothing keeping the two in agreement.
+kept=$(python3 -c '
+import json, os, sys
 
-command, repo, additions = sys.argv[1:]
+command, repo, additions, destination = sys.argv[1:]
 environment = {"HYPER_REPO_DIR": repo}
+supplied = []
 try:
 	with open(additions) as lines:
 		for line in lines:
 			name, separator, value = line.strip().partition("=")
 			if separator:
 				environment[name] = value
+				supplied.append(value)
 except FileNotFoundError:
 	pass
-json.dump({"mcpServers": {"hyper": {"command": command, "args": ["mcp"], "env": environment}}}, sys.stdout)' \
-	"$outdir/bin/hyper" "$repo" "$outdir/endpoint.env" >"$outdir/mcp.json"
+with open(destination, "w") as configuration:
+	json.dump({"mcpServers": {"hyper": {"command": command, "args": ["mcp"], "env": environment}}}, configuration)
+
+# What the task supplied, and nothing else: `HYPER_REPO_DIR` is written here
+# rather than read, and the repository it names is bound back by name.
+directory = os.path.dirname(destination)
+for value in supplied:
+	if value.startswith(directory + os.sep) and os.path.exists(value):
+		print(value)' \
+	"$outdir/bin/hyper" "$repo" "$outdir/endpoint.env" "$outdir/mcp.json")
 
 # What the seal covers, and why each one.
 #
@@ -260,6 +297,12 @@ json.dump({"mcpServers": {"hyper": {"command": command, "args": ["mcp"], "env": 
 #   settings.json,      this machine's hooks, plugins and skills, which are
 #   plugins, skills     configuration a user installing `hyper` does not have,
 #                       and would be a second uncontrolled variable
+#   the build cache     a linked `bin/lookout` and the archives behind it: the
+#                       fixture's compiled text, not the specification's
+#   the output          everything this script writes, but for the repository
+#   directory           and the files `keep` names below, with reasons
+#   previous output     the same list again, one run of this harness ago; found
+#   directories         by search, since nothing here remembers where they went
 #
 # The parent of the checkout goes rather than the checkout alone: the sibling
 # directories are where a solved `providers/` was found once already.
@@ -302,32 +345,151 @@ cover --ro-bind "$outdir/.settings.json" "$HOME/.claude/settings.json"
 cover --bind "$outdir/.history.jsonl" "$HOME/.claude/history.jsonl"
 cover --bind "$outdir/.claude.json" "$HOME/.claude.json"
 cover --bind "$outdir/projects" "$HOME/.claude/projects"
+
+# Go's build cache is covered, and the reason is the fixture rather than the
+# specification (issue #231). It holds no source — compiled archives, linked
+# binaries and cached `go test` output — but one of those linked binaries is
+# `bin/lookout`, built minutes earlier by a setup script, and hiding the
+# fixture's binary in the output directory while leaving a copy of it here would
+# be the same hole one `find` further away. The 2026-08-29 run's `find` over
+# `$HOME` reached this directory. The module cache is left alone: it holds
+# third-party source and nothing of this project's text.
+cover --ro-bind "$empty" "$(go env GOCACHE)"
+
+# **A previous run's output directory is covered too, and it has to be found
+# rather than known** (issue #231). The cover below is over the directory this
+# script was handed; a machine that has run this harness before has others, and
+# `/home/idabic/acceptance-217` and `-227` were both sitting in `$HOME` when
+# this was written, each holding a `bin/lookout`, an `endpoint.env` and a
+# transcript. Covering one and leaving the rest is the mistake that covering the
+# checkout's *parent* rather than the checkout alone already answers, and a
+# harness whose every run left the next one a directory to read would be a hole
+# that widens with use.
+#
+# A harness output directory is an `mcp.json` naming `HYPER_REPO_DIR`, exactly as
+# a checkout is a `go.mod` naming this module — the thing is looked for rather
+# than a list of paths trusted. The search runs **here, outside the namespace**,
+# where what it finds can still be covered; the same search runs inside as the
+# assertion, where it could only complain. This run's own directory is skipped,
+# and so is any directory this run's output is inside of.
+while IFS= read -r configuration; do
+	previous=$(dirname "$configuration")
+	case $outdir/ in
+	"$previous"/*) continue ;;
+	esac
+	cover --ro-bind "$empty" "$previous"
+done < <(find "$HOME" /opt /srv /var/tmp -name mcp.json -readable \
+	-exec grep -l "HYPER_REPO_DIR" {} + 2>/dev/null)
+
+# **The output directory is covered too, and it is the one this script writes
+# itself** (issue #231, ADR-0106). `bin/lookout`, whose strings are the
+# fixture's answer key — the seeded monitors, the page size, every code it
+# refuses with — sits here, beside `endpoint.env` and `lookout.report` carrying
+# the fixture's credential in cleartext, both logs, and the transcript being
+# written as the session runs. The path is not obscure: `mcp.json` names the
+# binary's absolute path and the repository the session works in is
+# `$outdir/repo`, so `..` is the whole of the discovery.
+#
+# A `--tmpfs` rather than an empty bind, because the repository lives *inside*
+# this directory and has to come back on top of it. The binds above take their
+# sources from here and keep working: `bwrap` resolves a source against the old
+# root, so a tmpfs over the destination side does not hide `$outdir/.empty` from
+# the operand naming it. The transcript needs no reachable path — it is written
+# through a redirect this shell opens before `bwrap` runs.
+seal+=(--tmpfs "$outdir")
+
+# `keep` is one fact written once: a path the sealed session's own processes
+# must open is bound back over the tmpfs, *and* is what the assertion below
+# expects to find reachable there. Two lists would be two lists to keep in
+# agreement. The directories on the way to a kept path come with it, `bwrap`
+# creating them in the tmpfs as it binds.
+allowed=()
+keep() {
+	seal+=("$1" "$2" "$2")
+	local path=$2
+	while [ "$path" != "$outdir" ] && [ "$path" != / ]; do
+		allowed+=("$path")
+		path=$(dirname "$path")
+	done
+}
+keep --bind "$repo"
+keep --ro-bind "$outdir/bin/hyper"
+keep --ro-bind "$outdir/mcp.json"
+
+# **A task's `endpoint.env` may name a file rather than only a value**, and
+# `SSL_CERT_FILE` is the case that exists (ADR-0105). The general rule is the one
+# worth holding: the MCP server is a child of the sealed session, so a path this
+# file hands it has to survive the cover — and the harness learns which path from
+# the contract it already reads rather than from a task's filename hardcoded here.
+# `$kept` is that reading, done once where the configuration was written.
+if [ -n "$kept" ]; then
+	while IFS= read -r path; do
+		keep --ro-bind "$path"
+	done <<<"$kept"
+fi
+
 seal+=(--proc /proc --dev /dev --die-with-parent --chdir "$repo")
 
-# The two conditions are asserted rather than assumed, and asserted by looking
-# for the thing rather than by trusting the list above. A checkout of `hyper` is
+# The conditions are asserted rather than assumed, and asserted by looking for
+# the thing rather than by trusting the lists above. A checkout of `hyper` is
 # a `go.mod` naming its module path, so that is what is searched for — under the
 # home directory and the handful of places a second checkout is plausibly kept.
 # A `hyper` on `PATH` is the other condition issue #214's runs had, and covering
 # `$HOME/bin` is not the same fact as there being none.
+#
+# The three run as one walk rather than three: they share a root list and the
+# `-name` tests are disjoint, so a second pass over `$HOME` would buy nothing but
+# the seconds this case pays on every `go test ./cmd/hyper`.
+#
+# **The output directory is asserted twice over, and the two halves catch
+# different things** (issue #231).
+#
+# *This* run's directory is asserted as an **inventory**: the search prints
+# everything it can reach under it with the repository pruned, and what `keep`
+# bound back is the whole of what may come back. A list of forbidden names would
+# go stale the first time a task leaves a file nobody thought of; an inventory
+# does not.
+#
+# **A previous run's directory is asserted by name**, because it is covered by a
+# search rather than by a path and a search that quietly matched nothing would
+# be a cover that quietly covered nothing. So the same `mcp.json` rule runs
+# again in here, and beside it the fixture's binary as a regular file called
+# `lookout` — which catches a copy that is *not* in an output directory and so
+# was never covered at all. Either one is fatal: the operator moves it, deletes
+# it, or finds out why the cover above missed it.
+#
+# **This run's own `mcp.json` matches that search**, and is not a finding: it is
+# on `keep`'s list, and the filter below drops everything on that list before
+# anything is concluded. `endpoint.env` is deliberately *not* searched for by
+# name — it is too ordinary a filename to fire on only this harness's copies
+# (this machine has one under `~/.config`), and every copy of it that matters
+# sits in a directory the `mcp.json` rule already names.
 #
 # **The sentinel is what makes this an assertion.** Without it an empty answer
 # reads as *sealed* whether the search found nothing or never ran, and a `bwrap`
 # that could not build a namespace would be reported as the strongest result the
 # harness has. Nothing is concluded from silence: the search prints `SEALED` on
 # a line of its own once it has actually run, and the absence of that line is a
-# failure rather than a pass.
+# failure rather than a pass. The inventory is the one search whose own failure
+# would be silence too — a covered directory is readable to us or it is nothing
+# — so it takes the sentinel with it on the way out rather than hiding its
+# errors, which is the `|| exit 1` and the `2>/dev/null` the other three have and
+# it does not.
 report=$("${seal[@]}" /bin/sh -c '
-	find "$HOME" /opt /srv /var/tmp -name go.mod -readable \
-		-exec grep -l "^module github.com/TheLoomLabs/hyper$" {} + 2>/dev/null
+	find "$HOME" /opt /srv /var/tmp \
+		\( -name go.mod -readable -exec grep -l "^module github.com/TheLoomLabs/hyper$" {} + \) -o \
+		\( -name mcp.json -readable -exec grep -l "HYPER_REPO_DIR" {} + \) -o \
+		\( -type f -name lookout -print \) 2>/dev/null
+	find "$1" -mindepth 1 -path "$2" -prune -o -print || exit 1
 	command -v hyper 2>/dev/null
 	echo SEALED
-' || true)
+' sh "$outdir" "$repo" || true)
 if ! printf '%s\n' "$report" | grep -qx SEALED; then
 	echo "run.sh: the seal could not be built — the search inside it never ran" >&2
 	exit 2
 fi
-if reachable=$(printf '%s\n' "$report" | grep -vx SEALED | grep .); then
+if reachable=$(printf '%s\n' "$report" | grep -vx SEALED |
+	grep -vxF -f <(printf '%s\n' "${allowed[@]}") | grep .); then
 	echo "run.sh: the seal is not holding — this is reachable inside it:" >&2
 	echo "$reachable" >&2
 	exit 2
