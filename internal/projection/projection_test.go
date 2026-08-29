@@ -8,6 +8,7 @@ import (
 
 	"github.com/TheLoomLabs/hyper/internal/capability"
 	"github.com/TheLoomLabs/hyper/internal/projection"
+	"github.com/TheLoomLabs/hyper/internal/schema"
 )
 
 // response is one response object of every shape a path can reach into: the
@@ -293,4 +294,150 @@ func encoded(t *testing.T, fields projection.Fields) string {
 		t.Fatal(err)
 	}
 	return string(written)
+}
+
+// reading is one Operation's `record:` block as the two forms of a Probe read
+// it: parsed off YAML, exactly as a Manifest carries it.
+func reading(t *testing.T, block string) projection.Projection {
+	t.Helper()
+
+	var node yaml.Node
+	if err := yaml.Unmarshal([]byte(block), &node); err != nil {
+		t.Fatal(err)
+	}
+	return projection.Read(node.Content[0])
+}
+
+// TestAgainst_OneCardinalityReadsOneRecordOffTheResponse is the ordinary case:
+// the response object is the one root, the identity is a path into it, and the
+// fields that resolved are the version a Run would have written (§3, §6).
+func TestAgainst_OneCardinalityReadsOneRecordOffTheResponse(t *testing.T) {
+	read := reading(t, `
+record:
+  identity: $.host
+  fields:
+    status: $.status
+    days_left: $.tls.days_left
+`)
+
+	answer := read.Against(nil, response(t))
+	if len(answer.Records) != 1 {
+		t.Fatalf("Against read %d Records, want the one an Operation of one cardinality projects", len(answer.Records))
+	}
+	if got := answer.Records[0]; !got.Named || got.Name != "status.hyper.dev" {
+		t.Errorf("the identity is %q (named %v), want the host the path names", got.Name, got.Named)
+	}
+	if len(answer.Records[0].Fields) != 2 {
+		t.Errorf("the Record holds %d fields, want the two that resolved", len(answer.Records[0].Fields))
+	}
+	if len(answer.Unresolved) != 0 {
+		t.Errorf("Against named %v unresolved, want none: every path here addresses something", answer.Unresolved)
+	}
+}
+
+// TestAgainst_APathThatResolvedToNothingIsNamedRatherThanMissing is the half a
+// Run has nowhere to put. A field going quiet is an absence on a version and an
+// invisibility to an author, and this is where it stops being one (ADR-0017,
+// ADR-0108).
+func TestAgainst_APathThatResolvedToNothingIsNamedRatherThanMissing(t *testing.T) {
+	read := reading(t, `
+record:
+  identity: $.body.result.uuid
+  fields:
+    id: $.body.result.id
+    region: $.body.result.region
+`)
+
+	answer := read.Against(nil, response(t))
+	if got := answer.Records[0]; got.Named {
+		t.Errorf("the identity resolved to %q, and the response carries no such path", got.Name)
+	}
+	want := []projection.Position{
+		{Position: projection.PositionIdentity, Path: "$.body.result.uuid"},
+		{Position: "region", Path: "$.body.result.region"},
+	}
+	if got := answer.Unresolved; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("Against named %v unresolved, want %v — identity: first, then the fields in the Manifest's own order", got, want)
+	}
+}
+
+// TestAgainst_SeriesReadsTheFieldsFromEachMember is the two roots, and the case
+// that says which is which: `over:` reads from the response and everything
+// beside it reads from a **member** of what it named (§3, §12).
+func TestAgainst_SeriesReadsTheFieldsFromEachMember(t *testing.T) {
+	read := reading(t, `
+record:
+  over: $.body.items
+  identity: $.id
+  fields: {name: $.name}
+`)
+
+	var body any
+	if err := json.Unmarshal([]byte(`{"items":[{"id":"a","name":"one"},{"id":"b"}]}`), &body); err != nil {
+		t.Fatal(err)
+	}
+	answer := read.Against(nil, capability.Object{
+		{Name: capability.MemberHost, Value: "api.example.com"},
+		{Name: capability.MemberBody, Value: body},
+	})
+
+	if len(answer.Records) != 2 {
+		t.Fatalf("Against read %d Records, want one per member of the collection", len(answer.Records))
+	}
+	if answer.Records[0].Name != "a" || answer.Records[1].Name != "b" {
+		t.Errorf("the identities are %q and %q, want each member's own", answer.Records[0].Name, answer.Records[1].Name)
+	}
+	// `name` resolved against the first member and not the second, and it is
+	// named once: what an author edits is one line of one Manifest, and a
+	// page naming it per member would be one fault rendered twice.
+	if got, want := answer.Unresolved, []projection.Position{{Position: "name", Path: "$.name"}}; len(got) != 1 || got[0] != want[0] {
+		t.Errorf("Against named %v unresolved, want %v — a position that failed against any member is named once", got, want)
+	}
+}
+
+// TestAgainst_AnOverThatResolvedToNothingProducesNoRecords is the distinction a
+// Run halts on, answered here rather than reported: `hyper` cannot tell a
+// collection that was empty from a path that was wrong, so an `over:` that
+// resolved to nothing is named and nothing is projected under it (§6).
+func TestAgainst_AnOverThatResolvedToNothingProducesNoRecords(t *testing.T) {
+	read := reading(t, `
+record:
+  over: $.body.results
+  identity: $.id
+  fields: {name: $.name}
+`)
+
+	answer := read.Against(nil, response(t))
+	if len(answer.Records) != 0 {
+		t.Errorf("Against read %d Records off a collection path that resolved to nothing", len(answer.Records))
+	}
+	if got, want := answer.Unresolved, (projection.Position{Position: projection.PositionOver, Path: "$.body.results"}); len(got) != 1 || got[0] != want {
+		t.Errorf("Against named %v unresolved, want the collection path alone", got)
+	}
+}
+
+// TestResolveIdentity_AHoleResolvesFromTheInputsAndAPathFromTheResponse is §3's two
+// spellings at one seam. An Operation declaring `skip-if-recorded` takes its
+// identity from a hole because the test reads the head of the series *before*
+// deciding whether to call, and a Probe reading a supplied response fills the
+// same hole from the same inputs (§3, ADR-0108).
+func TestResolveIdentity_AHoleResolvesFromTheInputsAndAPathFromTheResponse(t *testing.T) {
+	name, reads := schema.ReadScalar(schema.String, "preview-42.example.com")
+	if !reads {
+		t.Fatal("a string does not read as a string")
+	}
+	inputs := map[string]schema.Scalar{"name": name}
+
+	if filled, named := projection.ResolveIdentity("{name}", inputs, response(t)); !named || filled != "preview-42.example.com" {
+		t.Errorf("a template hole resolved to %q (named %v), want the input that fills it", filled, named)
+	}
+	if _, named := projection.ResolveIdentity("{name}", nil, response(t)); named {
+		t.Error("a template hole nothing fills resolved, and an unfilled hole names no Record")
+	}
+	if resolved, named := projection.ResolveIdentity("$.host", inputs, response(t)); !named || resolved != "status.hyper.dev" {
+		t.Errorf("a path resolved to %q (named %v), want the member it names", resolved, named)
+	}
+	if _, named := projection.ResolveIdentity("", inputs, response(t)); named {
+		t.Error("an Operation declaring no identity: named a Record")
+	}
 }

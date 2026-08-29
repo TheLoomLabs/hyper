@@ -1,2 +1,2 @@
-{"type":"probe_result","provider":"uptime","operation":"check_http","projection":{"host":"cert.hyper.dev"},"response":{"host":"cert.hyper.dev"}}
+{"type":"probe_result","provider":"uptime","operation":"check_http","supplied":false,"projection":[{"identity":"cert.hyper.dev","fields":{"host":"cert.hyper.dev"}}],"unresolved":[{"position":"status","path":"$.status"},{"position":"days_left","path":"$.tls.days_left"}],"response":{"host":"cert.hyper.dev"}}
 {"type":"result","truncated":false}

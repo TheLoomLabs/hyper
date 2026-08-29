@@ -1,0 +1,1 @@
+hyper probe cloudflare-dns create_dns_record --input name=preview-42.example.com --response=samples/create-dns-record.json --repo-dir ../../five-artefact-demo/repo

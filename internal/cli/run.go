@@ -380,17 +380,40 @@ func splitDryRun(args []string) (dryRun bool, rest []string) {
 // creation lands with the format, and neither before the other: a file created
 // empty at Run start would be a sink an operator could read as filled.
 func splitSecretOut(args []string) (path string, rest []string, fault string) {
-	take := func(value string) string {
+	return splitValueFlag("--secret-out", args, func(value string) string {
 		if value == "-" {
 			return "--secret-out -: stdout is exclusively the answer, and a secret written there\n" +
 				"  lands in the same pipe a CI job logs — name a path outside the repository"
 		}
-		// A value spelled like a flag is the next flag with the path left
-		// out, and taking it would write a secret to a file called
-		// `--json`. `--secret-out=--odd` still reaches a path beginning
-		// with two hyphens, and so does one past a `--`.
+		return ""
+	})
+}
+
+// splitValueFlag is the loop both of §9's path-taking flags run: `--flag
+// <path>` and `--flag=<path>` come off the argument list, everything past a
+// `--` is copied through untouched, and a path named twice is the second one —
+// the shell's own rule for a value flag and the one `--repo-dir` already
+// follows.
+//
+// It is one loop rather than one per flag because what differs between them is
+// a sentence and not a grammar: `--secret-out` refuses `-` where `--response`
+// has nothing to say about it, and that is what `reject` carries. A second copy
+// of the loop is where the day comes that one of them stops at `--` and the
+// other does not.
+//
+// **A value spelled like a flag is the next flag with the path left out**, and
+// taking it would write a secret to a file called `--json`. Both spellings are
+// held to it, so a path whose own name begins with two hyphens is unreachable
+// through either — the accepted trade, the fault it prevents being silent and
+// the one it causes being a message. Past a `--` the flag is not a flag at all
+// and the path is a positional, which is the other half of the same rule.
+func splitValueFlag(flag string, args []string, reject func(string) string) (path string, rest []string, fault string) {
+	take := func(value string) string {
+		if fault := reject(value); fault != "" {
+			return fault
+		}
 		if value == "" || strings.HasPrefix(value, "--") {
-			return "--secret-out requires a path"
+			return flag + " requires a path"
 		}
 		path = value
 		return ""
@@ -401,16 +424,16 @@ func splitSecretOut(args []string) (path string, rest []string, fault string) {
 		switch {
 		case argument == "--":
 			return path, append(rest, args[i:]...), ""
-		case argument == "--secret-out":
+		case argument == flag:
 			i++
 			if i >= len(args) {
-				return "", nil, "--secret-out requires a path"
+				return "", nil, flag + " requires a path"
 			}
 			if fault := take(args[i]); fault != "" {
 				return "", nil, fault
 			}
-		case strings.HasPrefix(argument, "--secret-out="):
-			if fault := take(strings.TrimPrefix(argument, "--secret-out=")); fault != "" {
+		case strings.HasPrefix(argument, flag+"="):
+			if fault := take(strings.TrimPrefix(argument, flag+"=")); fault != "" {
 				return "", nil, fault
 			}
 		default:

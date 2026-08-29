@@ -1,0 +1,1 @@
+hyper probe: --response samples/a-member-no-object-carries.json: data: no response object carries that member — the members are host, status, headers, body, tls

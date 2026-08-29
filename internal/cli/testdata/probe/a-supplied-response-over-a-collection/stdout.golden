@@ -1,0 +1,16 @@
+COLLECTION  $.body.result  2 members
+
+FIELD       VALUE
+identity:   372e6795-4025-4e0b-a6aa-6d586b9e0b59
+id          372e6795-4025-4e0b-a6aa-6d586b9e0b59
+name        preview-42.example.com
+created_on  2026-08-29T10:14:02.518Z
+
+FIELD       VALUE
+identity:   9c1b0e6d-4f7a-4b3c-8d5e-1f0a7b6c4d92
+id          9c1b0e6d-4f7a-4b3c-8d5e-1f0a7b6c4d92
+name        preview-43.example.com
+created_on  2026-08-29T10:16:41.902Z
+
+RESPONSE  (supplied; no call was made)
+{"host":"api.cloudflare.com","status":200,"headers":{"content-type":"application/json"},"body":{"result":[{"created_on":"2026-08-29T10:14:02.518Z","id":"372e6795-4025-4e0b-a6aa-6d586b9e0b59","name":"preview-42.example.com"},{"created_on":"2026-08-29T10:16:41.902Z","id":"9c1b0e6d-4f7a-4b3c-8d5e-1f0a7b6c4d92","name":"preview-43.example.com"}],"result_info":{"cursor":""},"success":true}}

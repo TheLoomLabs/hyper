@@ -160,12 +160,13 @@ type parameters struct {
 	// Comparison to one of its two Record tables.
 	between bool
 	kind    bool
-	// input, secretOut, dryRun and expansion are §9's four remaining
-	// parameters — `probe`'s, `run`'s two, and `show`'s — and they are the
-	// four members the loop below never reads. Each of those commands takes
-	// its own flag off the argument list before the globals are parsed, for
-	// the reason splitInputs, splitSecretOut, splitDryRun and splitExpansion
-	// each state: a parser that knew about all four is one every other
+	// input, response, secretOut, dryRun and expansion are §9's five
+	// remaining parameters — `probe`'s two, `run`'s two, and `show`'s — and
+	// they are the five members the loop below never reads. Each of those
+	// commands takes its own flag off the argument list before the globals
+	// are parsed, for the reason splitInputs, splitResponse, splitSecretOut,
+	// splitDryRun and splitExpansion each state: a parser that knew about
+	// all five is one every other
 	// command's signature would have to admit, and `hyper compact --dry-run`
 	// would stop being the unknown flag it is.
 	//
@@ -176,6 +177,7 @@ type parameters struct {
 	// namespace two of whose members it had accepted three lines earlier
 	// (spelled, ADR-0098, issue #215).
 	input     bool
+	response  bool
 	secretOut bool
 	dryRun    bool
 	expansion bool
@@ -211,6 +213,7 @@ func (p parameters) spelled() []string {
 		{"--between", p.between},
 		{"--kind", p.kind},
 		{"--input", p.input},
+		{"--response", p.response},
 		{"--secret-out", p.secretOut},
 		{"--dry-run", p.dryRun},
 		{"--expansion", p.expansion},

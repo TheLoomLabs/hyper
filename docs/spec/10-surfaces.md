@@ -376,6 +376,54 @@ Comparison baseline (ADR-0009). Having no outcome triple, it terminates its row 
 and never with `outcome` (§8). It may surface the raw response beside the projection `hyper` derived
 from it, which no credentialled surface does (ADR-0017).
 
+What it renders of that projection is **every position the Operation's `record:` block authored**: one
+FIELD/VALUE table per Record the response would have produced, the `identity:` at the head of each,
+and beneath them the paths that did not resolve. A path is named there where it failed against **any**
+of the roots it was read from and **once** however many it failed against — failing on one member of a
+collection and not another is a fact an author needs, a Run writing that member's version without the
+field, and what they edit is one line of one Manifest. A Record that projected nothing at all writes
+no table, what stands in its place being the count above it and the paths below. A field whose path
+resolved to nothing is absent from a Record and that is the right answer for a version (§7); it is an
+invisible one for an author, and *the Manifest says the identity is `$.data.items[].id` and I recorded
+nothing* is the authoring failure ADR-0017 named.
+
+An Operation of `series` cardinality produces one Record per member of the collection `over:` named,
+and the collection is named first: *three members* and *a path that resolved to an empty list* are the
+same page otherwise, and so is a third state a Run has no use for. §6 reads an `over:` that landed on
+an object or a scalar as the empty collection it is — a member is a member of a list — so no Records
+are written either way; the line says which it was, an empty collection and a path pointing somewhere
+that has no members being two different edits.
+
+`--response <path>` supplies the response instead, and **no call is made at all** (ADR-0108). The path
+names a JSON file holding the response object §12 closes for the Operation's Capability, read against
+the repository like every other path argument (ADR-0089) and refused where it resolves outside one;
+its members are read against that closed set and in its order, an unknown member is a usage error
+naming the members that object carries, and `host` — `command` on a `shell` Operation — is required,
+being the member that survives where nothing came back at all (§12, ADR-0050). Header names are
+lowered as they are off the wire. What comes back is the projection above, with the supplied object
+under the RESPONSE heading marked as supplied.
+
+**Every rule the supplied form lifts bounded a request leaving this machine.** There is no request, so
+the Kind rule, the opaque rule and the host grant below are vacuous rather than skipped, and an
+Operation of any Kind — a `mutate`, which no Probe may ever invoke — is reachable, which is the whole
+of what this form is for: the response to a create is a projection no calling surface could look at
+without performing the create. Nothing is resolved from a Target, so no credential is read and no
+Capability is granted; nothing is written, exactly as a Probe writes nothing. An Operation declaring no
+`record:` block at all — a `destroy`, by construction (§3) — is a usage error rather than an empty
+page, this form being the projection and nothing else. Inputs are optional here for the same reason
+the rest is lifted: every declared input is supplied because an input left out has no sink to render
+at, and the sink is the request (ADR-0081); what an input still reaches is an `identity:` written as a
+template hole, which resolves before any call and is unresolved where nothing filled it.
+
+A Probe's answer is one `probe_result` row on both surfaces:
+`{"type":"probe_result","provider":…,"operation":…,"supplied":…,"projection":[…],"unresolved":[…],"response":…}`.
+`projection` is a list under either cardinality — one entry of `{identity?, fields}` per Record, and
+`[]` where `over:` itself resolved to nothing; `unresolved` is a list of `{position, path}`, where a
+position is `over:` or `identity:` carrying its colon, being keys of the `record:` block, or the name a
+field is recorded under, which is what keeps them apart where a Manifest declares a field called
+`identity`; `supplied` says whether the response was fetched by `hyper` or handed to it, two claims a
+page may not render identically.
+
 A Probe exits `0` whatever came back — a `503` as readily as a `200`, and a host that answered nothing
 as readily as either, that being a response object of `host` alone (§3, ADR-0050). A `read` never halts
 on what came back, so there is no failure to map, and a nonzero exit would be `hyper` deciding that a
@@ -384,11 +432,13 @@ says *overdue*. The exit code says whether the command did what it was asked; th
 came back. What can still fail a Probe is its projection, on the one path every surface fails it
 (§6).
 
-A Probe's `--input` is the only place in `hyper` where a value arrives at invocation, and it is not the
-door ADR-0036 closed wearing another name. It chooses what is *looked at*: a Probe is not a Run, is
-`read` Kind against `local`, and writes no Record and no Journal entry, so nothing it carries can widen
-what a reviewed artefact permits, reach a credentialled Target, or leave evidence a later Run reads.
-An input on `run` would be none of those things.
+A Probe's `--input` is the only place in `hyper` where a value arrives at invocation *and reaches the
+world*, and it is not the door ADR-0036 closed wearing another name. It chooses what is *looked at*: a
+Probe is not a Run, is `read` Kind against `local`, and writes no Record and no Journal entry, so
+nothing it carries can widen what a reviewed artefact permits, reach a credentialled Target, or leave
+evidence a later Run reads. An input on `run` would be none of those things. `--response` also arrives
+at invocation and is not a second case of it: what it carries is read and never sent, so it has no
+reach to widen — the call it would have decorated is the call that is not made.
 
 What holds the first of those is the grant. A Probe's host is checked against the `hosts:` the Target
 named `local` declares, exactly as a Step's is, and one outside that set is `host-not-granted` (§4,
@@ -1213,16 +1263,21 @@ it would put a generated credential into an agent's context and from there into 
 that agent writes to, which is the failure the sink exists to prevent.
 
 ```jsonc
-probe(provider, operation, inputs?)
-// args: inputs — one object keyed by input name, in place of the CLI's repeated flag, and typed
-//                at each position by the same schema (§3)
+probe(provider, operation, inputs?, response?)
+// args: inputs   — one object keyed by input name, in place of the CLI's repeated flag, and typed
+//                  at each position by the same schema (§3)
+//       response — a repository-relative path to a response object the caller fetched themselves;
+//                  supplying one makes no call at all (ADR-0108)
 // → rows: [{ type: "probe_result", provider, operation,
-//            projection: { … },   // what hyper derived, in the shape a Record would have held
+//            supplied: false,     // whether the response was handed over rather than fetched
+//            projection: [ … ],   // what hyper derived, in the shape the Records would have held
+//            unresolved: [ … ],   // every authored path that resolved to nothing
 //            response: { … } }]   // the raw response beside it (ADR-0017)
 ```
 
-A Probe is available here, `read` Kind against `local` only, and it **writes no Record and no Journal
-entry** (ADR-0009). Having no outcome triple, its return carries no `outcome` key. The reason this
+A Probe is available here, `read` Kind against `local` only — or, where `response` supplies the object,
+against any Operation at all, no call being made — and it **writes no Record and no Journal entry**
+(ADR-0009). Having no outcome triple, its return carries no `outcome` key. The reason this
 surface needs it is not agent convenience — writing a file is cheap for an agent — it is that §8's
 review model dies by volume: if every throwaway question becomes a reviewed artefact, the set of
 Definitions stops being something a human reads, and the oversight story goes with it. The Probe

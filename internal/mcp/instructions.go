@@ -107,7 +107,8 @@ four, and each has one fact below that you need before you start.
 5. **Stop. Hand the diff to the human.** Nothing you authored has authority until somebody has read it,
    and there is no approval command: approval is not a thing an agent grants itself.
 6. **` + "`run`" + `**, once they have. ` + "`probe`" + ` is the throwaway question that writes nothing — a ` + "`read`" + ` against
-   ` + "`local`" + `, no Definition — for one answer before a Procedure exists.
+   ` + "`local`" + `, no Definition — for one answer before a Procedure exists, and with ` + "`--response`" + ` it makes
+   no call at all and reads a ` + "`record:`" + ` against a response you fetched yourself.
 
 Read the record back with ` + "`runs`" + `, ` + "`show`" + `, ` + "`records`" + ` and ` + "`changes`" + `. ` + "`changes`" + ` answers *what moved*,
 field by field, against the last Run.
@@ -203,6 +204,17 @@ record: {identity: $.host, fields: {host: $.host, status: $.status}}
 
 A ` + "`read`" + ` projects what came back, so its ` + "`identity:`" + ` is a path, and a host the Target does **not**
 grant comes from an ` + "`enumerations:`" + ` block of the Operation's own instead.
+
+**Nothing offline tells you whether a ` + "`record:`" + ` path resolves.** No artefact states what an API
+returns, so ` + "`check`" + ` reaches the grammar and stops there. Fetch one response with whatever client you
+have, write it out as the response object — ` + "`host`" + `, ` + "`status`" + `, ` + "`headers`" + `, ` + "`body`" + `,
+` + "`tls`" + ` — and hand it back: ` + "`probe <provider> <operation> --response <path>`" + ` makes **no call**,
+and answers the Records that projection would have written with the paths that resolved to nothing named
+beneath them. It is the only way to see a ` + "`mutate`" + `'s projection at all, a Probe never invoking one.
+The file is scratch and ` + "`hyper`" + ` neither writes it nor loads it — **put it in ` + "`.gitignore`" + `**, a
+saved response being the one place a token can end up in the tree by accident. **Do not author a
+throwaway Operation projecting ` + "`$.body`" + ` to look at a response**: that writes a whole body into a
+Store that is append-only and travels in the repository, and only ` + "`compact`" + ` takes it out again.
 
 ## The rest of the repository
 

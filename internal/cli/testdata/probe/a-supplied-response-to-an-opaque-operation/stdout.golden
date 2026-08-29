@@ -1,0 +1,8 @@
+FIELD      VALUE
+identity:  ["cat","/etc/hostname"]
+exit_code  0
+stdout     thinkpad
+stderr
+
+RESPONSE  (supplied; no call was made)
+{"command":"[\"cat\",\"/etc/hostname\"]","exit_code":0,"stdout":"thinkpad","stderr":""}

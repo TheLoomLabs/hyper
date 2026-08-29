@@ -1242,9 +1242,11 @@ func TestListTools_RunTakesTheThreeArgumentsAndNoBypassUnderAnyName(t *testing.T
 // (issue #201).
 //
 // **The closure is the claim and `inputs` is the exception it makes room for.**
-// The argument object is closed over three properties, so the `definition`, the
+// The argument object is closed over four properties, so the `definition`, the
 // `target` and the `repo_dir` §9 spends paragraphs refusing are refused by there
-// being no fourth. What `inputs` admits is open, and it has to be: its keys are
+// being no fifth. The fourth is `response`, and it names a file rather than a
+// reach: a supplied response makes no call, so it widens nothing a Probe could
+// otherwise touch (ADR-0108). What `inputs` admits is open, and it has to be: its keys are
 // the Operation's, declared in a Manifest this schema has never read, so a
 // closed object there would be this surface naming a shape it does not own
 // (closedObject).
@@ -1259,8 +1261,8 @@ func TestListTools_ProbeTakesTwoNamesAndAnInputsObject(t *testing.T) {
 	if !schema.closed() {
 		t.Error("probe's input schema admits properties it does not state; a schema that admits a member it does not name is one under which an override argument is well-formed")
 	}
-	if got, want := schema.names(), []string{"inputs", "operation", "provider"}; !slices.Equal(got, want) {
-		t.Errorf("probe takes %q, want %q — the two positionals and the inputs, and no Definition and no Target", got, want)
+	if got, want := schema.names(), []string{"inputs", "operation", "provider", "response"}; !slices.Equal(got, want) {
+		t.Errorf("probe takes %q, want %q — the two positionals, the inputs and the supplied response, and no Definition and no Target", got, want)
 	}
 	if got, want := schema.Required, []string{"provider", "operation"}; !slices.Equal(got, want) {
 		t.Errorf("probe requires %q, want %q: a Probe resolves two names, and an Operation taking no inputs is supplied none", got, want)

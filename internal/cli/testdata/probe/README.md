@@ -26,11 +26,13 @@ comes back as `host` and nothing else.
 
 ## What each case is for
 
-Sixteen run against
+Thirty-one run against
 [`../five-artefact-demo/repo`](../five-artefact-demo/README.md) — §3's own
-`uptime` Manifest, one `read` Operation, no credential, `class: local` — named
+`uptime` Manifest, one `read` Operation, no credential, `class: local`, and, for
+the fifteen that make no call, the `cloudflare-dns` Manifest beside it — named
 with the `--repo-dir` an operator would type. The rest carry a repository of
-their own, each written for the one edge it drives.
+their own, each written for the one edge it drives, or fail before one is read
+at all.
 
 | case | what it holds |
 | --- | --- |
@@ -50,6 +52,36 @@ their own, each written for the one edge it drives.
 | `a-provider-matching-nothing`, `an-operation-matching-nothing`, `one-positional`, `an-input-the-operation-does-not-declare`, `a-declared-input-left-out`, `an-input-with-no-value`, `usage-unknown-flag` | the seven usage errors, all `2`, all with stdout completely silent — the last of them a near miss of `--input` itself, answered with the flags this command takes (issue #215) |
 | `version-pin-mismatch-and-a-bad-operation` | the gate fires before either positional resolves: `77`, not `2` |
 | `writes-nothing-at-all`, `-json` | a Probe beside a Store branch, and `store.golden` shows the branch it did not touch |
+
+## The fifteen that make no call
+
+`--response <path>` supplies the response object instead of fetching one, and
+nothing in these cases dials anything (§9, ADR-0108). Fourteen of them read the
+samples the demo repository carries — the fifteenth fails on its own argument
+list, before a repository is read — a seventh kind of file in it, and not an artefact —
+against the `cloudflare-dns` Manifest's three Operations, which is where this
+corpus's `uptime` cannot reach: a credentialled Provider, a `mutate` whose
+identity is a hole, a `series` whose fields root at a member, and a `destroy`
+with no `record:` block at all.
+
+| case | what it holds |
+| --- | --- |
+| `a-supplied-response-to-a-create`, `-json` | the `mutate` no Probe may invoke: `identity:` filled from `--input`, three fields off `$.body.result`, and the response marked supplied |
+| `a-supplied-response-over-a-collection` | `over: $.body.result` named first, then one table per member — the two roots, with the second one actually used |
+| `a-supplied-response-whose-paths-miss` | the same collection under another member name: `identity:` and two fields in `UNRESOLVED`, named once rather than once per member |
+| `a-collection-one-member-of-which-is-short` | a field that resolved against one member and not the other: named **once**, and the Record that has it still renders it |
+| `a-collection-path-that-landed-on-an-object` | the third answer a Run has no use for — an `over:` that resolved to something with no members is not an empty collection, and the line says which |
+| `a-supplied-response-named-with-one-token` | `--response=<path>`, the second spelling of a value flag |
+| `a-supplied-response-to-an-opaque-operation` | `probe shell read` answers, where the calling form refuses it: the opaque rule bounds an invocation and there is none |
+| `an-operation-that-declares-no-record` | a `destroy` carries no `record:`, so there is nothing to project — a usage error rather than an empty page |
+| `a-supplied-response-carrying-a-member-no-object-has` | `data` at the top level names a path root no Capability has, answered with the members that object carries |
+| `a-supplied-response-that-names-no-host` | `host` is the member that survives a call that answered nothing, so an object without one is one no call could have produced |
+| `a-supplied-response-outside-the-repository`, `a-supplied-response-that-names-no-file`, `a-supplied-response-that-names-a-directory`, `usage-response-with-no-path` | the four ways the path itself fails, all `2`: ADR-0089's bound, a name that is nothing, a name that is a directory and says so rather than saying it is missing, and no path at all |
+
+The samples are checked in beside the repository rather than written by a case,
+for the reason every other fixture there is shared: a response an author saved is
+a file, and one copy of it read by fourteen cases is one that cannot drift
+between them.
 
 ## Why `a-deadline-the-call-cannot-meet` declares `0s`
 

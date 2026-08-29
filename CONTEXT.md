@@ -215,7 +215,10 @@ _Avoid_: Plan, Preview, Simulation, What-if, Trial run
 A `read` Operation invoked against `local` without a Definition, writing no Record and no Journal
 entry. It is a lookup rather than a Run, so it has no Trigger, no Provenance and no Disposition, and
 it can never be scheduled, sequenced into a Procedure, or used as a Comparison baseline. Its reach is
-the one thing it does not escape: the host it asks for is the Target's to grant, as a Step's is.
+the one thing it does not escape: the host it asks for is the Target's to grant, as a Step's is. Where
+the response is supplied rather than fetched it invokes nothing at all, and every rule bounding what
+it may reach is vacuous rather than lifted — which is how the projection of an Operation no Probe may
+invoke is read at all.
 _Avoid_: Query, Check, Ad-hoc run, One-shot
 
 **Trigger**:

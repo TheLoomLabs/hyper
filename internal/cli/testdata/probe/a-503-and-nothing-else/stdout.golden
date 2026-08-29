@@ -1,4 +1,5 @@
 FIELD      VALUE
+identity:  status.hyper.dev
 host       status.hyper.dev
 status     503
 days_left  34

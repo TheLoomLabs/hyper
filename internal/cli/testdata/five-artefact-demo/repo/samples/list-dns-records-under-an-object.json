@@ -1,0 +1,8 @@
+{
+  "host": "api.cloudflare.com",
+  "status": 200,
+  "body": {
+    "success": true,
+    "result": {"id": "372e6795-4025-4e0b-a6aa-6d586b9e0b59", "name": "preview-42.example.com"}
+  }
+}

@@ -1,0 +1,1 @@
+hyper probe: --response samples/a-response-with-no-host.json: host: the response object always carries it, so an object without one is an object no call could have produced

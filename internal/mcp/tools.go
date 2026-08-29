@@ -1624,13 +1624,18 @@ func runArguments(arguments json.RawMessage) (runCall, error) {
 // declining, so it comes back `isError: true` with the Refusal rendered whole.
 var probeTool = tool{
 	name:        "probe",
-	description: "Invoke a read Operation against local without a Definition, and answer the projection beside the raw response. It writes no Record and no Journal entry: a throwaway question costs no reviewed artefact.",
+	description: "Invoke a read Operation against local without a Definition, and answer the projection beside the raw response. It writes no Record and no Journal entry: a throwaway question costs no reviewed artefact. Supply `response` instead and no call is made at all: hyper reads the Operation's record: block against a response object you fetched yourself, which is how the projection of an Operation a Probe may not invoke — an effectful one, or one behind a credential — is checked without spending a Run.",
 	input: closedObject(`{
 		"provider": {"type": "string", "minLength": 1, "description": "The Provider's name, as its Manifest declares it."},
-		"operation": {"type": "string", "minLength": 1, "description": "The Operation's name, as a key of that Manifest's own operations: block. It declares kind: read and is not opaque — a Probe may invoke neither an effectful Operation nor an opaque one, whatever any Target grants."},
+		"operation": {"type": "string", "minLength": 1, "description": "The Operation's name, as a key of that Manifest's own operations: block. Without a supplied response it declares kind: read and is not opaque — a Probe may invoke neither an effectful Operation nor an opaque one, whatever any Target grants. With one, no Operation is out of reach, both rules bounding a request that is not made."},
+		"response": {
+			"type": "string",
+			"minLength": 1,
+			"description": "A repository-relative path to a JSON file holding the response object §12 closes for the Operation's Capability — its members, spelled as they are after a call. Supplying one makes no call at all: hyper resolves no credential, reaches no host, and answers only the projection the Operation's record: block derives from what you handed it, beside the paths that resolved to nothing. Every rule a Probe otherwise carries bounds a request leaving this machine, so with no request the Operation may be of any Kind and may be opaque — which is how a mutate's projection, the response to a create, is reachable at all. The path is read against the repository like every other path argument."
+		},
 		"inputs": {
 			"type": "object",
-			"description": "The Operation's inputs, one object keyed by input name, in place of the CLI's repeated --input. Every declared input is supplied and no other name is: there is no null and no key-omission syntax, so an input left out has no sink to render at. Each value is read against the type the Operation declares at that position rather than by what the value looks like, so a string carrying digits and a number are one value at an integer position; object, array and null read as nothing anywhere and are refused here.",
+			"description": "The Operation's inputs, one object keyed by input name, in place of the CLI's repeated --input. Every declared input is supplied and no other name is: there is no null and no key-omission syntax, so an input left out has no sink to render at. Beside a supplied response there is no request and so no sink, and inputs are optional there: what one still reaches is an identity: written as a template hole rather than a path. Each value is read against the type the Operation declares at that position rather than by what the value looks like, so a string carrying digits and a number are one value at an integer position; object, array and null read as nothing anywhere and are refused here.",
 			"propertyNames": {
 				"minLength": 1,
 				"pattern": "^[^=]*$",
@@ -1645,18 +1650,44 @@ var probeTool = tool{
 			"items": {
 				"type": "object",
 				"additionalProperties": false,
-				"required": ["type", "provider", "operation", "projection", "response"],
+				"required": ["type", "provider", "operation", "supplied", "projection", "unresolved", "response"],
 				"properties": {
 					"type": {"const": "probe_result"},
 					"provider": {"type": "string"},
 					"operation": {"type": "string"},
+					"supplied": {
+						"type": "boolean",
+						"description": "Whether the response beneath was handed to hyper rather than fetched by it. A response hyper called for and a response a caller supplied are two different claims about the world, and the row says which one this is."
+					},
 					"projection": {
-						"type": "object",
-						"description": "What hyper derived from the response, in the shape a Record would have held — and {} where every projected path resolved to nothing, which is an absence a reader reads rather than an error hyper reports. Its keys are the Manifest's own."
+						"type": "array",
+						"description": "What hyper derived from the response, in the shape the Records would have held. One entry under an Operation of one cardinality and one per member of the collection over: named under series — and [] where over: itself resolved to nothing, which is named in unresolved rather than reported as an error.",
+						"items": {
+							"type": "object",
+							"additionalProperties": false,
+							"required": ["fields"],
+							"properties": {
+								"identity": {"description": "What the Record's identity: resolved to, and absent where it resolved to nothing."},
+								"fields": {"type": "object", "description": "The fields that resolved, keyed by the names the Manifest records them under, in the Manifest's own order. {} where every one of them resolved to nothing, which is an absence a reader reads rather than an error hyper reports."}
+							}
+						}
+					},
+					"unresolved": {
+						"type": "array",
+						"description": "Every path the Operation's record: block authored that resolved to nothing, named once however many members it failed against. This is the half a Run has nowhere to put: a field whose path resolved to nothing is simply absent from a version, and an author reading a projection cannot tell that from a field never declared.",
+						"items": {
+							"type": "object",
+							"additionalProperties": false,
+							"required": ["position", "path"],
+							"properties": {
+								"position": {"type": "string", "description": "Where the path is authored: over: or identity: with their colon, being keys of the record: block, or the name a field is recorded under."},
+								"path": {"type": "string", "description": "The path written there, as the Manifest writes it."}
+							}
+						}
 					},
 					"response": {
 						"type": "object",
-						"description": "The raw response beside the projection, which no credentialled surface shows: a Probe binds local, which carries no credential slot, so the wire is visible by construction rather than by a flag. A host that answered nothing at all is this object carrying host and nothing else."
+						"description": "The raw response beside the projection, which no credentialled surface shows: a Probe that called binds local, which carries no credential slot, so the wire is visible by construction rather than by a flag, and a Probe that did not call is echoing bytes the caller already holds. A host that answered nothing at all is this object carrying host and nothing else."
 					}
 				}
 			}
@@ -1667,6 +1698,7 @@ var probeTool = tool{
 		var named struct {
 			Provider  string                     `json:"provider"`
 			Operation string                     `json:"operation"`
+			Response  string                     `json:"response"`
 			Inputs    map[string]json.RawMessage `json:"inputs"`
 		}
 		if err := readArguments(arguments, &named); err != nil {
@@ -1692,6 +1724,9 @@ var probeTool = tool{
 		// so a Provider or an Operation spelled like a flag is still the
 		// positional it is (flags.go, probe.go).
 		argv := append([]string{"probe"}, supplied...)
+		if named.Response != "" {
+			argv = append(argv, "--response", named.Response)
+		}
 		return append(argv, "--", named.Provider, named.Operation), nil
 	},
 }

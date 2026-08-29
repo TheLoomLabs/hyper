@@ -1,5 +1,10 @@
-FIELD  VALUE
-host   cert.hyper.dev
+FIELD      VALUE
+identity:  cert.hyper.dev
+host       cert.hyper.dev
+
+UNRESOLVED  PATH
+status      $.status
+days_left   $.tls.days_left
 
 RESPONSE
 {"host":"cert.hyper.dev"}

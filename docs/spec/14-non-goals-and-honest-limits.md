@@ -12,10 +12,18 @@ made, and the reasoning for each is in the ADR it cites; what this chapter adds 
 
 **Whether a Manifest describes the API it names.** `check` compares reviewed text against reviewed
 text and reaches no API, and `hyper` has no oracle for the question and claims none (§4, ADR-0025);
-the cheapest evidence available narrows it rather than closing it (ADR-0017). The cost is that a
-Manifest can be internally consistent, pass every static check, and still be wrong about the world.
-What finds that out is a Run, and the Run that finds it out is a `mutate` or a `destroy` as readily
-as a `read`.
+the cheapest evidence available narrows it rather than closing it (ADR-0017, ADR-0108). The cost is
+that a Manifest can be internally consistent, pass every static check, and still be wrong about the
+world. What finds that out is a Run, and the Run that finds it out is a `mutate` or a `destroy` as
+readily as a `read`.
+
+The narrowing is worth stating with its own limit. A Probe reads a projection against a response the
+author **supplied**, which is how the projection of an Operation no Probe may invoke is legible at all
+(§9, ADR-0108) — and a Manifest that reads a supplied response correctly is right about that response
+and not about the API. The file is a fixture, and a fixture written by hand can be wrong in exactly
+the way the Manifest is wrong. What it buys is the class of evidence a test fixture buys: it catches
+the path that addresses nothing, and it cannot catch the response that never looks like the one you
+saved.
 
 One face of it is **legible after the fact and the rest are not**, which is worth stating because it
 is the only part of this limit an author can act on without instrumenting anything. A body's wire type

@@ -86,13 +86,29 @@ and `check`'s count of what it checked still says **nine** — which is the whol
 of what *a generated workflow is derived from the artefacts rather than being
 one* means, asserted by a golden that did not change.
 
+## The files that are not artefacts, either
+
+Milestone 10 put a seventh kind in it, and `samples/` is not one of the five
+either: eight response objects a Manifest author would have fetched with their
+own client, read by `probe --response` against the `cloudflare-dns` and `shell`
+Operations (§9, ADR-0108). Two are ordinary answers — a create and a paginated
+list — and the rest are the ways one goes wrong or the reading it is held to: a
+collection whose members carry the identity under another name, one member of
+which is short a field, a collection path that landed on an object, a member no
+response object has, an object with no `host`, and a command that ran.
+
+They enter no namespace and `check`'s count still says **nine**: the repository
+walk reads `.yaml` and nothing else, so a sample is read only where a case names
+its path and by nothing that loads this repository. That is the same sentence the
+generated workflow above earns, one file kind over.
+
 ## Why the repository sits here and not in a case
 
-It is one repository and forty-nine cases, in seven corpora: the four commands'
+It is one repository and sixty-five cases, in seven corpora: the four commands'
 eight above, `check/`'s two clean cases, the two beside `targets`'s own that run
 it again under an environment supplying `CLOUDFLARE_API_TOKEN` — where the
 credential column reads present and nothing else in the answer moves —
-`probe/`'s fifteen, and `review/`'s twenty-two.
+`probe/`'s thirty-one, and `review/`'s twenty-two.
 
 A copy per case is how it began, and a Provider whose Operations moved under one
 command's golden file and not another's is exactly the drift that would have

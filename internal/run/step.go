@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/projection"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/revision"
-	"github.com/TheLoomLabs/hyper/internal/schema"
 	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
@@ -811,7 +809,13 @@ func (r run) concluded(bound binding, authored sequenced, reading projection.Pro
 		return destroyed(resolving), nil
 	}
 	if reading.Over == "" {
-		name, resolved := identityOf(bound.operation, resolving.Inputs, response)
+		// The name the Record is held under, read from whichever of the
+		// two roots the Manifest wrote — the response object here, one
+		// member of the collection below (§3, §12,
+		// projection.ResolveIdentity). Which of the two spellings a
+		// Manifest declares is what decides whether an identity collision
+		// Refuses at Expansion or halts the Run (§6, ADR-0072).
+		name, resolved := projection.ResolveIdentity(bound.operation.Identity, resolving.Inputs, response)
 		if !resolved {
 			return nil, unreadable(bound.operation.Identity,
 				"step %s: the identity path %s did not resolve against what came back, so hyper cannot say which Record it is holding",
@@ -829,7 +833,7 @@ func (r run) concluded(bound binding, authored sequenced, reading projection.Pro
 
 	held := make([]conclusion, 0, len(members))
 	for at, item := range members {
-		name, resolved := identityOf(bound.operation, resolving.Inputs, item)
+		name, resolved := projection.ResolveIdentity(bound.operation.Identity, resolving.Inputs, item)
 		if !resolved {
 			return held, unreadable(bound.operation.Identity,
 				"step %s: the identity path %s did not resolve against record %d of %s, so hyper cannot say which Record it is holding",
@@ -1014,40 +1018,6 @@ func (r run) running(bound binding, authored sequenced, resolving member) (reque
 // surface remembering to (ADR-0007, ADR-0031).
 func (r run) credential(bound binding, target string) capability.Credential {
 	return capability.ReadAuth(bound.manifest.Root).Credential(r.credentials[target])
-}
-
-// identityOf is the name the Record is held under: what the Operation's
-// `identity:` resolved to.
-//
-// It reads from whichever of the two roots the Manifest wrote, which is decided
-// by the spelling and by nothing else (§3): a template fills from the resolved
-// inputs before the call, and a `$`-rooted path resolves against what came back
-// after it. Which of the two a Manifest declares is what decides whether an
-// identity collision Refuses at Expansion or halts the Run (§6, ADR-0072).
-//
-// root is the response object on an Operation of `one` cardinality and one
-// member of the collection `over:` named on an Operation of `series` — the two
-// roots §12 gives a path, told apart by the position and never by the path
-// (internal/projection).
-func identityOf(operation artefact.OperationInfo, inputs map[string]schema.Scalar, root any) (string, bool) {
-	declared := operation.Identity
-	if declared == "" {
-		return "", false
-	}
-	if !strings.HasPrefix(declared, "$") {
-		filled, err := capability.Fill("identity:", declared, inputs)
-		return filled, err == nil && filled != ""
-	}
-
-	value, resolved := projection.Resolve(declared, root)
-	if !resolved {
-		return "", false
-	}
-	name, isText := value.(string)
-	if !isText {
-		name = projection.Text(value)
-	}
-	return name, name != ""
 }
 
 // projected is what the version's `fields` holds: every field that resolved, in

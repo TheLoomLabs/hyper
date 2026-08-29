@@ -552,6 +552,12 @@ read from the object belonging to the Capability the Operation's request is writ
 from the bytes that came back (ADR-0040, §3). The two share no member: `http` describes what it did and
 `shell` describes nothing, so what each can be asked about afterwards differs the same way.
 
+**A response object supplied to `probe --response` is read against these same sets** — the same
+members, the same types, the same order, with an unknown member refused and the one member that
+survives a call that answered nothing required (§9, ADR-0108). It is the same object whether `hyper`
+assembled it from a call or read it out of a file the caller wrote, and a supplied one that admitted a
+sixth member would be a path root resolving on one surface and nowhere else.
+
 ### `http`
 
 **Five members.**

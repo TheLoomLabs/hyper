@@ -35,6 +35,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/TheLoomLabs/hyper/internal/capability"
+	"github.com/TheLoomLabs/hyper/internal/schema"
 )
 
 // segmentPattern matches one segment of the grammar: `.member` or
@@ -63,6 +64,17 @@ type Projection struct {
 	// is why it sits here rather than being read a second time by whoever
 	// walks the collection.
 	Over string
+	// Identity is the `identity:` path or template hole the Record's name
+	// is read from, and "" where the block declares none — which is a
+	// `destroy`, the one Kind carrying no `record:` block at all (§3,
+	// ADR-0037).
+	//
+	// It sits beside the fields rather than being read a second time by
+	// whoever needs a name because it is the same block read once: what a
+	// `record:` says is the identity, the collection, and the fields, and a
+	// reader that answered two of the three would leave the third to a
+	// second spelling of the same key.
+	Identity string
 }
 
 // FieldPath is one entry of a record:'s fields: mapping — the name the Record
@@ -119,6 +131,7 @@ func Read(operation *yaml.Node) Projection {
 
 	var read Projection
 	read.Over = scalarValue(mappingValue(record, "over"))
+	read.Identity = scalarValue(mappingValue(record, "identity"))
 
 	fields := mappingValue(record, "fields")
 	if fields == nil || fields.Kind != yaml.MappingNode {
@@ -308,4 +321,197 @@ func mappingValue(node *yaml.Node, key string) *yaml.Node {
 		}
 	}
 	return nil
+}
+
+// ResolveIdentity is the Record name an Operation's `identity:` resolves to against
+// one root, and false where it resolves to nothing.
+//
+// The two spellings are §3's two: a path reads from the response object — or,
+// under `series`, from one member of the collection `over:` named — and a
+// template hole resolves from the Operation's inputs before the call is made
+// at all, which is why an Operation whose identity is a hole knows every
+// Record's name before it asks (§3, §6, ADR-0072).
+//
+// It is here rather than beside its callers because it is the same resolution
+// at both: a Run reads it to name what a Step concluded, and a Probe reads it
+// to answer whether the identity an author wrote addresses anything. A second
+// copy of it is a second opinion about which Record a response is.
+func ResolveIdentity(declared string, inputs map[string]schema.Scalar, root any) (string, bool) {
+	if declared == "" {
+		return "", false
+	}
+	if !strings.HasPrefix(declared, "$") {
+		filled, err := capability.Fill("identity:", declared, inputs)
+		return filled, err == nil && filled != ""
+	}
+
+	value, resolved := Resolve(declared, root)
+	if !resolved {
+		return "", false
+	}
+	name, isText := value.(string)
+	if !isText {
+		name = Text(value)
+	}
+	return name, name != ""
+}
+
+// Record is one Record a response would have produced: the name its
+// `identity:` resolved to, and the fields that resolved beside it. A Probe
+// writes none of these — it renders them, which is the whole of what it is for
+// (§9, ADR-0009).
+//
+// Named is separate from Name because an identity that resolved to nothing is
+// not the empty name: a Run halts there rather than writing a Record it cannot
+// address (§6), and a surface that rendered "" would be showing an author a
+// name where what happened was an absence.
+type Record struct {
+	Name  string
+	Named bool
+	// Fields is what resolved, in the Manifest's own order — the same value
+	// a Run would have written to the version (§7).
+	Fields Fields
+}
+
+// MarshalJSON writes one Record as the row carries it: `identity` where it
+// resolved and absent where it did not, then `fields`. It is the response
+// object's encoder again, on the rule the two mappings a Probe renders are
+// already written by: an ordered mapping is an ordered mapping (§8, ADR-0026).
+func (r Record) MarshalJSON() ([]byte, error) {
+	object := capability.Object{}
+	if r.Named {
+		object = append(object, capability.Member{Name: "identity", Value: r.Name})
+	}
+	return append(object, capability.Member{Name: "fields", Value: r.Fields}).MarshalJSON()
+}
+
+// Position is one place a `record:` block authored a path that resolved to
+// nothing, spelled as the Manifest spells it: `over:` and `identity:` carry
+// their colon because they are keys of that block, and a field carries the
+// name it is recorded under.
+//
+// The colon is what keeps the two apart on a page. A Manifest may declare a
+// field called `identity`, and a reader looking at a line that did not resolve
+// is owed the difference between the key that names the Record and a field
+// that happens to share its word.
+type Position struct {
+	Position string `json:"position"`
+	Path     string `json:"path"`
+}
+
+// The two positions of a `record:` block that are keys rather than field names.
+const (
+	PositionOver     = "over:"
+	PositionIdentity = "identity:"
+)
+
+// Reading is one response read at every position an Operation's `record:`
+// block authored: the Records it would have produced, and the paths that
+// resolved to nothing.
+//
+// The second half is the one a Run has nowhere to put. A field whose path
+// resolved to nothing is simply absent from the version, which is the right
+// answer for a record and the wrong one for an author — *the Manifest says the
+// identity is `$.data.items[].id` and I recorded nothing* is the authoring
+// failure ADR-0017 named, and it is only legible where the paths that failed
+// are named beside the ones that did not.
+type Reading struct {
+	Records    []Record
+	Unresolved []Position
+	// OverIsList says the `over:` path resolved to a sequence, and is false
+	// on an Operation of `one` cardinality, on an `over:` that resolved to
+	// nothing, and on one that landed on an object or a scalar.
+	//
+	// It is the third answer a Run does not need and an author cannot do
+	// without. §6 reads a non-sequence as the empty collection it is — a
+	// member is a member of a list, and a scalar has none — so a Run writes
+	// no Records either way; an author staring at *0 members* needs to know
+	// whether the collection was empty or the path landed somewhere that
+	// has no members at all, those being two different edits (§9,
+	// ADR-0108).
+	OverIsList bool
+}
+
+// Against reads one response at every position, under either cardinality.
+//
+// `over:` decides which: absent, the response object is the one root and there
+// is one Record; present, it names a collection and each member is a root of
+// its own (§3, §12). An `over:` that resolved to nothing produces no Records at
+// all rather than an empty list — hyper cannot tell a collection that was empty
+// from a path that was wrong, which is the distinction internal/run halts a Run
+// on and the one this names instead (§6).
+//
+// A position is reported unresolved where it failed against **any** root, and
+// **once** however many it failed against. Failing against one member of a
+// collection and not another is a fact an author needs — a Run writes that
+// member's version without the field — and what they edit is one line of one
+// Manifest, so a page naming it per member would be one fault rendered n times.
+func (p Projection) Against(inputs map[string]schema.Scalar, response capability.Object) Reading {
+	if p.Over == "" {
+		return Reading{Records: []Record{p.record(inputs, response)}, Unresolved: p.unresolved(inputs, []any{response})}
+	}
+
+	// Collection's walk with its third answer kept. That function folds *a
+	// path that landed on something with no members inside it* into the
+	// empty collection, which is the right reading for a Run — no Records
+	// either way — and drops the one distinction an author is here for.
+	collection, resolved := Resolve(p.Over, response)
+	if !resolved {
+		return Reading{Unresolved: []Position{{Position: PositionOver, Path: p.Over}}}
+	}
+	members, isList := collection.([]any)
+
+	records := make([]Record, 0, len(members))
+	for _, member := range members {
+		records = append(records, p.record(inputs, member))
+	}
+	return Reading{Records: records, Unresolved: p.unresolved(inputs, members), OverIsList: isList}
+}
+
+// record is one root read: the identity it names, and the fields that resolved.
+func (p Projection) record(inputs map[string]schema.Scalar, root any) Record {
+	name, named := ResolveIdentity(p.Identity, inputs, root)
+	return Record{Name: name, Named: named, Fields: p.Project(root)}
+}
+
+// unresolved is every authored position that failed to resolve against at least
+// one of the roots, in the order the Manifest wrote them: `identity:` first,
+// being the key that names the Record, then the fields in their authored order.
+//
+// A collection with no members leaves every position unresolved, which is the
+// honest answer rather than a hedge: nothing was read, so nothing resolved, and
+// an author looking at an empty collection is told which paths went untested.
+func (p Projection) unresolved(inputs map[string]schema.Scalar, roots []any) []Position {
+	var positions []Position
+	if p.Identity != "" && !resolvedAtEvery(roots, func(root any) bool {
+		_, named := ResolveIdentity(p.Identity, inputs, root)
+		return named
+	}) {
+		positions = append(positions, Position{Position: PositionIdentity, Path: p.Identity})
+	}
+	for _, field := range p.Fields {
+		if resolvedAtEvery(roots, func(root any) bool {
+			_, resolved := Resolve(field.Path, root)
+			return resolved
+		}) {
+			continue
+		}
+		positions = append(positions, Position{Position: field.Name, Path: field.Path})
+	}
+	return positions
+}
+
+// resolvedAtEvery is whether one position resolved against every root it was
+// read from, and false where there were no roots at all — which is why an empty
+// collection leaves every position named rather than none.
+func resolvedAtEvery(roots []any, resolves func(any) bool) bool {
+	if len(roots) == 0 {
+		return false
+	}
+	for _, root := range roots {
+		if !resolves(root) {
+			return false
+		}
+	}
+	return true
 }

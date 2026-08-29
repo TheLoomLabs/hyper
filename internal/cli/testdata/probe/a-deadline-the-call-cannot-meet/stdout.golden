@@ -1,5 +1,9 @@
-FIELD  VALUE
-host   slow.hyper.dev
+FIELD      VALUE
+identity:  slow.hyper.dev
+host       slow.hyper.dev
+
+UNRESOLVED  PATH
+status      $.status
 
 RESPONSE
 {"host":"slow.hyper.dev"}

@@ -50,6 +50,7 @@ func everyParameter() parameters {
 		between:    true,
 		kind:       true,
 		input:      true,
+		response:   true,
 		secretOut:  true,
 		dryRun:     true,
 		expansion:  true,
@@ -63,17 +64,21 @@ func everyParameter() parameters {
 // and not the other would otherwise ship a message naming a flag the command
 // refuses.
 //
-// Ten of the fourteen are held against parseArgs directly: whatever it makes of
+// Ten of the fifteen are held against parseArgs directly: whatever it makes of
 // the value handed with them, none of them may come back *unknown*. The other
-// four never reach it, their commands taking them off the argument list first,
+// five never reach it, their commands taking them off the argument list first,
 // so each is held against the splitter that does the taking (flags.go,
 // issue #215).
 func TestParameters_EverySpellingIsOneItsCommandActuallyTakes(t *testing.T) {
-	// The four the loop never sees, each with the value its own command
+	// The five the loop never sees, each with the value its own command
 	// would carry: what is asserted is that the splitter consumed the flag
 	// rather than leaving it for parseArgs to call unknown.
 	upstream := map[string]func() bool{
 		"--input": func() bool { _, rest, _ := splitInputs([]string{"--input", "host=example.com"}); return len(rest) == 0 },
+		"--response": func() bool {
+			_, rest, _ := splitResponse([]string{"--response", "samples/create.json"})
+			return len(rest) == 0
+		},
 		"--secret-out": func() bool {
 			_, rest, _ := splitSecretOut([]string{"--secret-out", "/tmp/token"})
 			return len(rest) == 0
