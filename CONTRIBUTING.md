@@ -106,6 +106,12 @@ what fencing it takes. A setup script that fails, or that leaves a repository
 committed without its bit is skipped in silence, which the fence asserts against
 rather than inherits.
 
+**The fixture has a Store**, so a task may ask for a Run
+([ADR-0104](docs/adr/0104-the-acceptance-fixture-ships-a-store.md)). One that does
+has to **grant the approval in its own text**: the orientation tells an agent to
+stop and hand the diff to a human before running anything, and the prompt is the
+only human a headless session has.
+
 ## The spec is the authority
 
 Where the code and [`docs/spec/`](docs/spec/) disagree, **the spec is right and

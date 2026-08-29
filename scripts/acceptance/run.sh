@@ -19,11 +19,12 @@
 #   scripts/acceptance/run.sh <task-file> <output-directory>
 #
 # What that gets is a repository in the README's quickstart shape — the version
-# pin, a Target, a Definition, a Procedure, and no `providers/` — with the MCP
-# server wired, `AGENTS.md` written from the server's own handshake, and a
-# headless Claude Code session run inside a mount namespace where the source
-# checkout, the neighbouring checkouts, and every cached copy of their text are
-# not there to be read. The session's own transcript is the output.
+# pin, a Target, a Definition, a Procedure, and no `providers/` — with a Store
+# initialised (ADR-0104), the MCP server wired, `AGENTS.md` written from the
+# server's own handshake, and a headless Claude Code session run inside a mount
+# namespace where the source checkout, the neighbouring checkouts, and every
+# cached copy of their text are not there to be read. The session's own
+# transcript is the output.
 #
 # The seal is `bwrap(1)`, which needs no privilege and no daemon. It is not a
 # security boundary and is not trying to be one: the sandboxed session runs as
@@ -181,6 +182,18 @@ git -C "$repo" config user.name "acceptance"
 git -C "$repo" config user.email "acceptance@localhost"
 git -C "$repo" add -A
 git -C "$repo" commit -q -m "the quickstart shape"
+
+# **The fixture ships a Store, and that is a decision** (ADR-0104, issue #223).
+# A repository with no Store refuses every Run `store-absent`, and the
+# orientation puts `store init` on the far side of the line it draws with
+# `install` and `compact`: *creating the record is the human's act; your part is
+# to say it has not happened*. So an agent handed a Store-less repository and a
+# task whose deliverable is a Run answers correctly by stopping at the first
+# call, and the transcript reaches none of Execution, the Record, or the branch
+# that holds them — §6, §7 and the Store, which is the whole of what a
+# run-capable task exists to put in front of an agent. Keeping the wall and
+# asking for a Run are not both available, and what removing it costs is the
+# ADR's to say.
 HYPER_REPO_DIR=$repo "$outdir/bin/hyper" store init >/dev/null
 
 # Passed with `--strict-mcp-config`, so this file is the whole of the session's
