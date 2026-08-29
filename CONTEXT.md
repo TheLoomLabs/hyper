@@ -98,7 +98,8 @@ _Avoid_: Task, Job, Stage
 
 **Bound**:
 The maximum number of Records an effectful Step may affect, declared by the Step's author. Mandatory
-on a `destroy` Step, where an absent Bound means unbounded rather than unchecked.
+on a `destroy` Step, where an absent Bound means unbounded rather than unchecked, and refused on an
+Opaque one, where a count of the commands run would be truthful and still misleading.
 _Avoid_: Limit, Cap, Quota, Threshold
 
 **Cadence**:

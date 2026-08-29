@@ -824,6 +824,16 @@ already in mind, and none of these is about a call:
   example carrying it whole answers by transcription. Carrying both whole is refused for length, this
   text being paid for on every session in every harness (ADR-0096).
 
+  **A rule stated here is stated with its exception, or it is not stated.** The prose beside the
+  example is what an agent authors from, and a rule carrying half of itself is worse than an absent
+  one: the agent authors the half it was given, `check` declines the artefact, and the orientation has
+  spent a repair loop on the one surface whose whole job is to save one. The Bound is where this was
+  learned — *mandatory on a `destroy`* is true and is half the rule, an opaque `destroy` refusing one
+  (§5) — and the constraint the exception is stated under is the budget above, so it is a clause of
+  the sentence that already stood rather than a paragraph beside it. A claim this text makes about a
+  `check` is held to that `check` by a case, so that the two cannot come to disagree
+  (`TestInstructions_TheBoundRuleIsTheOneCheckHolds`, ADR-0101).
+
 - **That the agent should offer to add a section to an `AGENTS.md` that already stands.** `project`
   writes the file where a repository holds none and never overwrites one that does, so a repository
   that held the file for its own reasons is the single case neither channel reaches — and offering a

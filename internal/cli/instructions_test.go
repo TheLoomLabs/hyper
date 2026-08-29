@@ -2,12 +2,14 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/mcp"
 )
@@ -193,4 +195,208 @@ func kindOf(content string) string {
 		}
 	}
 	return ""
+}
+
+// TestInstructions_TheBoundRuleIsTheOneCheckHolds is the fence issue #218 asks
+// for, and the thing it exists to catch has already happened once.
+//
+// The orientation stated the Bound rule without its exception — *on a `destroy`
+// it is **mandatory*** — while the binary holds two rules, one of them the
+// opposite of that: a Bound is mandatory on a `destroy` and **refused** on an
+// opaque one, an opaque `destroy` being every `destroy` whose request is
+// `shell:` (`bound-missing`, `bound-illegal`, §5, ADR-0053). The sealed
+// acceptance run of 2026-08-29 walked into it — the orientation taught the
+// Bound, `check` declined it, and the session recovered the real rule from
+// `review`'s `UNBOUNDED` flag rather than from the text whose whole job is to
+// spare it that (ADR-0100, ADR-0101).
+//
+// **So the claim is held to the checker and not to a reader.** The four
+// combinations below are the rule as `check` actually holds it, and each one
+// `check` declines names the word the orientation has to carry for an agent to
+// have avoided authoring it. A rule that moves in the binary and not in the text
+// fails here, which is the direction it moved last time.
+func TestInstructions_TheBoundRuleIsTheOneCheckHolds(t *testing.T) {
+	sentence := boundSentence(t, mcp.Instructions("1.4.0"))
+
+	for _, c := range []struct {
+		name   string
+		repo   func(*testing.T, bool) map[string]string
+		bound  bool
+		code   string
+		stated string
+	}{
+		{name: "a destroy Step carrying its Bound", repo: exampleRepository, bound: true},
+		{name: "a destroy Step carrying none", repo: exampleRepository, code: artefact.CodeBoundMissing, stated: "mandatory"},
+		{name: "an opaque destroy Step carrying none", repo: opaqueRepository},
+		{name: "an opaque destroy Step carrying one", repo: opaqueRepository, bound: true, code: artefact.CodeBoundIllegal, stated: "refused"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			root := t.TempDir()
+			for path, content := range c.repo(t, c.bound) {
+				writeFile(t, filepath.Join(root, path), content)
+			}
+
+			var stdout, stderr bytes.Buffer
+			exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, cli.Streams(&stdout, &stderr), emptyEnvironment, t.TempDir(), "1.4.0")
+			codes := errorCodesIn(t, stdout.String())
+
+			switch {
+			case c.code == "" && exit != cli.ExitClean:
+				t.Fatalf("check declines it with %v (exit %d); the orientation teaches an artefact the checker refuses\n%s", codes, exit, stderr.String())
+			case c.code != "" && !slices.Contains(codes, c.code):
+				t.Fatalf("check answers %v and not %s (exit %d); the Bound rule the checker holds is not the one this case reads", codes, c.code, exit)
+			}
+			// The pairing, and the whole of why this is a fence rather
+			// than two tests: a combination `check` declines with no word
+			// for it in the orientation is a repair loop an agent is sent
+			// on by the text it was oriented with.
+			if c.stated != "" && !strings.Contains(sentence, c.stated) {
+				t.Errorf("check declines this with %s and the orientation's Bound sentence never says %q: %q", c.code, c.stated, sentence)
+			}
+		})
+	}
+}
+
+// TestInstructions_TheBoundRuleNamesWhatMakesADestroyOpaque is the other half of
+// the exception, and the half a word like *refused* does not carry on its own.
+//
+// An agent told that some `destroy` Steps refuse a Bound and not which ones is
+// an agent that guesses, and every `destroy` on the built-in `shell` Provider is
+// one of them — which is every `destroy` a fresh repository can author at all,
+// `providers/` being empty until somebody writes one (§9, ADR-0093).
+//
+// The Capability is read off the binary rather than spelled here: it is the one
+// member of §12's reserved half, and the predicate that makes a `destroy` opaque
+// is its Kind and that request block (`IsOpaqueDestroy`, ADR-0039).
+func TestInstructions_TheBoundRuleNamesWhatMakesADestroyOpaque(t *testing.T) {
+	sentence := boundSentence(t, mcp.Instructions("1.4.0"))
+
+	for _, named := range []string{"destroy", "opaque", artefact.ReservedCapability} {
+		if !strings.Contains(sentence, named) {
+			t.Errorf("the orientation's Bound sentence never names %q: %q", named, sentence)
+		}
+	}
+}
+
+// boundSentence is the one sentence of the orientation that states the Bound
+// rule, unwrapped the way a reader takes it in.
+//
+// **Exactly one, and that is an assertion rather than a lookup.** The
+// orientation is a budget paid on every session in every harness (ADR-0093), and
+// the repair issue #218 asked for is a rule stated whole in the sentence that
+// already stood — not a paragraph about Bounds added beside it. Two sentences
+// here is the manual the text may not become; none is the rule gone.
+//
+// A sentence states the rule where it names the key or the term `CONTEXT.md`
+// fixes for it, which is the pair a second sentence about Bounds would have to
+// evade both of to slip past this. The Step's own `bound: 5` inside the worked
+// example matches neither — it is the key unquoted, in a fenced block — and
+// neither does the `bound Target` of the sentence above it, which is the English
+// word.
+func boundSentence(t *testing.T, instructions string) string {
+	t.Helper()
+
+	var carried []string
+	for _, sentence := range strings.SplitAfter(strings.Join(strings.Fields(instructions), " "), ". ") {
+		if strings.Contains(sentence, "`bound:`") || strings.Contains(sentence, "Bound") {
+			carried = append(carried, strings.TrimSpace(sentence))
+		}
+	}
+	if len(carried) != 1 {
+		t.Fatalf("the orientation states the Bound rule in %d sentences, want exactly one: %q", len(carried), carried)
+	}
+	return carried[0]
+}
+
+// exampleRepository is the orientation's own worked example, whose `destroy`
+// Step is an `http` one and carries a Bound, with that Bound taken away where
+// bound is false.
+//
+// It is the shipped text rather than a fixture beside it, so that the
+// non-opaque half of the rule is read off the artefact an agent transcribes.
+func exampleRepository(t *testing.T, bound bool) map[string]string {
+	t.Helper()
+
+	written := workedExample(t, mcp.Instructions("1.4.0"))
+
+	// The whole map rather than the first match, on the sibling case's own
+	// footing: which artefact this reads may not depend on map order, and a
+	// second Procedure carrying a Bound is a second thing this case would
+	// have to say which of.
+	var declaring []string
+	for path, content := range written {
+		if kindOf(content) == "procedure" && strings.Contains(content, "bound:") {
+			declaring = append(declaring, path)
+		}
+	}
+	if len(declaring) != 1 {
+		t.Fatalf("%d of the worked example's artefacts declare a Bound, want exactly one: %v", len(declaring), slices.Sorted(maps.Keys(written)))
+	}
+	if bound {
+		return written
+	}
+
+	at := declaring[0]
+	var kept []string
+	for _, line := range strings.Split(written[at], "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "bound:") {
+			kept = append(kept, line)
+		}
+	}
+	written[at] = strings.Join(kept, "\n")
+	return written
+}
+
+// opaqueRepository is the smallest repository holding an opaque `destroy` Step:
+// the built-in `shell` Provider, a `local` Target opted into `opaque-destroy:`,
+// and one Step over two paths — with a Bound on it where bound is true.
+//
+// There is no `providers/` file because there is nothing to write one from: the
+// built-in Manifest is compiled in, which is also why this shape is the one a
+// fresh repository's first `destroy` takes (§12, ADR-0039).
+func opaqueRepository(t *testing.T, bound bool) map[string]string {
+	t.Helper()
+
+	declared := ""
+	if bound {
+		declared = "    bound: 1\n"
+	}
+	return map[string]string{
+		"hyper.yaml":         validHyperYAML,
+		"targets/local.yaml": "kind: target-declaration\ntarget: local\nclass: local\nkinds: [read, mutate, destroy]\ncapabilities: [shell]\nopaque-destroy: true\n",
+		"definitions/host-ops.yaml": "kind: definition\ndefinition: host-ops\nprovider: shell\n" +
+			"kinds: [mutate]\ndestroy: [destroy]\ntargets: [local]\n",
+		"procedures/purge-releases.yaml": "kind: procedure\nprocedure: purge-releases\ntargets: [local]\nsteps:\n" +
+			"  - id: purge\n    definition: host-ops\n    operation: destroy\n    target: local\n" +
+			"    over:\n      values: [/srv/app/releases/r41, /srv/app/releases/r42]\n" +
+			declared +
+			"    args:\n      command: [rm, -rf, {item: $}]\n",
+	}
+}
+
+// errorCodesIn is every `error_code` the `--json` stream carries, in the order
+// the rows arrive.
+//
+// It reads the machine-readable half rather than the table because a code is a
+// member of a closed set on that channel and a column of a rendering on the
+// other, and what these cases assert is membership (§8, ADR-0026).
+func errorCodesIn(t *testing.T, stream string) []string {
+	t.Helper()
+
+	var codes []string
+	for _, line := range strings.Split(strings.TrimSpace(stream), "\n") {
+		if line == "" {
+			continue
+		}
+		var row struct {
+			ErrorCode string `json:"error_code"`
+		}
+		if err := json.Unmarshal([]byte(line), &row); err != nil {
+			t.Fatalf("the --json stream carries a line that is not a row: %q (%v)", line, err)
+		}
+		if row.ErrorCode != "" {
+			codes = append(codes, row.ErrorCode)
+		}
+	}
+	return codes
 }

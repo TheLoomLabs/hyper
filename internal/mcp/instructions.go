@@ -5,7 +5,7 @@ import "fmt"
 // Instructions is the orientation: what `hyper` is, the five artefacts, the
 // loop an agent drives them through, the three commands that are the human's
 // and why, that a Refusal is final, and a worked example of each artefact (§9,
-// ADR-0093, ADR-0095, ADR-0096, issues #209, #211 and #212).
+// ADR-0093, ADR-0095, ADR-0096, ADR-0101, issues #209, #211, #212 and #218).
 //
 // **It reaches an agent two ways, and the text is one text.** The `initialize`
 // handshake carries it in the field the protocol has for exactly this —
@@ -54,6 +54,14 @@ func Instructions(version string) string {
 // reader, and a sentence that drifts from the surface is worse than an absent
 // one: an agent believes it, and spends its next turns repairing an artefact
 // this text taught it. Cite §9 when editing one.
+//
+// **And a rule stated here is stated with its exception, or not stated.** The
+// Bound sentence is where that was learned: it said *mandatory on a `destroy`*
+// and stopped, which is true and is half the rule — an opaque `destroy` refuses
+// a Bound — so an agent authoring the only `destroy` a fresh repository can
+// write was taught the artefact `check` declines. That claim is now held to
+// `check` itself rather than to a reader, in one sentence, by
+// TestInstructions_TheBoundRuleIsTheOneCheckHolds (§9, ADR-0101, issue #218).
 //
 // **Its length is a design constraint rather than an aesthetic one.** It is
 // paid for on every session in every harness — as a handshake field whether or
@@ -124,9 +132,11 @@ delete one; the operator may want them destroyed through a Step first.
 **Format** — a strict YAML subset: no anchors, aliases, merge keys, tags or expression language. A
 ` + "`{hole}`" + ` in a request is filled from a Step's ` + "`args:`" + `; ` + "`$.body.…`" + ` in a ` + "`record:`" + ` is a path into the
 response, and an ` + "`over:`" + ` beside it projects a collection into one Record each. An effectful Step may
-declare a ` + "`bound:`" + `, the maximum Records it may affect; on a ` + "`destroy`" + ` it is **mandatory**. **The
-credential is never in an artefact** — the Target names the environment variable, ` + "`hyper`" + ` puts it in the
-header the Manifest's ` + "`auth:`" + ` names, and no rendering prints it.
+declare a ` + "`bound:`" + `, the maximum Records it may affect; on a ` + "`destroy`" + ` it is **mandatory**, and on an
+**opaque** one — a ` + "`destroy`" + ` whose request is ` + "`shell:`" + `, which every ` + "`destroy`" + ` on the built-in ` + "`shell`" + `
+Provider is — it is **refused** instead, a count of the commands it ran saying nothing about what any
+of them did. **The credential is never in an artefact** — the Target names the environment variable,
+` + "`hyper`" + ` puts it in the header the Manifest's ` + "`auth:`" + ` names, and no rendering prints it.
 
 ## Two request shapes
 
