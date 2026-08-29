@@ -133,6 +133,17 @@ func renderEnvelope(t *testing.T, envelope mcp.Envelope) string {
 	for i, block := range envelope.Content {
 		page.WriteString("    " + string(compact(t, block)) + separator(i, len(envelope.Content)) + "\n")
 	}
+
+	// **The half is absent where the command opened no row stream**, and the
+	// corpus writes that absence as the wire carries it: the key is not
+	// there at all, which is MCP's own shape for a tool that declined and is
+	// the whole of what ADR-0102 changed. A golden writing `null` or an
+	// empty object would be holding the shape that decision removed.
+	structured := envelope.StructuredContent
+	if structured == nil {
+		fmt.Fprintf(&page, "  ],\n  \"isError\": %t\n}\n", envelope.IsError)
+		return page.String()
+	}
 	page.WriteString("  ],\n  \"structuredContent\": {\n")
 
 	// The execution members, written first and written only where the
@@ -141,7 +152,6 @@ func renderEnvelope(t *testing.T, envelope mcp.Envelope) string {
 	// all (§9, issue #200). `dry_run` is written wherever `outcome` is,
 	// `false` included, which is why the corpus writes it off the pointer
 	// rather than off its value.
-	structured := envelope.StructuredContent
 	if structured.Outcome != "" {
 		fmt.Fprintf(&page, "    \"outcome\": %q,\n", structured.Outcome)
 		if structured.RunID != "" {
@@ -247,7 +257,7 @@ func TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue(t *testing.T) {
 
 		var held struct {
 			Content           []json.RawMessage `json:"content"`
-			StructuredContent struct {
+			StructuredContent *struct {
 				Outcome   string            `json:"outcome"`
 				RunID     string            `json:"run_id"`
 				DryRun    *bool             `json:"dry_run"`
@@ -264,9 +274,31 @@ func TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue(t *testing.T) {
 			t.Errorf("case %s: its envelope.golden is not one JSON value: %v", c.name, err)
 			continue
 		}
-		switch {
-		case len(held.Content) == 0:
+		// **The content block is held first, and it is held on every
+		// case.** It is the one member of §9's envelope that is never
+		// absent, and on the path below it is the *whole* envelope — a
+		// tool that declined answers `content` and the bit alone
+		// (ADR-0102), so a case that lost its block there would have
+		// lost the entire Refusal and there would be no structured half
+		// left to notice it by.
+		if len(held.Content) == 0 {
 			t.Errorf("case %s: its envelope carries no content block", c.name)
+			continue
+		}
+		// **The structured half is absent or it is whole**, and the
+		// absence is a shape rather than a member gone missing: MCP's
+		// own error mechanism is `isError` and the `content` beside it,
+		// and it names no structured channel at all. The rules below are
+		// about members that are not there to hold; what the corpus
+		// keeps is that a half arriving *half*-composed still fails,
+		// `truncated` included.
+		if held.StructuredContent == nil {
+			if held.IsError == nil || !*held.IsError {
+				t.Errorf("case %s: an ordinary return carries no structured half; only a tool that declined answers content alone", c.name)
+			}
+			continue
+		}
+		switch {
 		case len(held.StructuredContent.Truncated) == 0:
 			t.Errorf("case %s: its envelope carries no truncated member", c.name)
 		case held.IsError == nil:
@@ -595,8 +627,12 @@ type heldEnvelope struct {
 	Content []struct {
 		Text string `json:"text"`
 	} `json:"content"`
-	StructuredContent structuredHalf `json:"structuredContent"`
-	IsError           bool           `json:"isError"`
+	// StructuredContent is a pointer because its absence is a shape the
+	// corpus holds: a tool that declined before it opened a row stream
+	// answers `content` and the bit alone (ADR-0102), and a value here
+	// would read that as an empty half rather than as none.
+	StructuredContent *structuredHalf `json:"structuredContent"`
+	IsError           bool            `json:"isError"`
 }
 
 // readEnvelope reads one case's checked-in envelope as JSON rather than by
@@ -804,7 +840,17 @@ func TestGoldenCorpora_AnEnvelopeIsTheStreamLessItsTerminalRow(t *testing.T) {
 			if len(carried) != 0 {
 				t.Errorf("case %s carries %d rows and %s wrote no stream at all; a Refusal answers rows on neither surface", c.name, len(carried), stream.name)
 			}
-			if got := readEnvelope(t, c.dir).StructuredContent.truncated(); got != "null" {
+			// **Two shapes say *there was no stream*, and which one
+			// a case answers is which command it carries.** A tool
+			// that is not a Run answers no structured half at all
+			// (ADR-0102); `run` answers one either way, §8 putting
+			// it on the `outcome` side on every path a Run was
+			// attempted, and there the member is `null`. What is
+			// wrong is a boolean, which would claim a stream was
+			// complete that was never a stream.
+			switch got := readEnvelope(t, c.dir).StructuredContent.truncated(); got {
+			case "", "null":
+			default:
 				t.Errorf("case %s carries truncated %s and %s wrote no stream at all; there was no result set for a cap to have cut", c.name, got, stream.name)
 			}
 			continue
@@ -970,6 +1016,9 @@ func envelopeRows(t *testing.T, dir string) []string {
 	t.Helper()
 
 	held := readEnvelope(t, dir).StructuredContent
+	if held == nil {
+		return nil
+	}
 	lines := make([]string, 0, len(held.Rows))
 	for _, row := range held.Rows {
 		lines = append(lines, string(row))
@@ -987,8 +1036,17 @@ type structuredHalf struct {
 	Truncated json.RawMessage   `json:"truncated"`
 }
 
-// truncated is the terminal fact the envelope lifted, raw.
-func (s structuredHalf) truncated() string { return string(s.Truncated) }
+// truncated is the terminal fact the envelope lifted, raw. It answers the empty
+// string where the envelope carries no structured half at all, which is a third
+// answer beside §9's shapes and is the one every caller has to tell apart: a
+// tool that declined opened no stream, so there is nothing for the member to
+// have been lifted out of (ADR-0102).
+func (s *structuredHalf) truncated() string {
+	if s == nil {
+		return ""
+	}
+	return string(s.Truncated)
+}
 
 // keysInOrder is one row's keys in the order they were written, which is the
 // order §8 fixes: the `type` first, the rest in the row type's own declaration
@@ -1202,10 +1260,21 @@ var commands = map[string]string{"run_show": "show"}
 // what the fence adds is a third reading of one page and not a second
 // assertion: the CLI's stdout, the text block, and the structured member all
 // have to be the same bytes or the case fails.
+//
+// **A `review` a guardrail declined is not this row of the table**, and it is
+// skipped rather than excused. §9's table is keyed on the tool for every path
+// the tool *answers at all*, and a Refusal is the table's own fourth row: the
+// command writes it where a person reads it and leaves stdout silent, so there
+// is no page on either surface to hold the other against. What holds those
+// cases is the stderr pairing above, which collects a Refusal by its opening
+// across the whole corpus.
 func TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout(t *testing.T) {
 	var compared int
 	for _, c := range goldenCases(t) {
 		if c.call == nil || c.call.Tool != "review" || c.answersAProtocolError() {
+			continue
+		}
+		if strings.HasPrefix(textBlock(t, c.dir), refusalOpening) {
 			continue
 		}
 		twin, paired := twinOf(c.name)

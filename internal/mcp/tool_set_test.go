@@ -145,8 +145,11 @@ func compactSchema(t *testing.T, schema json.RawMessage) string {
 //
 // It is **required** where it is declared, on the footing `truncated` is
 // required on every one of the thirteen: an output schema states what the tool
-// answers, and a guardrail declining is §9's own row standing outside every
-// schema on this surface rather than a path any of them describes.
+// answers. That footing is ADR-0102's rather than the one issue #217 stated it
+// on — a guardrail declining no longer stands *outside* the schemas, it answers
+// no structured half at all, so there is no half for a required member to be
+// missing from and the schema can state the answer without qualification
+// (structuredOf).
 func TestToolSet_TheRenderingMemberIsDeclaredWhereTheTextBlockIsAPage(t *testing.T) {
 	for _, held := range tools {
 		t.Run(held.name, func(t *testing.T) {

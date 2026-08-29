@@ -319,7 +319,47 @@ Report what changed between two Runs of a Procedure: the Assets you moved, the O
       }
     },
     "truncated": {
-      "type": "boolean"
+      "description": "Whether a limit cut this result, in the two shapes these commands write: false where nothing was cut, and the marker naming the cut where something was. There is no cursor behind this stream and no way to ask for the next N — the remedy for a truncated result is a narrower question.",
+      "oneOf": [
+        {
+          "const": false,
+          "description": "Nothing was cut, and the result is the whole answer to the question that was asked."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "axis",
+            "returned",
+            "dropped",
+            "hint"
+          ],
+          "description": "The cut, named. All four members are written always: they are counts a reader subtracts, and an absent key would read as unknown where the fact is none.",
+          "properties": {
+            "axis": {
+              "enum": [
+                "identity",
+                "time"
+              ],
+              "description": "§12's closed pair: which of the record's two axes this command orders on, and therefore which one the limit cut."
+            },
+            "returned": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many rows came back."
+            },
+            "dropped": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many the limit cut. A marker carrying either count at zero would be a truncated result that reads as complete."
+            },
+            "hint": {
+              "type": "string",
+              "description": "The narrower question, naming this tool's arguments where the terminal's marker names its flags — the one wording an answer changes between the two surfaces."
+            }
+          }
+        }
+      ]
     }
   }
 }
@@ -992,7 +1032,47 @@ Find a version: one row per Record with its ordinal, the Run and Step that wrote
       }
     },
     "truncated": {
-      "type": "boolean"
+      "description": "Whether a limit cut this result, in the two shapes these commands write: false where nothing was cut, and the marker naming the cut where something was. There is no cursor behind this stream and no way to ask for the next N — the remedy for a truncated result is a narrower question.",
+      "oneOf": [
+        {
+          "const": false,
+          "description": "Nothing was cut, and the result is the whole answer to the question that was asked."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "axis",
+            "returned",
+            "dropped",
+            "hint"
+          ],
+          "description": "The cut, named. All four members are written always: they are counts a reader subtracts, and an absent key would read as unknown where the fact is none.",
+          "properties": {
+            "axis": {
+              "enum": [
+                "identity",
+                "time"
+              ],
+              "description": "§12's closed pair: which of the record's two axes this command orders on, and therefore which one the limit cut."
+            },
+            "returned": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many rows came back."
+            },
+            "dropped": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many the limit cut. A marker carrying either count at zero would be a truncated result that reads as complete."
+            },
+            "hint": {
+              "type": "string",
+              "description": "The narrower question, naming this tool's arguments where the terminal's marker names its flags — the one wording an answer changes between the two surfaces."
+            }
+          }
+        }
+      ]
     }
   }
 }
@@ -2071,7 +2151,47 @@ List the Journal, newest first: one row per Run, with its Trigger, its outcome, 
       }
     },
     "truncated": {
-      "type": "boolean"
+      "description": "Whether a limit cut this result, in the two shapes these commands write: false where nothing was cut, and the marker naming the cut where something was. There is no cursor behind this stream and no way to ask for the next N — the remedy for a truncated result is a narrower question.",
+      "oneOf": [
+        {
+          "const": false,
+          "description": "Nothing was cut, and the result is the whole answer to the question that was asked."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "axis",
+            "returned",
+            "dropped",
+            "hint"
+          ],
+          "description": "The cut, named. All four members are written always: they are counts a reader subtracts, and an absent key would read as unknown where the fact is none.",
+          "properties": {
+            "axis": {
+              "enum": [
+                "identity",
+                "time"
+              ],
+              "description": "§12's closed pair: which of the record's two axes this command orders on, and therefore which one the limit cut."
+            },
+            "returned": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many rows came back."
+            },
+            "dropped": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many the limit cut. A marker carrying either count at zero would be a truncated result that reads as complete."
+            },
+            "hint": {
+              "type": "string",
+              "description": "The narrower question, naming this tool's arguments where the terminal's marker names its flags — the one wording an answer changes between the two surfaces."
+            }
+          }
+        }
+      ]
     }
   }
 }

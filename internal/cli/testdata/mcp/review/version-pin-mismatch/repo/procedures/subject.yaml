@@ -1,0 +1,9 @@
+# A Procedure the gate never reaches: the artefact is here, and the page is not.
+kind: procedure
+procedure: subject
+targets: [local]
+steps:
+  - id: enumerate
+    definition: things
+    operation: list_things
+    target: local

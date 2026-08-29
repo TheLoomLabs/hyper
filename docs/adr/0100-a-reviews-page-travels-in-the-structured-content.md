@@ -137,15 +137,25 @@ version pin gate declines carries the Refusal in `content`, `rows: []`, `truncat
 
 **That is a price and it is stated rather than defended.** The premise this decision rests on is
 *servers MUST provide structured results that conform to this schema*, and on the Refusal path this
-surface does not: `truncated: null` fails `{"type": "boolean"}` on all thirteen tools today, and
-`rendering` absent now fails `review`'s `required` alongside it. The non-conformance **predates this
-decision** — the Refusal path has stood outside every `outputSchema` here since the schemas were
-written — and what this adds is a second member to an existing hole rather than a new one. It is
-still a hole, and appealing to it as precedent is not the same as conforming. **The fix is not to
-make `rendering` optional**, which would buy nothing: the path would still answer `truncated: null`
-against a required boolean, and `review`'s schema would have stopped stating what the tool answers in
-exchange. The fix is for the Refusal path to conform on all thirteen at once, which is a ticket of its
-own and not this one.
+surface does not: `truncated: null` fails `{"type": "boolean"}` on twelve of the thirteen tools
+today, and `rendering` absent now fails `review`'s `required` alongside it. The non-conformance
+**predates this decision** — the Refusal path has stood outside those `outputSchema`s since the
+schemas were written — and what this adds is a second member to an existing hole rather than a new
+one. It is still a hole, and appealing to it as precedent is not the same as conforming. **The fix is
+not to make `rendering` optional**, which would buy nothing: the path would still answer
+`truncated: null` against a required boolean, and `review`'s schema would have stopped stating what
+the tool answers in exchange. The fix is for the Refusal path to conform, which is a ticket of its own
+and not this one.
+
+_ADR-0102 amends this:_ the fix is neither of the two shapes weighed above. A tool that declines
+before it opens a row stream answers **no `structuredContent` at all** — MCP's own shape for a tool
+error — so `rendering` stays `required` because there is then no half for it to be missing from, and
+`truncated: null` stops being answered against a boolean by ceasing to be answered. That also
+retires the footing this section stands on: a guardrail declining is not a row standing *outside*
+every schema here, it is a call with no structured result for one to describe. What the same ticket
+found beside it is that the Refusal path was never the whole hole — `runs`, `changes` and `records`
+answered §9's truncation marker against a published boolean on **ordinary** returns, which no
+reading of this decision would have reached.
 
 **It stands above `rows`.** A reader of the structured half meets the keys in the order they are
 written, and a page beneath a hundred-row array is one met after the thing it exists to be read
@@ -204,8 +214,9 @@ it; ADR-0099's session reached a clean repository without ever seeing one.
   the protocol makes normative, which it was not.
 - **Three things are left open, each with a ticket.** The Refusal path's non-conformance above is
   issue #219, and it is the surface's rather than `review`'s — `truncated: null` has failed a
-  required boolean on all thirteen tools since the schemas were written. Two more came out of the
-  2026-08-29 run and are not about this surface at all: the orientation states that a `bound:` is
+  required boolean on twelve of the thirteen tools since the schemas were written. It is closed by
+  ADR-0102. Two more came out of the 2026-08-29 run and are not about this surface at all: the
+  orientation states that a `bound:` is
   *mandatory* on a `destroy` while an opaque `destroy` refuses one (issue #218, a document and a
   binary disagreeing on the channel a user's machine has instead of a specification), and
   `opaque-destroy:` on a Target is a bare boolean, so opting one Definition in opts every Definition

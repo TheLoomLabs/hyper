@@ -90,11 +90,29 @@ malformed calls, and both are the CLI's exit `2` with no exit code to spend.
 
 `provider/version-pin-absent` is the other side of it. A guardrail declining is
 an **answer** to a well-formed call, so what comes back is an envelope carrying
-`isError: true`, no rows, and the whole Refusal as `text` — with the sentence
-saying a verbatim retry refuses identically, which is the only place the
-protocol leaves for saying it (ADR-0001). The `version-pin-mismatch` half of the
-gate is filed with the invocations it is contrasted with, in
-`../exemption/provider`, against the repository the three of them share.
+`isError: true` and the whole Refusal as `text` — with the sentence saying a
+verbatim retry refuses identically, which is the only place the protocol leaves
+for saying it (ADR-0001). The `version-pin-mismatch` half of the gate is filed
+with the invocations it is contrasted with, in `../exemption/provider`, against
+the repository the three of them share.
+
+**Those envelopes carry no `structuredContent` key at all**, and that absence is
+the whole of ADR-0102 in the corpus: the command declined before it opened a row
+stream, so there is no result for the `outputSchema` this tool published to be
+true of. A half written there anyway would say `rows: []`, which reads as *this
+tool ranged over a namespace and found nothing* where the fact is that it never
+looked. Eight cases hold the shape, across five tools — the gate on `provider`
+(three of them, one filed under `../exemption/`) and on `review`, a Target
+granting no host on `probe` (two), an absent Store on `runs`, and no release
+under the tag on `project`. What holds every *other* envelope here to the schema
+its tool publishes is
+`TestToolSet_EveryAnswerConformsToTheSchemaItsToolPublished`, with the validator
+the MCP Go SDK itself validates with.
+
+`review/version-pin-mismatch` is the one of those worth reading beside the three
+`review` cases above it. The artefact is in the repository and the page is still
+withheld, which is what makes `rendering` being `required` on `review` honest:
+the member is absent, and so is the half it would have been absent from.
 
 `provider/version-pin-mismatch-and-a-bad-name` is an ordering contract read
 across the two surfaces. The gate fires before the positional is resolved
@@ -214,15 +232,22 @@ byte what `../../review/five-artefact-demo-procedure` writes to stdout, and a
 fence holds the pairing
 (`TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout`). **The same
 page is in `structuredContent.rendering`**, which is why every `review` golden
-here holds it twice: one page, composed once, written to both channels, because
-a page that lived only in the block would live in the half nothing obliges a
-client to read (ADR-0100, issue #217). The fence holds all three strings
-against each other. It carries `FLAGS` rows and is `isError: false`, a flag
-being a fact about the artefact rather than a problem with it.
+here that carries a page holds it twice: one page, composed once, written to
+both channels, because a page that lived only in the block would live in the
+half nothing obliges a client to read (ADR-0100, issue #217). The fence holds
+all three strings against each other. It carries `FLAGS` rows and is
+`isError: false`, a flag being a fact about the artefact rather than a problem
+with it.
 `gutter-marks-procedure` is the artefact that **names** ones that are not there:
 it renders, marks `unresolved` in the gutter and in the index, and is not an
 error either — the fault is `check`'s to report and this surface's to annotate
 (ADR-0064).
+
+`review/version-pin-mismatch` is the one `review` case the stdout pairing passes
+over, and it is not a gap: the gate declined, so §9's **fourth** text-block row
+is what the block carries and there is no page on either surface to hold the
+other against. What holds it is the stderr pairing, which collects a Refusal by
+its opening across the whole corpus.
 
 `review/an-artefact-that-will-not-load` is the third of review's exit codes on
 this surface, and the case that says the text-block table is keyed on the
@@ -255,6 +280,14 @@ two surfaces. The last of the four is `records`' **second** marker: the limit
 dropped nothing and the cap on versions per series did, so the axis is `time`
 and the counts are versions.
 
+All four are also what those three tools **publish**: `truncated` on `runs`,
+`changes` and `records` declares the bare `false` or this marker, which is what
+each of them writes and what the boolean standing there before them did not
+admit. That was a live non-conformance on an ordinary return rather than a
+Refusal — a client validating one of these four answers against the old schema
+was told the server had broken its contract on the one answer §9 says must never
+look complete — and it is what writing the conformance fence found (ADR-0102).
+
 `changes/a-window-and-its-header` is the window with nothing in its Record
 tables and `the-other-forms-of-a-row` is the other side of it, carrying all four
 change forms across both tables — which is where the `observation` rows are, and
@@ -274,7 +307,7 @@ the entry whose Run recorded a Refusal, which is where the `refusal` and
 
 `runs/store-absent` is §9's line about the far side of the tool set: **a tool
 finding no Store Refuses naming a command its caller cannot reach.** It comes
-back `isError: true`, with no `outcome` key and the Refusal rendered whole,
+back `isError: true`, with no structured half and the Refusal rendered whole,
 naming `hyper store init` — which is correct rather than awkward, creating the
 record being the human's act and an agent's part in it being to say that it has
 not happened.

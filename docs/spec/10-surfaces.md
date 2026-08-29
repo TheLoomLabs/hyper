@@ -899,13 +899,13 @@ Every tool returns one shape.
 ```jsonc
 {
   "content": [{ "type": "text", "text": "…" }],
-  "structuredContent": {
+  "structuredContent": {   // absent where a tool declined before it opened a row stream
     "outcome": "completed",   // §12's triple, on the execution tools only; absent elsewhere
     "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",  // whole; absent where no entry was written
     "dry_run": false,         // beside it, `false` included, wherever `outcome` is present
     "rendering": "…",         // the text block's page, on `review` alone; absent elsewhere
     "rows": [ … ],            // §8's rows, as an array
-    "truncated": null         // the truncation marker, or null
+    "truncated": false        // the marker, or the bare boolean, or null on a Run
   },
   "isError": false
 }
@@ -935,6 +935,12 @@ beside them are the command's own, unchanged. All four members are written alway
 reader subtracts, and an absent key would read as *unknown* where the fact is *none*. There is no
 cursor here and no way to ask for the next N: the remedy for a truncated result is a narrower
 question, and a truncated result must never look complete.
+
+**Each tool's `outputSchema` admits exactly the shapes its command writes.** The three tools whose
+command orders on an axis a `limit` can cut — `runs`, `changes`, `records` — declare `truncated` as
+the bare `false` or the marker above; `run` declares it `null`; the rest declare the boolean §8's
+terminal row carries there. A schema admitting less than its tool answers is the same failure as a
+Refusal answering past one (ADR-0102).
 
 **The `text` block is asymmetric, and the asymmetry is the point.**
 
@@ -987,7 +993,9 @@ by `review`'s `outputSchema`. **Nothing else carries it.** A listing's summary l
 block are composed of members already here — the counts are the rows, the triple and the id are keys
 of their own, the marker is `truncated` — and a Refusal needs no second channel, MCP naming no
 structured one for an error at all: its whole error mechanism is `isError` and the `content` beside
-it, so `content` is the only place a Refusal is ever put.
+it, so `content` is the only place a Refusal is ever put. That is why `rendering` can be `required`
+without a `review` the version pin gate declines failing its own schema: a declined call carries no
+structured half at all (below), so there is no half for the member to be missing from (ADR-0102).
 
 **`outcome` is the discriminator, and `isError` is not.**
 
@@ -1005,6 +1013,22 @@ content restates that bit, and no row restates the outcome.
 A tool that is not a Run carries no `outcome` key at all, and a guardrail declining one — the version
 pin gate, an absent Store — returns `isError: true` with the Refusal rendered in full, exactly where
 the command exits `77`.
+
+**Such a call carries no `structuredContent` at all** (ADR-0102). Every tool here declares an
+`outputSchema`, and MCP is flat about what that obliges: *servers MUST provide structured results that
+conform to this schema*. A tool that declined before it opened a row stream produced no result to
+conform — and a half composed for it anyway says `rows: []`, which reads as *this tool ranged over a
+namespace and found nothing* where the fact is that it never ranged over one. So the envelope on that
+path is the `text` block and the bit, which is MCP's own shape for a tool that failed: the protocol's
+error mechanism is `isError` and the `content` beside it, and it names no structured channel for one.
+
+**The rule is keyed on the stream and not on the bit or the code.** `run` is on §8's `outcome` side on
+every path a Run was attempted, the two that decline before a Run is identified included, so a `run` a
+guardrail declined answers a structured half carrying `outcome: refused` — and a Run that lost the
+Store before `run.json` answers one carrying `failed`, with `truncated: null` beside it, a Run having
+no result set for a limit to have cut. Both are `isError: true`. What decides is whether the command
+produced anything for the half to hold, which is why the twelve tools that are not `run` are the ones
+that answer `content` alone.
 
 **A domain outcome is never a protocol error.** JSON-RPC errors are reserved for malformed calls — an
 unknown tool, an argument violating a schema, an argument that is well-typed and names nothing, a fault
@@ -1129,9 +1153,9 @@ found and will not load: the tool answers `check`'s rows and `check`'s table, on
 keyed on the **tool** rather than on what the tool found, and a reading that swapped in a summary line
 on one of the command's own paths would break the promise exactly where an agent is least able to
 check it. An artefact that is not there **at all** has no row to write and is the usage error, which
-arrives here as a JSON-RPC error like every other. A guardrail declining is the Refusal row, which
-stands outside every `outputSchema` on this surface — `rendering` is absent there as `truncated` is
-`null` there, and neither conforms to the schema the tool published.
+arrives here as a JSON-RPC error like every other. A guardrail declining is the Refusal row, and it
+carries **no structured half at all** — so `rendering` is absent there along with every other member,
+and this schema goes on stating what the tool answers without qualification (ADR-0102).
 
 The two extra row types are the sketch's list made complete rather than widened. The header is a row
 like any other, on the rule the envelope states above, and it is the row carrying the range the

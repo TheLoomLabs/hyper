@@ -1012,6 +1012,47 @@ const provenanceRow = `{
 	}
 }`
 
+// cutOrComplete is `truncated` on the three tools whose command orders on an
+// axis a `limit` can cut — `runs`, `changes` and `records` — and it states the
+// two shapes those commands write (§9, ADR-0102, issue #219).
+//
+// **Which shape a command writes is a fact about what it ranges over rather
+// than a choice** (render.Truncation). §9 fixes three: the bare `false`, the
+// bare `true` and the marker object. A command with parameters that narrow its
+// axis writes the marker where a limit cut and the bare `false` where nothing
+// did; the bare `true` is the namespace listings', which have no axis to name
+// and so no marker to compose. So this admits two of the three, and the third
+// is absent because these three tools never write it.
+//
+// The bare boolean alone had stood here, and it was wrong on the one path the
+// member exists for: a client running *clients SHOULD validate structured
+// results against this schema* over a cut listing was told the server had
+// broken its own contract, on the answer §9 says must never look complete.
+const cutOrComplete = `{
+	"description": "Whether a limit cut this result, in the two shapes these commands write: false where nothing was cut, and the marker naming the cut where something was. There is no cursor behind this stream and no way to ask for the next N — the remedy for a truncated result is a narrower question.",
+	"oneOf": [
+		{"const": false, "description": "Nothing was cut, and the result is the whole answer to the question that was asked."},
+		{
+			"type": "object",
+			"additionalProperties": false,
+			"required": ["axis", "returned", "dropped", "hint"],
+			"description": "The cut, named. All four members are written always: they are counts a reader subtracts, and an absent key would read as unknown where the fact is none.",
+			"properties": {
+				"axis": {
+					"enum": ["identity", "time"],
+					"description": "§12's closed pair: which of the record's two axes this command orders on, and therefore which one the limit cut."
+				},
+				"returned": {"type": "integer", "minimum": 1, "description": "How many rows came back."},
+				"dropped": {"type": "integer", "minimum": 1, "description": "How many the limit cut. A marker carrying either count at zero would be a truncated result that reads as complete."},
+				"hint": {
+					"type": "string",
+					"description": "The narrower question, naming this tool's arguments where the terminal's marker names its flags — the one wording an answer changes between the two surfaces."
+				}
+			}
+		}
+	]
+}`
+
 // runsTool carries `hyper runs` — the Journal listed, and the surface that
 // enumerates the namespace a `run_id` resolves against.
 //
@@ -1075,7 +1116,7 @@ var runsTool = tool{
 				}
 			}
 		},
-		"truncated": {"type": "boolean"}
+		"truncated": `+cutOrComplete+`
 	}`, "rows", "truncated"),
 	argv: func(arguments json.RawMessage) ([]string, error) {
 		var named struct {
@@ -1841,7 +1882,7 @@ var changesTool = tool{
 				]
 			}
 		},
-		"truncated": {"type": "boolean"}
+		"truncated": `+cutOrComplete+`
 	}`, "rows", "truncated"),
 	argv: func(arguments json.RawMessage) ([]string, error) {
 		var named struct {
@@ -2031,7 +2072,7 @@ var recordsTool = tool{
 				}
 			}
 		},
-		"truncated": {"type": "boolean"}
+		"truncated": `+cutOrComplete+`
 	}`, "rows", "truncated"),
 	argv: func(arguments json.RawMessage) ([]string, error) {
 		var named struct {

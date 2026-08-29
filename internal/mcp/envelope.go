@@ -45,7 +45,14 @@ type Envelope struct {
 	Content []TextBlock `json:"content"`
 	// StructuredContent is the machine half: §8's rows, and the terminal
 	// fact moved up beside them.
-	StructuredContent Structured `json:"structuredContent"`
+	//
+	// **It is a pointer because its absence is a shape this surface
+	// answers**: a tool that declined before it opened a row stream
+	// answers `content` and the bit alone, which is MCP's own shape for a
+	// tool error (§9, ADR-0102, issue #219). Why that is the answer rather
+	// than an empty half is argued where the decision is taken
+	// (structuredOf).
+	StructuredContent *Structured `json:"structuredContent,omitempty"`
 	// IsError means only *you did not get what you asked for*, which is true
 	// of a Refusal and of a failure alike; it is not the outcome
 	// discriminator, one bit not carrying three states (§9). Which exit code
@@ -226,6 +233,13 @@ const outcomeType = "outcome"
 // composed an empty structured half for `77` would drop the one fact §9 moves
 // up into it.
 //
+// **Where that composition has nothing to compose, the half is absent**, and
+// that is a fact about the command's stream rather than about the code: a
+// guardrail declining a tool that is not a Run leaves no terminal row and no
+// execution members, and the envelope is then `content` and the bit alone
+// (structuredOf, ADR-0102). The arms below are unchanged by it — each carries
+// whatever structuredOf answered, including nothing.
+//
 // **The exit code decides which text block, and the tool decides what an
 // ordinary one carries**, which is the second half of §9's asymmetric table
 // arriving here: `77` is the Refusal rendered whole and everything above it is
@@ -260,7 +274,10 @@ func envelopeOf(answered Answer, block textBlock, called *execution) (Envelope, 
 		// — an act is required past a `77` and time is all that is
 		// required past a `75` — and that distinction survives the loss
 		// of the code intact (§9, §12, ADR-0061, issue #200).
-		text, err := answerText(answered, block, structured, kinds)
+		if structured == nil {
+			return Envelope{}, fmt.Errorf("the command exited %d and opened no row stream, which is a fault in the server: an answer is rows and a terminal row, and only a guardrail declining answers neither (§8, ADR-0102)", answered.Exit)
+		}
+		text, err := answerText(answered, block, *structured, kinds)
 		if err != nil {
 			return Envelope{}, err
 		}
@@ -343,10 +360,10 @@ func envelopeOf(answered Answer, block textBlock, called *execution) (Envelope, 
 // the same row on the `--json` stream are the same bytes: the two surfaces
 // cannot state different things because there is one row set and one encoder
 // behind both (ADR-0026).
-func structuredOf(answered Answer, called *execution) (Structured, []string, error) {
+func structuredOf(answered Answer, called *execution) (*Structured, []string, error) {
 	rows, kinds, err := marshalRows(answered.Rows)
 	if err != nil {
-		return Structured{}, nil, err
+		return nil, nil, err
 	}
 	// The terminal row, encoded and discriminated **once**. What it carries
 	// goes two ways from here — the truncation marker into `truncated`, the
@@ -355,22 +372,54 @@ func structuredOf(answered Answer, called *execution) (Structured, []string, err
 	// reading would be the same row asked the same question twice.
 	terminal, kind, err := discriminate(answered.Terminal)
 	if err != nil {
-		return Structured{}, nil, err
+		return nil, nil, err
 	}
-	truncated, err := truncatedOf(answered.Terminal, terminal, kind)
-	if err != nil {
-		return Structured{}, nil, err
-	}
-	structured := Structured{Rows: rows, Truncated: truncated}
-
 	carried, carries, err := executionOf(terminal, kind, called, answered.Exit)
 	if err != nil {
-		return Structured{}, nil, err
+		return nil, nil, err
 	}
+
+	// **A command that opened no row stream and carries no execution half
+	// put nothing here, and the member is therefore absent rather than
+	// empty** (§9, ADR-0102, issue #219).
+	//
+	// The one path that reaches it is a guardrail declining a tool that is
+	// not a Run — the version pin gate, an absent Store, a Target granting
+	// no host. What the half would otherwise carry is `rows: []` and
+	// `truncated: null`: the first says *this tool ranged over a namespace
+	// and found nothing* where the fact is that it never ranged over one,
+	// and the second says nothing at all against an `outputSchema` that
+	// admits a boolean. An answer nobody can distinguish from an empty
+	// result is worse than no answer, and MCP's error mechanism is `isError`
+	// and the `content` beside it — so this is the protocol's own shape for
+	// a tool that declined rather than a hole cut for hyper's convenience.
+	//
+	// **It is keyed on the stream and not on the exit code or the bit.** A
+	// Run that a guardrail declined wrote its terminal `outcome` row and a
+	// Run that lost the Store before `run.json` wrote none while still
+	// carrying §12's triple from the call (executionOf); both answer a
+	// structured half, and both are Refusals or failures. What decides is
+	// whether the command produced anything for the half to hold.
+	if terminal == nil && !carries {
+		// Rows with no terminal row is §8's own signal that a stream was
+		// cut off, and it is a fault in the server rather than a shape to
+		// answer: a consumer must not trust it, and this surface has
+		// nowhere to say so once the envelope is composed.
+		if len(rows) > 0 {
+			return nil, nil, fmt.Errorf("the command wrote %d rows and no terminal row, which is a stream cut off and a fault in the server (§8)", len(rows))
+		}
+		return nil, kinds, nil
+	}
+
+	truncated, err := truncatedOf(answered.Terminal, terminal, kind)
+	if err != nil {
+		return nil, nil, err
+	}
+	structured := Structured{Rows: rows, Truncated: truncated}
 	if carries {
 		structured.Outcome, structured.RunID, structured.DryRun = carried.Outcome, carried.RunID, carried.DryRun
 	}
-	return structured, kinds, nil
+	return &structured, kinds, nil
 }
 
 // executionOf is the envelope's execution members: §12's triple, the rehearsal
@@ -885,11 +934,16 @@ func (e Envelope) result() *sdk.CallToolResult {
 	for _, block := range e.Content {
 		content = append(content, &sdk.TextContent{Text: block.Text})
 	}
-	return &sdk.CallToolResult{
-		Content:           content,
-		StructuredContent: e.StructuredContent,
-		IsError:           e.IsError,
+	result := &sdk.CallToolResult{Content: content, IsError: e.IsError}
+	// The nil is left untyped, which is the whole of what makes the member
+	// absent on the wire: `StructuredContent` is an `any` with `omitempty`
+	// there, and an interface holding a typed nil pointer is not empty — it
+	// marshals as `null`, which is a structured result claiming to be one
+	// rather than the absence ADR-0102 answers.
+	if e.StructuredContent != nil {
+		result.StructuredContent = e.StructuredContent
 	}
+	return result
 }
 
 // envelopeFrom is the crossing read back: the `result` frame the client read,
@@ -930,13 +984,32 @@ func envelopeFrom(frame json.RawMessage) (Envelope, error) {
 	}
 
 	envelope := Envelope{Content: result.Content, IsError: result.IsError}
+	// **An absent structured half is read back as absent**, which is the
+	// half of this decode ADR-0102 adds: a tool that declined before it
+	// opened a row stream answers `content` and the bit alone, and a reader
+	// that filled in an empty `Structured` here would hand the corpus the
+	// shape that decision removed from the wire.
+	if len(result.StructuredContent) == 0 {
+		return envelope, nil
+	}
+	// `null` is neither of the two shapes: the half is absent or it is
+	// whole, and a key carrying `null` is a structured result claiming to be
+	// one. It is refused here rather than read as the absence, on this
+	// reader's own footing — what reached the wire from somewhere other than
+	// envelopeOf is exactly what a corpus cannot notice by looking at its
+	// goldens.
+	if bytes.Equal(bytes.TrimSpace(result.StructuredContent), []byte("null")) {
+		return Envelope{}, errors.New("the envelope carries a null structuredContent; the half is absent or it is whole (ADR-0102)")
+	}
+	var structured Structured
 	decoder := json.NewDecoder(bytes.NewReader(result.StructuredContent))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&envelope.StructuredContent); err != nil {
+	if err := decoder.Decode(&structured); err != nil {
 		return Envelope{}, err
 	}
-	if envelope.StructuredContent.Rows == nil {
-		envelope.StructuredContent.Rows = []json.RawMessage{}
+	if structured.Rows == nil {
+		structured.Rows = []json.RawMessage{}
 	}
+	envelope.StructuredContent = &structured
 	return envelope, nil
 }

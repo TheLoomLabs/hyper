@@ -597,8 +597,10 @@ func TestCall_ACallToANameOutsideTheToolSetIsAProtocolError(t *testing.T) {
 // TestCall_AGuardrailDecliningIsTheRefusalRenderedWhole is §9's `77`: the two
 // codes the version pin gate Refuses under are reachable from every tool, and
 // what comes back is the whole rendering as `text`, `isError: true`, and **no
-// `outcome` key at all** — a tool that is not a Run carries none, and the gate
-// is not a Run refusing.
+// structured half at all** (ADR-0102).
+//
+// The gate declines before the command opens a row stream, so there is nothing
+// for the half to carry and it is absent rather than empty (structuredOf).
 func TestCall_AGuardrailDecliningIsTheRefusalRenderedWhole(t *testing.T) {
 	for _, refused := range []struct{ name, rendering string }{
 		{"version-pin-absent", "refused: version-pin-absent\n  hyper.yaml carries no version pin — run: hyper project\n"},
@@ -617,12 +619,12 @@ func TestCall_AGuardrailDecliningIsTheRefusalRenderedWhole(t *testing.T) {
 			if got := envelope.Content[0].Text; !strings.HasPrefix(got, refused.rendering) {
 				t.Errorf("the text block is %q, want the whole rendering first", got)
 			}
-			structured, err := json.Marshal(envelope.StructuredContent)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got, want := string(structured), `{"rows":[],"truncated":null}`; got != want {
-				t.Errorf("the structured content is %s, want %s: no rows, no outcome key, and nothing restating the bit", got, want)
+			if envelope.StructuredContent != nil {
+				structured, err := json.Marshal(envelope.StructuredContent)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Errorf("the structured content is %s, want none: the command opened no row stream, so there is nothing here to conform to the schema this tool published", structured)
 			}
 		})
 	}
@@ -789,6 +791,13 @@ func TestCall_ReviewsPageTravelsInTheStructuredContentAsWell(t *testing.T) {
 // because MCP names no structured channel for one at all. The three arguments
 // are Structured.Rendering's; what this holds is that the code draws the line
 // where they put it.
+//
+// **The Refusal's arm holds the stronger form of that claim.** Since ADR-0102 a
+// guardrail declining a `review` answers no structured half at all, so the
+// member is absent along with every other — which is the same argument reaching
+// its conclusion rather than a different rule: *MCP names no structured channel
+// for an error* is why a Refusal has no `rendering`, and it is why it has no
+// half to put one in.
 func TestCall_NoToolButAReviewCarriesARenderingMember(t *testing.T) {
 	problems := []render.Row{stubRow{Type: "problem", Name: "a"}}
 	entries := []render.Row{stubRow{Type: "entry", Name: "a"}}
@@ -808,6 +817,12 @@ func TestCall_NoToolButAReviewCarriesARenderingMember(t *testing.T) {
 			envelope, err := returning(one.answer).Call(t.Context(), one.tool, json.RawMessage(one.arguments))
 			if err != nil {
 				t.Fatal(err)
+			}
+			if envelope.StructuredContent == nil {
+				if one.answer.Exit != 77 {
+					t.Errorf("%s answered no structured half; only a guardrail declining answers content alone (ADR-0102)", one.name)
+				}
+				return
 			}
 			if got := envelope.StructuredContent.Rendering; got != "" {
 				t.Errorf("the structured content carries the rendering %q, want none", got)

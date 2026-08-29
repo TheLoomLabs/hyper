@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/google/jsonschema-go/jsonschema"
 
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/mcp"
@@ -355,4 +358,141 @@ func readToolsGolden(t *testing.T) map[string]publishedSchemas {
 		t.Fatalf("%s names no tool; regenerate it with `go test ./internal/cli -update`", toolsGolden)
 	}
 	return held
+}
+
+// TestToolSet_EveryAnswerConformsToTheSchemaItsToolPublished is MCP's own MUST
+// held over the corpus: **servers MUST provide structured results that conform
+// to this schema**, wherever an `outputSchema` is declared (§9, ADR-0102, issue
+// #219).
+//
+// It is the fence the two golden files above cannot be between them. One holds
+// what a call answered and the other holds what a client is told it may expect;
+// nothing until now read the second **against** the first, so a schema stating
+// a member no answer carries, or a member no schema admits, passed both. Both
+// halves of that had shipped: `truncated` was declared `{"type": "boolean"}` on
+// three tools that answer §9's marker object when a limit cuts a result, and
+// the Refusal path answered `truncated: null` against that boolean on twelve.
+//
+// **It validates with the validator a client would.** The schemas go through
+// `github.com/google/jsonschema-go`, which is the library the MCP Go SDK itself
+// resolves and validates with — so what this asks is what a caller running
+// *clients SHOULD validate structured results against this schema* gets, rather
+// than a second reading of JSON Schema written here.
+//
+// **An envelope with no structured half is the one thing it does not validate,
+// and that absence is checked rather than skipped.** A tool that declined
+// before it opened a row stream answers `content` and `isError` alone
+// (ADR-0102), which is MCP's own shape for a tool error and has no structured
+// result to conform; what would be wrong is an *ordinary* return arriving that
+// way, so the absence is held to `isError: true`.
+func TestToolSet_EveryAnswerConformsToTheSchemaItsToolPublished(t *testing.T) {
+	published := publishedOutputSchemas(t)
+
+	var validated, declined int
+	for _, c := range goldenCases(t) {
+		if c.call == nil || c.answersAProtocolError() {
+			continue
+		}
+		resolved, is := published[c.call.Tool]
+		if !is {
+			t.Errorf("case %s calls %s, which publishes no output schema", c.name, c.call.Tool)
+			continue
+		}
+
+		var held struct {
+			StructuredContent json.RawMessage `json:"structuredContent"`
+			IsError           bool            `json:"isError"`
+		}
+		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(c.dir, "envelope.golden"))), &held); err != nil {
+			t.Errorf("case %s: its envelope.golden is not one JSON value: %v", c.name, err)
+			continue
+		}
+		if held.StructuredContent == nil {
+			if !held.IsError {
+				t.Errorf("case %s: an ordinary return carries no structured half; only a tool that declined before it opened a row stream answers content alone (ADR-0102)", c.name)
+			}
+			declined++
+			continue
+		}
+
+		var answered any
+		if err := json.Unmarshal(held.StructuredContent, &answered); err != nil {
+			t.Errorf("case %s: its structured half is not one JSON value: %v", c.name, err)
+			continue
+		}
+		validated++
+		if err := resolved.Validate(answered); err != nil {
+			t.Errorf("case %s: what %s answered does not conform to the schema it published: %v", c.name, c.call.Tool, err)
+		}
+	}
+
+	// Both counts, because either at zero is this fence held over nothing:
+	// no answer validated is a corpus that stopped driving the surface, and
+	// no answer declined is the path this rule was written for going
+	// unexercised.
+	if validated == 0 {
+		t.Fatal("no case under testdata/ answered a structured half; the MUST was held over nothing")
+	}
+	if declined == 0 {
+		t.Fatal("no case under testdata/ answered content alone; the Refusal path this rule is about is exercised by nothing")
+	}
+}
+
+// publishedOutputSchemas is every tool's `outputSchema` as a client would hold
+// it: resolved, ready to validate against, by the tool's name.
+//
+// It is a helper rather than a body because **two callers need it and they
+// reach different answers**. The fence above reads the corpus, which is every
+// answer a case can drive; `assertRunLost` one file over reads the three
+// envelopes no case can — a Run that lost the Store to the lock, to the sync at
+// Run start, or to a rejected push, each of which needs a contended repository
+// rather than a fixture. Those are the only `isError: true` answers on this
+// surface that still carry a structured half, so leaving them unvalidated would
+// leave the MUST held over everything except the paths hardest to reach
+// (ADR-0102, run_store_lost_test.go).
+func publishedOutputSchemas(t *testing.T) map[string]*jsonschema.Resolved {
+	t.Helper()
+
+	published := map[string]*jsonschema.Resolved{}
+	for _, tool := range listing(t) {
+		var schema jsonschema.Schema
+		if err := json.Unmarshal(tool.Output, &schema); err != nil {
+			t.Fatalf("the output schema %s publishes is not a schema: %v", tool.Name, err)
+		}
+		resolved, err := schema.Resolve(nil)
+		if err != nil {
+			t.Fatalf("the output schema %s publishes does not resolve: %v", tool.Name, err)
+		}
+		published[tool.Name] = resolved
+	}
+	return published
+}
+
+// conformsToItsSchema holds one envelope **in hand** to the `outputSchema` its
+// tool published, which is the fence above asked of a value rather than of a
+// checked-in golden (§9, ADR-0102).
+//
+// It marshals the half and validates the JSON rather than the Go value, for the
+// reason the SDK does the same: the members carry raw messages and custom
+// marshalling, so what a client validates is the bytes and not the struct.
+func conformsToItsSchema(t *testing.T, tool string, envelope mcp.Envelope) {
+	t.Helper()
+
+	if envelope.StructuredContent == nil {
+		if !envelope.IsError {
+			t.Errorf("%s answered no structured half on an ordinary return; only a tool that declined before it opened a row stream answers content alone", tool)
+		}
+		return
+	}
+	encoded, err := json.Marshal(envelope.StructuredContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var answered any
+	if err := json.Unmarshal(encoded, &answered); err != nil {
+		t.Fatal(err)
+	}
+	if err := publishedOutputSchemas(t)[tool].Validate(answered); err != nil {
+		t.Errorf("what %s answered does not conform to the schema it published: %v\n  %s", tool, err, encoded)
+	}
 }

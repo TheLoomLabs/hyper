@@ -362,8 +362,19 @@ func callRun(t *testing.T, c goldenCase, invocation goldenRun, arguments string)
 // assertRunLost holds an envelope to what §12's `75` carries on a surface with
 // no exit code: `failed`, the bit set, and the Run named only where an entry was
 // written.
+//
+// **It also holds the half to the schema `run` published**, which is the one
+// place MCP's *servers MUST provide structured results that conform to this
+// schema* can be held over these three paths at all: they need a contended
+// repository rather than a fixture, so no corpus case drives them and
+// TestToolSet_EveryAnswerConformsToTheSchemaItsToolPublished never sees them.
+// They are also the only `isError: true` answers on this surface that still
+// carry a structured half — a Run that lost the Store before `run.json` wrote
+// no terminal row and carries §12's triple anyway (ADR-0102, mcp's executionOf).
 func assertRunLost(t *testing.T, envelope mcp.Envelope, runID string) {
 	t.Helper()
+
+	conformsToItsSchema(t, "run", envelope)
 
 	structured := envelope.StructuredContent
 	if structured.Outcome != "failed" {

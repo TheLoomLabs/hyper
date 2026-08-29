@@ -129,7 +129,17 @@ func envelopeShapeOf(t *testing.T, c goldenCase) string {
 	}
 
 	held := readEnvelope(t, c.dir)
-	switch outcome := held.StructuredContent.Outcome; outcome {
+	// **An envelope with no structured half carries no `outcome` key**, for
+	// the reason the ten tools that are not a Run carry none: there is
+	// nothing there. A tool that declined before it opened a row stream
+	// answers `content` and the bit alone (ADR-0102), and it falls through
+	// this reading to the same arm it always did — the text block opening
+	// `refused:` is what names it.
+	outcome := ""
+	if held.StructuredContent != nil {
+		outcome = held.StructuredContent.Outcome
+	}
+	switch outcome {
 	case "refused", "failed":
 		return outcome
 	case "completed":
