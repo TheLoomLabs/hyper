@@ -126,10 +126,13 @@ to write one* — is gone, the file itself now being `project`'s to write.
 - **The note goes last in the write order.** It is the only thing written there that no artefact
   derives, so a tree interrupted before it is a repository that projected correctly and lacks a note —
   the reading that costs a reader least, and one that running the command again repairs.
-- **It is dormant until the first release.** `project` Refuses `release-artefact-absent` while no
-  release is published, so nothing here reaches a fresh directory until `v1.4.0` is cut. `store init`
-  was the alternative writer and is refused: §9 says it *"touches no file in the working tree"*, and
-  buying a few weeks with that sentence is a worse trade than waiting.
+- **It is dormant until the first release.** A fresh directory carries no pin, so `project` resolves
+  a release for the version it would freeze and Refuses `release-artefact-absent` while none is
+  published; nothing here reaches one until `v1.4.0` is cut. The Refusal is `frozenDigest`'s and it
+  turns on **the pin**, not on the release: a repository already pinned at the running binary's
+  version resolves nothing and gets the note, which is what the acceptance fixture relies on.
+  `store init` was the alternative writer and is refused: §9 says it *"touches no file in the working
+  tree"*, and buying a few weeks with that sentence is a worse trade than waiting.
 - **Acceptance is a transcript, not a case.** The criterion is an agent in a fresh repository
   authoring a correct multi-host `read` Manifest **without running `strings`**. What the cases hold
   is that the file renders from one source, that a file already standing is not taken, and that the

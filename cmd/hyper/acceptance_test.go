@@ -100,10 +100,18 @@ func TestAcceptance_TheSealedHarnessHandsAnAgentTheQuickstartAndNothingElse(t *t
 				t.Errorf("the repository the harness hands over does not check clean: exit %d\n%s%s", exit, stdout, stderr)
 			}
 
-			// `project` would write this file, and cannot while no release is
-			// published; the harness takes the bytes from the handshake
-			// instead, the two channels carrying one text (ADR-0095). What this
-			// catches is the copy-that-went-stale failure that shortcut invites.
+			// The harness writes this file with `hyper project`, the channel
+			// ADR-0095 states, and what stands here is that the repository
+			// handed over holds that note at the version it pins. What fails
+			// it is a harness that stopped calling `project` or went back to
+			// keeping a copy of the orientation beside itself, and a note
+			// written at a version the fixture did not pin.
+			//
+			// **It is not the two-channels assertion, and reads as one.**
+			// Both sides now derive from `mcp.Instructions`, so the handshake
+			// carrying the same text is true here by construction rather than
+			// by this case; `internal/mcp`'s own case is where that is fenced
+			// (instructions_test.go, `InitializeResult().Instructions`).
 			note, err := os.ReadFile(filepath.Join(repo, "AGENTS.md"))
 			if err != nil {
 				t.Fatal(err)

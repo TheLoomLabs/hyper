@@ -83,7 +83,7 @@ scripts/acceptance/run.sh scripts/acceptance/tasks/<task>.md /somewhere/outside/
 ```
 
 It builds a stamped binary, materialises a repository in the README's quickstart
-shape with `providers/` absent, writes the `AGENTS.md` the handshake carries, and
+shape with `providers/` absent, writes its `AGENTS.md` with `hyper project`, and
 runs one headless agent session against it — **inside a mount namespace where no
 `hyper` source checkout exists**. That last part is the point
 ([ADR-0099](docs/adr/0099-the-acceptance-harness-is-sealed-and-the-foraging-was-the-blind-check.md)):

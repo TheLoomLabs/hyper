@@ -20,8 +20,8 @@
 #
 # What that gets is a repository in the README's quickstart shape — the version
 # pin, a Target, a Definition, a Procedure, and no `providers/` — with a Store
-# initialised (ADR-0104), the MCP server wired, `AGENTS.md` written from the
-# server's own handshake, and a headless Claude Code session run inside a mount
+# initialised (ADR-0104), the MCP server wired, `AGENTS.md` written by
+# `hyper project`, and a headless Claude Code session run inside a mount
 # namespace where the source checkout, the neighbouring checkouts, and every
 # cached copy of their text are not there to be read. The session's own
 # transcript is the output.
@@ -146,33 +146,31 @@ if [ -x "${task%.md}.setup.sh" ]; then
 fi
 
 # `AGENTS.md` is the orientation's second channel (ADR-0095), and `project`
-# writes it — except that `project` resolves the release it would freeze a
-# digest of and Refuses `release-artefact-absent` while none is published. So
-# the text is taken from the other channel, which is the same text: `writeNote`
-# writes `mcp.Instructions(version)` and nothing else. A copy kept in a file
-# beside this script would be the wrong bytes the moment the orientation
-# changes, which is the failure this avoids.
-python3 - "$outdir/bin/hyper" "$repo" >"$repo/AGENTS.md" <<'PY'
-import json, os, subprocess, sys
-
-binary, repo = sys.argv[1], sys.argv[2]
-server = subprocess.Popen(
-    [binary, "mcp"],
-    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-    env={**os.environ, "HYPER_REPO_DIR": repo}, text=True,
-)
-server.stdin.write(json.dumps({
-    "jsonrpc": "2.0", "id": 1, "method": "initialize",
-    "params": {
-        "protocolVersion": "2025-06-18", "capabilities": {},
-        "clientInfo": {"name": "acceptance", "version": "0"},
-    },
-}) + "\n")
-server.stdin.flush()
-sys.stdout.write(json.loads(server.stdout.readline())["result"]["instructions"])
-server.stdin.close()
-server.wait(timeout=10)
-PY
+# writes it, so the harness runs `project` rather than reproducing the text. A
+# copy kept in a file beside this script would be the wrong bytes the moment
+# the orientation changes, which is the failure this avoids.
+#
+# **ADR-0095's *dormant until the first release* does not reach this fixture.**
+# The Refusal it names turns on the pin rather than on the release: the pin
+# here and the binary's stamp are one value by construction above, so
+# `frozenDigest` returns the declared digest, resolves nothing, and reaches no
+# network. Nothing here can Refuse `release-artefact-absent`.
+#
+# **Nothing forces the position either.** `project` walks up for a git root
+# only where neither `--repo-dir` nor `HYPER_REPO_DIR` names one, so it would
+# run after `git init` below just as well; what the position has to satisfy is
+# `git add -A`, the note belonging to the commit the agent is handed. It sits
+# after the task's setup script, and `project` is create-if-absent — a setup
+# script writing an `AGENTS.md` of its own keeps it, and `cmd/hyper`'s case
+# compares these bytes for every task, so a task that did would fail under its
+# own name.
+#
+# The answer goes to stderr rather than `/dev/null`: `project` runs `check`
+# first and a failing check *is* its answer, on stdout, so discarding it would
+# stop this script at `set -e` with the table that says why thrown away. The
+# `store init` line below discards its stdout safely because its faults are
+# Refusals, and §8 puts a Refusal on stderr with stdout left silent.
+HYPER_REPO_DIR=$repo "$outdir/bin/hyper" project >&2
 
 # A Run's Provenance records `repo_revision`, so a repository with no commit
 # has nothing to record. The Store is a branch, and `store init` Refuses on an
