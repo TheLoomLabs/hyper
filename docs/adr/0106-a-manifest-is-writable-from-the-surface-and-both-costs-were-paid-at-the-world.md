@@ -112,12 +112,22 @@ so the setup cannot be trusted to control for it: it has to be made impossible.*
 against the checkout because that is where the specification is. The output directory was created by
 the same script and covered by nothing.
 
-**So it is a hole, and closing it is owed before the next transcript is collected.** It is not closed
-here because the shape needs trying rather than asserting: the repository lives *inside* the output
-directory, so covering the directory covers the thing the session is supposed to be working in. A
-`--tmpfs` over the output directory with the repository bound back on top of it is the obvious
+**So it is a hole, and closing it is owed before the next transcript is collected** — issue #231. It
+is not closed here because the shape needs trying rather than asserting: the repository lives *inside*
+the output directory, so covering the directory covers the thing the session is supposed to be working
+in. A `--tmpfs` over the output directory with the repository bound back on top of it is the obvious
 candidate, and `run.sh` already knows the difference between the two paths. The transcript is written
 through a file descriptor the parent opened, so it needs no reachable path of its own.
+
+**Two of those files cannot be hidden, and that narrows what the seal may ever claim.** §9 states one
+transport — *the server is the same binary, started by the client over stdio: one process per client,
+dying with it* — and no daemon, no port, no remote transport (ADR-0088). So the MCP server is a
+**child of the sealed session**: `claude` reads `mcp.json` from inside the namespace and execs the
+binary it names from inside it, and both must therefore be reachable. ADR-0099's *no `hyper` to
+invoke* was only ever true of `PATH`. What is buyable is the rest of the list — the fixture's binary,
+its environment file, the reports and the transcript — and what has to be written down beside it is
+the narrower sentence: no source checkout, no second binary, no fixture internals, and the one binary
+that is reachable is the one the MCP server is.
 
 ## What was considered
 
@@ -157,8 +167,11 @@ ticketed nowhere.
   narrate its way past. No previous acceptance run had one.
 - **`monitor-coverage` stands as authored.** No change to the task, the fixture, or its
   documentation follows from this run.
-- **The seal grows a ticket, not an amendment.** ADR-0099's decision is unchanged and its reasoning
-  is what condemns the gap; what is owed is the covering, and it is owed before the next transcript.
+- **The seal grows a ticket, not an amendment** (issue #231). ADR-0099's decision is unchanged and
+  its reasoning is what condemns the gap; what is owed is the covering, and it is owed before the next
+  transcript. What that ticket cannot buy is stated with it: the MCP server is a child of the sealed
+  session, so the binary it runs and the configuration naming it stay reachable however much else is
+  covered.
 
 ## Found in the same run, and not this decision
 
