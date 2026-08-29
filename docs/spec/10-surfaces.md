@@ -893,6 +893,7 @@ Every tool returns one shape.
     "outcome": "completed",   // §12's triple, on the execution tools only; absent elsewhere
     "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05c19",  // whole; absent where no entry was written
     "dry_run": false,         // beside it, `false` included, wherever `outcome` is present
+    "rendering": "…",         // the text block's page, on `review` alone; absent elsewhere
     "rows": [ … ],            // §8's rows, as an array
     "truncated": null         // the truncation marker, or null
   },
@@ -958,6 +959,25 @@ What goes beneath the line is the row set, so a `check` that found nothing puts 
 clean answer is the summary line alone, `check`'s own page being a sentence about a count and not a
 table. No other ordinary return carries its rows: a listing is a result set, and a table in its `text`
 block would say twice what `structuredContent` says once.
+
+**`review`'s page is written into the structured content as well** (ADR-0100). MCP's two halves are
+asymmetric, and not in the direction the table above assumes: `structuredContent` is the result —
+*servers MUST provide structured results that conform to this schema*, wherever an `outputSchema` is
+declared — and the `text` block beside it is *the serialized JSON*, returned **for backwards
+compatibility**. A promise kept only in `content` is therefore kept in the half the protocol itself
+calls redundant, and a client that surfaces the structured half in preference to it is reading the
+half the protocol made normative rather than misbehaving.
+
+`review` is the one tool with a page to lose there. Its rows are what the page is drawn *from*, so an
+agent handed them is handed the ingredients and not the surface a human will read — and `review` is
+the tool an agent is told to call before handing work back, which it cannot do against a page it
+never sees. So the envelope carries `rendering`: the same string the block carries, byte for byte,
+standing above the rows for the reason the summary line stands above them in the block, and required
+by `review`'s `outputSchema`. **Nothing else carries it.** A listing's summary line and a `check`'s
+block are composed of members already here — the counts are the rows, the triple and the id are keys
+of their own, the marker is `truncated` — and a Refusal needs no second channel, MCP naming no
+structured one for an error at all: its whole error mechanism is `isError` and the `content` beside
+it, so `content` is the only place a Refusal is ever put.
 
 **`outcome` is the discriminator, and `isError` is not.**
 
@@ -1084,6 +1104,7 @@ check(paths?)
 ```jsonc
 review(artefact)
 // text: the full rendered review surface
+// → rendering: that same surface, byte for byte — the page on the structured channel too (ADR-0100)
 // → rows: [{ type: "artefact", kind, path, baseline | baseline_absent,   // the header row,
 //            cadence, phrase, rate, last_run }]                          // emitted first
 //         §8's gutter, authority and flag rows, unchanged
@@ -1092,12 +1113,15 @@ review(artefact)
 ```
 
 `review`'s `text` is what the command writes to stdout, byte for byte, on **every** path that answers
-at all. That includes the one where the artefact is found and will not load: the tool answers
-`check`'s rows and `check`'s table, with `isError: true` where the command exits `1`. The text-block
-table in the return envelope above is keyed on the **tool** rather than on what the tool found, and a
-reading that swapped in a summary line on one of the command's own paths would break the promise
-exactly where an agent is least able to check it. An artefact that is not there **at all** has no row
-to write and is the usage error, which arrives here as a JSON-RPC error like every other.
+at all, and `rendering` is that same string beside it. That includes the one where the artefact is
+found and will not load: the tool answers `check`'s rows and `check`'s table, on both channels, with
+`isError: true` where the command exits `1`. The text-block table in the return envelope above is
+keyed on the **tool** rather than on what the tool found, and a reading that swapped in a summary line
+on one of the command's own paths would break the promise exactly where an agent is least able to
+check it. An artefact that is not there **at all** has no row to write and is the usage error, which
+arrives here as a JSON-RPC error like every other. A guardrail declining is the Refusal row, which
+stands outside every `outputSchema` on this surface — `rendering` is absent there as `truncated` is
+`null` there, and neither conforms to the schema the tool published.
 
 The two extra row types are the sketch's list made complete rather than widened. The header is a row
 like any other, on the rule the envelope states above, and it is the row carrying the range the

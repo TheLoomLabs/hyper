@@ -1018,10 +1018,15 @@ Render §8's review of one artefact — the gutter, the AUTHORITY table and the 
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "rendering",
     "rows",
     "truncated"
   ],
   "properties": {
+    "rendering": {
+      "type": "string",
+      "description": "The rendered review surface — the gutter, the AUTHORITY table and the FLAGS index — byte for byte as the command writes it to stdout, and the same string the text block carries. It is on both channels because the rows beside it are what the page is drawn from rather than the page: a caller handed only the rows is handed the ingredients of the thing this tool answers with."
+    },
     "rows": {
       "type": "array",
       "items": {

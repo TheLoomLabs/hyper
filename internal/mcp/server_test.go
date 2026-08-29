@@ -750,6 +750,75 @@ func TestCall_ReviewsTextBlockIsTheRenderingWholeAndUntouched(t *testing.T) {
 	}
 }
 
+// TestCall_ReviewsPageTravelsInTheStructuredContentAsWell is the same row read
+// on the other channel: **`review`'s page is written into `structuredContent`
+// as well as into the text block**, and it is the same string rather than a
+// second composition (§9, ADR-0100, issue #217).
+//
+// Why the block alone is not enough is Structured.Rendering's to say. What this
+// holds is the composition: one page, both channels, byte for byte.
+//
+// The rows are asserted here for the reason `check`'s case asserts its block:
+// *the rows did not move* is the half of the change the member above cannot
+// see.
+func TestCall_ReviewsPageTravelsInTheStructuredContentAsWell(t *testing.T) {
+	rows := []render.Row{stubRow{Type: "gutter", Name: "read"}}
+	server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(false), Rendering: reviewPage})
+
+	envelope, err := server.Call(t.Context(), "review", json.RawMessage(`{"artefact":"uptime"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := envelope.StructuredContent.Rendering, reviewPage; got != want {
+		t.Errorf("the structured content carries %q, want the page whole: %q", got, want)
+	}
+	if got, want := envelope.StructuredContent.Rendering, envelope.Content[0].Text; got != want {
+		t.Errorf("the structured half carries %q and the text block %q; one page is composed once and written twice", got, want)
+	}
+	if got, want := len(envelope.StructuredContent.Rows), 1; got != want {
+		t.Errorf("the envelope carries %d rows, want %d: this adds a channel and moves none", got, want)
+	}
+}
+
+// TestCall_NoToolButAReviewCarriesARenderingMember is the narrowness of the row
+// above, held over the three shapes that could plausibly have claimed it (§9,
+// ADR-0100).
+//
+// A **listing** and a **`check`** carry none because their blocks are composed of
+// members the structured half already holds, and a **Refusal** carries none
+// because MCP names no structured channel for one at all. The three arguments
+// are Structured.Rendering's; what this holds is that the code draws the line
+// where they put it.
+func TestCall_NoToolButAReviewCarriesARenderingMember(t *testing.T) {
+	problems := []render.Row{stubRow{Type: "problem", Name: "a"}}
+	entries := []render.Row{stubRow{Type: "entry", Name: "a"}}
+	refusal := "refused: version-pin-absent\n  hyper.yaml carries no version pin — run: hyper project\n"
+
+	for _, one := range []struct {
+		name      string
+		tool      string
+		arguments string
+		answer    Answer
+	}{
+		{"a listing", "runs", `{}`, Answer{Rows: entries, Terminal: render.NewResultRow(false), Rendering: reviewPage}},
+		{"a check reporting problems", "check", `{}`, Answer{Rows: problems, Terminal: render.NewResultRow(false), Rendering: "FILE  LINE\n", Exit: 1}},
+		{"a guardrail declining a review", "review", `{"artefact":"uptime"}`, Answer{Exit: 77, Refusal: refusal, Rendering: reviewPage}},
+	} {
+		t.Run(one.name, func(t *testing.T) {
+			envelope, err := returning(one.answer).Call(t.Context(), one.tool, json.RawMessage(one.arguments))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := envelope.StructuredContent.Rendering; got != "" {
+				t.Errorf("the structured content carries the rendering %q, want none", got)
+			}
+			if members := structuredMembers(t, envelope); slices.Contains(members, "rendering") {
+				t.Errorf("the structured content is keyed %q; the rendering member is written where the text block is a page and nowhere else", members)
+			}
+		})
+	}
+}
+
 // TestCall_ATextBlockIsASummaryLineOnEveryToolTheTableDoesNotName is the first
 // row of the same table, held over a tool that answers a rendering of its own
 // and still summarises: §9 names three cases and a listing is none of them.
@@ -807,12 +876,23 @@ func TestCall_ChecksTextBlockCarriesItsRowsBeneathTheSummaryLine(t *testing.T) {
 	if got, want := len(envelope.StructuredContent.Rows), 2; got != want {
 		t.Errorf("the envelope carries %d rows, want %d: the text block is a second channel and not a move", got, want)
 	}
-	// The **members of the structured half**, and not a search through its
-	// bytes: every real `check` row carries an `error_code` of its own, so a
-	// search would either pass vacuously here or fail against a fixture
-	// repository. What §9 states is about the envelope — a tool that is not
-	// a Run carries no `outcome` key, and the code naming a check that
-	// declined belongs to the row rather than to the answer around it.
+	if got, want := structuredMembers(t, envelope), []string{"rows", "truncated"}; !slices.Equal(got, want) {
+		t.Errorf("the structured content is keyed %q, want %q: no outcome key, no error_code of the envelope's own, and nothing restating the bit", got, want)
+	}
+}
+
+// structuredMembers is the keys the structured half went out under, sorted.
+//
+// It reads the **members** and not a search through the bytes: every real
+// `check` row carries an `error_code` of its own and a `review`'s page carries
+// the words a member name is spelled with, so a search would either pass
+// vacuously or fail against a fixture repository. What §9 states is about the
+// envelope — a tool that is not a Run carries no `outcome` key, a rendering
+// member is written where the text block is a page and nowhere else — and the
+// keys are where that is checkable.
+func structuredMembers(t *testing.T, envelope Envelope) []string {
+	t.Helper()
+
 	structured, err := json.Marshal(envelope.StructuredContent)
 	if err != nil {
 		t.Fatal(err)
@@ -821,9 +901,7 @@ func TestCall_ChecksTextBlockCarriesItsRowsBeneathTheSummaryLine(t *testing.T) {
 	if err := json.Unmarshal(structured, &members); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := slices.Sorted(maps.Keys(members)), []string{"rows", "truncated"}; !slices.Equal(got, want) {
-		t.Errorf("the structured content is keyed %q, want %q: no outcome key, no error_code of the envelope's own, and nothing restating the bit", got, want)
-	}
+	return slices.Sorted(maps.Keys(members))
 }
 
 // TestCall_ACheckThatFoundNothingCarriesTheSummaryLineAlone is the same row

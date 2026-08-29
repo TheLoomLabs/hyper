@@ -152,6 +152,16 @@ func renderEnvelope(t *testing.T, envelope mcp.Envelope) string {
 		}
 	}
 
+	// The page, where the tool's text block is one: it stands above the rows
+	// in the envelope for the reason the summary line stands above them in
+	// the block, and the corpus writes it where the wire writes it (§9,
+	// ADR-0100, issue #217). It is compacted like a content block rather
+	// than expanded, so the two channels carrying one page are two lines a
+	// reader can put beside each other.
+	if structured.Rendering != "" {
+		fmt.Fprintf(&page, "    \"rendering\": %s,\n", compact(t, structured.Rendering))
+	}
+
 	if len(structured.Rows) == 0 {
 		page.WriteString("    \"rows\": [],\n")
 	} else {
@@ -241,6 +251,7 @@ func TestGoldenCorpora_EveryEnvelopeGoldenIsOneJSONValue(t *testing.T) {
 				Outcome   string            `json:"outcome"`
 				RunID     string            `json:"run_id"`
 				DryRun    *bool             `json:"dry_run"`
+				Rendering string            `json:"rendering"`
 				Rows      []json.RawMessage `json:"rows"`
 				Truncated json.RawMessage   `json:"truncated"`
 			} `json:"structuredContent"`
@@ -967,9 +978,11 @@ func envelopeRows(t *testing.T, dir string) []string {
 }
 
 // structuredHalf is the machine half of a checked-in envelope: §8's rows as the
-// corpus holds them, and the terminal fact the envelope lifted beside them.
+// corpus holds them, the terminal fact the envelope lifted beside them, and the
+// page on the one tool whose block is one (ADR-0100).
 type structuredHalf struct {
 	Outcome   string            `json:"outcome"`
+	Rendering string            `json:"rendering"`
 	Rows      []json.RawMessage `json:"rows"`
 	Truncated json.RawMessage   `json:"truncated"`
 }
@@ -1182,6 +1195,13 @@ var commands = map[string]string{"run_show": "show"}
 // nothing else.** `check` is in the table too and is fenced beneath this one,
 // where the assertion is the same fact in a different shape: its block is a
 // summary line the CLI does not write, and then the page (issue #214).
+//
+// **It holds the same page against `structuredContent.rendering`**, which is
+// the one member of the envelope that carries a rendering rather than a fact
+// (ADR-0100, issue #217). The two channels are one string composed once, so
+// what the fence adds is a third reading of one page and not a second
+// assertion: the CLI's stdout, the text block, and the structured member all
+// have to be the same bytes or the case fails.
 func TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout(t *testing.T) {
 	var compared int
 	for _, c := range goldenCases(t) {
@@ -1200,6 +1220,9 @@ func TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout(t *testing.T) 
 		compared++
 		if got := textBlock(t, c.dir); got != wrote {
 			t.Errorf("case %s: its text block is\n  %q\nand %s writes\n  %q", c.name, got, twin, wrote)
+		}
+		if got := readEnvelope(t, c.dir).StructuredContent.Rendering; got != wrote {
+			t.Errorf("case %s: its structured content carries\n  %q\nand %s writes\n  %q; the page travels on both channels", c.name, got, twin, wrote)
 		}
 	}
 	if compared == 0 {

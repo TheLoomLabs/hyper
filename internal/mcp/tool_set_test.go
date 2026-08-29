@@ -132,3 +132,37 @@ func compactSchema(t *testing.T, schema json.RawMessage) string {
 	}
 	return compacted.String()
 }
+
+// TestToolSet_TheRenderingMemberIsDeclaredWhereTheTextBlockIsAPage is what
+// keeps §9's two channels from drifting apart on the tool that has a page to
+// lose (§9, ADR-0100, issue #217).
+//
+// **The rule is keyed on the case and not on the tool's name.** A tool whose
+// text block is the command's page carries that page in `structuredContent` as
+// well (Structured.Rendering), so a tool granted `wholeRendering` and no member
+// here would be one whose whole promise lives on one channel. `review` is the
+// only one today; the next one arrives with the member or arrives failing.
+//
+// It is **required** where it is declared, on the footing `truncated` is
+// required on every one of the thirteen: an output schema states what the tool
+// answers, and a guardrail declining is §9's own row standing outside every
+// schema on this surface rather than a path any of them describes.
+func TestToolSet_TheRenderingMemberIsDeclaredWhereTheTextBlockIsAPage(t *testing.T) {
+	for _, held := range tools {
+		t.Run(held.name, func(t *testing.T) {
+			schema := declared(t, held.output)
+			_, declares := schema.Properties["rendering"]
+
+			if want := held.text == wholeRendering; declares != want {
+				if want {
+					t.Errorf("%s's text block is the command's page and its output schema declares no rendering member; the page would reach a structured-only reader on neither channel", held.name)
+				} else {
+					t.Errorf("%s's text block is not a page and its output schema declares a rendering member; a summary line is composed of members the structured half already carries", held.name)
+				}
+			}
+			if declares && !slices.Contains(schema.Required, "rendering") {
+				t.Errorf("%s declares the rendering member and does not require it; what the tool answers is what the schema states", held.name)
+			}
+		})
+	}
+}

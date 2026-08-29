@@ -46,6 +46,14 @@ serialise it into a `text` block as well, for clients that do not read structure
 only party that loses by not doing it. And there is nothing new to render — §8's renderer already draws
 these rows for the terminal, and this decides which block they are written into rather than how they look.
 
+_ADR-0100 amends the reading, not the decision:_ the sentence cited here — *a tool that returns
+structured content SHOULD also return the serialized JSON in a TextContent block* — frames `content` as
+the **backwards-compatibility** half, against a `structuredContent` that is the result an `outputSchema`
+is declared over. That is this argument and it is also its mirror. A promise kept only in `content` is
+kept in the half the protocol calls redundant, which is what `review`'s page was doing on the very
+client whose transcript is the evidence above. What this passage did not notice is that the reading
+runs both ways.
+
 **Every ordinary return with rows** was rejected. It would put a full table in the `text` block of every
 listing, saying twice what `structuredContent` says once, on returns where the rows are an answer rather
 than an instruction. **Every return with rows and `isError: true`** was rejected for a narrower reason: it

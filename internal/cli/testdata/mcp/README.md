@@ -212,20 +212,25 @@ command writes for the same argument.
 **whole rendered review surface** — the gutter, `AUTHORITY`, `FLAGS` — byte for
 byte what `../../review/five-artefact-demo-procedure` writes to stdout, and a
 fence holds the pairing
-(`TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout`). It carries
-`FLAGS` rows and is `isError: false`, a flag being a fact about the artefact
-rather than a problem with it. `gutter-marks-procedure` is the artefact that
-**names** ones that are not there: it renders, marks `unresolved` in the gutter
-and in the index, and is not an error either — the fault is `check`'s to report
-and this surface's to annotate (ADR-0064).
+(`TestGoldenCorpora_AReviewsTextBlockIsWhatTheCLIWroteOnStdout`). **The same
+page is in `structuredContent.rendering`**, which is why every `review` golden
+here holds it twice: one page, composed once, written to both channels, because
+a page that lived only in the block would live in the half nothing obliges a
+client to read (ADR-0100, issue #217). The fence holds all three strings
+against each other. It carries `FLAGS` rows and is `isError: false`, a flag
+being a fact about the artefact rather than a problem with it.
+`gutter-marks-procedure` is the artefact that **names** ones that are not there:
+it renders, marks `unresolved` in the gutter and in the index, and is not an
+error either — the fault is `check`'s to report and this surface's to annotate
+(ADR-0064).
 
 `review/an-artefact-that-will-not-load` is the third of review's exit codes on
 this surface, and the case that says the text-block table is keyed on the
 **tool**: found and faulty writes `check`'s rows and `check`'s table, so the
-text block is that table and `isError` is true. `name-matching-nothing` is the
-fourth — an artefact that is not there at all has no row to write, which is the
-usage error, and it arrives as a protocol error paired with its twin one
-directory up.
+text block is that table, `rendering` is that table, and `isError` is true.
+`name-matching-nothing` is the fourth — an artefact that is not there at all has
+no row to write, which is the usage error, and it arrives as a protocol error
+paired with its twin one directory up.
 
 `runs/`, `run_show/`, `changes/` and `records/` are §9's Inspection four, and
 every case here **reuses the four commands' own Stores** — a `repo-from` and a

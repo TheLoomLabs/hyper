@@ -122,6 +122,13 @@ const (
 	// makes it a case of its own: what the block carries is what the
 	// command wrote to stdout, so a human reviewer can be handed it
 	// verbatim (§9, ADR-0026).
+	//
+	// **It is the one case that also writes into `structuredContent`**, and
+	// a tool that declares it declares a `rendering` member to carry the
+	// page there too (§9, ADR-0100, issue #217). The other two cases compose
+	// their block out of members that half already carries and this one
+	// composes it out of nothing there at all; why that means the block is
+	// not enough on its own is Structured.Rendering's to say.
 	wholeRendering
 )
 
@@ -626,6 +633,15 @@ var checkTool = tool{
 // it is made for the same reason: with no bypass anywhere the rendering is the
 // whole of what a reviewer is given (§9, ADR-0001, ADR-0026).
 //
+// **So the page travels on both channels, and the output schema declares the
+// member that carries it** — `rendering`, required, above the rows (§9,
+// ADR-0100, issue #217). It is the same string the text block carries and not a
+// second composition. What makes the second channel necessary is that the rows
+// are what the page is drawn *from*, so a caller handed only them is handed the
+// ingredients of the thing this tool exists to answer with — a sealed
+// acceptance run found exactly that (ADR-0099), and the argument from MCP's own
+// asymmetry is at Structured.Rendering.
+//
 // Three of the command's own rules carry over unchanged, and each is a rule
 // about what is *not* an error here. It runs offline against a repository whose
 // Store is unreachable, the header naming that absence once rather than the
@@ -667,6 +683,10 @@ var reviewTool = tool{
 		}
 	}`, "artefact"),
 	output: closedObject(`{
+		"rendering": {
+			"type": "string",
+			"description": "The rendered review surface — the gutter, the AUTHORITY table and the FLAGS index — byte for byte as the command writes it to stdout, and the same string the text block carries. It is on both channels because the rows beside it are what the page is drawn from rather than the page: a caller handed only the rows is handed the ingredients of the thing this tool answers with."
+		},
 		"rows": {
 			"type": "array",
 			"items": {
@@ -748,7 +768,7 @@ var reviewTool = tool{
 			}
 		},
 		"truncated": {"type": "boolean"}
-	}`, "rows", "truncated"),
+	}`, "rendering", "rows", "truncated"),
 	argv: func(arguments json.RawMessage) ([]string, error) {
 		var named struct {
 			Artefact string `json:"artefact"`

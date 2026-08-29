@@ -105,6 +105,39 @@ type Structured struct {
 	// is not a Run* are two different answers, and a bare bool could only
 	// say one of them.
 	DryRun *bool `json:"dry_run,omitempty"`
+	// Rendering is the command's page on the structured channel: **the same
+	// string the text block carries**, written on the one case of §9's
+	// asymmetric table whose block is a rendering rather than a reading of
+	// the members beside it — `review`'s (§9, ADR-0100, issue #217).
+	//
+	// **MCP's two halves are not symmetric, and this member is that
+	// asymmetry read the way the protocol states it.** `structuredContent`
+	// is the result — *servers MUST provide structured results that conform
+	// to this schema* wherever an `outputSchema` is declared — and the text
+	// block beside it is *the serialized JSON*, returned **for backwards
+	// compatibility**. So `content` is by the protocol's own account the
+	// redundant half, and a client that reads the structured half in
+	// preference to it is reading the half the protocol made normative. A
+	// promise carried only in `content` is a promise carried where nothing
+	// obliges anyone to look, and `review`'s page is the one promise on
+	// this surface that the rows beside it cannot be composed back into.
+	//
+	// **It stands above `rows` for the reason the summary line stands above
+	// them in the block.** A reader of the structured half meets the keys in
+	// the order they are written, and a page beneath a hundred-row array is
+	// one met after the thing it exists to be read instead of.
+	//
+	// It is absent everywhere else, and the absences are two different
+	// arguments. A listing and a `check` lose nothing: every member of their
+	// summary line is already a key here — the counts are the rows, the
+	// triple and the Run id are keys of their own, the marker is `truncated`
+	// — and what `check` puts beneath its line is the row set `rows` already
+	// is. A Refusal loses nothing this member could give it: MCP names no
+	// structured channel for an error at all, its whole error mechanism
+	// being `isError` and the `content` beside it, so `content` is the only
+	// place the protocol puts a Refusal and every client that reads one
+	// reads it there.
+	Rendering string `json:"rendering,omitempty"`
 	// Rows is §8's row set unchanged: one object per row, carrying the same
 	// `type` discriminator, served as an array rather than a line stream. It
 	// is `[]` where the command found nothing rather than absent, which is
@@ -230,6 +263,20 @@ func envelopeOf(answered Answer, block textBlock, called *execution) (Envelope, 
 		text, err := answerText(answered, block, structured, kinds)
 		if err != nil {
 			return Envelope{}, err
+		}
+		// **The page goes to the structured half from the block and not
+		// from the answer**, which is what makes the two channels one
+		// composition rather than two that have to agree: whatever
+		// answerText decided the block is, that is what the member
+		// carries, byte for byte (ADR-0100, issue #217).
+		//
+		// It is keyed on the case for the reason the block is — §9's
+		// table is keyed on the tool and not on what the tool found — so
+		// a `review` against an artefact that will not load carries
+		// `check`'s table on both channels, which is the promise read
+		// the same way twice.
+		if block == wholeRendering {
+			structured.Rendering = text
 		}
 		return Envelope{
 			Content:           []TextBlock{{Type: "text", Text: text}},
