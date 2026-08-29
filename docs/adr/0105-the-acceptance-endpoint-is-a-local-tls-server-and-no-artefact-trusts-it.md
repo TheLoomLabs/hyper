@@ -112,9 +112,10 @@ written down so the next reader does not discover it as a surprise.
 
 ## What the setup script owns, and what `run.sh` owns
 
-Stated to the line, and in the imperative: **none of it exists yet**, and issue #227 is what builds
-it. A knob with no caller is a knob nothing holds true
-([ADR-0104](0104-the-acceptance-fixture-ships-a-store.md)), so the seam lands with the task that uses
+Stated to the line, and in the imperative because none of it existed when this was written: **issue
+#227 built it**, as `scripts/acceptance/lookout` beside the harness and the `monitor-coverage` task
+that drives it. A knob with no caller is a knob nothing holds true
+([ADR-0104](0104-the-acceptance-fixture-ships-a-store.md)), so the seam landed with the task that uses
 it rather than here. Harness work landing in the same commit as the task that needs it is the shape
 issue #223 already took, `scripts/acceptance/run.sh` changing beside `fleet-rollout` — #221's *the
 ticket's deliverable is the task file and its fence and nothing else* is about not running a sealed
@@ -125,7 +126,8 @@ session, not about leaving the harness untouched.
   because the seal hides the source and not the binary. The setup script takes `$root` from its own
   path — it sits at `scripts/acceptance/tasks/`, three levels down — rather than from a third argument,
   `run.sh`'s own `root` being a local it does not export. The program mints its certificate at startup,
-  listens on a free loopback port, and reports the port and the certificate's path.
+  listens on a free loopback port, and reports the port, the certificate's path, and the credential
+  it minted.
 - **`go` rather than `openssl` or `python3`, and that is a rule rather than a taste.** `run.sh` declares
   the tools it needs — `bwrap git go python3` — and the fence names the same four beside `bash`; issue
   #225 already turned down `sha256sum` for `python3` on this ground. `openssl` would be a fifth, and

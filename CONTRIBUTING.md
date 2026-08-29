@@ -112,6 +112,18 @@ has to **grant the approval in its own text**: the orientation tells an agent to
 stop and hand the diff to a human before running anything, and the prompt is the
 only human a headless session has.
 
+**A task may bring a service with it.** `run.sh` hands the setup script the output
+directory beside the repository, and reads two files back out of it afterwards:
+`endpoint.pid`, whose process it kills in a trap on the way out, and
+`endpoint.env`, whose `NAME=value` lines it folds into the environment the MCP
+server runs with. That is how `monitor-coverage` reaches an HTTPS endpoint from
+inside the seal — a local TLS server built from `scripts/acceptance/lookout`,
+trusted through `SSL_CERT_FILE` in the `hyper` process's environment and through
+nothing any artefact could name
+([ADR-0105](docs/adr/0105-the-acceptance-endpoint-is-a-local-tls-server-and-no-artefact-trusts-it.md)).
+The lifetime is `run.sh`'s rather than the setup script's because the fence runs
+the setup half on every `go test ./cmd/hyper`.
+
 ## The spec is the authority
 
 Where the code and [`docs/spec/`](docs/spec/) disagree, **the spec is right and

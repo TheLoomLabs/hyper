@@ -88,7 +88,13 @@ version=$(sed -n '0,/^VERSION=/s/^VERSION=//p' "$root/README.md")
 version=${version:-0.0.1-alpha}
 
 repo=$outdir/repo
+# The two files a setup script may leave for this one to read go with the
+# repository and the binaries, and for a sharper reason than tidiness: an
+# output directory reused by a task that ships no service would otherwise fold a
+# previous task's credential into `mcp.json` and kill a pid the machine has
+# since given to something else.
 rm -rf "$repo" "$outdir/bin"
+rm -f "$outdir/endpoint.pid" "$outdir/endpoint.env"
 mkdir -p "$repo/targets" "$repo/definitions" "$repo/procedures" "$outdir/bin"
 
 # Built before the seal goes up, because the seal hides the source. The binary
@@ -139,10 +145,27 @@ steps:
 YAML
 
 # A task that names something on the machine — a directory to archive, a file to
-# read — brings it with it, in a script beside it. A transcript that failed
-# because a path was not there would be evidence about the path.
+# read, an API to call — brings it with it, in a script beside it. A transcript
+# that failed because a path was not there would be evidence about the path.
+#
+# **It takes the output directory as well as the repository, and that is what
+# lets a task ship a service** (ADR-0105, issue #227). The repository is what the
+# agent sees; the output directory is where anything the harness needs to know
+# about it goes, and two files there are read by name afterwards:
+# `endpoint.pid`, whose process this script kills on the way out, and
+# `endpoint.env`, whose `NAME=value` lines are folded into the environment the
+# MCP server runs with. That is the whole of the contract, and a task that needs
+# neither writes neither.
+#
+# **The lifetime is this script's rather than the setup script's**, because the
+# fence runs the setup half on every `go test ./cmd/hyper` and a service nobody
+# stops is one process per test run. The trap is armed before the script runs, so
+# a setup that fails halfway still takes its service with it; a `SIGKILL` of this
+# script leaks one process, and the pidfile names it until the next run over this
+# output directory clears it above.
+trap 'if [ -s "$outdir/endpoint.pid" ]; then kill "$(cat "$outdir/endpoint.pid")" 2>/dev/null || true; fi' EXIT INT TERM
 if [ -x "${task%.md}.setup.sh" ]; then
-	"${task%.md}.setup.sh" "$repo"
+	"${task%.md}.setup.sh" "$repo" "$outdir"
 fi
 
 # `AGENTS.md` is the orientation's second channel (ADR-0095), and `project`
@@ -198,8 +221,28 @@ HYPER_REPO_DIR=$repo "$outdir/bin/hyper" store init >/dev/null
 # MCP configuration and nothing on the machine can add a second server to it.
 # Local scope in `~/.claude.json` would do the same job and would be one more
 # piece of state the seal has to reason about.
-python3 -c 'import json,sys; json.dump({"mcpServers": {"hyper": {"command": sys.argv[1], "args": ["mcp"], "env": {"HYPER_REPO_DIR": sys.argv[2]}}}}, sys.stdout)' \
-	"$outdir/bin/hyper" "$repo" >"$outdir/mcp.json"
+#
+# **A task's `endpoint.env` lands here and nowhere else** (ADR-0105). It is where
+# a fixture's credential and an `SSL_CERT_FILE` reach the `hyper` the server
+# runs, and that position is the point rather than a convenience: no artefact
+# carries a root, a pin or a verification mode, so trust is a property of the
+# process and is unreachable from anywhere the agent writes. A missing file is
+# the ordinary case and reads as no additions.
+python3 -c '
+import json, sys
+
+command, repo, additions = sys.argv[1:]
+environment = {"HYPER_REPO_DIR": repo}
+try:
+	with open(additions) as lines:
+		for line in lines:
+			name, separator, value = line.strip().partition("=")
+			if separator:
+				environment[name] = value
+except FileNotFoundError:
+	pass
+json.dump({"mcpServers": {"hyper": {"command": command, "args": ["mcp"], "env": environment}}}, sys.stdout)' \
+	"$outdir/bin/hyper" "$repo" "$outdir/endpoint.env" >"$outdir/mcp.json"
 
 # What the seal covers, and why each one.
 #
