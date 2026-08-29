@@ -1,0 +1,5 @@
+kind: definition
+definition: host-ops
+provider: shell
+destroy: [destroy]
+targets: [local-teardown]

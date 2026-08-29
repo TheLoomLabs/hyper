@@ -721,6 +721,19 @@ func checkDestroyResolution(file string, destroyVal *yaml.Node, provider Provide
 // half needing a Run to resolve and belonging to §5. Each points a reader at
 // the targets: member that made the binding, since that is the line whose
 // edit — bind a different Target, or widen the one bound — fixes it.
+//
+// The opaque-destroy row states both edits and what the widening one costs:
+// the opt-in is a property of the Target and not of this pairing, so opting
+// in here admits an opaque destroy from every Definition bound to that Target,
+// and the narrower grant is a second class-local declaration bound in place of
+// this one (§3, §5, ADR-0041, ADR-0103). What is particular to this row is
+// that the widening remedy grants the most severe thing the tool does, and the
+// narrowing one is spelled as an artefact rather than as a key — so an author
+// not told about it reaches for a per-Definition list the schema does not
+// admit, which is what the sealed
+// acceptance run did (issue #220, ADR-0099). What holds the sentence honest is
+// definition_test.go's own
+// TestCheckDefinition_ASecondClassLocalDeclarationConfinesTheOptIn.
 func checkDefinitionTargetPair(file string, rt resolvedTarget, provider ProviderInfo, claimsOpaqueDestroy bool) []problem.Problem {
 	var problems []problem.Problem
 	line, column := rt.node.Line, rt.node.Column
@@ -768,7 +781,7 @@ func checkDefinitionTargetPair(file string, rt resolvedTarget, provider Provider
 		problems = append(problems, problem.Problem{
 			File: file, Line: line, Column: column, Field: field,
 			ErrorCode: CodeOpaqueDestroyNotGranted,
-			Message:   fmt.Sprintf("%s has not opted into opaque-destroy:, and this Definition claims an opaque destroy Operation", rt.name),
+			Message:   fmt.Sprintf("%s has not opted into opaque-destroy:, and this Definition claims an opaque destroy Operation — the opt-in is the Target's and admits one from every Definition bound to %s; a narrower grant is a second class-local declaration, bound here instead", rt.name, rt.name),
 		})
 	}
 	return problems

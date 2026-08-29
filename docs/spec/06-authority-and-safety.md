@@ -38,6 +38,18 @@ Actions holds for the same Target does not, which makes "CI may not do this" a f
 credential holds rather than a belief about where the process runs — credentials resolve the same way
 regardless of where `hyper` runs (ADR-0007).
 
+The artefact half is a property of the Target and never of the pairing that took it. A declaration
+carrying the opt-in admits an `opaque` `destroy` from every Definition bound to that Target, and the
+second Definition to claim one widens nothing on the declaration's own line — its own claim is the
+reviewed edit, named Operation by named Operation, which is where §3 puts a `destroy` claim's
+granularity. That is the grain a Target *is*: the unit of both blast radius and credentials at once
+(§2), and every authority fact about a (Definition, Target) pairing is derived from its two ends
+rather than authored at one — a Step binds a pairing and grants it nothing (§8, ADR-0069). What
+narrows the grant is a second class-local declaration — two names for the machine `hyper` runs on,
+one opting in and one not, confining command-`destroy` authority to the Definitions that bind the
+first (§3, ADR-0041). `opaque-destroy-not-granted` states both edits, since they differ in blast
+radius and only one of them is on the line the row cites (ADR-0103).
+
 ## The Bound
 
 A `destroy` Step's Bound is mandatory: an absent Bound means unbounded, and unbounded is refused

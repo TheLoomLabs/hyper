@@ -1,0 +1,2 @@
+FILE                        LINE  FIELD       ERROR_CODE                  MESSAGE
+definitions/snapshots.yaml  6     targets[0]  opaque-destroy-not-granted  local has not opted into opaque-destroy:, and this Definition claims an opaque destroy Operation — the opt-in is the Target's and admits one from every Definition bound to local; a narrower grant is a second class-local declaration, bound here instead

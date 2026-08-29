@@ -189,7 +189,7 @@ the envelope its own file declares (§12).
 An `opaque` `destroy` Operation may run against a Target only where that Target's declaration has
 opted in; a Definition claiming one against a Target that has not is `opaque-destroy-not-granted`. This
 is the artefact half of the check — whether the credential in hand also carries the opt-in is resolved
-at Run start and belongs to §5.
+at Run start and belongs to §5, as does what that opt-in admits and what narrows it.
 
 Every `destroy` Step must name the population it destroys. A `destroy` Step carrying no `over:`
 selector is `destroy-unscoped`: it is invoked once (§3), has no Expansion to write a Tombstone under

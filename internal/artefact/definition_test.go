@@ -376,3 +376,61 @@ func TestCheckDefinition_ClaimingNoKindsAndNoDestroyLoadsClean(t *testing.T) {
 		t.Fatalf("CheckDefinition() = %+v, want no problems", got)
 	}
 }
+
+// --- issue #220: what the opt-in admits, and what confines it ---
+
+// TestCheckDefinition_OpaqueDestroyNotGrantedNamesTheGrantsExtent holds the
+// two facts the row must carry beyond the fault itself: that the opt-in is the
+// Target's, so admitting one Definition admits every Definition bound there,
+// and that the narrower grant is a second class-local declaration bound in
+// place of this one (ADR-0103).
+//
+// It is the wall an author meets — the sealed acceptance run of 2026-08-29 met
+// it, reached for `opaque-destroy: [snapshots]`, was answered schema-mismatch,
+// and declined to ship rather than widen a grant it could not scope (issue
+// #220, ADR-0099). The narrower spelling it wanted was already in the model and
+// was stated in three places it never saw. A message naming one edit where the
+// model has two is what sent it looking.
+func TestCheckDefinition_OpaqueDestroyNotGrantedNamesTheGrantsExtent(t *testing.T) {
+	doc := "kind: definition\ndefinition: cleanup\nprovider: shell\ndestroy: [destroy]\ntargets: [local]\n"
+	targets := BuildTargetIndex([]*yaml.Node{parse(t, localTarget2)})
+	p := mustCode(t, CheckDefinition("definitions/cleanup.yaml", parse(t, doc), ProviderIndex{"shell": builtinShellProviderInfo()}, targets), CodeOpaqueDestroyNotGranted)
+
+	for _, want := range []string{
+		// The extent: what opting in here would admit.
+		"every Definition bound to local",
+		// The other edit, in the vocabulary the corpus already
+		// uses for it — a declaration is class-local, and the
+		// narrowing is a second one of them (§4, §12, §13,
+		// ADR-0041).
+		"class-local declaration",
+	} {
+		if !strings.Contains(p.Message, want) {
+			t.Errorf("message = %q, want it to carry %q", p.Message, want)
+		}
+	}
+}
+
+// TestCheckDefinition_ASecondClassLocalDeclarationConfinesTheOptIn is what
+// holds the message above honest: the narrower grant it names is one the tool
+// actually admits, and it confines command-destroy authority to the Definitions
+// that bind the declaration carrying the opt-in (§3, ADR-0041, ADR-0103).
+//
+// Two class-local declarations, one opted in. The Definition binding it claims
+// its opaque destroy clean; the Definition binding the other is refused, and is
+// refused with the opted-in declaration sitting in the same namespace — which
+// is the whole of what makes this a grant per Target rather than per
+// repository.
+func TestCheckDefinition_ASecondClassLocalDeclarationConfinesTheOptIn(t *testing.T) {
+	teardown := "kind: target-declaration\ntarget: local-teardown\nclass: local\nkinds: [destroy]\ncapabilities: [shell]\nopaque-destroy: true\n"
+	targets := BuildTargetIndex([]*yaml.Node{parse(t, localTarget2), parse(t, teardown)})
+	providers := ProviderIndex{"shell": builtinShellProviderInfo()}
+
+	confined := "kind: definition\ndefinition: host-ops\nprovider: shell\ndestroy: [destroy]\ntargets: [local-teardown]\n"
+	if got := CheckDefinition("definitions/host-ops.yaml", parse(t, confined), providers, targets); len(got) != 0 {
+		t.Fatalf("CheckDefinition(host-ops) = %+v, want no problems", got)
+	}
+
+	outside := "kind: definition\ndefinition: snapshots\nprovider: shell\ndestroy: [destroy]\ntargets: [local]\n"
+	mustCode(t, CheckDefinition("definitions/snapshots.yaml", parse(t, outside), providers, targets), CodeOpaqueDestroyNotGranted)
+}

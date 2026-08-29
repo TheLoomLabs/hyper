@@ -1,0 +1,6 @@
+kind: definition
+definition: snapshots
+provider: shell
+kinds: [mutate]
+destroy: [destroy]
+targets: [local]

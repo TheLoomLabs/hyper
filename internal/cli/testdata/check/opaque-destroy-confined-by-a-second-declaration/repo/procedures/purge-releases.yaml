@@ -1,0 +1,12 @@
+kind: procedure
+procedure: purge-releases
+targets: [local-teardown]
+steps:
+  - id: purge-releases
+    definition: host-ops
+    operation: destroy
+    target: local-teardown
+    over:
+      values: [/srv/app/releases/r41, /srv/app/releases/r42]
+    args:
+      command: [rm, -rf, {item: $}]
