@@ -1,0 +1,15 @@
+kind: procedure
+procedure: verify-archive
+targets: [archive]
+steps:
+  - id: archive-sound
+    definition: archive-audit
+    operation: read
+    target: archive
+    args:
+      command: [sh, -c, 'sha256sum -c /srv/archive/SHA256SUMS']
+
+  # The verdict, as a halt. This Procedure claims read and nothing else, and
+  # the Run stops here where the check failed — in whatever invoked it too.
+  - id: sound
+    require: {step: archive-sound, field: exit_code, equals: 0}

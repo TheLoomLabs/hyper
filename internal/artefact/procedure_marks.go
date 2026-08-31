@@ -98,18 +98,27 @@ type ProcedureMarks struct {
 //
 // Targets is what the mark binds: the one Target a Step's target: names, as
 // written; or, on a nested invocation, the transitive envelope it reaches, in
-// name order — the envelope §3 states, walked to any depth.
+// name order — the envelope §3 states, walked to any depth. It is empty on a
+// Requirement, which reaches nothing.
+//
+// Requirement is whether the entry is one: a `require:` and an `id:`, binding
+// nothing and invoking nothing. Every other member of the mark is empty on
+// one, and that is the gutter's supply rule holding rather than a roster left
+// short — a Requirement's whole content is authored on the line the reviewer
+// is reading, so there is nothing `hyper` derived for a marker to carry (§8,
+// ADR-0026, ADR-0116).
 type StepMark struct {
-	Line       int
-	ID         string
-	Unresolved bool
-	Absent     AbsentName
-	Kind       string
-	Operation  string
-	Bounded    bool
-	Bound      string
-	Opaque     bool
-	Targets    []string
+	Line        int
+	ID          string
+	Requirement bool
+	Unresolved  bool
+	Absent      AbsentName
+	Kind        string
+	Operation   string
+	Bounded     bool
+	Bound       string
+	Opaque      bool
+	Targets     []string
 }
 
 // AbsentName is the name that resolved to nothing on a Step the gutter marks
@@ -171,11 +180,19 @@ func ReadProcedureMarks(root *yaml.Node, providers ProviderIndex, definitions De
 	memo := map[string]walkedReach{}
 	for _, entry := range stepsVal.Content {
 		line, _ := position(entry)
-		fields := topLevelFields(entry, "id", "definition", "operation", "target", "bound", "procedure")
+		fields := topLevelFields(entry, "id", "definition", "operation", "target", "bound", "procedure", "require")
 
 		id, _ := resolveScalar(fields["id"])
 
 		var mark StepMark
+		if fields["require"] != nil {
+			// A Requirement contributes to neither half of the envelope:
+			// it declares no Kind, so reading its empty one against the
+			// union would put every Procedure that halts on one outside
+			// its own envelope, and it binds no Target to compare.
+			marks.Steps = append(marks.Steps, StepMark{Line: line, ID: id, Requirement: true})
+			continue
+		}
 		if fields["procedure"] != nil {
 			mark = invocationMark(line, id, fields["procedure"], graph, memo)
 		} else {

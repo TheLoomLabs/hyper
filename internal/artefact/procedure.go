@@ -259,6 +259,21 @@ var invocationDeclaration = schema.Schema{
 	},
 }
 
+// requirementDeclaration is a Requirement's own schema — id: and require: in
+// place of both the binding and procedure: (§3, §4, ADR-0116).
+//
+// require: is Open here on stepDeclaration's own rule for when:: a single
+// predicate is a mapping keyed by a closed set the generic engine cannot
+// state, so the schema stops at "is this a mapping" and
+// checkConditionPredicate reads what is inside it.
+var requirementDeclaration = schema.Schema{
+	Type: schema.Object,
+	Properties: []schema.Property{
+		{Name: "id", Required: true, Schema: schema.Schema{Type: schema.String}},
+		{Name: "require", Required: true, Schema: schema.Schema{Type: schema.Object, Open: true}},
+	},
+}
+
 // ProcedureIndex maps a procedures/ file's own procedure: to whether it
 // exists — the namespace a nested invocation's procedure: resolves against
 // (§3, §4, issue #94).
@@ -416,25 +431,59 @@ type stepRefInfo struct {
 	op           OperationInfo
 	provider     ProviderInfo
 	haveProvider bool
+	// shape is which of `steps:`' three entry shapes declared this id. Every
+	// legible id is registered whatever its shape, so a reference naming one
+	// is told what it named rather than told the id is not there: an
+	// invocation and a Requirement each act on no Record, which is a
+	// different fault from a name nobody wrote and points at a different
+	// edit (§3, ADR-0099, ADR-0116, issue #236).
+	shape entryShape
 }
 
-// checkSteps walks stepsVal in order, dispatching each entry to the Step or
-// nested-invocation shape its own keys imply and threading a step: index
-// forward so a reference may resolve only against an id: written earlier in
-// the same list — never against one written later, and never across a
-// nested invocation's own boundary, Procedures composing by invoking one
-// another rather than by sharing a Step namespace (ADR-0002, §3, §4).
+// entryShape is which of the three shapes a `steps:` entry took — the Step
+// proper, the nested invocation, and the Requirement (§3, issue #236).
+type entryShape int
+
+const (
+	shapeStep entryShape = iota
+	shapeInvocation
+	shapeRequirement
+)
+
+// checkSteps walks stepsVal in order, dispatching each entry to the one of
+// `steps:`' three shapes its own keys imply — the Step, the nested
+// invocation, and the Requirement (§3, issue #236) — and threading a step:
+// index forward so a reference may resolve only against an id: written
+// earlier in the same list — never against one written later, and never
+// across a nested invocation's own boundary, Procedures composing by
+// invoking one another rather than by sharing a Step namespace (ADR-0002,
+// §3, §4).
+//
+// **Every legible id is threaded, whatever shape declared it**, and only a
+// Step's carries a binding for a later reference to read against. That is
+// what lets a reference naming one of the other two be told which shape it
+// found: an invocation and a Requirement each project no Record, which is a
+// different fault from a name nobody wrote and points at a different edit
+// (actsOnNoRecord).
 func checkSteps(file string, stepsVal *yaml.Node, providers ProviderIndex, definitions DefinitionIndex, procedures ProcedureIndex, declaredTargets, declaredKinds map[string]bool) []problem.Problem {
 	var problems []problem.Problem
 	stepIndex := map[string]stepRefInfo{}
 
 	for i, entry := range stepsVal.Content {
 		field := fmt.Sprintf("steps[%d]", i)
-		fields := topLevelFields(entry, "id", "definition", "operation", "target", "args", "over", "bound", "when", "procedure")
+		fields := topLevelFields(entry, "id", "definition", "operation", "target", "args", "over", "bound", "when", "procedure", "require")
 		hasProcedure := fields["procedure"] != nil
+		hasRequire := fields["require"] != nil
 		hasStepKeys := fields["definition"] != nil || fields["operation"] != nil || fields["target"] != nil
 
 		switch {
+		case hasRequire && (hasProcedure || hasStepKeys):
+			line, column := position(entry)
+			problems = append(problems, problem.Problem{
+				File: file, Line: line, Column: column, Field: field,
+				ErrorCode: schema.CodeMismatch,
+				Message:   "carries require: beside a binding or a procedure: — a Requirement names id: and require: and nothing else, and it is what a Procedure halts on rather than a Step it hangs a condition off",
+			})
 		case hasProcedure && hasStepKeys:
 			line, column := position(entry)
 			problems = append(problems, problem.Problem{
@@ -442,15 +491,92 @@ func checkSteps(file string, stepsVal *yaml.Node, providers ProviderIndex, defin
 				ErrorCode: schema.CodeMismatch,
 				Message:   "carries both procedure: and one of definition:/operation:/target: — a nested invocation names id: and procedure: in place of them",
 			})
+		case hasRequire:
+			problems = append(problems, schema.CheckAt(entry, requirementDeclaration, field, file)...)
+			problems = append(problems, checkConditionPredicate(file, field+".require", fields["require"], stepIndex)...)
+			registerEntryID(stepIndex, fields["id"], shapeRequirement)
 		case hasProcedure:
 			problems = append(problems, schema.CheckAt(entry, invocationDeclaration, field, file)...)
 			problems = append(problems, checkInvocationResolution(file, field, fields["procedure"], procedures)...)
+			registerEntryID(stepIndex, fields["id"], shapeInvocation)
 		default:
 			problems = append(problems, checkStepEntry(file, field, entry, fields, providers, definitions, stepIndex, declaredTargets, declaredKinds)...)
 		}
 	}
 	return problems
 }
+
+// registerEntryID puts one non-Step entry's id: into the reference index under
+// the shape that declared it, so a later reference naming it is answered with
+// what it named (§3, checkSteps, issue #236).
+func registerEntryID(stepIndex map[string]stepRefInfo, idVal *yaml.Node, shape entryShape) {
+	if id, ok := resolveScalar(idVal); ok {
+		stepIndex[id] = stepRefInfo{shape: shape}
+	}
+}
+
+// actsOnNoRecord is what a reference naming an entry of one of the two
+// Record-less shapes is told: which shape it named, and why nothing roots at
+// one.
+//
+// It is one sentence per shape rather than one for both. An invocation is the
+// boundary issue #236 was found at, and the sentence that names it names the
+// way across — the invoked Procedure's own `require:`, which is where §6 puts
+// a shared check's verdict (ADR-0002, ADR-0111, ADR-0116). A Requirement is
+// the other end of that same answer and reaches nothing either: it acts on no
+// Record, having made no call.
+//
+// `inAPredicate` is whether the name was written in a `when:` or a `require:`
+// rather than in an `args:` reference. Only the first has a way across to be
+// told about: a `require:` inside the invoked Procedure states the verdict a
+// caller wanted, where no value crosses that boundary in either direction and
+// a reference has nothing to be pointed at.
+//
+// It answers "" where the id names a Step, which is the shape that resolves.
+// One return rather than a string beside a bool: the bool would have read
+// *acts on no Record*, which is the negative the caller then branches on, and
+// the empty message is the same fact spelled the way every other reader of a
+// message in this file spells it.
+func actsOnNoRecord(id string, shape entryShape, inAPredicate bool) string {
+	switch {
+	case shape == shapeInvocation && inAPredicate:
+		return fmt.Sprintf("step: %s names a nested invocation, which projects no Record for a predicate to root at — and no Step of an invoked Procedure is referenceable from its caller, Procedures composing by invoking one another rather than by sharing a Step namespace (ADR-0002). A shared Procedure states its own verdict instead: a require: entry inside it halts the whole Run, and its later Steps and its caller's alike never run", id)
+	case shape == shapeInvocation:
+		return fmt.Sprintf("step: %s names a nested invocation, which projects no Record for a reference to read — no value crosses an invocation's boundary in either direction, Procedures composing by invoking one another rather than by sharing a Step namespace (ADR-0002)", id)
+	case shape == shapeRequirement:
+		return fmt.Sprintf("step: %s names a requirement, which makes no call and acts on no Record — a require: is what halts a Run rather than something a later line reads", id)
+	}
+	return ""
+}
+
+// unresolvableStepMessage is what a step: naming nothing this Procedure
+// declares is told. A dotted name earns a second sentence: it is an author
+// reaching into an invoked Procedure by the path the Journal writes, which is
+// the one guess this boundary reliably produces (ADR-0111).
+//
+// `inAPredicate` gates the way across, on actsOnNoRecord's own rule: a
+// `require:` inside the invoked Procedure states the verdict a `when:` wanted,
+// and it gets an `args:` reference nothing at all — no value crosses that
+// boundary in either direction, so pointing an author at a key that cannot
+// carry one would be worse than saying only what is true (ADR-0116).
+func unresolvableStepMessage(id string, inAPredicate bool) string {
+	message := fmt.Sprintf("step: %s names no id: this Procedure declares earlier", id)
+	if !reachesAcrossABoundary(id) {
+		return message
+	}
+	message += " — and no Step of an invoked Procedure is referenceable from its caller, whatever it is spelled (ADR-0002)"
+	if !inAPredicate {
+		return message + ", and no value crosses that boundary in either direction"
+	}
+	return message + ". A shared Procedure states its own verdict instead: a require: entry inside it halts the whole Run"
+}
+
+// reachesAcrossABoundary reports whether an unresolvable step: name is an
+// author reaching into an invoked Procedure — a dotted name, which is the
+// shape the path a Journal entry writes has and the shape an author guesses
+// from it (ADR-0111). It is decided by the name's own spelling, the way every
+// scalar in this grammar is read.
+func reachesAcrossABoundary(id string) bool { return strings.Contains(id, ".") }
 
 // checkInvocationResolution reports artefact-absent on a nested invocation's
 // procedure: naming no file in procedures/ (§3, §4).
@@ -532,7 +658,7 @@ func checkStepEntry(file, field string, entry *yaml.Node, fields map[string]*yam
 	problems = append(problems, checkStepEnvelope(file, field, entry, fields, declaredTargets, declaredKinds, op, haveOp)...)
 
 	if idVal, idOK := resolveScalar(fields["id"]); idOK {
-		stepIndex[idVal] = stepRefInfo{op: op, provider: provider, haveProvider: haveProvider}
+		stepIndex[idVal] = stepRefInfo{op: op, provider: provider, haveProvider: haveProvider, shape: shapeStep}
 	}
 	return problems
 }
@@ -1372,14 +1498,20 @@ func checkRecordPredicate(file, field string, node *yaml.Node, provider Provider
 	return problems
 }
 
-// checkConditionPredicate validates a when: condition: the shape and
-// operand types checkPredicateCore reads regardless of root, step:'s own
-// resolution against an id: this Procedure declares earlier, and field:'s
-// own two rules read against that earlier Step's own bound Provider — one
-// declared field name and never a path, resolved against the union of
-// every Operation that Provider declares (§3, §4, §12, issue #97). It says
-// nothing where whenVal is absent — a Step declaring no when: carries no
-// condition and draws no code here.
+// checkConditionPredicate validates a when: condition or a Requirement's
+// require:, which are one predicate at one root: the shape and operand types
+// checkPredicateCore reads regardless of root, step:'s own resolution against
+// an id: this Procedure declares earlier, and field:'s own two rules read
+// against that earlier Step's own bound Provider — one declared field name and
+// never a path, resolved against the union of every Operation that Provider
+// declares (§3, §4, §12, issue #97, issue #236). It says nothing where whenVal
+// is absent — a Step declaring no when: carries no condition and draws no code
+// here.
+//
+// The two keys share this check because they share the root: a `require:` is a
+// condition's predicate read for a different answer, and a second check would
+// be a second reading of one grammar (§12, ADR-0116). What differs is the
+// field path the problems carry, which the caller supplies.
 func checkConditionPredicate(file, field string, whenVal *yaml.Node, stepIndex map[string]stepRefInfo) []problem.Problem {
 	if whenVal == nil {
 		return nil
@@ -1401,7 +1533,13 @@ func checkConditionPredicate(file, field string, whenVal *yaml.Node, stepIndex m
 		problems = append(problems, problem.Problem{
 			File: file, Line: stepVal.Line, Column: stepVal.Column, Field: field + ".step",
 			ErrorCode: CodeReferenceUnresolvable,
-			Message:   fmt.Sprintf("step: %s names no id: this Procedure declares earlier", stepVal.Value),
+			Message:   unresolvableStepMessage(stepVal.Value, true),
+		})
+	} else if message := actsOnNoRecord(stepVal.Value, ref.shape, true); message != "" {
+		problems = append(problems, problem.Problem{
+			File: file, Line: stepVal.Line, Column: stepVal.Column, Field: field + ".step",
+			ErrorCode: CodeReferenceUnresolvable,
+			Message:   message,
 		})
 	} else {
 		provider, haveProvider = ref.provider, ref.haveProvider
@@ -1775,7 +1913,14 @@ func checkStepReference(file, field string, ref reference, input InputInfo, step
 		return append(problems, problem.Problem{
 			File: file, Line: line, Column: column, Field: field + ".step",
 			ErrorCode: CodeReferenceUnresolvable,
-			Message:   fmt.Sprintf("step: %s names no id: this Procedure declares earlier", ref.step),
+			Message:   unresolvableStepMessage(ref.step, false),
+		})
+	}
+	if message := actsOnNoRecord(ref.step, target.shape, false); message != "" {
+		return append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field + ".step",
+			ErrorCode: CodeReferenceUnresolvable,
+			Message:   message,
 		})
 	}
 	if target.op.HasSeries {

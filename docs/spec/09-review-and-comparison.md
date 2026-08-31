@@ -63,6 +63,14 @@ Manifest fact, exactly as a Kind is, and the gutter carries it for the reason it
 `hyper` cannot describe is not readable from the Step's own lines. A nested Procedure invocation
 renders under the invoking Step's path with the transitive envelope §3 states.
 
+**A Requirement's line carries no marker at all**, and that is the supply rule holding rather than a
+roster left short. It binds no Target, declares no Kind and reaches nothing, so there is no derived fact
+for a cell to hold — its whole content is on the line being read: an `id:`, a Step of this same file,
+one field name and one operator. An empty cell would be the gutter claiming to have looked (ADR-0026).
+What it does not do to `AUTHORITY` is the point of it: a Procedure that halts on one claims nothing for
+halting, so the table reads `r` on a read-only check rather than the `m` it had to claim before this
+existed (§5, ADR-0111, ADR-0116).
+
 **Where a name the gutter must follow resolves to nothing, the marker is `unresolved`.** A review does
 not run `check` (§9) and does not decline, so a Step whose `definition:`, `operation:` or bound
 Provider is not there renders like any other line with the mark its derivation would have carried:
@@ -1183,6 +1191,13 @@ whose author can act. That is also what keeps a caret off a Manifest verified by
 `store-schema-unsupported`'s problem below arriving on an artefact rather than on evidence. The `=` note beneath it carries the
 phase §7 derives from the code — `= checked at run start, before the first step` — which is what tells
 a reader this Refusal preceded execution rather than halted it.
+
+**There is a third phase, and one check reaches it.** A predicate that cannot decide inside a
+Requirement Refuses after the Step it reads has already run and before any Step after it has, which
+neither of the other two notes says, so the note is its own: `= checked at a requirement, after the step
+it reads and before any step after it`. It is derived from the member's own shape rather than from a
+map of codes, on the rule above: a Requirement takes no position in the sequence (§6), so its member
+names a `step_id` and no `step`, and it is the only member of the set that does.
 
 The one exception is `store-schema-unsupported`, which **renders no caret**. The file it cites is a
 Store file: evidence rather than an artefact, and editing it is editing evidence (ADR-0011). A caret

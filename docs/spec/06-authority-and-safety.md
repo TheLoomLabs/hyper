@@ -5,7 +5,8 @@ five artefacts by construction, and `check` refuses the rest before the first ef
 world. No confirmation happens at execution time and no per-Run approval exists; CI runs unattended,
 and every guardrail below is checked before that unattended Run starts. This chapter states what
 stands between an authored artefact and the world, in full: the two keys a Step must satisfy, the
-envelope composition cannot widen, what an `opaque` `destroy` additionally needs, the Bound a
+envelope composition cannot widen, the halt a check performs without claiming anything, what an
+`opaque` `destroy` additionally needs, the Bound a
 `destroy` Step cannot omit, the reach a selector is granted by Kind, and the terminal outcome all of
 it ends in when it declines rather than runs.
 
@@ -20,6 +21,27 @@ check and its error codes are §4's (`kind-not-granted`, `operation-not-claimed`
 A Procedure's transitive Target and Kind envelope — everything reachable through every Procedure it
 invokes, to any depth — is checked before either runs, so composition cannot widen blast radius by
 accident (`envelope-exceeded`, §4).
+
+## A check needs no authority to stop the work
+
+A Requirement halts the Run where its predicate does not hold (§3, §6), and it claims nothing to do it:
+no Kind, no Target, no Bound, no call. A Procedure whose Steps are all `read` and whose last entry is a
+Requirement is read-only in authority terms and is still able to stop everything downstream of it,
+including in whatever invoked it — one Run has one outcome however deep the invocation goes (§6).
+
+**That is stated in this chapter because its absence was an authority fault.** Until it existed the only
+thing that halted was an effectful Operation, so a shared check that had to be able to fail had to end
+in a Step claiming `mutate` on the Target it was protecting. Everything about that was correct and it
+read as the opposite of what it was: `review`'s authority table rendered effective `m` for a Procedure
+that writes nothing, on the one artefact where a reviewer most relies on that column, and the Refusal
+path became an effect path — a check could not protect a Target it was not also authorised to write
+(ADR-0111, ADR-0116).
+
+A Requirement is not a guardrail and its halt is not a Refusal. It reaches its verdict against a Record
+an earlier Step produced, so a call has already gone out, which is exactly what makes it a halt
+(ADR-0072): the Run is `failed`, it carries no `error_code`, and what the Steps before it did stands.
+The one thing at a Requirement that *is* a Refusal is a predicate that cannot decide, which Refuses
+wherever it stands (`predicate-type-mismatch`, ADR-0035).
 
 ## `opaque` and `destroy`
 

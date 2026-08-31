@@ -400,3 +400,107 @@ func errorCodesIn(t *testing.T, stream string) []string {
 	}
 	return codes
 }
+
+// TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts is issue #236's own
+// fence, on the Bound rule's footing above.
+//
+// The orientation now teaches the shape that ticket exists for: a shared check
+// that halts on a `require:` of its own rather than claiming `mutate` in order
+// to be able to fail (ADR-0111, ADR-0116). It is the highest-stakes sentence in
+// the text — an agent that does not believe it authors an effectful Step on the
+// one artefact whose point is that it writes nothing — so the fragment is
+// written into a repository and checked rather than read.
+//
+// **And the wall it names is held too.** The paragraph tells an agent that no
+// `when:` reaches across an invocation, which is the claim the sealed run of
+// 2026-08-30 spent three Refusals discovering (ADR-0111). A text that said so
+// while `check` had come to accept it would be teaching an artefact nobody can
+// author, so both halves are held to the checker: the `require:` checks clean
+// and the `when:` across the boundary does not.
+func TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts(t *testing.T) {
+	requirement := taughtRequirement(t, mcp.Instructions("1.4.0"))
+
+	base := map[string]string{
+		"hyper.yaml": validHyperYAML,
+		"targets/archive.yaml": "kind: target-declaration\ntarget: archive\nclass: local\n" +
+			"kinds: [read]\ncapabilities: [shell]\n",
+		"targets/local.yaml": "kind: target-declaration\ntarget: local\nclass: local\n" +
+			"kinds: [read, mutate]\ncapabilities: [shell]\n",
+		"definitions/archive-audit.yaml": "kind: definition\ndefinition: archive-audit\nprovider: shell\n" +
+			"kinds: [read]\ntargets: [archive]\n",
+		"definitions/live-ops.yaml": "kind: definition\ndefinition: live-ops\nprovider: shell\n" +
+			"kinds: [mutate]\ntargets: [local]\n",
+		"procedures/verify-archive.yaml": "kind: procedure\nprocedure: verify-archive\ntargets: [archive]\nsteps:\n" + requirement,
+	}
+	promote := func(gate string) string {
+		return "kind: procedure\nprocedure: promote\ntargets: [archive, local]\nsteps:\n" +
+			"  - {id: verify, procedure: verify-archive}\n" +
+			"  - id: swap\n    definition: live-ops\n    operation: mutate\n    target: local\n" +
+			"    bound: 1\n" + gate +
+			"    args:\n      command: [sh, -c, \"ln -sfn /srv/archive/wanted /srv/live/current\"]\n"
+	}
+
+	for _, c := range []struct {
+		name string
+		gate string
+		code string
+	}{
+		{name: "the check halts on its own require:", gate: ""},
+		{
+			name: "the caller conditions on the invocation",
+			gate: "    when: {step: verify, field: exit_code, equals: 0}\n",
+			code: artefact.CodeReferenceUnresolvable,
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			root := t.TempDir()
+			for path, content := range base {
+				writeFile(t, filepath.Join(root, path), content)
+			}
+			writeFile(t, filepath.Join(root, "procedures/promote.yaml"), promote(c.gate))
+
+			var stdout, stderr bytes.Buffer
+			exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, cli.Streams(&stdout, &stderr), emptyEnvironment, t.TempDir(), "1.4.0")
+			codes := errorCodesIn(t, stdout.String())
+
+			switch {
+			case c.code == "" && exit != cli.ExitClean:
+				t.Fatalf("check declines the shared check the orientation teaches with %v (exit %d)\n%s", codes, exit, stderr.String())
+			case c.code != "" && !slices.Contains(codes, c.code):
+				t.Fatalf("check answers %v and not %s (exit %d); the orientation says this boundary holds", codes, c.code, exit)
+			}
+		})
+	}
+}
+
+// taughtRequirement is the `steps:` fragment the orientation's shared-check
+// paragraph carries, indented as a `steps:` list already is there.
+//
+// **Exactly one such block, and that is an assertion.** The orientation is a
+// budget paid on every session (ADR-0093), and what it may carry about this is
+// one shape to transcribe — a second fenced `require:` is a manual growing
+// inside the text, and none is the rule gone from it.
+func taughtRequirement(t *testing.T, instructions string) string {
+	t.Helper()
+
+	var carried []string
+	var block []string
+	fenced := false
+	for _, line := range strings.Split(instructions, "\n") {
+		switch {
+		case fenced && line == "```":
+			if slices.ContainsFunc(block, func(l string) bool { return strings.Contains(l, "require:") }) {
+				carried = append(carried, strings.Join(block, "\n")+"\n")
+			}
+			block, fenced = nil, false
+		case fenced:
+			block = append(block, line)
+		case line == "```yaml":
+			fenced = true
+		}
+	}
+	if len(carried) != 1 {
+		t.Fatalf("the orientation carries %d fenced blocks writing a require:, want exactly one", len(carried))
+	}
+	return carried[0]
+}

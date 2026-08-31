@@ -33,7 +33,7 @@ Editing it by hand is editing evidence.
   "provenance": {
     "hyper_version": "1.4.0",
     "procedure_revision": "62d0ad701e74829513af8d7f075f2ce9ab23527c",
-    "repo_revision": "a9bad3a3f73a5ff8e11f768b3ede782acf588cfb"
+    "repo_revision": "c20d4294cd017addb178df3b6b8e41091e090da6"
   },
   "run_id": "01991f11-b118-7c93-8d41-6b2f7ae05c48",
   "schema_version": 1,
@@ -101,7 +101,7 @@ Editing it by hand is editing evidence.
     "hyper_version": "1.4.0",
     "manifest_digest": "sha256:14dff2145a882b17342788a65185d2e29f328075e6fc6c18b17d5d5ed120f147",
     "procedure_revision": "62d0ad701e74829513af8d7f075f2ce9ab23527c",
-    "repo_revision": "a9bad3a3f73a5ff8e11f768b3ede782acf588cfb"
+    "repo_revision": "c20d4294cd017addb178df3b6b8e41091e090da6"
   },
   "record_type": "observation",
   "run_id": "01991f11-b118-7c93-8d41-6b2f7ae05c48",

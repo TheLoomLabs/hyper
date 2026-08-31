@@ -1,0 +1,26 @@
+kind: procedure
+procedure: publish-required
+targets: [local, cloudflare-prod]
+steps:
+  - id: status
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev
+
+  # A rehearsal reads this: it makes no call and reaches no Target, and one
+  # that walked past the check being rehearsed would answer a question nobody
+  # asked.
+  - id: sound
+    require: {step: status, field: status, equals: 200}
+
+  - id: publish
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: preview-42.example.com
+      type: A
+      content: 203.0.113.10

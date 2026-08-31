@@ -666,7 +666,8 @@ it speaks about and the Run speaking.
 alone, which a counter is not (ADR-0006). `<closer-run-id>` is one of these belonging to another entry,
 which is what a `closed-by/` file's whole content omits: nothing inside it restates its own path. `<yyyy>/<mm>/<dd>` is the UTC date of the Run's start.
 `<nnnn>` is the Step's position in the Run's written order, the first Step `0001`, a nested Procedure's
-Steps counted in that order — the invocation itself being no Step and writing no file (§7) —
+Steps counted in that order — the invocation itself being no Step and writing no file, and a Requirement
+being neither for the same three reasons (§6, §7) —
 zero-padded to four digits and widening beyond four rather than wrapping; it names a Record version as
 well as a Step file, so two Steps of one Run writing one identity write two paths rather than one
 twice.
@@ -720,6 +721,11 @@ true` producing an identical filter, and it is the spelling where one character 
 A selector (`over:`) roots at the Record being filtered; a condition (`when:`) roots at a named earlier
 Step's Record and carries `step:` beside `field:`; a polling Pattern's `until:` roots at the response
 object in hand (§3, and the object above).
+
+**Three roots and four positions.** A Requirement's `require:` is the condition's root written under
+another key and read for another answer — the same `step:` beside the same `field:`, the same eleven
+operators, and the same one Record root — so it adds a position and no root, and every rule below that
+holds of a condition holds of it (§3, §6, ADR-0116).
 
 At the two Record roots a `field:` is **one declared field name** — a key of the Manifest's `fields:`
 mapping (§3) — and nothing else: no descent, no brackets, no path. There is nothing there for a path to

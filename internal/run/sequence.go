@@ -3,6 +3,8 @@ package run
 import (
 	"fmt"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/store"
@@ -20,6 +22,12 @@ import (
 // describes one, it writes no file, and it takes no position in the sequence —
 // so this walk emits what it reaches through an invocation and never the
 // invocation.
+//
+// **Nor is a Requirement**, on the same three grounds. It is walked all the
+// same, because unlike an invocation it is something that happens: it is
+// collected beside the Steps, each one holding the position of the Step it
+// stands in front of, so the engine evaluates it in written order without
+// giving it a number the Journal would have to account for (§6, ADR-0116).
 //
 // **There is no depth limit**, because the invocation graph is static and a
 // cycle is rejected before the first Step (§6, ADR-0002). What rejects it is
@@ -62,6 +70,39 @@ type sequenced struct {
 	// reason, and it is neither the path nor a member of any file: it exists
 	// while the Run is in flight and is written nowhere.
 	Namespace int
+}
+
+// requirement is one Requirement of a Run's flattened sequence: the predicate
+// it carries, where it was authored, and the Step it stands in front of.
+//
+// It carries a namespace for the reason a Step does — an id is unique inside
+// one Procedure and says nothing across two — and it carries no position,
+// because it takes none (§3, §6, sequenced).
+type requirement struct {
+	// Require is the `require:` mapping as authored: a predicate at the
+	// condition's own root, `step:` beside `field:` (§3, §12).
+	Require *yaml.Node
+	// ID is the Requirement's authored `id:`, and Path the invocation chain
+	// it was reached through ending in that id — the two names a halt at
+	// this Requirement is reported by, on a Step's own rule (§7).
+	ID, Path string
+	// Declared is the Procedure file it was authored in, Index its position
+	// in that file's own `steps:` and Line where its entry begins: the
+	// artefact coordinate a Refusal at it cites, which is the only
+	// coordinate it has (§7, ADR-0061).
+	Declared repository.LoadedArtefact
+	Index    int
+	Line     int
+	// Namespace is the id namespace its `step:` resolves against, numbered
+	// as the walk reached it (sequenced).
+	Namespace int
+	// Before is the index into the Run's Steps of the Step this Requirement
+	// stands in front of, and len(Steps) where it stands after the last one
+	// the Run holds. Written order is the whole of what it encodes: a
+	// Requirement authored last inside an invoked Procedure stands in front
+	// of the caller's next Step, which is exactly what makes a shared check
+	// gate the Procedure that invoked it (§6, ADR-0116).
+	Before int
 }
 
 // identity is one Record identity this Step writes under: the Target and
@@ -110,6 +151,11 @@ type sequence struct {
 	// Step 1; the reading that is not unreachable is the lock, which is
 	// taken before `check` has re-run (lock.go).
 	Whole bool
+	// Requirements is every Requirement the Run holds, in written order,
+	// each carrying the index of the Step it stands in front of. They are
+	// beside the Steps rather than among them because a Requirement takes
+	// no position in the sequence (§6, ADR-0116).
+	Requirements []requirement
 	// Cycle is the Procedure an invocation named that the walk was already
 	// inside of, and "" where the graph is acyclic. Both are `check`'s to
 	// refuse at the gate §6 puts before Step 1 — an invocation naming
@@ -147,6 +193,19 @@ func flatten(loaded repository.Loaded, procedure string) sequence {
 			walked.Procedures = append(walked.Procedures, file)
 		}
 		for index, step := range artefact.ReadProcedureSteps(file.Root) {
+			if step.IsRequirement() {
+				walked.Requirements = append(walked.Requirements, requirement{
+					Require:   step.Require,
+					ID:        step.ID,
+					Path:      pathUnder(prefix, step.ID),
+					Declared:  file,
+					Index:     index,
+					Line:      step.Line,
+					Namespace: namespace,
+					Before:    len(walked.Steps),
+				})
+				continue
+			}
 			if !step.IsInvocation() {
 				walked.Steps = append(walked.Steps, sequenced{
 					Step:      step,

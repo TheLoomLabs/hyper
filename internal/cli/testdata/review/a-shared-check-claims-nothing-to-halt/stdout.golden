@@ -1,0 +1,25 @@
+  PROCEDURE              │  procedures/verify-archive.yaml          no baseline — no Store
+  ───────────────────────┼────────────────────────────────────────────────────────────────
+                         │ kind: procedure
+                         │ procedure: verify-archive
+  envelope ✓             │ targets: [archive]
+                         │ steps:
+  read  opaque  archive  │   - id: archive-sound
+                         │     definition: archive-audit
+                         │     operation: read
+                         │     target: archive
+                         │     args:
+                         │       command: [sh, -c, 'sha256sum -c /srv/archive/SHA256SUMS']
+                         │
+                         │   # The verdict, as a halt. This Procedure claims read and nothing else, and
+                         │   # the Run stops here where the check failed — in whatever invoked it too.
+                         │   - id: sound
+                         │     require: {step: archive-sound, field: exit_code, equals: 0}
+
+  AUTHORITY   assembled from definitions/ and targets/
+  DEFINITION     TARGET   DEFINITION KINDS  TARGET KINDS  EFFECTIVE  DESTROY OPS
+  archive-audit  archive  read              read          r          —
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  OPAQUE    line 5  step archive-sound  read reaches an effect hyper cannot describe
+  ENVELOPE  line 3  ok                  no step reaches a target outside [archive]

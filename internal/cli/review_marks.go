@@ -206,6 +206,14 @@ func procedureMarkers(marks artefact.ProcedureMarks) []reviewMarker {
 		markers = append(markers, reviewMarker{line: line, whole: state.page(), wholeWire: state.wire()})
 	}
 	for _, step := range marks.Steps {
+		// **A Requirement draws no marker at all.** The gutter carries what
+		// `hyper` derived and a Requirement's whole content is on the line
+		// being read — an id, a Step of this same file, and one operator —
+		// so there is nothing here to annotate. An empty cell would be the
+		// gutter claiming to have looked (§8, ADR-0026, ADR-0116).
+		if step.Requirement {
+			continue
+		}
 		markers = append(markers, newStepMarker(step))
 	}
 	return markers

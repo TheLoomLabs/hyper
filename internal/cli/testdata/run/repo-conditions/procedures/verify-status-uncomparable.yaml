@@ -1,0 +1,13 @@
+kind: procedure
+procedure: verify-status-uncomparable
+targets: [local]
+steps:
+  - id: status-sound
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev
+
+  - id: sound
+    require: {step: status-sound, field: host, greater_than: 10}

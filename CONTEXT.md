@@ -89,12 +89,22 @@ _Avoid_: Model, Instance, Config, Binding, Profile
 
 **Procedure**:
 An ordered set of Steps, declaring the full set of Targets it may touch. Procedures contain Steps
-directly — there is no grouping level between them — and compose by invoking one another.
+directly — there is no grouping level between them — and compose by invoking one another. What is
+sequenced beside those Steps, taking no position among them, is the Requirement each one may be
+stopped by.
 _Avoid_: Workflow, Playbook, Pipeline, Job
 
 **Step**:
 One entry in a Procedure: a single Operation, invoked through a Definition, against one Target.
 _Avoid_: Task, Job, Stage
+
+**Requirement**:
+An entry in a Procedure carrying an `id:` and a predicate and nothing else: where the predicate holds
+of what an earlier Step of the same Procedure acted on, the Run goes on; where it does not, the Run
+halts. It is not a Step — it binds no Target, invokes no Operation, declares no Kind and writes no
+Journal file — which is what lets a shared, read-only check stop the Procedure that invoked it without
+claiming authority over anything.
+_Avoid_: Assertion, Guard, Gate, Precondition, Check
 
 **Bound**:
 The maximum number of Records an effectful Step may affect, declared by the Step's author. Mandatory

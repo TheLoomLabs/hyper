@@ -190,12 +190,18 @@ names one in a **`repo-from`** file instead, and the ones here are:
   nested Procedure halts, and one flat four-Step Procedure that halts at its
   second. A Procedure invoking another runs as **one** Run, so what these drive
   is one entry, one outcome and one exit code however deep the invocation goes.
-- [`repo-conditions/`](repo-conditions) — the condition (issue #141): the same
-  `uptime` Manifest with `check_named` beside `check_http`, and four Procedures —
-  one Step guarded by a `when:`, two guarded in sequence, one whose guarded Step
-  carries a selector that would Refuse, and one whose condition is handed a value
-  it cannot compare. Each case serves its own `status`, so what decides whether a
-  condition holds is the case's `serve/` and the artefacts are shared.
+- [`repo-conditions/`](repo-conditions) — the condition and the Requirement
+  (issues #141, #236): the same `uptime` Manifest with `check_named` beside
+  `check_http`, and seven Procedures. Four are the condition — one Step guarded
+  by a `when:`, two guarded in sequence, one whose guarded Step carries a
+  selector that would Refuse, and one whose condition is handed a value it
+  cannot compare. Three are the Requirement: `verify-status`, a read-only check
+  whose last entry is a `require:`; `promote-status`, which invokes it and then
+  writes; and `verify-status-uncomparable`, whose `require:` is handed a value
+  its operator cannot read. Each case serves its own `status`, so what decides
+  whether a condition holds or a requirement is met is the case's `serve/` and
+  the artefacts are shared — the two `promote-status` cases differ in nothing but
+  the status `status.hyper.dev` answers.
 - [`repo-expansion/`](repo-expansion) — the Expansion (issue #139): the same
   `uptime` Manifest with two Operations beside `check_http` — `check_named`,
   whose `identity:` is a template hole and therefore resolves **before** the
@@ -287,7 +293,13 @@ names one in a **`repo-from`** file instead, and the ones here are:
   are two different rows; `read` then `destroy` over an `assets:` selector, so
   that the stop is driven on both effectful Kinds; and the first of them again
   with a `when:` on the `mutate` that the `read` in front of it does **not**
-  satisfy. It is a repository of its own for `repo-bounded`'s reason above.
+  satisfy. A fourth arrived with the Requirement (issue #236): the same shape
+  with a `require:` between the `read` and the `mutate`, driven both ways by
+  the status the case serves — held, and the rehearsal stops at `publish` as it
+  always did; unheld, and the Run halts there instead, `failed` at `1`. A
+  rehearsal reads a Requirement because it makes no call, and one that walked
+  past the check being rehearsed would answer a question nobody asked. It is a
+  repository of its own for `repo-bounded`'s reason above.
 
   Its cases serve the `read`'s host and **not** `api.cloudflare.com`, which is
   what makes *no call went out* an assertion rather than a hope: a rehearsal

@@ -7,6 +7,14 @@ turned the verdict into a halt with an effectful Step: the read-only archive che
 on `local` in order to be able to fail. It said so to the reviewer in as many words. That is issue
 #236, and the second of issue #232's three runs.
 
+_[ADR-0116](0116-a-requirement-halts-and-claims-nothing-to-do-it.md) amends this:_ a shared check gates
+its callers now. A `steps:` entry carrying an `id:` and a `require:` halts the Run where its predicate
+does not hold, binding nothing and claiming no Kind — so the artefact this run had to author, and the
+sentence above that reads it as a standing property of the tool, are both a record of what `hyper` was
+before that decision. What is unamended is everything below about the run itself: the artefacts it
+wrote, the Refusals it met, and the reasoning it disclosed were all correct against the boundary as it
+stood.
+
 **The trap the task was built around never fired.** `release-promotion` was written so that the
 natural first draft declares `targets: [local]` on both routes and meets `envelope-exceeded` at the
 invocation (issue #225). This session's first draft declared `targets: [archive, local]` and the
@@ -94,7 +102,9 @@ sound ground: an invocation writes no Journal file and projects no Record, so th
 a predicate to root at.
 
 So the two things the task asks for are, today, mutually exclusive: **a check may be shared, or it may
-gate, and not both.** What the session did with that is the run's best moment. It moved the halt
+gate, and not both.** _[ADR-0116](0116-a-requirement-halts-and-claims-nothing-to-do-it.md) amends this:_
+they are not, and the way across is a `require:` entry inside the shared Procedure. What the session did
+with that is the run's best moment. It moved the halt
 *inside* the shared check:
 
 ```yaml
@@ -119,7 +129,9 @@ the machine it is protecting. The session named the cost to the reviewer itself:
 
 **That inverts the Kind axis on the one artefact where it matters most.** A reviewer reading
 `verify-archive` sees `m` in the authority table and an `OPAQUE` flag on a Step that writes nothing at
-all. It is issue #236.
+all. It is issue #236. _[ADR-0116](0116-a-requirement-halts-and-claims-nothing-to-do-it.md) amends
+this:_ the check claims nothing now, so `review` renders it `r`; and the three Refusals above are each
+answered with what the name found and, where there is one, with the way across.
 
 **A second consequence of the same boundary**: an invocation admits `id:` and `procedure:` and nothing
 else — no `args:`, no `over:`, no `when:`, no `bound:` — so a shared Procedure is a fixed,
@@ -232,6 +244,8 @@ the boundary, not the workaround.
   meets `envelope-exceeded` remains unknown after three runs of the harness.
 - **`release-promotion` stands as authored**, and issue #238 carries the argument for a task that can
   reach the Refusal.
+- **Issue #236 is answered by ADR-0116.** The `mutate`-to-halt below stands as the correct
+  construction under the boundary as it was; the boundary is what moved.
 - **Three defects, ticketed with this transcript as their evidence**: issue #236 (a shared check cannot
   gate its callers, so it must claim effectful authority to halt), issue #237 (the orientation does not
   mention composition, and an invocation's key set is closed and undocumented), issue #238 (the

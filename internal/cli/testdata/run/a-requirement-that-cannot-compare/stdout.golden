@@ -1,0 +1,18 @@
+STEP  ID            KIND  DISPOSITION  RECORDS
+1     status-sound  read  ran          1
+
+refused: predicate-type-mismatch
+
+  procedures/verify-status-uncomparable.yaml:13
+   12 │   - id: sound
+   13 │     require: {step: status-sound, field: host, greater_than: 10}
+      │              ^ on the Record step status-sound acted on, field: host holds the string "status.hyper.dev", and greater_than: takes a number
+      │
+      = checked at a requirement, after the step it reads and before any step after it
+      = no flag overrides this (ADR-0001) — the way past is an artefact edit
+
+EDIT ONE OF
+FILE                                        LINE  FIELD
+procedures/verify-status-uncomparable.yaml  13    steps[1].require.greater_than
+
+refused · exit 77 · run 01991f2a-0000-7c93-8d41-6b2f7ae05c03

@@ -887,7 +887,7 @@ not `run_show` — and it puts `install`, `store init` and `compact` out of reac
 which is true of both, rather than as *absent from this surface*, which is true only of the server and
 is read as permission by the reader holding a terminal.
 
-It states ten things, each of them something the tool set cannot teach. Every tool carries a
+It states eleven things, each of them something the tool set cannot teach. Every tool carries a
 description and `operation` goes further — it answers *the Manifest's own lines, verbatim*, which
 teaches the authoring format at the moment a caller needs it — but all of them arrive with a call
 already in mind, and none of these is about a call:
@@ -906,6 +906,15 @@ already in mind, and none of these is about a call:
   otherwise. Narration is not an outcome — `probe` prints `no response arrived` and exits `0` — and an
   agent that reads the prose beside a result rather than its Disposition reports a Run that halted when
   none did.
+- **That a Procedure invokes another, that nothing reaches across that boundary, and that a shared
+  check therefore halts on a `require:` of its own.** Three facts and one paragraph, because separately
+  none of them is actionable: an agent that knows composition exists and not the boundary writes a
+  `when:` on the invocation, and one that knows the boundary and not the `require:` does what the sealed
+  run of 2026-08-30 did — moves the halt inside the check with a `mutate` Step that exits non-zero,
+  which puts effectful authority on the one artefact whose point is that it writes nothing (ADR-0111,
+  ADR-0116). Nothing else in this text mentions composition at all, and the worked Procedure is a flat
+  list of Steps. The `require:` fragment is held to `check` by a case, on the Bound's own footing
+  (`TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts`).
 - **Where the record lives**: the account is a branch of this repository — `hyper-store`, append-only,
   never checked out — so the working tree shows nothing of it and it travels with a clone like any other
   branch. It is stated in the paragraph about **reading the record back**, beside the four commands that do

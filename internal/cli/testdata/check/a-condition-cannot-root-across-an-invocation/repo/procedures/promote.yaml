@@ -1,0 +1,33 @@
+kind: procedure
+procedure: promote
+targets: [archive, local]
+steps:
+  - id: verify
+    procedure: verify-archive
+
+  - id: swap-on-the-invocation
+    definition: live-ops
+    operation: mutate
+    target: local
+    bound: 1
+    when: {step: verify, field: exit_code, equals: 0}
+    args:
+      command: [sh, -c, 'ln -sfn /srv/archive/wanted /srv/live/current']
+
+  - id: swap-on-a-nested-step
+    definition: live-ops
+    operation: mutate
+    target: local
+    bound: 1
+    when: {step: verify.archive-sound, field: exit_code, equals: 0}
+    args:
+      command: [sh, -c, 'ln -sfn /srv/archive/wanted /srv/live/current']
+
+  - id: swap-on-a-bare-nested-step
+    definition: live-ops
+    operation: mutate
+    target: local
+    bound: 1
+    when: {step: archive-sound, field: exit_code, equals: 0}
+    args:
+      command: [sh, -c, 'ln -sfn /srv/archive/wanted /srv/live/current']

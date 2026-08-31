@@ -1,0 +1,5 @@
+kind: target-declaration
+target: archive
+class: local
+kinds: [read]
+capabilities: [shell]

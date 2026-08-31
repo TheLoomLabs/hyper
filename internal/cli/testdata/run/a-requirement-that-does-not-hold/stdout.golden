@@ -1,0 +1,5 @@
+STEP  ID                          KIND  DISPOSITION    RECORDS
+1     verify-status.status-sound  read  ran            1
+2     promote                     read  never-reached  –
+
+failed · exit 1 · run 01991f2a-0000-7c93-8d41-6b2f7ae05c02

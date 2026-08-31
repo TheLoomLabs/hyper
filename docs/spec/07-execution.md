@@ -37,8 +37,8 @@ Every one of those gates declines before Step 1, which is most of the closed `er
 than a corner of it: `check` re-runs in full, so all of §4's static codes reach a Run this way
 (ADR-0061). Where one declines, the Run is `refused` and the Journal entry holds what declined it
 (§7). This chapter states what happens after all of it: the order Steps go in, what re-running one
-means, what a condition may read, what runs concurrently, what a failure does to the rest of the Run,
-and the three outcomes all of it ends in.
+means, what a condition may read, what a Requirement halts on, what runs concurrently, what a failure
+does to the rest of the Run, and the three outcomes all of it ends in.
 
 ## The sequence
 
@@ -50,9 +50,11 @@ later one is a load error rather than a race (§3).
 A Procedure invoking another does not start a second Run. The invoked Procedure's Steps are Steps of
 the one Run, recorded under a path — `deploy.provision.create-vm` — and a halt inside a nested
 Procedure is a halt of the whole. One Run has one outcome, one Journal entry, and one exit code
-however deep the invocation goes. The invocation graph is static, so a cycle is rejected before the
-first Step — by `check`, which reports it as `procedure-cycle` at the invocation entry that closes
-the loop (§4) — and no depth limit exists (ADR-0002).
+however deep the invocation goes. **That is what a Requirement inside a shared Procedure gates its
+callers by** (below): it stops the Run, and stopping the Run stops everything the caller had left.
+The invocation graph is static, so a cycle is rejected before the first Step — by `check`, which
+reports it as `procedure-cycle` at the invocation entry that closes the loop (§4) — and no depth limit
+exists (ADR-0002).
 
 ## No inputs
 
@@ -157,6 +159,33 @@ Run's Record, which is the one thing the rule above states it may not do. And it
 earlier optional Step being skipped is an ordinary occurrence, and Refusing on it would make the
 Procedure un-runnable with no exit but an edit to a reviewed artefact (ADR-0001). A skip propagates,
 which is what a reader of the artefact would predict.
+
+## Requirements
+
+**A Requirement is evaluated where it is written**, in the same order the Steps around it are, and
+before the Step that follows it starts. It resolves like a `when:` and against exactly the same
+material — the Records the Steps of *this* Run acted on, read at its own turn, with no fall-through to
+the Store (§3, §12) — and what differs is the answer it is read for. A `when:` that does not hold skips
+the Step it is written on; a **`require:` that does not hold halts the Run**.
+
+A Requirement takes **no position in the sequence**. It writes no Step file, reaches none of §12's
+Dispositions and is counted by no `<nnnn>`, on the nested invocation's own three grounds (§7): it makes
+no call, so there is nothing about it for the record to hold beyond the halt on the Run's own outcome.
+What the Steps before it did stands, and every Step after it is *never reached* — in this Procedure, and
+in whatever invoked it.
+
+**A Step the requirement names that acted on no Record leaves it unmet.** That Step was skipped, was
+never reached, or resolved an Expansion of nothing; there is nothing for the operator to be true of, and
+a requirement nothing satisfied is not satisfied. It is the propagation rule under **Conditions**
+above reaching the outcome this key has for it, and it fails in the safe direction: what the check
+could not confirm does not proceed.
+
+**It halts rather than Refuses.** A Requirement roots at an earlier Step by construction, so its verdict
+is always reached after that Step's call went out, which is the criterion (ADR-0072). The Run is
+`failed`, the halt carries no `error_code`, and `77`'s promise that a verbatim retry refuses identically
+would be false of it — the world is what moved. The one thing at a Requirement that Refuses is a
+predicate that cannot decide, which Refuses wherever it stands (`predicate-type-mismatch`, §12,
+ADR-0035); it cites the Requirement's own entry and no Step position, having none.
 
 ## Expansion and concurrency
 
@@ -266,7 +295,9 @@ resolves to more Records than its declared Bound Refuses before the first call (
 ## Errors and deadlines
 
 An error halts the Run. There is no per-Step failure suppression — no `allowFailure`, no
-`continueOnError`, nothing an author can write to silence one.
+`continueOnError`, nothing an author can write to silence one. What an author *can* write is a
+Requirement, which is not suppression's opposite number either: it stops the Run on a verdict rather
+than letting one through.
 
 **A status is an answer, not an error** (ADR-0050), and which answers halt follows Kind, as what an
 Operation projects does (§3, ADR-0037). No artefact declares it.
@@ -274,7 +305,8 @@ Operation projects does (§3, ADR-0037). No artefact declares it.
 A **`read`** never halts on what came back. Whatever the status, the response object §12 states is
 what the projection reads, so a monitoring Provider records *down* as an Observation and `hyper`'s own
 rule stays one line. An API answering `404` for *absent* is describable for the same reason: the status
-is recorded and a later Step's `when:` decides on it (§3), which puts *what counts as acceptable* on a
+is recorded and a later Step's `when:` decides on it, or a `require:` above stops the Run over it (§3),
+which puts *what counts as acceptable* on a
 line the gutter annotates rather than in the artefact a reviewer reads least. What still halts a `read`
 is its projection, below — `list_records` against a `401` has no `$.body.result`, and a collection that
 was empty and a path that was wrong are not the same fact.

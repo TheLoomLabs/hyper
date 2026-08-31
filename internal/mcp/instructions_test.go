@@ -112,6 +112,39 @@ func TestInstructions_SayWhereTheRecordLives(t *testing.T) {
 	}
 }
 
+// TestInstructions_SayHowAProcedureComposesAndHowASharedCheckHalts is issue
+// #236's fact, and it is three facts in one paragraph because separately none
+// of them is actionable.
+//
+// Nothing else here mentions composition, and the worked Procedure is a flat
+// list of Steps — so an agent asked for one shared check invoked by two routes
+// meets the whole of it here or nowhere. An agent that knows composition exists
+// and not the boundary writes a `when:` on the invocation and spends its next
+// calls on three Refusals; one that knows the boundary and not the `require:`
+// does what the sealed run of 2026-08-30 did, and moves the halt inside the
+// check with an effectful Step that exits non-zero — which puts `mutate` in the
+// authority table of the artefact whose point is that it writes nothing
+// (§9, ADR-0111, ADR-0116).
+//
+// What the fragment itself is held to is a `check`, one package over, on the
+// Bound rule's own footing (internal/cli's
+// TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts).
+func TestInstructions_SayHowAProcedureComposesAndHowASharedCheckHalts(t *testing.T) {
+	carried := unwrapped(Instructions("1.4.0"))
+
+	for _, stated := range []string{
+		"procedure: verify-archive",
+		"No `when:` and no reference reaches across that boundary",
+		"require: {step: archive-sound, field: exit_code, equals: 0}",
+		"halts the Run",
+		"claims no Kind and binds no Target",
+	} {
+		if !strings.Contains(carried, stated) {
+			t.Errorf("the orientation never says %q; an agent that has to discover this spends half a session on it, and the shape it lands on claims authority it does not use", stated)
+		}
+	}
+}
+
 // TestInstructions_PutTheThreeCommandsOutOfReachAndSayWhy is the third,
 // and the one with teeth. `install`, `store init` and `compact` are the human's
 // **deliberately**, and an agent that does not know that runs them — which is

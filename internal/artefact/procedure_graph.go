@@ -197,7 +197,14 @@ func buildProcedureGraphInfo(file string, root *yaml.Node, providers ProviderInd
 	}
 	for i, entry := range stepsVal.Content {
 		field := fmt.Sprintf("steps[%d]", i)
-		entryFields := topLevelFields(entry, "definition", "operation", "target", "procedure")
+		entryFields := topLevelFields(entry, "definition", "operation", "target", "procedure", "require")
+		// A Requirement binds nothing, invokes nothing and calls nothing,
+		// so it contributes to neither half of this walk: no pair, no
+		// Kind, no Repeatability and no secret output. It is a Step of
+		// neither the graph nor the sequence (§3, ADR-0116).
+		if entryFields["require"] != nil {
+			continue
+		}
 		if procVal := entryFields["procedure"]; procVal != nil {
 			name, ok := resolveScalar(procVal)
 			if !ok {

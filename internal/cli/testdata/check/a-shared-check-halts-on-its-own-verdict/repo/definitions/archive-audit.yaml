@@ -1,0 +1,5 @@
+kind: definition
+definition: archive-audit
+provider: shell
+kinds: [read]
+targets: [archive]

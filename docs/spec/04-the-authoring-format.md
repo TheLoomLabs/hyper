@@ -126,17 +126,19 @@ set of a Record series being Manifest-declared. Either naming nothing is `refere
 rather than a Run that fails partway through — which is what makes the projection rule below safe to
 state.
 
-A **predicate** filters a set of Records, in a Step's selector (`over:`), its condition (`when:`), or a
-polling Pattern's terminal condition. The operator set is closed and defined in §12, with the operand
-types each takes, what the comparisons mean, and the one instant the two temporal operators read
-against. Each entry carries a `field:` and exactly one operator; two operators sharing an entry would be
-an AND that occupies one line where the list already gives each conjunct its own, which is what the
-gutter annotates and what the Comparison renders a selector change from. A predicate list is always AND;
+A **predicate** filters a set of Records, in a Step's selector (`over:`), its condition (`when:`), a
+Requirement's `require:`, or a polling Pattern's terminal condition. The operator set is closed and
+defined in §12, with the operand types each takes, what the comparisons mean, and the one instant the
+two temporal operators read against. Each entry carries a `field:` and exactly one operator; two
+operators sharing an entry would be an AND that occupies one line where the list already gives each
+conjunct its own, which is what the gutter annotates and what the Comparison renders a selector change
+from. A predicate list is always AND;
 there is no disjunction anywhere in it (ADR-0022).
 
 A `field:` is one of two things, decided by the root it is written under. At the two Record roots — a
-selector and a condition — it names one key of the Manifest's `fields:` mapping and nothing else: a
-Record's field names are flat and authored, so there is no path there to write. At a polling Pattern's
+selector, and a condition or the `require:` that shares its root — it names one key of the Manifest's
+`fields:` mapping and nothing else: a Record's field names are flat and authored, so there is no path
+there to write. At a polling Pattern's
 `until:` it is a path in the grammar above, written without the root marker, a response having paths and
 no declared names. A `field:` naming what no Operation of the Provider projects is
 `reference-unresolvable` (§4) on the rule a reference already follows, and a predicate that cannot
@@ -438,14 +440,17 @@ Procedure and everything it invokes may touch, authored rather than derived so a
 envelope without tracing every nested invocation. A Procedure's Cadence is authored here too, on
 `cadence:`, as a quoted string whose grammar belongs to §10; a Procedure carrying none is run by hand.
 
-Each entry in `steps:` is either a Step or a nested Procedure invocation, in the same list — never a
+Each entry in `steps:` is a Step, a nested Procedure invocation, or a Requirement, in the same list —
+never a
 separate block, since a second list would put ordering between two structures and reintroduce the graph
 Steps are sequenced without (ADR-0002). A Step names its `id:`, its `definition:`, its `operation:`, the
 `target:` it binds, the `args:` the Operation's input schema requires, an `over:` selector, a `bound:` on
 the Records an effectful Step may affect, and a `when:` condition rooted at an earlier Step's Record,
 carrying `step:` beside `field:`. A nested invocation names an `id:` and a `procedure:` in place of
 `definition:`/`operation:`/`target:`, and its Steps render under the invoking Step's path with the
-invoked Procedure's transitive envelope. A comment is permitted on any line, rendered verbatim in place
+invoked Procedure's transitive envelope. A **Requirement** names an `id:` and a `require:` in place of
+both, and `require:` is a predicate at the condition's own root — `step:` beside `field:`, rooted at an
+earlier Step of this same Procedure. A comment is permitted on any line, rendered verbatim in place
 on the line it was written on and never read by `hyper`; it is source rather than annotation and never
 enters the review's gutter, which carries only what `hyper` derived (§8). No directive syntax may ever
 exist inside one, since that would be a bypass wearing a comment.
@@ -453,6 +458,22 @@ exist inside one, since that would be a bypass wearing a comment.
 A Step's `definition:` resolves against `definitions/` and a nested invocation's `procedure:` against
 `procedures/`, either naming nothing being `artefact-absent`; its `operation:` names an Operation the
 Definition's Provider declares, and one naming nothing is `reference-unresolvable` (§4).
+
+**A Requirement is what a Procedure halts on, and it is the only entry that halts without acting.** It
+binds no Target, invokes no Operation and declares no Kind: it takes an `id:` and a `require:` and no
+other key, so there is no `args:`, no `over:`, no `bound:` and no `when:` on one. Where its predicate
+holds the Run goes on; where it does not, the Run halts, and every Step after it — in this Procedure and
+in whatever invoked it — is *never reached* (§6). That is what lets a Procedure be **shared and
+gating at once**: a check invoked by two callers stops both by stopping the Run, with nothing in it
+claiming authority over anything. Without one the only thing that halts is an effectful Operation, so a
+check that had to be able to fail had to claim `mutate` on the Target it was protecting, which inverts
+the Kind axis on the artefact where a reviewer most relies on it (ADR-0111, ADR-0116).
+
+Nothing roots at a Requirement, and a Requirement roots only at a Step. It projects no Record — it made
+no call — so it is not something a later `when:`, a later `require:` or a `{step:, path:}` reference can
+name, and naming one is `reference-unresolvable` on the rule any other absent Record root follows (§4).
+A `require:` may not root across an invocation either, for the reason no reference may: Procedures
+compose by invoking one another rather than by sharing a Step namespace (ADR-0002).
 
 `target:` is written on every Step and is checked for membership of its Definition's `targets:` list —
 which is the whole of what it is checked against, the members of that list being where a Target's

@@ -1,0 +1,16 @@
+kind: procedure
+procedure: verify-status
+targets: [local]
+steps:
+  - id: status-sound
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: status.hyper.dev
+
+  # The verdict, as a halt. It claims no Kind, binds no Target and makes no
+  # call: what it does is stop the Run, and every Step after it — here and in
+  # whatever invoked this Procedure — is never reached.
+  - id: sound
+    require: {step: status-sound, field: status, equals: 200}

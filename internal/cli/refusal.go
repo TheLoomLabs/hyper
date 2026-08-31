@@ -58,17 +58,21 @@ const (
 // finding out by trying three.
 const noBypassNote = "no flag overrides this (ADR-0001) — the way past is an artefact edit"
 
-// The two phases a Refusal can be found in, as §8's `=` note words them. Which
+// The three phases a Refusal can be found in, as §8's `=` note words them. Which
 // one a member carries is what tells a reader whether this Refusal preceded
 // execution or halted it, and it is the most load-bearing note on the page for
-// a reader deciding whether anything reached the world (§7, §8).
+// a reader deciding whether anything reached the world (§7, §8). The third
+// arrived with the Requirement, which decides after the Step it reads has run
+// and before any Step after it has — a moment neither of the other two words
+// (§6, issue #236, ADR-0116).
 const (
-	phaseAtExpansion = "checked at expansion, before the first call"
-	phaseAtRunStart  = "checked at run start, before the first step"
+	phaseAtExpansion   = "checked at expansion, before the first call"
+	phaseAtRunStart    = "checked at run start, before the first step"
+	phaseAtRequirement = "checked at a requirement, after the step it reads and before any step after it"
 )
 
-// refusalPhase is which of the two this member carries, and it is **derived per
-// member** rather than once for the page: §7 fixes the array as one phase's
+// refusalPhase is which of the three this member carries, and it is **derived
+// per member** rather than once for the page: §7 fixes the array as one phase's
 // finding, and a rule that reads each member holds whether or not that stays
 // true.
 //
@@ -89,11 +93,22 @@ const (
 // secret output — as an artefact coordinate, before Step 1, writing no Step
 // file (§6, §9, internal/run/gates.go). It is the one code that cites a Step it
 // did not reach.
+//
+// **A Requirement is the third phase**, and it is told apart by the one shape
+// only a Requirement produces: an `id:` and no position. A Requirement takes no
+// position in the sequence — it writes no Step file and reaches no Disposition
+// (§6, ADR-0116) — so it names what an edit would reach and nothing a Journal
+// entry counts, and the note has to say what neither of the other two says: the
+// Step it read has already run, and no Step after it has (§7, §8, ADR-0072).
 func refusalPhase(member refusalRow) string {
-	if member.Step != nil && member.ErrorCode != run.CodeSecretSinkAbsent {
+	switch {
+	case member.Step == nil && member.StepID != "":
+		return phaseAtRequirement
+	case member.Step != nil && member.ErrorCode != run.CodeSecretSinkAbsent:
 		return phaseAtExpansion
+	default:
+		return phaseAtRunStart
 	}
-	return phaseAtRunStart
 }
 
 // refusalRemedies is the set §8 leaves behind: the codes whose way past is

@@ -1,0 +1,14 @@
+kind: procedure
+procedure: promote
+targets: [archive, local]
+steps:
+  - id: verify
+    procedure: verify-archive
+
+  - id: swap
+    definition: live-ops
+    operation: mutate
+    target: local
+    bound: 1
+    args:
+      command: [sh, -c, 'ln -sfn /srv/archive/wanted /srv/live/current']

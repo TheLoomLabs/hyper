@@ -1,0 +1,5 @@
+STEP  ID       KIND    DISPOSITION    RECORDS
+1     status   read    ran            1
+2     publish  mutate  never-reached  –
+
+failed · dry-run · exit 1 · run 01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e21

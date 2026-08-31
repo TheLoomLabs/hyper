@@ -122,6 +122,15 @@ type reviewFlag struct {
 func procedureFlags(marks artefact.ProcedureMarks, manifestPath func(string) string) []reviewFlag {
 	var flags []reviewFlag
 	for _, step := range marks.Steps {
+		// **A Requirement indexes nothing**, and it is skipped here rather
+		// than falling through `stepFlags` on the strength of its every
+		// other member being empty. It declares no Kind, no opacity and no
+		// Bound, so there is nothing for a name to index — and one fact
+		// read two ways is where the day comes that a Requirement draws a
+		// row nobody meant it to (§8, ADR-0116, review_marks.go).
+		if step.Requirement {
+			continue
+		}
 		flags = append(flags, stepFlags(step, manifestPath)...)
 	}
 	if marks.EnvelopeLine > 0 {

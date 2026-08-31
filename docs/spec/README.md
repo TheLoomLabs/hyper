@@ -11,7 +11,7 @@ neither is restated here.
 4. [The authoring format](04-the-authoring-format.md) — the YAML subset, the five artefacts, holes, paths.
 5. [Static verification](05-static-verification.md) — everything `check` refuses before anything runs.
 6. [Authority and safety](06-authority-and-safety.md) — two keys, envelope, Bound, Expansion, Refusal.
-7. [Execution](07-execution.md) — sequence, Repeatability, conditions, concurrency, outcomes.
+7. [Execution](07-execution.md) — sequence, Repeatability, conditions, requirements, concurrency, outcomes.
 8. [The record](08-the-record.md) — Store, Head, Journal, Disposition, Provenance, retention.
 9. [Review and Comparison](09-review-and-comparison.md) — the renderings verbatim, the NDJSON contract.
 10. [Surfaces](10-surfaces.md) — the CLI's commands and exit codes, the MCP tool schemas.

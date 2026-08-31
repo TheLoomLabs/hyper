@@ -385,12 +385,13 @@ func Perform(request Request) Answer {
 
 	started := request.Now()
 	inFlight := run{
-		request:    request,
-		id:         request.Mint(started),
-		provenance: provenance,
-		started:    started,
-		effectful:  effectful(loaded, walked),
-		acted:      acted{},
+		request:      request,
+		id:           request.Mint(started),
+		provenance:   provenance,
+		started:      started,
+		effectful:    effectful(loaded, walked),
+		acted:        acted{},
+		requirements: walked.Requirements,
 	}
 	inFlight.entry = store.JournalEntry{Run: inFlight.id, Started: started}
 	// What a `shell` Step's child inherits, composed once and before the
@@ -492,6 +493,24 @@ func Perform(request Request) Answer {
 			return inFlight.closed(failed(answer, ErrInterrupted))
 		}
 
+		// **The Requirements standing in front of this Step**, in written
+		// order and before anything else about the Step is read. One that
+		// does not hold halts the Run here, and this Step and every Step
+		// after it are *never reached* — which is how a Procedure that
+		// claims no effectful authority stops the Procedure that invoked
+		// it, a halt inside a nested Procedure being a halt of the whole
+		// (§6, requirement.go, ADR-0116).
+		//
+		// It is read before the rehearsal's stop rather than after it. A
+		// Requirement makes no call and reaches no Target — evaluating one
+		// is the rehearsal reading what its own `read` Steps already
+		// recorded — and a rehearsal that walked past the check the
+		// operator is rehearsing would be answering a question nobody
+		// asked (§9, ADR-0010).
+		if ended, stopped := inFlight.endedAtARequirement(loaded, steps, position, answer); stopped {
+			return ended
+		}
+
 		// **A rehearsal stops here**, at the first effectful Step and
 		// before it, which is where the Run stops being able to say
 		// anything true: performing the Step would be the effect the
@@ -576,7 +595,44 @@ func Perform(request Request) Answer {
 		return inFlight.closed(failed(answer, ErrInterrupted))
 	}
 
+	// The Requirements standing after the last Step the Run holds. A
+	// Procedure whose last entry is a Requirement is the shape issue #236
+	// is about, and where nothing invoked it there is no Step left for that
+	// verdict to stand in front of — so it is read here, with every Step
+	// already done and nothing left to be *never reached* (§6,
+	// requirement.go).
+	if ended, stopped := inFlight.endedAtARequirement(loaded, steps, len(steps), answer); stopped {
+		return ended
+	}
+
 	return inFlight.closed(answer)
+}
+
+// endedAtARequirement evaluates the Requirements standing in front of the Step
+// at `position` and, where one did not pass, closes the Run on it: `failed`
+// where the verdict was no, `refused` where the predicate could not decide
+// (§6, requirement.go, ADR-0116).
+//
+// **Its two callers are one moment read twice**, which is why it is spelled
+// once rather than at each. Requirements stand in front of a Step, and a
+// Requirement authored after the last Step the Run holds stands in front of
+// none — `position` reaching the length of the sequence, where the *never
+// reached* set is empty by arithmetic rather than by an arm written for it. The
+// two callers therefore differ in the number they pass and in nothing else.
+//
+// `stopped` is what a caller branches on; the Answer beside it is the closed
+// Run and is meaningless where `stopped` is false, on the rule `perform`
+// already answers a zero Step by.
+func (r run) endedAtARequirement(loaded repository.Loaded, steps []sequenced, position int, answer Answer) (Answer, bool) {
+	declined, err := r.required(position)
+	if err == nil && len(declined) == 0 {
+		return Answer{}, false
+	}
+	answer.Steps = append(answer.Steps, neverReached(loaded, steps, position)...)
+	if err != nil {
+		return r.closed(failed(answer, err)), true
+	}
+	return r.closed(refused(answer, declined)), true
 }
 
 // ErrInterrupted is what stopped a Run that drained: the Run's own Fault, and
@@ -682,6 +738,13 @@ type run struct {
 	// Steps write into what the Run holds and never into the Run
 	// (condition.go).
 	acted acted
+	// requirements is every Requirement the Run holds, each carrying the
+	// index of the Step it stands in front of (sequence.go). It is a member
+	// beside `acted` because the two are read together and at the same
+	// moment: a verdict is a predicate over what the Steps of this Run acted
+	// on, and a Requirement is the only entry that reads that mapping
+	// without being a Step in it (§6, requirement.go).
+	requirements []requirement
 }
 
 // ErrSyncFailed is an effectful Run whose push of `run.json` did not land: its

@@ -1,0 +1,14 @@
+{
+  "content": [
+    {"type":"text","text":"3 problems\n\nFILE                     LINE  FIELD               ERROR_CODE              MESSAGE\nprocedures/promote.yaml  13    steps[1].when.step  reference-unresolvable  step: verify names a nested invocation, which projects no Record for a predicate to root at — and no Step of an invoked Procedure is referenceable from its caller, Procedures composing by invoking one another rather than by sharing a Step namespace (ADR-0002). A shared Procedure states its own verdict instead: a require: entry inside it halts the whole Run, and its later Steps and its caller's alike never run\nprocedures/promote.yaml  22    steps[2].when.step  reference-unresolvable  step: verify.archive-sound names no id: this Procedure declares earlier — and no Step of an invoked Procedure is referenceable from its caller, whatever it is spelled (ADR-0002). A shared Procedure states its own verdict instead: a require: entry inside it halts the whole Run\nprocedures/promote.yaml  31    steps[3].when.step  reference-unresolvable  step: archive-sound names no id: this Procedure declares earlier\n"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"problem","file":"procedures/promote.yaml","line":13,"column":18,"field":"steps[1].when.step","error_code":"reference-unresolvable","message":"step: verify names a nested invocation, which projects no Record for a predicate to root at — and no Step of an invoked Procedure is referenceable from its caller, Procedures composing by invoking one another rather than by sharing a Step namespace (ADR-0002). A shared Procedure states its own verdict instead: a require: entry inside it halts the whole Run, and its later Steps and its caller's alike never run"},
+      {"type":"problem","file":"procedures/promote.yaml","line":22,"column":18,"field":"steps[2].when.step","error_code":"reference-unresolvable","message":"step: verify.archive-sound names no id: this Procedure declares earlier — and no Step of an invoked Procedure is referenceable from its caller, whatever it is spelled (ADR-0002). A shared Procedure states its own verdict instead: a require: entry inside it halts the whole Run"},
+      {"type":"problem","file":"procedures/promote.yaml","line":31,"column":18,"field":"steps[3].when.step","error_code":"reference-unresolvable","message":"step: archive-sound names no id: this Procedure declares earlier"}
+    ],
+    "truncated": false
+  },
+  "isError": true
+}

@@ -76,10 +76,13 @@ ADR-0060).
 
 **Four more name a member of an artefact**: a Step's `operation:` and a Definition's `destroy:` members,
 each against the Operations the bound Provider declares; a `field:` at either Record root, against that
-Provider's `fields:` mapping; and the `step:` half of a reference, against the `id:`s its own Procedure
-declares earlier. One naming nothing is `reference-unresolvable`, which is what that code has always
-meant — §3 already carries it for a bare `field:`, which is no reference in the format's sense, so the
-scope is the namespace rather than the syntax. The split from `artefact-absent` is the split
+Provider's `fields:` mapping; and the `step:` half of a reference, a condition or a `require:`, against
+the **Steps** its own Procedure declares earlier — an invocation and a Requirement declare an `id:` on
+that same list and neither projects a Record, so naming one is this code too, and the row says which of
+the three the name found rather than that it found nothing (§3, ADR-0002). One naming nothing is
+`reference-unresolvable`, which is what that code has always meant — §3 already carries it for a bare
+`field:`, which is no reference in the format's sense, so the scope is the namespace rather than the
+syntax. The split from `artefact-absent` is the split
 `name-mismatch` was taken out of `kind-mismatch` for: which file the next act touches. A missing
 artefact is one the reader may have to write; a missing member is a key inside an artefact that already
 exists, and where that artefact is a built-in or somebody else's Extension it is not theirs to write at

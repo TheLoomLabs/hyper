@@ -312,6 +312,33 @@ wrong path are not the same fact.
 host was unreachable narrates the same way and is ` + "`ran`" + `. Read the Disposition, never the prose beside
 it, and never generalise from a ` + "`probe`" + ` to a Run.
 
+## A shared check halts; it does not hand a verdict back
+
+**A Procedure invokes another** with a ` + "`procedure:`" + ` in place of the binding — ` + "`- {id: verify, procedure: verify-archive}`" + `,
+` + "`id:`" + ` and ` + "`procedure:`" + ` and nothing else — and what it invokes runs as Steps of the one Run. **No ` + "`when:`" + `
+and no reference reaches across that boundary**: what an invoked Procedure did is not a fact its caller
+can condition on, and its ` + "`targets:`" + ` count against the caller's declared envelope.
+
+So a check that has to stop the work does it from the inside, with a ` + "`require:`" + ` entry of its own:
+
+` + "```" + `yaml
+  - id: archive-sound
+    definition: archive-audit      # kinds: [read]
+    operation: read
+    target: archive
+    args: {command: [sh, -c, "sha256sum -c /srv/archive/SHA256SUMS"]}
+
+  - id: sound
+    require: {step: archive-sound, field: exit_code, equals: 0}
+` + "```" + `
+
+A ` + "`require:`" + ` is a ` + "`when:`" + `'s predicate read for the other answer: a ` + "`when:`" + ` that does not hold **skips**
+the Step it is written on, and a ` + "`require:`" + ` that does not hold **halts the Run** — here and in whatever
+invoked this Procedure, one Run having one outcome however deep the invocation goes. It takes an ` + "`id:`" + `
+and a ` + "`require:`" + ` and no other key, and it **claims no Kind and binds no Target**. Never reach for an
+effectful Step that exits non-zero in order to make a check able to fail: that puts ` + "`mutate`" + ` in the
+authority table of the one artefact whose point is that it writes nothing.
+
 ## Three of the sixteen commands are the human's
 
 ` + "`install`" + `, ` + "`store init`" + ` and ` + "`compact`" + ` have no tool on the MCP surface, and are not yours to type into a

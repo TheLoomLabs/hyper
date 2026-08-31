@@ -1,0 +1,13 @@
+kind: procedure
+procedure: promote-status
+targets: [local]
+steps:
+  - id: verify
+    procedure: verify-status
+
+  - id: promote
+    definition: uptime-check
+    operation: check_http
+    target: local
+    args:
+      host: cert.hyper.dev

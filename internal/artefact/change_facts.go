@@ -176,7 +176,10 @@ func ReadChangeFacts(kind string, root *yaml.Node) []ChangeFact {
 //
 // A nested invocation carries none of the three. It binds nothing, expands
 // nothing and bounds nothing, and the envelope it reaches is the invoked
-// Procedure's own fact on that Procedure's own review (§3, §8).
+// Procedure's own fact on that Procedure's own review (§3, §8). Nor does a
+// Requirement, on the same three counts, and its own `require:` is a
+// predicate like a `when:` — which this vocabulary names on no Step either
+// (§8, ADR-0116).
 func procedureChangeFacts(root *yaml.Node, opens int) []ChangeFact {
 	facts := keyChangeFacts(root, opens, "targets")
 	cadence := ChangeFact{Key: "cadence", SubjectLine: opens, Shape: FactCadence}
@@ -188,7 +191,7 @@ func procedureChangeFacts(root *yaml.Node, opens int) []ChangeFact {
 	}
 	facts = append(facts, cadence)
 	for _, step := range ReadProcedureSteps(root) {
-		if step.ID == "" || step.IsInvocation() {
+		if step.ID == "" || step.IsInvocation() || step.IsRequirement() {
 			continue
 		}
 		fields := stepFields(root, step)

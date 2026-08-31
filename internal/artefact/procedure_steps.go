@@ -16,9 +16,10 @@ import "gopkg.in/yaml.v3"
 // of the artefact the checks were written against, and the day the two disagree
 // is the day a Run performs something `check` never saw.
 
-// Step is one member of a Procedure's `steps:` — either a Step proper or the
-// nested invocation that shares the sequence with it, told apart by which of
-// `procedure:` and the three binding keys it carries (§3).
+// Step is one member of a Procedure's `steps:` — a Step proper, the nested
+// invocation that shares the sequence with it, or the Requirement that shares
+// it with both, told apart by which of `procedure:`, `require:` and the three
+// binding keys it carries (§3).
 //
 // Every member is held as it was authored and never as it resolves. `Kind` is
 // not here: a Step's Kind is its Operation's, read off the Manifest, and a
@@ -37,6 +38,17 @@ type Step struct {
 	// and reaches no Disposition, and its own Steps are Steps of the one
 	// Run (§6, §7).
 	Invocation string
+	// Require is the `require:` a Requirement carries, and nil on both other
+	// shapes. It is a Requirement's whole content beside its `id:`: the
+	// predicate the Run must satisfy to go on, in the condition's own root —
+	// a named earlier Step's Record, `step:` beside `field:` (§3, §12).
+	//
+	// A Requirement is not a Step either, and on the invocation's own three
+	// grounds: it writes no Journal file, none of §12's Dispositions
+	// describes one, and it takes no position in the sequence. What it does
+	// instead is halt, which is how a Procedure that claims no effectful
+	// authority stops a Run (§6, ADR-0116).
+	Require *yaml.Node
 	// Args are the Step's `args:`, by input name, as authored: a scalar
 	// literal, or the mapping a reference is written as. What each may be
 	// is §3's, and reading one against the Operation's declared input type
@@ -58,6 +70,11 @@ type Step struct {
 // rather than a Step: it names a `procedure:` and binds nothing.
 func (s Step) IsInvocation() bool { return s.Invocation != "" }
 
+// IsRequirement reports whether this member is a Requirement rather than a
+// Step: it carries a `require:`, binds nothing and invokes nothing (§3,
+// issue #236).
+func (s Step) IsRequirement() bool { return s.Require != nil }
+
 // ReadProcedureSteps reads a Procedure's `steps:` in written order, which is
 // the order they run in and the order their `<nnnn>` is counted in (§6, §12).
 //
@@ -72,13 +89,14 @@ func ReadProcedureSteps(root *yaml.Node) []Step {
 
 	read := make([]Step, 0, len(steps.Content))
 	for _, entry := range steps.Content {
-		fields := topLevelFields(entry, "id", "definition", "operation", "target", "args", "over", "bound", "when", "procedure")
+		fields := topLevelFields(entry, "id", "definition", "operation", "target", "args", "over", "bound", "when", "procedure", "require")
 		step := Step{
 			ID:         scalarText(fields["id"]),
 			Definition: scalarText(fields["definition"]),
 			Operation:  scalarText(fields["operation"]),
 			Target:     scalarText(fields["target"]),
 			Invocation: scalarText(fields["procedure"]),
+			Require:    fields["require"],
 			Args:       argumentNodes(fields["args"]),
 			Over:       fields["over"],
 			When:       fields["when"],

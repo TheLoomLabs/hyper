@@ -477,6 +477,13 @@ that deriving it costs git objects a shallow clone does not have.
 A Step that is a nested Procedure invocation writes no file of its own. An invocation is not a Step,
 none of the seven Dispositions describes one, and its own Steps each write a file carrying `path`.
 
+**A Requirement writes none either**, on the same three grounds and with one further consequence: it is
+the entry a Run can *end* at while writing nothing about itself. Where its predicate does not hold the
+Run halts, and the entry says so where a halt is always said — `outcome.json` is `failed`, and the
+Steps after it wrote no file, having never been reached. What the halt *names* — the Requirement, the
+field, the Step it read — is on the Run's own fault beside every other halt's, and not in the entry: a
+halt carries no `error_code`, and a Requirement made no call for the record to hold (§6, ADR-0116).
+
 `outcome.json` carries `schema_version`, the `outcome` §6's triple fixes, `ended_at`, and `refusal` where
 the outcome is `refused` — the whole of what declined it, in the form the next section states. It is
 written by the Run whose entry it is and by no other, so it carries no member naming its author: the
