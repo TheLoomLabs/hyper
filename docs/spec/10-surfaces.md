@@ -194,6 +194,11 @@ carry both *you need not write one* and *writing one is refused* under one value
 Operation the tool runs, so the member is named `bound` and renders `mandatory`, `illegal` or `none`.
 The MCP tool below carries the same name and the same set.
 
+**An `opaque` `mutate` Operation is `none` like any other**, and the third state is not what says the
+Bound buys nothing there. This member reports what `check` does with the key, a Bound on such a Step is
+a truthful Record count, and what a count of Records is worth beside a command is the review's
+`unbounded` flag to say — beside the line, where the command is (§5, §8, ADR-0121).
+
 `patterns_resolved` goes out as a list and is empty rather than absent where the Operation declares no
 Pattern: a caller asking which Patterns run around this call is answered *none of them*, which is a
 fact, where an absent member would say the question was not asked. The page states the same thing by
@@ -979,10 +984,11 @@ already in mind, and none of these is about a call:
   example is what an agent authors from, and a rule carrying half of itself is worse than an absent
   one: the agent authors the half it was given, `check` declines the artefact, and the orientation has
   spent a repair loop on the one surface whose whole job is to save one. The Bound is where this was
-  learned — *mandatory on a `destroy`* is true and is half the rule, an opaque `destroy` refusing one
-  (§5) — and the constraint the exception is stated under is the budget above, so it is a clause of
-  the sentence that already stood rather than a paragraph beside it. A claim this text makes about a
-  `check` is held to that `check` by a case, so that the two cannot come to disagree
+  learned — *mandatory on a `destroy`* is true and is a third of the rule, an opaque `destroy` refusing
+  one and an opaque `mutate` taking one the review flags `UNBOUNDED` anyway (§5) — and the constraint
+  the exception is stated under is the budget above, so both are clauses of the sentence that already
+  stood rather than a paragraph beside it. A claim this text makes about a `check` is held to that
+  `check` by a case, so that the two cannot come to disagree
   (`TestInstructions_TheBoundRuleIsTheOneCheckHolds`, ADR-0101).
 
 - **That the agent should offer to add a section to an `AGENTS.md` that already stands.** `project`

@@ -339,7 +339,9 @@ the executable among them, which may not arrive by reference (§3, ADR-0051) —
 the system. Which is why the
 Capability is granted to no Extension, and why *a third party can never ship a Provider that runs
 commands on your machine* is the honest form of that guarantee rather than *nobody can*. The blast
-radius of such a Step is stated with the accurate word: unbounded, carrying no Bound at all (§5).
+radius of such a Step is stated with the accurate word: unbounded, whatever `bound:` it carries — no
+Bound at all on a `destroy`, where one is refused, and on a `mutate` a count of the Records it minted,
+which the review flags as unbounded all the same (§5).
 
 **A command's structured output is recorded as a blob.** `stdout` and `stderr` are text and are never
 parsed (§12, ADR-0052), so a command answering in JSON is one string in one field and no path reaches

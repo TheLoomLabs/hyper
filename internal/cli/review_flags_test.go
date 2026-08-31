@@ -214,6 +214,60 @@ func TestRunReview_UnboundedReadsOnAnOpaqueDestroyStepRegardless(t *testing.T) {
 	}
 }
 
+// TestRunReview_UnboundedReadsOnAnOpaqueMutateWhateverItDeclares is the third
+// form, and the one an author can otherwise edit away without touching what it
+// was about: an `opaque` `mutate` takes a Bound — `check` accepts it, a Bound
+// counts Records and the Step mints one — and the count says nothing about what
+// the command did, which is §4's own argument on the Kind below `destroy`. The
+// two renderings are the same row (§5, §12, issue #241).
+func TestRunReview_UnboundedReadsOnAnOpaqueMutateWhateverItDeclares(t *testing.T) {
+	want := []string{
+		"FLAGS   index into the gutter above — no flag states anything the gutter does not",
+		"OPAQUE     line 5  step grant  mutate reaches an effect hyper cannot describe",
+		"UNBOUNDED  line 5  step grant  a bound on an opaque mutate counts records, not what the commands did",
+		"ENVELOPE   line 3  ok          no step reaches a target outside [local]",
+	}
+	for _, bound := range []bool{false, true} {
+		stdout, _, exit := runReview(t, opaqueMutateRepo(t, bound), "subject")
+		if exit != 0 {
+			t.Fatalf("exit = %d, want a clean review", exit)
+		}
+		if got := flagsOf(stdout); !slices.Equal(got, want) {
+			t.Errorf("the block on a step carrying a bound=%v reads\n%q\nwant\n%q", bound, got, want)
+		}
+	}
+}
+
+// opaqueMutateRepo is the Step issue #241 was found on, command and all: it
+// appends two firewall rules and truncates a file, mints the one Record a
+// `bound: 1` would count, and the count is what the flag beside it is about.
+// The Bound is written where bound is true and left out where it is false,
+// which are the two artefacts the sealed run produced either side of the edit.
+func opaqueMutateRepo(t *testing.T, bound bool) string {
+	t.Helper()
+	root := newRepo(t)
+	writeFile(t, root+"/targets/local.yaml",
+		"kind: target-declaration\ntarget: local\nclass: local\nkinds: [mutate]\ncapabilities: [shell]\n")
+	writeFile(t, root+"/definitions/commands.yaml",
+		"kind: definition\ndefinition: commands\nprovider: shell\nkinds: [mutate]\ntargets: [local]\n")
+	declared := ""
+	if bound {
+		declared = "    bound: 1\n"
+	}
+	writeFile(t, root+"/procedures/subject.yaml", `kind: procedure
+procedure: subject
+targets: [local]
+steps:
+  - id: grant
+    definition: commands
+    operation: mutate
+    target: local
+    args:
+      command: [sh, -c, 'cat requests/pending >> firewall/allow && : > requests/pending']
+`+declared)
+	return root
+}
+
 // TestRunReview_UnboundedAndUnresolvedRenderOnNoArtefactButAProcedure is the
 // two Procedure-only names, and their reasons are two: `bound:` is a Step's
 // key, and a Definition names a Provider too — but nothing on a Definition's

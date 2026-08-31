@@ -90,6 +90,19 @@ is implied by the first two on every such Step, having no other form to take. It
 (§12): a surface indexing what is unbounded, silent on the one Step where nothing can be bounded, is
 omitting rather than economising.
 
+**The argument is about opacity and not about severity, so it reaches an `opaque` `mutate` too — and
+there it lands on the rendering rather than on the check.** A Bound written on one is truthful: it
+counts Records, the Step mints them, and `check` accepts it (§4). It is also silent about everything
+the flag beside it exists to say. `bound: 1` on a Step whose command reads `cat requests/pending >>
+firewall/allow && : > requests/pending` is the record count, and the two firewall rules appended and
+the file truncated are not in it. So the flag has a third form and renders regardless there as well,
+on the second's own footing: implied by `mutate` and `opaque` together, which the gutter marks in
+place, and cleared by no edit to `bound:`. What differs between the two Kinds is what may be written,
+not what may be read off it — `bound-illegal` on the one where no honest count exists, and a flag on
+the one where an honest count exists and bounds nothing (ADR-0121). A flag an author can clear by
+writing a number that changes nothing is a mark that teaches the wrong edit, which is the one failure
+this surface may not have.
+
 **A `destroy` Step must carry an `over:` selector** (`destroy-unscoped`, §4). Without one it is
 invoked once (§3), so it has no Expansion, no series to write a Tombstone under, and no declared
 identity — a `destroy` carries no `record:` at all (§3, ADR-0037). It would reach the world and write

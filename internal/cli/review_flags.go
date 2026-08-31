@@ -171,13 +171,34 @@ func stepFlags(step artefact.StepMark, manifestPath func(string) string) []revie
 	if step.Opaque {
 		flags = append(flags, at(flagOpaque, opaqueText(step.Operation)))
 	}
-	// The `opaque` `destroy` row is implied by the two above it and renders
-	// regardless: *unbounded* is the accurate word for a Step where a Bound
-	// is refused, and a surface silent on the strongest instance of the fact
-	// it indexes is omitting rather than economising (§5, §12).
+	// **On an `opaque` effectful Step the row is implied by the marks above
+	// it and renders regardless of what the Step declared**, which is one
+	// argument reaching two Kinds: a Bound counts the Records an Expansion
+	// resolved to, and a count of the calls an opaque Step made says nothing
+	// about what any of them did. On a `destroy` a Bound is refused outright
+	// and *unbounded* is the accurate word for what is left (§5). On a
+	// `mutate` `check` accepts one — it is a truthful Record count and the
+	// question is what renders beside it — so reading the Bound off the Step
+	// here would let `bound: 1` clear the row on a command line the Bound
+	// says nothing about, which is the edit issue #241 watched an author
+	// make (§5, §12, ADR-0121).
+	//
+	// **The gutter's `!` still clears, and that is not this surface's to
+	// stop.** It is §8's mark for an absent `bound:`, read off the file as
+	// written; a marker that said `!` where a Bound stands would make the
+	// gutter derive rather than mark. What the row adds is the claim about
+	// what the number is worth, which is the flag's to make (ADR-0026).
+	//
+	// **One text serves both, and a Step carrying no Bound gets it too.** A
+	// row reading *mutate with no declared bound* there would be the same
+	// mark an author clears by writing one, and the whole finding is that
+	// the writing buys nothing — so the sentence names the Bound the Step
+	// may or may not carry rather than its absence.
 	switch {
-	case step.Kind == "destroy" && step.Opaque:
+	case step.Opaque && step.Kind == "destroy":
 		flags = append(flags, at(flagUnbounded, "an opaque destroy takes no bound"))
+	case step.Opaque && step.Kind == "mutate":
+		flags = append(flags, at(flagUnbounded, "a bound on an opaque mutate counts records, not what the commands did"))
 	case step.Kind == "mutate" && !step.Bounded:
 		flags = append(flags, at(flagUnbounded, "mutate with no declared bound"))
 	}

@@ -279,6 +279,44 @@ func TestInstructions_TheBoundRuleNamesWhatMakesADestroyOpaque(t *testing.T) {
 	}
 }
 
+// TestInstructions_TheBoundRuleSaysWhatAnOpaqueMutateCarries is the third Kind
+// the rule reaches, and the one the sentence used to leave an author to infer
+// from the other two.
+//
+// The sealed acceptance run of 2026-08-31 inferred it wrong in the safe
+// direction and then edited in the unsafe one: told a Bound is mandatory on a
+// `destroy` and refused on an opaque one, it could not tell whether an opaque
+// `mutate` would take one, wrote `bound: 1` on two command Steps to find out,
+// and read `check`'s acceptance and the cleared flag back as the artefact
+// improving (ADR-0120, ADR-0121, issue #241).
+//
+// **So both halves are held to the binary.** `check` accepts the Bound — the
+// value is a truthful Record count and this is not the `destroy` rule one Kind
+// down — and `review` flags the Step regardless, which is the half the sentence
+// has to carry for the edit not to look like a repair.
+func TestInstructions_TheBoundRuleSaysWhatAnOpaqueMutateCarries(t *testing.T) {
+	sentence := boundSentence(t, mcp.Instructions("1.4.0"))
+
+	for _, named := range []string{"mutate", "UNBOUNDED"} {
+		if !strings.Contains(sentence, named) {
+			t.Errorf("the orientation's Bound sentence never names %q: %q", named, sentence)
+		}
+	}
+
+	root := opaqueMutateRepo(t, true)
+	var stdout, stderr bytes.Buffer
+	if exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, cli.Streams(&stdout, &stderr), emptyEnvironment, t.TempDir(), "1.4.0"); exit != cli.ExitClean {
+		t.Fatalf("check declines it with %v (exit %d); the orientation teaches a Bound the checker refuses\n%s", errorCodesIn(t, stdout.String()), exit, stderr.String())
+	}
+	page, _, exit := runReview(t, root, "subject")
+	if exit != 0 {
+		t.Fatalf("exit = %d reviewing it, want a clean review", exit)
+	}
+	if !slices.ContainsFunc(flagsOf(page), func(row string) bool { return strings.HasPrefix(row, "UNBOUNDED") }) {
+		t.Errorf("review draws no UNBOUNDED row on an opaque mutate carrying a bound, and the orientation says it does: %q", flagsOf(page))
+	}
+}
+
 // boundSentence is the one sentence of the orientation that states the Bound
 // rule, unwrapped the way a reader takes it in.
 //

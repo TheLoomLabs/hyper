@@ -111,7 +111,9 @@ _Avoid_: Assertion, Guard, Gate, Precondition, Check
 **Bound**:
 The maximum number of Records an effectful Step may affect, declared by the Step's author. Mandatory
 on a `destroy` Step, where an absent Bound means unbounded rather than unchecked, and refused on an
-Opaque one, where a count of the commands run would be truthful and still misleading.
+Opaque one, where a count of the commands run would be truthful and still misleading. On an Opaque
+`mutate` it is accepted and the same reasoning holds of it, so what says so is the review's `unbounded`
+flag, which such a Step draws whether it declares a Bound or not.
 _Avoid_: Limit, Cap, Quota, Threshold
 
 **Cadence**:

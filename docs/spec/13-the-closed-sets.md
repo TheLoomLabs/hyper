@@ -938,11 +938,14 @@ kinds, which is why there are five rather than five per artefact:
 - **`opaque`** — the cited line reaches an effect `hyper` cannot describe. It reads on a Manifest
   Operation whose request uses an Opaque Capability, on a Step invoking one, and on the opt-in by which
   a Target declaration admits an `opaque` `destroy` at all (§4).
-- **`unbounded`** — an effectful Step with no Bound standing behind it: a `mutate` Step carrying no
-  `bound:`, which the gutter marks `mutate!` (§8), and an `opaque` `destroy` Step, which may carry no
-  Bound at all and where a Bound is refused (`bound-illegal`, §4). The second is implied by `destroy`
-  and `opaque` together and renders regardless: §5's argument is that *unbounded* is the accurate word
-  for it, and a surface silent on the strongest instance of the fact it indexes is omitting rather than
+- **`unbounded`** — an effectful Step whose magnitude no Bound stands behind, in three forms: a `mutate`
+  Step carrying no `bound:`, which the gutter marks `mutate!` (§8); an `opaque` `destroy` Step, which may
+  carry no Bound at all and where a Bound is refused (`bound-illegal`, §4); and an `opaque` `mutate`
+  Step, where a Bound is accepted and counts the Records the Step minted rather than what its commands
+  did (§4, ADR-0121). The second and third are implied by the marks already beside the line — the Kind
+  and `opaque` — and render regardless of what the Step declared: §5's argument is that *unbounded* is
+  the accurate word for both, and a surface that goes silent on the strongest instances of the fact it
+  indexes, or that a number clears without touching what it was about, is omitting rather than
   economising. It is Procedure-only, `bound:` being a Step's key.
 - **`envelope`** — a Procedure's declared Target and Kind envelope, and whether every Step is inside it.
   Procedure-only likewise, and the one name whose all-clear form renders (below). A review does not run

@@ -60,7 +60,14 @@ Bound, its opacity, and its envelope check. A `mutate` Step with no declared Bou
 its absence is not a static check's business and it is rendered here instead (§4). A Step invoking an
 Operation whose request uses an Opaque Capability is marked opaque beside its Kind — opacity is a
 Manifest fact, exactly as a Kind is, and the gutter carries it for the reason it carries the Kind: what
-`hyper` cannot describe is not readable from the Step's own lines. A nested Procedure invocation
+`hyper` cannot describe is not readable from the Step's own lines.
+
+**The `!` reads the key and never what the key is worth**, which is why an `opaque` `mutate` carrying a
+Bound is marked `mutate` and drawn `unbounded` in `FLAGS` all the same (§5, §12). The absence is on the
+line; whether the number standing there bounds anything is a claim, and `FLAGS` is the one surface that
+makes one. A marker that said `!` where a Bound stands would be the gutter deriving rather than marking,
+and the block beneath it is not left uncovered: it is `mutate` and `opaque` together that supply the row,
+exactly as they do on an `opaque` `destroy` (ADR-0026, ADR-0121). A nested Procedure invocation
 renders under the invoking Step's path with the transitive envelope §3 states.
 
 **A Requirement's line carries no marker at all**, and that is the supply rule holding rather than a

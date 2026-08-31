@@ -282,8 +282,15 @@ written there is `bound-illegal`. A count of the commands it ran says nothing ab
 did, and the only value a single command could carry is `1`, which would render as a promise the Step
 cannot make (§5). It names a population all the same, under the check above. A `mutate`
 Step's Bound is optional; its absence is not a check's business — it is rendered, unbounded, in the
-blast-radius summary, which belongs to §8. A `read` Step carries no Bound at all, having nothing for
-one to guard.
+blast-radius summary, which belongs to §8.
+
+**An `opaque` `mutate` Step's Bound is optional too, and `bound-illegal` does not reach it.** The value
+counts the Records the Step's Expansion resolved to, the Step mints them, and a count of them is
+truthful whatever the commands did — so there is nothing here to refuse, and the rule above stays the
+`destroy` rule. What does reach one Kind down is the *reason* for that rule, and it lands on the
+rendering rather than on a check: such a Step is flagged `unbounded` whether it declares a Bound or not,
+which is where the difference between the number and the blast radius is said (§5, §12, ADR-0121). A
+`read` Step carries no Bound at all, having nothing for one to guard.
 
 Whether an Expansion's actual count exceeds a declared Bound is not decidable from the artefacts alone
 except in one case, and there it is decided here: an `over:` `values:` list is authored in the
