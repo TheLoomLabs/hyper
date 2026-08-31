@@ -929,7 +929,7 @@ List every Provider this repository can load, built-in and Extension alike.
   }
 }
 === records
-Find a version: one row per Record with its ordinal, the Run and Step that wrote it, its state and its Provenance — or every version of one, under history.
+Find a version: one row per Record with its ordinal, the Run and Step that wrote it, whether that Run was a rehearsal, its state and its Provenance — or every version of one, under history.
 --- input
 {
   "type": "object",
@@ -1026,6 +1026,10 @@ Find a version: one row per Record with its ordinal, the Run and Step that wrote
           "step": {
             "type": "integer",
             "minimum": 1
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "Whether the Run that wrote this version was a rehearsal, read off that Run's Journal entry. It is written always, the bare false included: a rehearsal performs the reads it reaches and records Observations like any other Run, so a version worth reading can come from a Run every consumer of Journal evidence filters out, and a reader that takes absence for false gets that backwards. Absent only where the branch holds no entry for the Run at all."
           },
           "record_kind": {
             "enum": [

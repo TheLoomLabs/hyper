@@ -828,6 +828,19 @@ above, and the Comparison as baseline and as subject alike (§8). A rehearsal th
 would permanently refuse every run-once Step in the Procedure it rehearsed, with no bypass to recover
 through and nothing but an artefact edit left (ADR-0001): the review aid would disarm the tool.
 
+**The marker falls on the entry's side of the entry/version line, and no Record version carries one.**
+It is a question asked of a version all the same: a dry-run performs the reads it reaches, so its
+Observations are versions like any other (§6), and where a rehearsal preceded the Run that acted, the
+pre-state a reader came for can exist under the rehearsal's `run_id` alone. A reader who carries the
+paragraph above to the Record store — a different store, where §6 says the opposite — discards exactly
+the versions holding the account. The version restates Provenance because it sits under a Record path
+with no entry beside it, and that argument reaches this marker too; what does not reach it is the
+recovery. Provenance has been on every version ever written, where a marker added to the shape now
+would answer only the versions written after it and leave every version already on a branch silent —
+so the surface that renders it reads the entry regardless, and a member on the file would be a second
+place to read one fact from, answering less than the first. `records` makes that join inside the one
+call and renders the answer on its row (§9, ADR-0114).
+
 ## Provenance
 
 Every Record version carries Provenance, and carries it in full rather than by reference to the Run that

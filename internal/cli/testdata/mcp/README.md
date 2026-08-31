@@ -276,6 +276,13 @@ structured half, so its whole trace on this surface is the `content` block —
 exception and is not one: a Refusal carries the Refusal rendering alone.
 `run_show/` and `changes/` carry nothing of the kind, for the reason §9 states.
 
+**Every `records/` row carries `dry_run`, the bare `false` included** (ADR-0114,
+issue #234). It is read off the Journal entry of the Run that wrote the version,
+which is why the corpus one directory up now seeds one: `records/the-heads-listed`
+renders `true` on the Observation that a rehearsal wrote and `false` on the four
+rows beside it, which is the whole of what the ticket asked the surface to say
+without a second call.
+
 The truncated cases are what the ticket is really about, and there are four of
 them — one per marker the four commands can write.
 `runs/a-cut-listing-names-the-time-axis`, `changes/the-limit-cuts-the-tables`,

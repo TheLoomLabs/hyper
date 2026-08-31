@@ -21,7 +21,12 @@ corpus has needed before:
   `legacy-dns` Assets below orphaned.
 - **`git`**, so the fixture is materialised and the Store has a branch to be.
 - **`store/`**, whose files are `internal/store`'s own canonical encoding at the
-  paths its grammar builds.
+  paths its grammar builds — a Journal **and** the Record versions, since
+  ADR-0114. `records` reads one entry file per Run to say whether that Run was a
+  rehearsal, and a store of versions written by Runs nothing recorded is not a
+  Store `hyper` writes. Each entry is a `run.json` and an `outcome.json` and no
+  Step file: this command opens neither the Step files nor the outcome, and
+  seeding a Journal it does not read would be seeding a claim no case makes.
 
 Two cases carry a `repo/` of their own: [`version-pin-mismatch/`](version-pin-mismatch),
 and [`a-definition-that-did-not-load/`](a-definition-that-did-not-load), whose
@@ -49,6 +54,33 @@ Steps 1, 1, 2, 3 and 4. That is what makes the `RUN` and `STEP` columns worth
 two columns: **the Run and the Step together are the version's identity**, and
 two Steps of one Run writing one identity write two paths (§12), so the Run
 alone would not name one.
+
+## The rehearsal
+
+One of the six Runs behind that Store is a rehearsal — `01991f00-0000…`, which
+wrote the **head** of `local / uptime / status.hyper.dev` — and the other five
+are not. It is an Observation because it has to be: a dry-run stops rather than
+reaching an effect (§6), so a rehearsal never writes an Asset, and the marker's
+whole point is that its *reads* are recorded like any other Run's.
+
+That is the ADR-0110 shape in one row. The Record a reader came for is the
+rehearsal's, `REHEARSAL` says so on the page and `dry_run` says so on the wire —
+with the bare `false` on the four rows beside it, because a reader that takes the
+absence of this one marker for `false` gets a permanent wrong answer (§7,
+ADR-0114, issue #234).
+
+[`a-series-is-cut-at-the-version-cap/`](a-series-is-cut-at-the-version-cap)
+carries a second one, `01991a05-0000…`, inside the twenty versions that survive
+the cap — the marker read down a history rather than across a listing of heads.
+
+[`a-run-the-journal-does-not-hold/`](a-run-the-journal-does-not-hold) is the
+third state, and it is not a third kind of Run. Two versions of one Record, the
+Journal holding the entry of one Run and not the other: the row for the second
+carries **no** `dry_run` at all, and stderr counts it. A Run writes its entry at
+Run start and Compaction removes none (§7), so that is a Store missing evidence,
+and stating the count is what keeps the blank cell from reading as *this was not
+a rehearsal* — the reading `a-definition-that-did-not-load` already refuses over
+`ORPHANED`.
 
 ## The listing, and the two orderings
 

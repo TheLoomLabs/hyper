@@ -1,23 +1,23 @@
 the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
 
-TARGET  DEFINITION  RECORD            ORDINAL  RUN             STEP  KIND         TOMBSTONE  ORPHANED  SECRETS  HYPER
-local   uptime      status.hyper.dev  23       01991a22-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  22       01991a21-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  21       01991a20-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  20       01991a19-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  19       01991a18-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  18       01991a17-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  17       01991a16-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  16       01991a15-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  15       01991a14-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  14       01991a13-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  13       01991a12-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  12       01991a11-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  11       01991a10-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  10       01991a09-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  9        01991a08-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  8        01991a07-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  7        01991a06-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  6        01991a05-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  5        01991a04-0000…  1     observation                                1.4.0
-local   uptime      status.hyper.dev  4        01991a03-0000…  1     observation                                1.4.0
+TARGET  DEFINITION  RECORD            ORDINAL  RUN             STEP  REHEARSAL  KIND         TOMBSTONE  ORPHANED  SECRETS  HYPER
+local   uptime      status.hyper.dev  23       01991a22-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  22       01991a21-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  21       01991a20-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  20       01991a19-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  19       01991a18-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  18       01991a17-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  17       01991a16-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  16       01991a15-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  15       01991a14-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  14       01991a13-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  13       01991a12-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  12       01991a11-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  11       01991a10-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  10       01991a09-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  9        01991a08-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  8        01991a07-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  7        01991a06-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  6        01991a05-0000…  1     yes        observation                                1.4.0
+local   uptime      status.hyper.dev  5        01991a04-0000…  1                observation                                1.4.0
+local   uptime      status.hyper.dev  4        01991a03-0000…  1                observation                                1.4.0

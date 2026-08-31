@@ -52,9 +52,9 @@ const versionsPerSeries = 20
 //
 // `changes` reads a change and this finds the version that change is of. One
 // row per Record: its identity, its ordinal, the Run **and** Step that wrote
-// the version, whether it is an Observation or an Asset, whether it is a
-// Tombstone, which of its fields carry the presence-only secret marker, and its
-// Provenance (§9).
+// the version, whether that Run was a rehearsal, whether it is an Observation
+// or an Asset, whether it is a Tombstone, which of its fields carry the
+// presence-only secret marker, and its Provenance (§9).
 //
 // **The Run and the Step together are the version's identity, and this is the
 // surface that carries them.** Two Steps of one Run writing one identity write
@@ -153,7 +153,31 @@ func RunRecords(args []string, to destination, process Process, wd, binaryVersio
 	selected := selectVersions(records, narrowing, parsed.history, loaded.Definitions)
 	kept, left := cutIdentities(selected, parsed.limit)
 
-	rows, err := recordRows(held, kept)
+	// The versions this answer renders, flattened once and read three ways:
+	// the Journal is asked about their Runs, the branch about their
+	// suppressed fields, and the narration counts them. One flattening
+	// rather than three is what keeps `suppressed` pairing back to the rows
+	// by position (recordRows).
+	versions := versionsOf(kept)
+
+	// The Journal, for the one column the record cannot answer either: what
+	// kind of Run wrote a version. §7 writes `dry_run` on the entry and on
+	// nothing else, so this is the join a caller would otherwise make by
+	// hand with `hyper show`, made inside the one call — and it is the
+	// narrow door, one run.json per entry asked about and no Step file,
+	// because that is the whole of what this column reads (store.Rehearsals,
+	// ADR-0114).
+	//
+	// It stands after the cut so that it is asked only about the Runs this
+	// answer names: a listing of one Record opens one entry, where a walk of
+	// the whole Journal would make a `--limit 1` cost what a year of Runs
+	// costs.
+	rehearsals, err := held.Rehearsals(runsOf(versions))
+	if err != nil {
+		return reportReadStoreFault(recordsCommand, to, err)
+	}
+
+	rows, err := recordRows(held, kept, versions, rehearsals)
 	if err != nil {
 		return reportReadStoreFault(recordsCommand, to, err)
 	}
@@ -185,6 +209,14 @@ func RunRecords(args []string, to destination, process Process, wd, binaryVersio
 	// absence (§8, ADR-0069).
 	if notLoaded := definitionsNotLoaded(loaded); notLoaded > 0 {
 		fmt.Fprintf(to.narrate(), "hyper %s: %s; ORPHANED is read against the Definitions that did\n", recordsCommand, definitionsNotLoadedLine(notLoaded))
+	}
+	// A version whose Run the Journal holds no entry for has no marker to
+	// carry, and the count is stated rather than the blank being read as
+	// *this was not a rehearsal* — which is the one reading §7 says a reader
+	// of this marker may never take. It is the same reading the line above
+	// takes over the same shape of absence (§7, ADR-0114).
+	if unattributed := unattributedVersions(versions, rehearsals); unattributed > 0 {
+		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", recordsCommand, unattributedVersionsLine(unattributed))
 	}
 
 	return ExitClean
@@ -279,6 +311,24 @@ var versionsNarrowing = render.Narrowing{{Flag: "--since", Argument: "since"}}
 // in the tool that carries both: two Steps of one Run writing one identity
 // write two paths, so the Run alone would not name a version (§12).
 //
+// **`dry_run` says what kind of Run that was, and it is written always** — the
+// bare `false` included, which is §7's one exception to the absence rule
+// carried onto the surface that renders the Run. §6 records a rehearsal's reads
+// like any other Run's, so a version this row names can be the whole of what a
+// reader came for and still have been written by a Run §7 tells every consumer
+// of Journal evidence to filter out; a reader who carries that rule here
+// without the marker discards exactly the versions holding the account (§7,
+// ADR-0114, issue #234).
+//
+// It is read off the Journal entry of the Run that wrote the version, which is
+// the one place the marker is written — the same join the caller would make by
+// hand with `hyper show`, made inside the one call. It is **absent** where the
+// branch holds no entry for that Run at all: a Run writes its entry at start
+// and Compaction never removes one, so that is a Store missing evidence rather
+// than a Run that was not a rehearsal, and the two may not spell the same
+// (store.Rehearsals). The narration counts those rows, exactly as it counts the
+// Definitions `orphaned` could not be read against.
+//
 // **`tombstoned` and `orphaned` are the Record's state, and both are the
 // series' rather than the version's.** §9 gives this row *whether its **head**
 // is a Tombstone*, and that is one grain with `orphaned`'s *on every row that
@@ -319,6 +369,7 @@ type recordRow struct {
 	Ordinal      int             `json:"ordinal"`
 	RunID        string          `json:"run_id"`
 	Step         int             `json:"step"`
+	DryRun       *bool           `json:"dry_run,omitempty"`
 	RecordKind   string          `json:"record_kind"`
 	Tombstoned   bool            `json:"tombstoned,omitempty"`
 	Orphaned     bool            `json:"orphaned,omitempty"`
@@ -337,10 +388,19 @@ type recordKey struct {
 // Cells is the row's line on the page, in recordsColumns' order.
 //
 // Three of them render differently here and nowhere else: the Run id is
-// abbreviated, the two markers are the word `yes` under columns named for them
+// abbreviated, the markers are the word `yes` under columns named for them
 // rather than the booleans the wire carries, and Provenance renders its
-// `hyper_version` alone. All four are the page's reading of facts the row holds
-// once.
+// `hyper_version` alone. All of them are the page's reading of facts the row
+// holds once.
+//
+// **`REHEARSAL` is the word where there is something to say and nothing where
+// there is not**, which is the page half of §7's exception and the reading
+// `show`'s own header already takes over the same marker: the wire carries it
+// always because a reader that takes its absence for `false` cannot recover,
+// and a column carrying `no` down every row of an ordinary listing says
+// nothing a reader scans for. A blank therefore covers both an ordinary Run
+// and a Run the branch holds no entry for, and the second is what the
+// narration counts (entryValues, show.go).
 //
 // **Provenance is seven values and this is a table read down a column**, so
 // what stands here is the one member a reader scans a listing for — which
@@ -356,6 +416,7 @@ func (r recordRow) Cells() []string {
 		strconv.Itoa(r.Ordinal),
 		abbreviatedRun(r.RunID),
 		strconv.Itoa(r.Step),
+		yesCell(r.DryRun != nil && *r.DryRun),
 		r.RecordKind,
 		yesCell(r.Tombstoned),
 		yesCell(r.Orphaned),
@@ -366,7 +427,7 @@ func (r recordRow) Cells() []string {
 
 // recordsColumns is the page's header: the row's own members in the row's own
 // order, the identity's three columns spelled as §8's Comparison spells them.
-var recordsColumns = []string{"TARGET", "DEFINITION", "RECORD", "ORDINAL", "RUN", "STEP", "KIND", "TOMBSTONE", "ORPHANED", "SECRETS", "HYPER"}
+var recordsColumns = []string{"TARGET", "DEFINITION", "RECORD", "ORDINAL", "RUN", "STEP", "REHEARSAL", "KIND", "TOMBSTONE", "ORPHANED", "SECRETS", "HYPER"}
 
 // selection is one Record's contribution to the answer: which of its versions
 // this call renders, in the order it renders them, and the two facts that
@@ -549,11 +610,12 @@ func cappedSeriesLine(left cut) string {
 // the whole reason this is one function rather than a row builder called per
 // version: a read per row is a git subprocess per row, and the cut has already
 // bounded how many there are (store.SuppressedFields).
-func recordRows(held *store.Store, kept []selection) ([]render.Row, error) {
-	var versions []store.Version
-	for _, chosen := range kept {
-		versions = append(versions, chosen.versions...)
-	}
+//
+// The flat list is handed in rather than rebuilt here, and that is the pairing
+// rather than a saved loop: the caller read the Journal against this order and
+// the batch below is paired back by position, so a second flattening would be a
+// second order for one row set to be built from.
+func recordRows(held *store.Store, kept []selection, versions []store.Version, rehearsals map[store.RunID]bool) ([]render.Row, error) {
 	suppressed, err := held.SuppressedFields(versions)
 	if err != nil {
 		return nil, err
@@ -563,7 +625,7 @@ func recordRows(held *store.Store, kept []selection) ([]render.Row, error) {
 	at := 0
 	for _, chosen := range kept {
 		for _, version := range chosen.versions {
-			rows = append(rows, recordRowOf(version, chosen, suppressed[at]))
+			rows = append(rows, recordRowOf(version, chosen, suppressed[at], rehearsals))
 			at++
 		}
 	}
@@ -573,7 +635,7 @@ func recordRows(held *store.Store, kept []selection) ([]render.Row, error) {
 // recordRowOf is one version as the row carries it: the version's own facts,
 // the Record's two state markers, and the fields the secret marker stood in
 // for.
-func recordRowOf(version store.Version, of selection, secret []string) recordRow {
+func recordRowOf(version store.Version, of selection, secret []string, rehearsals map[store.RunID]bool) recordRow {
 	return recordRow{
 		Type: "record",
 		Key: recordKey{
@@ -584,6 +646,7 @@ func recordRowOf(version store.Version, of selection, secret []string) recordRow
 		Ordinal:      version.Ordinal,
 		RunID:        version.Run.String(),
 		Step:         version.Step,
+		DryRun:       rehearsalOf(version.Run, rehearsals),
 		RecordKind:   string(version.RecordType),
 		Tombstoned:   of.tombstoned,
 		Orphaned:     of.orphaned,
@@ -598,6 +661,85 @@ func recordRowOf(version store.Version, of selection, secret []string) recordRow
 			OriginDigest:       version.Provenance.Step.OriginDigest,
 		},
 	}
+}
+
+// rehearsalOf is the marker one version carries: what the Journal entry of the
+// Run that wrote it says, and nothing at all where the branch holds no entry
+// for that Run.
+//
+// The pointer is the three states kept apart. `true` and `false` are both
+// written on the wire — §7's exception, because a reader that takes absence for
+// `false` gets a permanent wrong answer — and the third state is the branch
+// having nothing to say, which is a Store missing evidence rather than a Run of
+// either kind. Collapsing it to `false` would be exactly the reading the
+// exception exists to prevent, one layer further out.
+func rehearsalOf(run store.RunID, rehearsals map[store.RunID]bool) *bool {
+	marker, held := rehearsals[run]
+	if !held {
+		return nil
+	}
+	return &marker
+}
+
+// versionsOf is every version this answer renders, flattened in the order the
+// selections hold them — which is the order the rows go out in, and therefore
+// the order anything read in a batch against it is paired back by.
+func versionsOf(kept []selection) []store.Version {
+	var versions []store.Version
+	for _, chosen := range kept {
+		versions = append(versions, chosen.versions...)
+	}
+	return versions
+}
+
+// runsOf is every Run that wrote one of them, each once. It is what the Journal
+// is asked about, and it is a set because one Run writing forty versions is one
+// entry to open.
+func runsOf(versions []store.Version) []store.RunID {
+	named := map[store.RunID]bool{}
+	runs := make([]store.RunID, 0, len(versions))
+	for _, version := range versions {
+		if !named[version.Run] {
+			named[version.Run] = true
+			runs = append(runs, version.Run)
+		}
+	}
+	return runs
+}
+
+// unattributedVersions is how many rows of this answer name a Run the Journal
+// holds no entry for.
+//
+// It counts versions and not Records, because the marker is the version's: a
+// history whose Runs are half in the Journal and half not has one row of each,
+// and a count of Records could not say how many rows the reader must go and
+// find another way.
+//
+// It reads the absence through rehearsalOf rather than through the map, so the
+// count and the member it is a count of cannot come to disagree about what
+// *the branch has nothing to say* is.
+func unattributedVersions(versions []store.Version, rehearsals map[store.RunID]bool) int {
+	unattributed := 0
+	for _, version := range versions {
+		if rehearsalOf(version.Run, rehearsals) == nil {
+			unattributed++
+		}
+	}
+	return unattributed
+}
+
+// unattributedVersionsLine is what those rows say to a human: how many, and
+// that the column is read off the entries the Journal does hold.
+//
+// It names `hyper runs` as the act that shows what the Journal holds, for the
+// reason the Definition line names `hyper check`: a count with nothing to do
+// about it is a count a reader carries away and cannot act on.
+func unattributedVersionsLine(unattributed int) string {
+	versions, name := "versions", "name"
+	if unattributed == 1 {
+		versions, name = "version", "names"
+	}
+	return fmt.Sprintf("%d %s %s a Run the Journal holds no entry for; REHEARSAL is read off the entries it does · hyper runs", unattributed, versions, name)
 }
 
 // recordNarrowings is what the caller narrowed the listing by: §9's typed,

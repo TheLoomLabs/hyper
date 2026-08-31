@@ -794,10 +794,10 @@ func decodeEntry(held group, contents [][]byte) (Entry, error) {
 	}
 
 	if !found {
-		return Entry{}, fmt.Errorf("%q holds no run.json: a Journal entry is written at Run start and every file under one sits beside it (§7)", held.dir)
+		return Entry{}, missingRunFile(held.dir)
 	}
-	if built := entry.At().RunPath(); built != held.dir+"/run.json" {
-		return Entry{}, fmt.Errorf("%q holds an entry the grammar names %q: an entry sits under the UTC date of the instant its own run.json carries (§12)", held.dir, built)
+	if err := misfiledEntry(held.dir, entry.RunFile); err != nil {
+		return Entry{}, err
 	}
 
 	// Earliest inference first, so that the closer a reaped entry's account
@@ -811,6 +811,26 @@ func decodeEntry(held group, contents [][]byte) (Entry, error) {
 		)
 	})
 	return entry, nil
+}
+
+// missingRunFile and misfiledEntry are the two rules every reader of a run.json
+// holds one to, written once so that the two doors that open one cannot come to
+// spell them differently: an entry carries a run.json, and it sits under the UTC
+// date of the instant that file itself carries.
+//
+// The second is the Journal's half of the rule a Record version is read under —
+// a file that does not sit where its own contents put it is a file `hyper` did
+// not write, and reading it would give two answers about one entry, one of them
+// a date nothing filed it under (§7, §12).
+func missingRunFile(dir string) error {
+	return fmt.Errorf("%q holds no run.json: a Journal entry is written at Run start and every file under one sits beside it (§7)", dir)
+}
+
+func misfiledEntry(dir string, read RunFile) error {
+	if built := read.At().RunPath(); built != dir+"/run.json" {
+		return fmt.Errorf("%q holds an entry the grammar names %q: an entry sits under the UTC date of the instant its own run.json carries (§12)", dir, built)
+	}
+	return nil
 }
 
 // unreadable is one file under an entry that would not decode, named by its
@@ -873,4 +893,89 @@ func dispositionsFrom(files []entryFile, contents [][]byte, entry Entry) (Dispos
 	}
 	slices.SortFunc(steps, func(a, b StepFile) int { return cmp.Compare(a.Step, b.Step) })
 	return Dispositions{Entry: entry, Steps: steps}, nil
+}
+
+// Rehearsals answers what kind of Run wrote the versions a caller is about to
+// render: one member per Run named that the branch holds an entry for, carrying
+// that entry's `dry_run` — the bare `false` included, the marker being written
+// on every entry and never on rehearsals alone (§7).
+//
+// **It takes the Runs it is asked about rather than answering the whole
+// Journal.** `records` cuts its answer before it asks, so a listing of one
+// Record opens one entry and never a year of them. It is the trade Listing
+// already makes with its predicate: what a narrowing buys is files not opened,
+// and the listing of the branch that finds them is one call either way. An
+// entry whose *path* names a Run nobody asked about is not opened, and each one
+// that is opened is still held to sitting where its own contents put it — so a
+// file filed under the wrong Run is caught by the reader that asks for the Run
+// it claims to be.
+//
+// **It is a map and never a set, because absence has to mean the other thing.**
+// A key that is missing says *the branch holds no entry for this Run*, which is
+// a Store that has lost evidence rather than a Run that was not a rehearsal —
+// and the one rule §7 states about this marker is that a reader taking its
+// absence for `false` gets a permanent wrong answer. A set would spell those
+// two the same way.
+//
+// **It is a third door beside Entries and Listing, and it is here for their
+// reason: which door a caller needs is a cost.** It opens one file per entry
+// asked for — the run.json, and never the outcome.json, the closing writes or
+// the Step files — so a Run whose *end* nobody can read still answers what kind
+// of Run it was. That is narrower in what it opens and not laxer in what it
+// admits: an entry it does open answers this reader's two rules or the read
+// faults, exactly as every other reader of the Store's files does (§9,
+// ADR-0114).
+func (s *Store) Rehearsals(runs []RunID) (map[RunID]bool, error) {
+	// A caller naming no Run is asking nothing, and the branch is not
+	// listed to answer it: a listing that kept no version has no marker to
+	// render and no reason to pay for the walk that would find none.
+	if len(runs) == 0 {
+		return nil, nil
+	}
+
+	wanted := make(map[RunID]bool, len(runs))
+	for _, run := range runs {
+		wanted[run] = true
+	}
+
+	partitions, err := s.partitions()
+	if err != nil {
+		return nil, err
+	}
+
+	var held []group
+	for _, partition := range partitions {
+		for _, entry := range partition {
+			if wanted[entry.run] {
+				held = append(held, entry)
+			}
+		}
+	}
+
+	files := make([]entryFile, len(held))
+	for i, entry := range held {
+		found := runFileOf(entry)
+		if len(found) == 0 {
+			return nil, missingRunFile(entry.dir)
+		}
+		files[i] = found[0]
+	}
+
+	contents, err := s.repo.readBlobs(blobsOf(files))
+	if err != nil {
+		return nil, err
+	}
+
+	rehearsals := make(map[RunID]bool, len(files))
+	for i, entry := range held {
+		read, err := DecodeRunFile(contents[i])
+		if err != nil {
+			return nil, unreadable(files[i].path, err)
+		}
+		if err := misfiledEntry(entry.dir, read); err != nil {
+			return nil, err
+		}
+		rehearsals[read.Run] = read.DryRun
+	}
+	return rehearsals, nil
 }

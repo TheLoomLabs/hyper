@@ -3,6 +3,7 @@ package store_test
 import (
 	"errors"
 	"iter"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1128,4 +1129,168 @@ func boundBy(listed []store.Listed, run string) []string {
 		}
 	}
 	return nil
+}
+
+// The third door: the marker alone, for the Runs a caller names (issue #234).
+// `records` renders which kind of Run wrote each version it lists, and the
+// Journal is where that fact is written — so it needs those entries' `dry_run`
+// and no byte of anything else.
+
+// TestRehearsals_AnswersTheMarkerOfEveryRunAskedAbout is the door: one member
+// per Run named, carrying what that entry's own run.json says, the bare `false`
+// included.
+func TestRehearsals_AnswersTheMarkerOfEveryRunAskedAbout(t *testing.T) {
+	rehearsal := runFileAt(t, theCloserRunID, theRunStart)
+	rehearsal.DryRun = true
+
+	_, held := seededJournal(t,
+		anEntry{run: rehearsal},
+		anEntry{run: runFileAt(t, theEntryRunID, theRunStart.AddDate(0, 0, -1))},
+	)
+
+	want := map[string]bool{theCloserRunID: true, theEntryRunID: false}
+	if got := rehearsalsOf(t, held, theCloserRunID, theEntryRunID); !maps.Equal(got, want) {
+		t.Errorf("the branch answers %v, want %v — the marker of each entry named, the bare false included", got, want)
+	}
+}
+
+// TestRehearsals_OpensOnlyTheEntriesItWasAskedAbout. `records` cuts its answer
+// before it asks, so a listing of one Record opens one entry: an entry the
+// caller did not name is not in the answer and was not read to find that out.
+func TestRehearsals_OpensOnlyTheEntriesItWasAskedAbout(t *testing.T) {
+	_, held := seededJournal(t,
+		anEntry{run: runFileAt(t, theCloserRunID, theRunStart)},
+		anEntry{run: runFileAt(t, theEntryRunID, theRunStart.AddDate(0, 0, -1))},
+	)
+
+	want := map[string]bool{theEntryRunID: false}
+	if got := rehearsalsOf(t, held, theEntryRunID); !maps.Equal(got, want) {
+		t.Errorf("the branch answers %v, want %v — the Run named and no other", got, want)
+	}
+}
+
+// TestRehearsals_HoldsNoMemberForARunTheBranchHasNoEntryFor. Absence is *the
+// branch holds no entry for this Run* and never *this Run was not a rehearsal*,
+// which is the whole reason the answer is a map rather than a set.
+func TestRehearsals_HoldsNoMemberForARunTheBranchHasNoEntryFor(t *testing.T) {
+	_, held := seededJournal(t, anEntry{run: runFileAt(t, theEntryRunID, theRunStart)})
+
+	if got := rehearsalsOf(t, held, theCloserRunID); len(got) != 0 {
+		t.Errorf("the branch answers %v for a Run it holds no entry for, want nothing", got)
+	}
+	// A caller naming no Run is asking nothing, and the branch is not listed
+	// to answer it — an empty listing has no marker to render.
+	if got := rehearsalsOf(t, held); len(got) != 0 {
+		t.Errorf("a call naming no Run answers %v, want nothing", got)
+	}
+}
+
+// TestRehearsals_OpensNoFileButTheRunJson is what makes this a door of its own
+// rather than Entries under another name: an entry whose outcome.json will not
+// decode still answers the marker its run.json carries, because a Run whose end
+// nobody can read is still a Run whose kind the version it wrote is named by.
+func TestRehearsals_OpensNoFileButTheRunJson(t *testing.T) {
+	r, _ := seededJournal(t, anEntry{run: runFileAt(t, theEntryRunID, theRunStart)})
+	at := store.JournalEntry{Run: entryRun(t), Started: theRunStart}
+	r.seedFiles(r.root, map[string]string{at.OutcomePath(): "{\n"})
+
+	held, err := store.Open(r.root, theInstant)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if _, err := held.Entries(); err == nil {
+		t.Fatal("Entries read the branch, want the unreadable outcome.json refused: the case rests on it")
+	}
+
+	if want := map[string]bool{theEntryRunID: false}; !maps.Equal(rehearsalsOf(t, held, theEntryRunID), want) {
+		t.Errorf("the branch answers %v, want %v", rehearsalsOf(t, held, theEntryRunID), want)
+	}
+}
+
+// TestRehearsals_RefusesAnEntryItOpensThatBreaksEitherRule. The door is narrower
+// in what it opens and not laxer in what it admits: a run.json that will not
+// decode, and one that does not sit where its own contents put it, are both a
+// Store `hyper` did not write, and answering a marker off either would be
+// reading a file nobody wrote (§7, §12).
+func TestRehearsals_RefusesAnEntryItOpensThatBreaksEitherRule(t *testing.T) {
+	for _, one := range []struct {
+		name  string
+		seed  func(*testing.T, store.JournalEntry) map[string]string
+		wants string
+	}{
+		{
+			name: "a run.json that will not decode",
+			seed: func(_ *testing.T, at store.JournalEntry) map[string]string {
+				return map[string]string{at.RunPath(): "{\n"}
+			},
+			wants: "would not decode",
+		},
+		{
+			name: "a run.json filed under a date its own instant does not name",
+			seed: func(t *testing.T, at store.JournalEntry) map[string]string {
+				misfiled := store.JournalEntry{Run: at.Run, Started: at.Started.AddDate(0, 0, -1)}
+				return map[string]string{misfiled.RunPath(): string(runFileAt(t, theEntryRunID, at.Started).Encode())}
+			},
+			wants: "the grammar names",
+		},
+	} {
+		t.Run(one.name, func(t *testing.T) {
+			r, _ := seededJournal(t)
+			r.seedFiles(r.root, one.seed(t, store.JournalEntry{Run: entryRun(t), Started: theRunStart}))
+
+			held, err := store.Open(r.root, theInstant)
+			if err != nil {
+				t.Fatalf("Open: %v", err)
+			}
+			_, err = held.Rehearsals([]store.RunID{entryRun(t)})
+			if err == nil {
+				t.Fatalf("Rehearsals read the branch, want the file refused")
+			}
+			if !strings.Contains(err.Error(), one.wants) {
+				t.Errorf("Rehearsals: %v, want it to name %q", err, one.wants)
+			}
+		})
+	}
+}
+
+// TestRehearsals_RefusesAnEntryDirectoryHoldingNoRunJson holds the two doors to
+// one reading of what an entry is: decodeEntry calls a directory with no
+// run.json a fault, and a door that answered *no marker* for it would spell a
+// broken entry the same way it spells one the branch does not hold.
+func TestRehearsals_RefusesAnEntryDirectoryHoldingNoRunJson(t *testing.T) {
+	r, _ := seededJournal(t)
+	at := store.JournalEntry{Run: entryRun(t), Started: theRunStart}
+	r.seedFiles(r.root, map[string]string{at.OutcomePath(): string(store.OutcomeFile{
+		Outcome: store.OutcomeCompleted,
+		EndedAt: theRunStart.Add(time.Hour),
+	}.Encode())})
+
+	held, err := store.Open(r.root, theInstant)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	_, err = held.Rehearsals([]store.RunID{entryRun(t)})
+	if err == nil || !strings.Contains(err.Error(), "holds no run.json") {
+		t.Errorf("Rehearsals: %v, want the entry with no run.json refused as Entries refuses it", err)
+	}
+}
+
+// rehearsalsOf reads the door back as text, so that an assertion names the Runs
+// it is about rather than a value only the package can spell.
+func rehearsalsOf(t *testing.T, held *store.Store, runs ...string) map[string]bool {
+	t.Helper()
+
+	named := make([]store.RunID, len(runs))
+	for i, run := range runs {
+		named[i] = runID(t, run)
+	}
+	rehearsals, err := held.Rehearsals(named)
+	if err != nil {
+		t.Fatalf("Rehearsals: %v", err)
+	}
+	read := make(map[string]bool, len(rehearsals))
+	for run, marker := range rehearsals {
+		read[run.String()] = marker
+	}
+	return read
 }

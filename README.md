@@ -344,8 +344,8 @@ RUN             STARTED                   TRIGGER      OUTCOME    CONTESTED  PRO
 $ hyper records
 the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
 
-TARGET  DEFINITION  RECORD                       ORDINAL  RUN             STEP  KIND         TOMBSTONE  ORPHANED  SECRETS  HYPER
-local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1     observation                                0.0.1-alpha
+TARGET  DEFINITION  RECORD                       ORDINAL  RUN             STEP  REHEARSAL  KIND         TOMBSTONE  ORPHANED  SECRETS  HYPER
+local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1                observation                                0.0.1-alpha
 ```
 
 Neither listing is reading a directory. The record is an orphan branch, `hyper-store`, written with git

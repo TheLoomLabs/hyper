@@ -1,0 +1,18 @@
+{
+  "dry_run": false,
+  "procedure": "retire-preview-envs",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "b7f1c0a2d3e4f5061728394a5b6c7d8e9f001122",
+    "repo_revision": "3f2e1d0c9b8a77665544332211009988ffeeddcc"
+  },
+  "run_id": "01991a17-0000-7000-8000-000000000017",
+  "schema_version": 1,
+  "started_at": "2026-08-02T02:00:00.000Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

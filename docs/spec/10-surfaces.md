@@ -537,12 +537,24 @@ across every Procedure at once, which is why the Procedure is positional here an
 `--between` together is a usage error, the two being different ways of naming one window.
 
 `records` takes `--target`, `--definition`, `--name`, `--history`, `--since`, and `--limit`, and writes one row
-per Record: its identity, its ordinal, the Run and Step that wrote the version, whether it is an
-Observation or an Asset, whether its head is a Tombstone, which of its fields carry the presence-only
-secret marker (§7), and its Provenance. It returns the Head only unless `--history` is given — an
-explicit boolean rather than a mode that turns itself on when some other parameter is named (ADR-0013).
+per Record: its identity, its ordinal, the Run and Step that wrote the version, whether that Run was a
+rehearsal, whether it is an Observation or an Asset, whether its head is a Tombstone, which of its fields
+carry the presence-only secret marker (§7), and its Provenance. It returns the Head only unless `--history`
+is given — an explicit boolean rather than a mode that turns itself on when some other parameter is named
+(ADR-0013).
 An Asset whose Definition no longer exists is marked Orphaned on every row that carries it, for as long
 as it stands (§7).
+
+`dry_run` is the entry's marker rendered on the version's row, and it is written always — the bare
+`false` included, §7's one exception to the absence rule carried onto the surface that names the Run. A
+rehearsal performs the reads it reaches and records Observations like any other Run (§6) while §7 tells
+every consumer of Journal evidence to filter its entry out, so the two rules point opposite ways at one
+`run_id` and a reader needs to know which applies before reading the row. It is read off that Run's
+Journal entry inside the one call, which is the join a caller would otherwise spend a `show` on. It is
+**absent** only where the branch holds no entry for the Run at all — a Run writes its entry at start and
+Compaction removes none, so that is a Store missing evidence and never a Run that was not a rehearsal,
+and the narration counts those rows. On the page it is the word `yes` where there is something to say and
+a blank where there is not, which is what `show`'s own header already does with the same marker.
 
 The ordinal is §8's and unstable for the reasons stated there. The Run and Step are the version's
 identity, and this is the surface that carries them: it is the one whose job is finding a version rather
@@ -1377,6 +1389,9 @@ Operation's Kind, one name cannot hold two senses.
 records(target?, definition?, name?, history?, since?, limit?)
 // → rows: [{ type: "record", key: { target, definition, name }, ordinal,
 //            run_id, step,                   // the version's identity, §8
+//            dry_run,                        // whether that Run was a rehearsal, off its entry;
+//                                            // written always, absent only where the branch holds
+//                                            // no entry for the Run at all
 //            record_kind: "observation" | "asset", tombstoned, orphaned,
 //            secret_fields: [ "api_key" ],   // the presence-only marker, per §7
 //            provenance: { … } }]

@@ -2066,10 +2066,18 @@ const windowSide = `{
 // partial history wearing a complete one's shape; what bounds one series is a
 // constant this implementation picks, and a marker naming the time axis is what
 // says it cut (records.go).
+//
+// **`dry_run` rides on the row because the join was costing a call.** A
+// rehearsal performs the reads it reaches and records Observations like any
+// other Run (§6), so the versions holding a pre-state can all be a rehearsal's
+// — and §7 tells every consumer of Journal evidence to filter a rehearsal out,
+// which is the opposite rule pointed at the same Run. An agent reading a row
+// and reaching for `run_show` to learn which rule applies is the call this
+// member removes (ADR-0114, issue #234).
 var recordsTool = tool{
 	name:        "records",
 	text:        locationBeneathSummary,
-	description: "Find a version: one row per Record with its ordinal, the Run and Step that wrote it, its state and its Provenance — or every version of one, under history.",
+	description: "Find a version: one row per Record with its ordinal, the Run and Step that wrote it, whether that Run was a rehearsal, its state and its Provenance — or every version of one, under history.",
 	input: closedObject(`{
 		"target": {"type": "string", "minLength": 1, "description": "The identity's first column, matched byte-exact over UTF-8."},
 		"definition": {"type": "string", "minLength": 1, "description": "Its second."},
@@ -2111,6 +2119,10 @@ var recordsTool = tool{
 					},
 					"run_id": {"type": "string", "description": "Whole. The Run and the Step together are the version's identity: two Steps of one Run writing one identity write two paths, so the Run alone would not name one."},
 					"step": {"type": "integer", "minimum": 1},
+					"dry_run": {
+						"type": "boolean",
+						"description": "Whether the Run that wrote this version was a rehearsal, read off that Run's Journal entry. It is written always, the bare false included: a rehearsal performs the reads it reaches and records Observations like any other Run, so a version worth reading can come from a Run every consumer of Journal evidence filters out, and a reader that takes absence for false gets that backwards. Absent only where the branch holds no entry for the Run at all."
+					},
 					"record_kind": {"enum": ["asset", "observation"]},
 					"tombstoned": {"type": "boolean", "description": "Whether the Record's Head is a Tombstone. It is the series' state rather than the version's, so it means one thing on every row of a history."},
 					"orphaned": {"type": "boolean", "description": "An Asset still standing whose Definition no longer exists. Reported for as long as it stands rather than once, or a forgotten resource becomes invisible by way of a tidy-up commit."},

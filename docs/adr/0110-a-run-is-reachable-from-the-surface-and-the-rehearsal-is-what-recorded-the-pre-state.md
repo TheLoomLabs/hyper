@@ -103,7 +103,9 @@ paid for that twice.
 mandatory on every entry, `false` included, *and is the one marker in the Store that does not follow
 the absence rule* — because a reader taking absence for `false` gets a permanent wrong answer. The
 Record version carries no such field, and `records` renders no such column, so getting from a row to
-*that was a rehearsal* is a `run show` join. The session made that call. It is issue #234.
+*that was a rehearsal* is a `run show` join. The session made that call. It is issue #234. _ADR-0114
+decides it:_ the marker stays on the entry, and `records` makes that join inside the one call and
+renders it on the row.
 
 **Once at the gap between the two Runs, where nothing renders what the rehearsal read.** `changes`
 after the rehearsal alone came back empty — correctly, there being no non-rehearsal Run to be a
@@ -196,9 +198,9 @@ and a missing rendering — and not the recording itself.
   reports a Store-less repository — remains given up.
 - **`fleet-rollout` stands as authored.** No change to the task follows from this run.
 - **Three defects, ticketed with this transcript as their evidence**: issue #233 (the account's
-  location is unreachable from every surface an agent is allowed to call), issue #234 (a Record
-  version does not say the Run that wrote it was a rehearsal), issue #235 (nothing renders a Record's
-  fields until a non-rehearsal Run exists).
+  location is unreachable from every surface an agent is allowed to call — ADR-0113), issue #234 (a
+  Record version does not say the Run that wrote it was a rehearsal — ADR-0114), issue #235 (nothing
+  renders a Record's fields until a non-rehearsal Run exists).
 - **ADR-0100's fix holds on a third transcript.** `review` returned its page in the structured
   content twice and the session read both.
 

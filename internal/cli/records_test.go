@@ -247,7 +247,7 @@ func TestSelectVersions_MarksAnOrphanedAssetOnEveryRowItCarries(t *testing.T) {
 		t.Fatal("the Record is not Orphaned; its Definition is not in the namespace and its head stands")
 	}
 	for i, version := range selected[0].versions {
-		if row := recordRowOf(version, selected[0], nil); !row.Orphaned {
+		if row := recordRowOf(version, selected[0], nil, nil); !row.Orphaned {
 			t.Errorf("the row at ordinal %d carries no orphaned marker; every row that carries the Asset carries it (row %d)", version.Ordinal, i)
 		}
 	}
@@ -270,7 +270,7 @@ func TestSelectVersions_ReadsTombstonedOffTheHeadAndCarriesItDownTheSeries(t *te
 		t.Fatalf("the Record reads tombstoned=%v, want true — its Head is a Tombstone", selected[0].tombstoned)
 	}
 	for _, version := range selected[0].versions {
-		if row := recordRowOf(version, selected[0], nil); !row.Tombstoned {
+		if row := recordRowOf(version, selected[0], nil, nil); !row.Tombstoned {
 			t.Errorf("the row at ordinal %d carries no tombstoned marker; the marker is the Head's and stands on every row", version.Ordinal)
 		}
 	}
@@ -491,3 +491,150 @@ func recordKeyOf(t *testing.T, line string) recordKey {
 	}
 	return row.Key
 }
+
+// The rehearsal marker (issue #234, ADR-0114). §6 records a rehearsal's reads
+// like any other Run's, so a version this surface names can be the whole of
+// what a reader came for and still have been written by a Run §7 tells every
+// consumer of Journal evidence to filter out. The marker is what tells the two
+// apart without a second call.
+
+// theRehearsal and theEffectingRun are the two Runs these cases range over, and
+// theUnrecordedRun is the third state: a Run the Journal holds no entry for.
+var (
+	theRehearsal     = aRunID("01991f00-0000-7000-8000-00000000000f")
+	theEffectingRun  = aRunID("01991e00-0000-7000-8000-00000000000e")
+	theUnrecordedRun = aRunID("01991d00-0000-7000-8000-00000000000d")
+)
+
+// theJournal is what store.Rehearsals answers over those three: an entry for
+// two of them, and none at all for the third.
+var theJournal = map[store.RunID]bool{theRehearsal: true, theEffectingRun: false}
+
+// aRunID is a well-formed Run id, so a failure here has found a broken fixture
+// rather than a broken rule.
+func aRunID(id string) store.RunID {
+	run, err := store.ParseRunID(id)
+	if err != nil {
+		panic(err)
+	}
+	return run
+}
+
+// aVersionOf is one version written by a named Run, which is the one member
+// these cases vary.
+func aVersionOf(run store.RunID) store.Version {
+	version := aRecordVersion(theObservation, store.RecordObservation, 1, theFirstInstant)
+	version.Run = run
+	return version
+}
+
+// TestRecordRowOf_CarriesTheMarkerOfTheRunThatWroteTheVersion. Both markers go
+// out, the bare `false` included: §7 writes this one always because a reader
+// that takes its absence for `false` gets a permanent wrong answer, and a row
+// that dropped the `false` would be that absence built at the surface.
+func TestRecordRowOf_CarriesTheMarkerOfTheRunThatWroteTheVersion(t *testing.T) {
+	for _, one := range []struct {
+		name string
+		run  store.RunID
+		want *bool
+	}{
+		{"a rehearsal", theRehearsal, ptr(true)},
+		{"an effecting Run", theEffectingRun, ptr(false)},
+		{"a Run the Journal holds no entry for", theUnrecordedRun, nil},
+	} {
+		t.Run(one.name, func(t *testing.T) {
+			row := recordRowOf(aVersionOf(one.run), selection{}, nil, theJournal)
+			switch {
+			case one.want == nil && row.DryRun != nil:
+				t.Errorf("the row carries dry_run: %t; the branch holds no entry for %s, and absence is that and never `false`", *row.DryRun, one.run)
+			case one.want != nil && row.DryRun == nil:
+				t.Errorf("the row carries no dry_run; the marker is written on every version whose Run the Journal records")
+			case one.want != nil && *row.DryRun != *one.want:
+				t.Errorf("the row carries dry_run: %t, want %t", *row.DryRun, *one.want)
+			}
+		})
+	}
+}
+
+// TestRecordRowOf_RendersTheRehearsalAsAWordAndTheOrdinaryRunAsNothing is the
+// page half of the same exception: the word where there is something to say,
+// and a blank where there is not — the reading `show`'s own header takes.
+func TestRecordRowOf_RendersTheRehearsalAsAWordAndTheOrdinaryRunAsNothing(t *testing.T) {
+	at := slices.Index(recordsColumns, "REHEARSAL")
+	if at < 0 {
+		t.Fatal("the page has no REHEARSAL column; the marker has no place to render")
+	}
+	for _, one := range []struct {
+		name string
+		run  store.RunID
+		want string
+	}{
+		{"a rehearsal", theRehearsal, "yes"},
+		{"an effecting Run", theEffectingRun, ""},
+		{"a Run the Journal holds no entry for", theUnrecordedRun, ""},
+	} {
+		t.Run(one.name, func(t *testing.T) {
+			cells := recordRowOf(aVersionOf(one.run), selection{}, nil, theJournal).Cells()
+			if len(cells) != len(recordsColumns) {
+				t.Fatalf("the row renders %d cells under %d columns", len(cells), len(recordsColumns))
+			}
+			if cells[at] != one.want {
+				t.Errorf("REHEARSAL renders %q, want %q", cells[at], one.want)
+			}
+		})
+	}
+}
+
+// TestUnattributedVersions_CountsTheRowsTheJournalCouldNotName. The count is of
+// versions and not of Records: a history whose Runs are half in the Journal and
+// half not has one row of each, and a reader is told how many rows they must go
+// and find another way.
+func TestUnattributedVersions_CountsTheRowsTheJournalCouldNotName(t *testing.T) {
+	versions := []store.Version{
+		aVersionOf(theRehearsal),
+		aVersionOf(theUnrecordedRun),
+		aVersionOf(theUnrecordedRun),
+	}
+
+	if got := unattributedVersions(versions, theJournal); got != 2 {
+		t.Errorf("the answer names %d unattributed versions, want 2", got)
+	}
+	if got := unattributedVersions(versions, nil); got != 3 {
+		t.Errorf("a branch with no Journal at all leaves %d of 3 unattributed", got)
+	}
+	if got := unattributedVersionsLine(1); !strings.HasPrefix(got, "1 version names a Run") {
+		t.Errorf("the line reads %q; one version is not versions", got)
+	}
+}
+
+// TestRunsOf_NamesEachRunOnceAndInTheOrderTheRowsDo. One Run writing forty
+// versions is one entry to open, and the Journal is asked about the set.
+func TestRunsOf_NamesEachRunOnceAndInTheOrderTheRowsDo(t *testing.T) {
+	versions := []store.Version{
+		aVersionOf(theEffectingRun),
+		aVersionOf(theRehearsal),
+		aVersionOf(theEffectingRun),
+	}
+
+	want := []store.RunID{theEffectingRun, theRehearsal}
+	if got := runsOf(versions); !slices.Equal(got, want) {
+		t.Errorf("the Journal is asked about %v, want %v — each once, in the order the rows name them", got, want)
+	}
+}
+
+// TestVersionsOf_FlattensInTheOrderTheRowsGoOutIn. It is the pairing and not a
+// saved loop: what is read in a batch against this order is paired back to the
+// rows by position.
+func TestVersionsOf_FlattensInTheOrderTheRowsGoOutIn(t *testing.T) {
+	first := aVersionOf(theRehearsal)
+	second, third := aVersionOf(theEffectingRun), aVersionOf(theUnrecordedRun)
+	kept := []selection{{versions: []store.Version{first, second}}, {versions: []store.Version{third}}}
+
+	if got := versionsOf(kept); !slices.Equal(got, []store.Version{first, second, third}) {
+		t.Errorf("the answer flattens to %v, want the selections' own order", got)
+	}
+}
+
+// ptr is a marker as the row carries one, so a case can state `false` as a
+// value written rather than as a value missing.
+func ptr(marker bool) *bool { return &marker }

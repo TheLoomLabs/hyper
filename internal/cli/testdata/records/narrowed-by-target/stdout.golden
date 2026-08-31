@@ -1,6 +1,6 @@
 the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
 
-TARGET           DEFINITION   RECORD                  ORDINAL  RUN             STEP  KIND   TOMBSTONE  ORPHANED  SECRETS  HYPER
-cloudflare-prod  legacy-dns   preview-8.example.com   2        01991b00-0000…  1     asset  yes                           1.3.2
-cloudflare-prod  legacy-dns   preview-9.example.com   2        01991c00-0000…  1     asset             yes                1.3.2
-cloudflare-prod  preview-dns  preview-42.example.com  3        01991e00-0000…  2     asset                                1.4.0
+TARGET           DEFINITION   RECORD                  ORDINAL  RUN             STEP  REHEARSAL  KIND   TOMBSTONE  ORPHANED  SECRETS  HYPER
+cloudflare-prod  legacy-dns   preview-8.example.com   2        01991b00-0000…  1                asset  yes                           1.3.2
+cloudflare-prod  legacy-dns   preview-9.example.com   2        01991c00-0000…  1                asset             yes                1.3.2
+cloudflare-prod  preview-dns  preview-42.example.com  3        01991e00-0000…  2                asset                                1.4.0
