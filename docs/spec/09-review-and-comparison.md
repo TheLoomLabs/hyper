@@ -212,6 +212,8 @@ carries their names.
 - **The clone does not contain the revision.** A Run answered, it is the right Run, and it named a
   revision — and the object is not here to read
   ([ADR-0071](../adr/0071-a-missing-git-object-is-an-absence-to-name-never-a-supply-to-substitute.md)).
+  It is one absence with two sentences, and which one renders is read off the commit the same entry
+  recorded (below).
 
 **They rank `built-in`, `no-store`, `not-run`, `not-in-clone`, and the order is a pipeline rather than
 four facts compared against each other**: each is reachable only where the one before it did not fire —
@@ -246,15 +248,50 @@ would be a guess, and a sentence promising a repair that does not work is the de
 refuses one layer in. The revision is what the reader has to work with, and it renders whole
 (ADR-0047).
 
+**A fourth cause reaches it, and it is the one this reading can separate from the other three.** The
+Run may have read the artefact out of a working tree nobody committed: the id it recorded is right
+about the content and names an object that was never written anywhere (§7). The three above are facts
+about the clone and this one is a fact about the Run, and they are told apart without asking a remote.
+
+**Two signals say so and neither says it alone.** The entry's own `repo_dirty` is the first, and it is
+what licenses the stronger sentence: it marks that some artefact the Run read differed from the commit
+it recorded, which is *the Run read bytes no commit held* — necessary and never sufficient, since an
+artefact whose recorded revision is in no commit differs from `HEAD` by construction and the marker
+names no file. The commit's tree at the artefact's path is the second, and it says which file the
+marker is about: exactly that revision there, and the artefact was committed and the object is one this
+clone was not given; other bytes or no file at all, and this is the one. The marker alone would carry
+the sentence to every artefact of a Run one file of which was dirty; the tree read alone resolves
+**today's** path against that commit, so an artefact renamed since the Run would read as bytes nobody
+committed. The tree is read and not the file under it, so a blobless clone answers *committed* rather
+than the stronger sentence, and a commit this clone does not itself hold says nothing either way and
+leaves the weaker one standing.
+
+**So the absence carries two sentences and one name.** That is `not-run`'s own arrangement one stage
+up: the wire name pays the cost of a closed set's stability (§12) and the sentence pays none, so it
+says which cause stands wherever the reading can tell. **A machine caller is not left with the name
+alone**: a review's page travels in the structured content beside the rows, byte for byte, so the
+sentence reaches an agent on the MCP surface in the same answer the name does (§9, ADR-0100). Neither
+sentence names an act — the three
+causes about the clone have no one repair between them, and the fourth has none at all, committing now
+writing today's bytes under a new id rather than producing the ones that ran. What repairs the *next*
+Run is stated where an author meets it before running rather than after: the orientation's loop, and
+§9's warning on `run` (ADR-0119).
+
+The question is asked of the two artefacts carrying a revision of their own and of no other. The other
+four anchor on the commit itself and a `repo_dirty` entry already supplies them no range at all, so an
+entry that anchors one of those read it exactly as that commit holds it and there is no working-tree
+revision left to be absent.
+
 ```
   no baseline — retire-preview-envs has not run
   no baseline — nothing has bound staging
   no baseline — no Store
   no baseline — shell ships in the binary
   no baseline — a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1 is not in this clone
+  no baseline — 46b387bfe071df2e70f5ab52c5c7ff8e59cefb0a was never committed
 ```
 
-The lead-in is one phrase across all five lines. A built-in's absence is permanent and the other three
+The lead-in is one phrase across all six lines. A built-in's absence is permanent and the other three
 are not, and that difference is carried by what the sentence says rather than by a second form of words:
 two lead-ins would make the eye sort the absences before reading them, which is the ranking `FLAGS` is
 the one surface permitted to do (ADR-0026).

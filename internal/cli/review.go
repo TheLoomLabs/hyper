@@ -712,6 +712,20 @@ var absencePipeline = []absenceStage{
 		if opened.blob != "" {
 			return ""
 		}
+		// Two sentences under one name, which is `not-run`'s own
+		// arrangement one stage up: the wire name pays the cost of a
+		// closed set's stability and the sentence pays none, so it says
+		// which cause stands wherever the reading can tell (§8, §12,
+		// ADR-0119, issue #239).
+		//
+		// Neither names an act. The three causes about the clone have
+		// no one repair between them, and the fourth has none at all —
+		// committing now writes today's bytes under a new id and does
+		// not produce the ones that ran. What each says is the cause,
+		// which is what a reader has to work with (ADR-0071).
+		if opened.neverCommitted {
+			return opened.named + " was never committed"
+		}
 		return opened.named + " is not in this clone"
 	}},
 }

@@ -303,7 +303,10 @@ origin digest, repository revision, and the version of `hyper` that performed it
 being data, is the only code that ran. The Procedure revision is the top-level Procedure's, the only one
 a Run has exactly one of. Every Record version carries the whole of it; the Journal carries it split by
 scope, each member written where it has exactly one value, so a Run that wrote no Record still says
-which code performed it and a Procedure spanning two Definitions has no revision it must invent.
+which code performed it and a Procedure spanning two Definitions has no revision it must invent. A
+revision is a git blob id computed from the working tree, so it resolves where the artefact was
+committed and nowhere else: `hyper` never writes the object, and a Run against a tree nobody committed
+records ids that are right about the content and name nothing.
 _Avoid_: Audit, History, Lineage
 
 **Comparison**:

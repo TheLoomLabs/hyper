@@ -735,6 +735,39 @@ func (n narration) Began(id store.RunID) {
 	fmt.Fprintf(n.stderr, "run %s\n", id)
 }
 
+// Uncommitted writes §9's one conditional narration line: the code this Run is
+// about to perform is in no commit, so every revision it records is a blob id
+// nothing ever wrote (§9, ADR-0119, issue #239).
+//
+// **It is about the bytes and not about the files.** What fires it is that
+// some artefact this Run read differs from `HEAD` or is untracked, and the
+// first of those two is a file that is committed and has been edited since —
+// so a line saying *an artefact here is in no commit* would be false of the
+// commoner half of its own trigger. What is in no commit either way is what
+// the Run is about to record a revision of (§7).
+//
+// **It names the act and states what it costs**, which is what separates it
+// from the `repo_dirty` marker the entry carries: the marker is read by a
+// consumer that has the entry in hand, weeks later, and this is read by the
+// author who can still commit before the next Run. It is a warning, so it
+// goes where §9 puts every warning and carries no machine contract — what the
+// Run itself says about it is `repo_dirty` on its `provenance` row, and that
+// row is the same fact for a reader who was not standing here (§7).
+//
+// It does not tell the reader to run again. Committing now writes today's
+// bytes under a new id and does not produce the ones this Run recorded, and a
+// second Run of an effectful Procedure is a second set of effects — so the
+// line states what is true of the Run that just started and what repairs the
+// next one.
+func (n narration) Uncommitted() {
+	fmt.Fprintln(n.stderr, uncommittedNarration)
+}
+
+// uncommittedNarration is that line, named because two readers have to agree on
+// it: the narration above, and the case that holds it to the `repo_dirty`
+// marker the same Run wrote (run_uncommitted_test.go, §7).
+const uncommittedNarration = "uncommitted — this Run reads bytes no commit holds, so the revisions it records resolve nowhere; commit the artefacts before running"
+
 // Reached writes one Step boundary: which Step, of how many, and its authored
 // id.
 func (n narration) Reached(position, of int, id string) {
@@ -747,8 +780,8 @@ func (n narration) Reached(position, of int, id string) {
 // #202).
 //
 // It is the Narrator's **second** implementation and the engine declares only
-// the two events because §9's narration is two lines. What differs here is that
-// only one of them is a line at all.
+// the three events because §9's narration is three lines. What differs here is
+// that only one of them is a message at all.
 type notifications struct {
 	progress mcp.Progress
 }
@@ -762,6 +795,18 @@ type notifications struct {
 // notification naming the id would be narration with no reader on the one path
 // it was invented for (§9, ADR-0047).
 func (notifications) Began(store.RunID) {}
+
+// Uncommitted sends nothing, for the reason Began does and one more.
+//
+// **This surface's channel for it is the orientation**, which states the rule
+// where an agent reads it *before* it authors rather than after it has run:
+// the sentence a Refusal-free warning could add here would arrive in the same
+// envelope as the Run it is about, with the Records already written
+// (ADR-0119, mcp.Instructions). What that envelope does carry is the Run's own
+// account — `repo_dirty` on the `provenance` row, whose schema says what the
+// marker costs — so nothing is withheld from a caller that reads the answer
+// (§7, §9, issue #239).
+func (notifications) Uncommitted() {}
 
 // Reached sends one Step boundary: the position, the total and the Step. It is
 // narration, so it carries no machine contract and no row of its own — what

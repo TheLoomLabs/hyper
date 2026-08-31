@@ -70,6 +70,15 @@ type reviewRange struct {
 	// (ADR-0057). They are read in the same call the blob is, one object
 	// name answering both halves of one question.
 	bytes []byte
+	// neverCommitted says the object is absent because nothing ever wrote
+	// it: the Run read the file out of a working tree, and the commit it
+	// recorded beside the revision holds other bytes at that path, or none.
+	//
+	// It is read only where the blob is absent, and it is a second member
+	// rather than a second absence: `not-in-clone` is one name on the wire
+	// and this is which of its causes the sentence says (§8, §12, issue
+	// #239).
+	neverCommitted bool
 }
 
 // readRange is the range read for one artefact: the Store opened, the Journal
@@ -125,10 +134,67 @@ func readRange(reviewed reviewedArtefact, repoRoot string, now time.Time) review
 		// and what failed is downstream of both. A fifth name would have
 		// to be minted for a git that would not run, and what §9 leaves
 		// no room for is the third option, declining (§9, §12).
+		opened.neverCommitted = readNeverCommitted(repoRoot, reviewed, found)
 		return opened
 	}
 	opened.blob, opened.bytes = at.Blob, at.Bytes
 	return opened
+}
+
+// readNeverCommitted says which of `not-in-clone`'s causes stands: whether the
+// object is absent because nothing ever wrote it, rather than because this
+// clone was not given it (§8, issue #239).
+//
+// **It is a reading of the Journal and the clone and never of a remote**, and
+// it takes two signals rather than one.
+//
+// The **entry's own `repo_dirty`** is the first, and it is what licenses the
+// stronger sentence at all: it marks that some artefact this Run read differed
+// from the commit it recorded, which is exactly *the Run read bytes no commit
+// held* (§7). It is necessary and not sufficient — an artefact whose recorded
+// revision is in no commit differs from `HEAD` by construction, so the marker
+// is always there where this sentence is true, and the marker names no file.
+//
+// The **commit's tree at the artefact's path** is the second, and it is what
+// says the artefact is that file: where the tree names exactly this revision,
+// the artefact was committed and the object is one a shallow, a partial or a
+// rewritten clone does not have; where it names other bytes or nothing at all,
+// this is the file the marker is about.
+//
+// Neither alone would do. The marker is Run-wide and would carry the sentence
+// to every artefact of a Run one file of which was dirty; the tree read is a
+// path resolved in **today's** working tree, so an artefact renamed since the
+// Run reads as absent from a commit that held it under its old name. Requiring
+// both is what keeps that rename on the weaker sentence in every Run that was
+// otherwise clean — which is every Run the orientation's loop produces (§8,
+// ADR-0067, ADR-0119).
+//
+// **The commit is read rather than the blob**, so a blobless clone answers
+// *committed* rather than the stronger sentence: the tree is there and names
+// the id, and only the file under it is missing (revision.Committed).
+//
+// **It is asked of the two artefacts carrying a revision of their own and of no
+// other.** The other four anchor on the commit itself, and supplyingEntry has
+// already passed over every entry that recorded `repo_dirty` for them — so an
+// entry that supplies one of those read it exactly as that commit holds it, and
+// there is no working-tree revision left to be absent (§8, ADR-0067).
+//
+// A read that could not be performed answers false, which is the weaker
+// sentence standing: a commit this clone does not hold says nothing about
+// whether the file under it was committed, and the clone that cannot answer is
+// itself a clone that is behind.
+//
+// The entry always names a commit to ask about, and that is not checked for
+// here: `repo_revision` is a member every Run's Provenance carries — a Run that
+// cannot name one stops before it writes anything — and internal/store holds it
+// as one, refusing to read an entry that lacks it. A second opinion about it
+// would be a question one layer up has already answered (§7, ADR-0043).
+func readNeverCommitted(repoRoot string, reviewed reviewedArtefact, found anchor) bool {
+	if !found.own || !found.entry.Provenance.RepoDirty {
+		return false
+	}
+	committed, err := revision.Committed(repoRoot, found.entry.Provenance.RepoRevision, reviewed.path)
+	return err == nil && committed != found.named
 }
 
 // supplyingEntry is the Journal walked backwards for the most recent entry that

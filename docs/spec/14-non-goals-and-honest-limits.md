@@ -487,6 +487,17 @@ cannot survive a commit that was unmade. `hyper` names no repair on that line fo
 names no *overdue*: it cannot tell which of the three it is looking at without asking a remote, and a
 review asks nothing.
 
+**A fourth cause is the author's own, and it is not repairable either.** A Run reads the artefacts out
+of the working tree, so a Run against bytes nobody committed records ids that were never written
+anywhere (§7), and committing afterwards writes today's bytes under a new id rather than producing the
+ones that ran. What that costs is the review of the next draft: the baseline is the previous draft, and
+the previous draft is gone. It is the one of the four `hyper` can name — the commit the entry recorded
+stands beside the revision, and reading it separates this cause from the other three — and §8 gives it a
+sentence of its own; but naming it is all `hyper` does about a Run that has already happened. The act is
+the author's and it is before the Run:
+the orientation puts a commit in the loop, and `run` warns on stderr where the tree it read has not
+been committed (§9, ADR-0119).
+
 **`hyper review shell` never says what changed, and never will.** A built-in Provider's Manifest ships
 inside the binary and has no file in the repository (§4, §11), so there is nothing for a Run to have
 recorded a revision of and no number of Runs repairs it: alone among the five reviewed artefacts, a

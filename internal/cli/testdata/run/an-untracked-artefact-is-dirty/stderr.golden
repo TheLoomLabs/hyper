@@ -1,2 +1,3 @@
 run 01991f3f-4ab1-75da-86ca-f012b1d9ef02
+uncommitted — this Run reads bytes no commit holds, so the revisions it records resolve nowhere; commit the artefacts before running
 step 1/1 status

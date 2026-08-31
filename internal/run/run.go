@@ -174,9 +174,16 @@ type Request struct {
 	Narrator Narrator
 }
 
-// Narrator is a Run's progress as it happens, and it is two events because §9's
-// narration is two lines: the Run naming itself before its first Step, and one
-// line per Step boundary, in both modes, always on.
+// Narrator is a Run's progress as it happens, and it is three events because
+// §9's narration is three lines: the Run naming itself before its first Step,
+// the warning where the code it is about to run is in no commit, and one line
+// per Step boundary, in both modes, always on.
+//
+// **The middle one is the only conditional line**, and it is an event rather
+// than a member of the first because that is what keeps the surface's job the
+// surface's: the engine has read the code branch by the time it fires and knows
+// the fact, and whether the fact is worth a line — and what the line says — is a
+// rendering (§9, ADR-0119).
 //
 // It is an interface rather than a stream this package writes to, because what
 // those lines *say* is a rendering and renderings live in internal/cli. The
@@ -199,6 +206,17 @@ type Narrator interface {
 	// rendering like any other: a Narrator decides what an event says, and
 	// saying nothing is one of the answers.
 	Began(run store.RunID)
+	// Uncommitted is the Run saying the code it is about to perform is in
+	// no commit: an artefact it read differs from `HEAD` or is untracked,
+	// which is the same fact `repo_dirty` marks on the entry (§7).
+	//
+	// It fires **before the first Step** and where that fact stands, and
+	// nowhere else. What it costs is what the entry cannot say for itself
+	// in time: every revision this Run is about to record is a blob id
+	// nothing ever wrote, so a later `review` of any of those artefacts
+	// opens at nothing and the Comparison's baseline is gone (§8,
+	// ADR-0119, issue #239).
+	Uncommitted()
 	// Reached is one Step boundary: the Step's position, how many the Run
 	// holds, and its authored id.
 	Reached(position, of int, id string)
@@ -404,6 +422,15 @@ func Perform(request Request) Answer {
 
 	narrator := watching(request.Narrator)
 	narrator.Began(inFlight.id)
+	// The warning, before the first Step and after the Run has named
+	// itself: what it says is about this Run, so it stands under the id it
+	// is about. It never stops anything — a Run of an uncommitted tree is
+	// a Run `hyper` performs and records truthfully, and refusing it would
+	// retire `repo_dirty` by making the state it marks unreachable (§7,
+	// ADR-0119, issue #239).
+	if facts.Dirty {
+		narrator.Uncommitted()
+	}
 
 	// **The reap, read before this Run's own entry exists.** An effectful
 	// Run closes every open entry the Journal holds, and it reads them here
@@ -882,4 +909,5 @@ func watching(narrator Narrator) Narrator {
 type silent struct{}
 
 func (silent) Began(store.RunID)        {}
+func (silent) Uncommitted()             {}
 func (silent) Reached(int, int, string) {}

@@ -939,7 +939,7 @@ const provenanceMembers = `
 	"repo_revision": {"type": "string"},
 	"repo_dirty": {
 		"type": "boolean",
-		"description": "Whether the Run read bytes that differ from the revision beside it. Those bytes are nowhere in git, and this is the marker that stops a consumer resolving the revision and believing it read what ran."
+		"description": "Whether the Run read bytes that differ from the revision beside it. Those bytes are nowhere in git, and this is the marker that stops a consumer resolving the revision and believing it read what ran. It is the mark of an artefact that was not committed before it ran, so every revision this Run recorded resolves nowhere and the next review of one of those artefacts opens at no baseline: commit the artefacts before running, and the record points at bytes."
 	},
 	"definition_revision": {"type": "string"},
 	"manifest_digest": {"type": "string"},

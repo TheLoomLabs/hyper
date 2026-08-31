@@ -184,6 +184,22 @@ func stepFileText(step int, id, path string) string {
 `
 }
 
+// entryNaming is entryFiles with the Procedure revision replaced: the entry a
+// case seeds when it wants a revision this clone does not hold, over a
+// `repo_revision` of the case's own choosing.
+//
+// The two arguments are the two halves the sentence `not-in-clone` renders is
+// decided from — the revision that is absent, and the commit the same entry
+// recorded beside it — so a case says which absence it is building by what it
+// passes rather than by a replacement loop of its own (§8, issue #239).
+func entryNaming(repoRevision string, dirty bool, procedureRevision string) map[string]string {
+	entry := entryFiles(repoRevision, dirty)
+	for path, content := range entry {
+		entry[path] = strings.Replace(content, "5639c68a1e0a79e88a92cfd1153dd40d4febd1cf", procedureRevision, 1)
+	}
+	return entry
+}
+
 // TestReviewRange_TheThreeAndANestedProcedureOpenAtTheFilesBlobUnderRepoRevision
 // is ADR-0067's other arm: the four artefacts carrying no revision of their own
 // open at **that file's blob** under the same Run's `repo_revision`, resolved at
@@ -403,11 +419,11 @@ func TestReviewRange_TheAbsencesRankAsAPipelineOnceTheStoreCanAnswer(t *testing.
 		t.Errorf("with an empty Journal the header states %q, want %q", got, want)
 	}
 
-	absent := entryFiles(r.head, false)
-	for path, content := range absent {
-		absent[path] = strings.Replace(content, "5639c68a1e0a79e88a92cfd1153dd40d4febd1cf", "1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01", 1)
-	}
-	r.journal(t, absent)
+	// The entry names a commit this clone does not hold as well as a
+	// revision it does not, which is the fourth stage on the arm that says
+	// nothing about why: the read that would separate the causes is one this
+	// clone cannot perform (§8, issue #239).
+	r.journal(t, entryNaming("2b4c6e8a01f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2", false, "1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01"))
 	stdout, _, _ = r.review(t, "procedures/watch.yaml")
 	if got, want := rangeOf(t, stdout), "no baseline — 1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01 is not in this clone"; got != want {
 		t.Errorf("with the object absent the header states %q, want %q", got, want)
@@ -476,15 +492,15 @@ func assertNoLastRun(t *testing.T, r rangedRepository, positional, absent string
 // own shape: three causes reach it — a shallow clone, a partial one, a history
 // that was rewritten — and no one act repairs all three, so any act the
 // sentence named would be a guess.
+//
+// The entry names a commit this clone does not hold, which is what puts it on
+// that arm: where the commit *is* readable the fourth cause is separable and
+// the sentence says so instead (§8, issue #239, the case below).
 func TestReviewRange_NotInCloneRendersTheRevisionWholeAndNamesNoAct(t *testing.T) {
 	const named = "1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01"
 
 	r := ranged(t)
-	absent := entryFiles(r.head, false)
-	for path, content := range absent {
-		absent[path] = strings.Replace(content, "5639c68a1e0a79e88a92cfd1153dd40d4febd1cf", named, 1)
-	}
-	r.journal(t, absent)
+	r.journal(t, entryNaming("2b4c6e8a01f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2", false, named))
 
 	stdout, _, exit := r.review(t, "procedures/watch.yaml")
 	if exit != cli.ExitClean {
@@ -506,6 +522,128 @@ func TestReviewRange_NotInCloneRendersTheRevisionWholeAndNamesNoAct(t *testing.T
 	}
 }
 
+// TestReviewRange_NotInCloneSaysSoWhereTheRevisionWasNeverCommitted is issue
+// #239's fourth cause, and the one that is separable from the other three: the
+// Run read the file out of a working tree nobody committed, so the id it
+// recorded is right about the content and names an object that was never
+// written anywhere.
+//
+// It is told from the other three by the commit the same entry recorded — held
+// here, and holding different bytes at that path — which is a reading of the
+// Journal and the clone and never of a remote (§8, ADR-0071).
+func TestReviewRange_NotInCloneSaysSoWhereTheRevisionWasNeverCommitted(t *testing.T) {
+	const named = "1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01"
+
+	r := ranged(t)
+	r.journal(t, entryNaming(r.head, true, named))
+
+	stdout, _, exit := r.review(t, "procedures/watch.yaml")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	got := rangeOf(t, stdout)
+	if !strings.Contains(got, named) {
+		t.Errorf("the header states %q, want the revision whole", got)
+	}
+	if !strings.Contains(got, "was never committed") {
+		t.Errorf("the header states %q, want the cause this reading can separate from the other three", got)
+	}
+	if strings.Contains(got, "not in this clone") {
+		t.Errorf("the header states %q; a revision nothing ever wrote is not a clone that is behind", got)
+	}
+}
+
+// TestReviewRange_ARenameOnACleanRunKeepsTheWeakerSentence is the second signal
+// earning its place. The tree read resolves **today's** path against the commit
+// the Run recorded, so an artefact renamed since reads as absent from a commit
+// that held it under its old name — and where the entry recorded no
+// `repo_dirty` there is nothing that could have been uncommitted, so the
+// weaker sentence is the true one (§8, ADR-0119).
+func TestReviewRange_ARenameOnACleanRunKeepsTheWeakerSentence(t *testing.T) {
+	const named = "1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01"
+
+	r := ranged(t)
+	r.journal(t, entryNaming(r.head, false, named))
+
+	stdout, _, exit := r.review(t, "procedures/watch.yaml")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got, want := rangeOf(t, stdout), "no baseline — "+named+" is not in this clone"; got != want {
+		t.Errorf("the header states %q, want %q — a Run that recorded nothing dirty read nothing uncommitted", got, want)
+	}
+}
+
+// TestReviewRange_ACommittedDraftSuppliesTheNextDraftsBaseline is issue #239's
+// own criterion, stated as the pair it is: one repository, one artefact, and
+// the two answers a review gives depending on whether the draft that ran was
+// committed before it ran.
+//
+// The committed arm is the loop the orientation now states — commit, then run,
+// then edit, then review — and the answer is a range over the previous draft.
+// The uncommitted arm is the loop as it stood, and the answer names the cause
+// (§8, ADR-0112, ADR-0119).
+func TestReviewRange_ACommittedDraftSuppliesTheNextDraftsBaseline(t *testing.T) {
+	// The blob the fixture's own commit holds for this Procedure: the draft
+	// that ran, committed before it ran.
+	const committed = "5639c68a1e0a79e88a92cfd1153dd40d4febd1cf"
+
+	r := ranged(t)
+	r.journal(t, entryFiles(r.head, false))
+	stdout, _, exit := r.review(t, "procedures/watch.yaml")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got, want := rangeOf(t, stdout), "5639c68 → working tree"; got != want {
+		t.Errorf("after a Run of a committed draft the header states %q, want the previous draft's own range %q", got, want)
+	}
+
+	// The same repository and the same artefact, where the draft that ran
+	// was never committed: the id is right about the content the Run read
+	// and names an object nothing ever wrote.
+	uncommitted := ranged(t)
+	uncommitted.journal(t, entryNaming(uncommitted.head, true, "1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01"))
+	stdout, _, exit = uncommitted.review(t, "procedures/watch.yaml")
+	if exit != cli.ExitClean {
+		t.Fatalf("exit = %d, want a clean review", exit)
+	}
+	if got := rangeOf(t, stdout); !strings.Contains(got, "was never committed") {
+		t.Errorf("after a Run of an uncommitted draft the header states %q, want the cause named", got)
+	}
+	if strings.Contains(rangeOf(t, stdout), committed) {
+		t.Error("the uncommitted arm rendered the committed revision; the two arms are one fixture and must not share a Journal")
+	}
+}
+
+// TestReviewRange_TheTwoNotInCloneSentencesCarryOneWireName is `not-run`'s own
+// precedent one absence over: the sentence pays no cost for saying which cause
+// it is, and the wire name pays the cost of a closed set's stability (§12).
+func TestReviewRange_TheTwoNotInCloneSentencesCarryOneWireName(t *testing.T) {
+	const named = "1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01"
+
+	for _, behind := range []bool{true, false} {
+		r := ranged(t)
+		recorded := r.head
+		if behind {
+			// A commit this clone does not hold: the read that
+			// cannot say which cause it is, and keeps the weaker
+			// sentence.
+			recorded = "2b4c6e8a01f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2"
+		}
+		r.journal(t, entryNaming(recorded, !behind, named))
+
+		var out, errs bytes.Buffer
+		args := []string{"review", "--repo-dir", r.run.fixture.root, "procedures/watch.yaml", "--json"}
+		if exit := cli.Main(args, &out, &errs, r.c.process(t, r.run), r.c.facts(t)); exit != cli.ExitClean {
+			t.Fatalf("exit = %d, want a clean review", exit)
+		}
+		header := strings.SplitN(out.String(), "\n", 2)[0]
+		if !strings.Contains(header, `"baseline_absent":"not-in-clone"`) {
+			t.Errorf("the row carries %s, want one name for both sentences", header)
+		}
+	}
+}
+
 // TestReviewRange_ARangeThatCannotOpenNeverMakesReviewDecline is §9's exit codes
 // held over every way this reading stops: `review` exits 1 for the artefact
 // under review failing to load and for nothing else, so an absent Store, an
@@ -513,10 +651,7 @@ func TestReviewRange_NotInCloneRendersTheRevisionWholeAndNamesNoAct(t *testing.T
 func TestReviewRange_ARangeThatCannotOpenNeverMakesReviewDecline(t *testing.T) {
 	r := ranged(t)
 
-	absent := entryFiles(r.head, false)
-	for path, content := range absent {
-		absent[path] = strings.Replace(content, "5639c68a1e0a79e88a92cfd1153dd40d4febd1cf", "1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01", 1)
-	}
+	absent := entryNaming(r.head, false, "1f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2b4c6e8a01")
 	seeds := []func(){func() {}, func() { r.journal(t, nil) }, func() { r.journal(t, absent) }}
 	for _, seed := range seeds {
 		seed()

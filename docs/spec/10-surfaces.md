@@ -736,6 +736,17 @@ never guesses about. It is narration like the rest, so it carries no machine con
 variant, and never reaches the job summary, which takes stdout alone. The id therefore renders twice on
 an interactive Run that finishes, and that repetition is what the Run that does not finish costs.
 
+**A Run whose artefacts are in no commit says so on stderr, beneath its own id and above its first
+Step.** It is the one conditional line in this narration, and it fires exactly where the entry records
+`repo_dirty` (§7): every revision that Run is about to write is a blob id nothing ever wrote, so a later
+`review` of any of those artefacts opens at no baseline and the Comparison's catch-all counts nothing
+between two Runs of a tree that moved (§8). It states the act and what its absence costs and it does not
+stop anything — refusing the Run would retire `repo_dirty` by making the state it marks unreachable, and
+a rehearsal against an uncommitted draft is exactly what a rehearsal is for. It is narration like the
+rest: no machine contract, no `--json` variant, and no message on the MCP surface, where the fact
+reaches a caller before its first call instead — the orientation states it in the loop, and the Run's
+own answer carries `repo_dirty` on its `provenance` row (ADR-0119).
+
 **The last row is always the terminal row**, and its absence means the stream was cut off. There are
 two, `outcome` for a Run and `result` for everything else, and §8 states both. A Probe is on the
 `result` side, having no outcome triple to report (ADR-0009). `run` is on the `outcome` side on every
@@ -896,7 +907,13 @@ already in mind, and none of these is about a call:
 - **The five artefacts** (§2) and where each lives, since `operation` teaches one of the five and
   nothing anywhere teaches the other four.
 - **The loop**: read what is here, author with your own file tools, `check`, repair, `review`, hand
-  the diff to the human, and `run` only once they have read it.
+  the diff to the human, commit the artefacts once they have read it, and `run`. The commit is a step
+  of the loop rather than a fact of its own, because what was missing was an act between approval and
+  `run`: a Run records every artefact by its git blob id, and an agent that followed a loop ending at
+  the diff left a Store whose every recorded revision was an object nothing had written (§7, ADR-0119).
+  It is stated with what the omission costs — the Record pointing nowhere, the next `review` opening at
+  no baseline, the catch-all counting no moved lines — on the exception rule's own footing below: a
+  rule with no consequence beside it is one an agent reorders against whatever else it is doing.
 - **The four verbs an operator asks for** — author, change, retire, operate — and the fact each needs
   before it starts: that a changed artefact is reviewed again, that deleting a Definition abandons its
   Assets rather than destroying them (ADR-0012), and that a declared Cadence left unprojected is

@@ -145,3 +145,89 @@ func TestEveryReadRunsWithLazyFetchingOff(t *testing.T) {
 		t.Error("building the environment moved the process's own variable")
 	}
 }
+
+// TestCommitted_TheBlobACommitHoldsAtAPath is the ordinary answer: a file that
+// was committed, read back as the id its commit names for it, without the blob
+// itself being read at all.
+func TestCommitted_TheBlobACommitHoldsAtAPath(t *testing.T) {
+	r := newRepo(t)
+	r.write("definitions/dns.yaml", "kind: definition\ndefinition: dns\n")
+	r.commit()
+	head := r.text("rev-parse", "HEAD")
+
+	got, err := revision.Committed(r.root, head, "definitions/dns.yaml")
+	if err != nil {
+		t.Fatalf("Committed: %v", err)
+	}
+	if want := r.text("rev-parse", "HEAD:definitions/dns.yaml"); got != want {
+		t.Errorf("Committed = %s, want the id the commit names at that path %s", got, want)
+	}
+}
+
+// TestCommitted_APathTheCommitDoesNotCarryIsAnsweredEmpty is the answer that
+// makes `never committed` readable: the Run recorded a revision, the commit it
+// named beside it holds nothing at that path, and the two together say the
+// bytes were read out of a working tree and written into no commit (§8).
+func TestCommitted_APathTheCommitDoesNotCarryIsAnsweredEmpty(t *testing.T) {
+	r := newRepo(t)
+	head := r.text("rev-parse", "HEAD")
+
+	got, err := revision.Committed(r.root, head, "definitions/untracked.yaml")
+	if err != nil {
+		t.Errorf("Committed = %v; a path the commit does not carry is answered, never errored", err)
+	}
+	if got != "" {
+		t.Errorf("Committed = %s, want the absence answered empty", got)
+	}
+}
+
+// TestCommitted_ACommitThisCloneDoesNotHoldIsAnError, and that is the whole of
+// how the two sentences stay apart: a commit that cannot be read says nothing
+// about whether the file under it was committed, so the caller falls back to
+// the sentence about the clone rather than claiming the stronger one (§8).
+func TestCommitted_ACommitThisCloneDoesNotHoldIsAnError(t *testing.T) {
+	r := newRepo(t)
+
+	if _, err := revision.Committed(r.root, "2b4c6e8a01f0a3d7c9b2e4a6d8f0b1c3e5a7d9f2", "hyper.yaml"); err == nil {
+		t.Error("Committed answered for a commit this clone does not hold; want the read reported as one that could not be performed")
+	}
+}
+
+// TestCommitted_APathHoldingAnySpaceOrNewlineIsAnsweredWhole is Held's own rule
+// one reader over: the listing is asked for NUL-separated, so a path git would
+// otherwise quote arrives whole.
+func TestCommitted_APathHoldingAnySpaceOrNewlineIsAnsweredWhole(t *testing.T) {
+	r := newRepo(t)
+	for _, name := range []string{"targets/two words.yaml", "targets/a\nnewline.yaml"} {
+		r.write(name, "kind: target-declaration\ntarget: odd\n")
+	}
+	r.commit()
+	head := r.text("rev-parse", "HEAD")
+
+	for _, name := range []string{"targets/two words.yaml", "targets/a\nnewline.yaml"} {
+		got, err := revision.Committed(r.root, head, name)
+		if err != nil {
+			t.Fatalf("Committed(%q): %v", name, err)
+		}
+		if got == "" {
+			t.Errorf("Committed(%q) answered empty; want the file the commit holds at that path", name)
+		}
+	}
+}
+
+// TestCommitted_ADirectoryIsNotAFileTheCommitHolds: a tree standing where a
+// file was named is not the artefact's revision, and answering its id would
+// hand the caller an object that is not a file's bytes at all.
+func TestCommitted_ADirectoryIsNotAFileTheCommitHolds(t *testing.T) {
+	r := newRepo(t)
+	r.write("definitions/dns.yaml", "kind: definition\ndefinition: dns\n")
+	r.commit()
+
+	got, err := revision.Committed(r.root, r.text("rev-parse", "HEAD"), "definitions")
+	if err != nil {
+		t.Fatalf("Committed: %v", err)
+	}
+	if got != "" {
+		t.Errorf("Committed(a directory) = %s, want a tree refused as a file", got)
+	}
+}

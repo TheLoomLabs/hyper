@@ -1037,6 +1037,20 @@ has rejected. Its second site is the Comparison's catch-all row, which carries t
 `not-run` is one name over a fact with more than one way of being, and `record-identity-collision` is one
 code over four moments.
 
+**And it is one name over two sentences, on `not-run`'s own footing.** A revision may be absent because
+this clone was not given the object, and it may be absent because nothing ever wrote one — the Run
+having read the artefact out of a working tree nobody committed, which is a fact about the Run and not
+about the clone (§7, §8). The two are told apart from the commit the same entry recorded and never from
+a remote, and §8 renders them as two sentences on the review header: the name here stays one, because a
+consumer filtering on it wants a stable string and a fifth member would put a `baseline_absent` a client
+already switches on into a shape its existing arm no longer covers. It is the same trade `not-run` makes
+across five kinds — the sentence carries which one, the name carries that there is none — and it costs a
+machine caller nothing here that it does not cost there: a review's page travels in the structured
+content beside the rows, so the sentence and the name arrive in one answer (§9, ADR-0100). The second site
+is unaffected, and not by exception: the Comparison's catch-all opens at the `repo_revision` each Run
+recorded, which is a commit that existed in the recording clone, so the only way it is absent here is
+that this clone was not given it (ADR-0119).
+
 **`not-run` is one name over a fact that grew rather than five names over five kinds.** It never meant
 *the Procedure did not run*; it meant *there is no Run to anchor on*, and what widened is the set of
 ways to be that — a Definition no Step named, a Target declaration no Step bound, a Manifest no Step

@@ -73,6 +73,21 @@ func TestInstructions_StateTheLoop(t *testing.T) {
 	if !strings.Contains(unwrapped(carried), "you write what is reviewed") {
 		t.Error("the orientation never says the agent authors with its own file tools; no hyper command writes a reviewed artefact")
 	}
+	// The second step of the loop that is not a tool call, and the one the
+	// text used to end without: a Run records every artefact by its git
+	// blob id, so a tree nobody committed leaves a Store whose every
+	// revision resolves nowhere (§7, ADR-0119, issue #239).
+	//
+	// The act and what its absence costs are asserted separately because
+	// they are two claims and the second is what makes the first followed:
+	// an agent told to commit and not told why reorders it against
+	// whatever else it is doing.
+	if !strings.Contains(unwrapped(carried), "Commit the artefacts, then `run`") {
+		t.Error("the orientation never says to commit before running; a Run of an uncommitted tree records revisions nothing can resolve")
+	}
+	if !strings.Contains(unwrapped(carried), "git blob id") {
+		t.Error("the orientation says to commit and never says what the omission costs; a rule with no consequence is one an agent reorders")
+	}
 }
 
 // TestInstructions_SayWhereTheRecordLives is the fact a session got backwards

@@ -75,6 +75,18 @@ func Instructions(version string) string {
 // by TestInstructions_TheInvocationKeySetItStatesIsTheOneCheckHolds one package
 // over (§9, ADR-0111, ADR-0117, issue #237).
 //
+// **And the loop commits.** It ended at the diff, and an agent that followed it
+// exactly and then ran a Procedure left a Store whose every recorded revision
+// was a blob id nothing had written: the Records point at bytes that exist in
+// no object database, the next `review` of an edited artefact renders
+// `not-in-clone` where its baseline would be, and §8's catch-all counts `0`
+// lines between two Runs of a tree that moved. The sentence is in the loop's
+// own step rather than beside it, because what was missing was an act between
+// approval and `run` and not a fact about either — and it states what the
+// omission costs, three surfaces named, so a reader who has already committed
+// out of habit is not being taught a rule with no consequence (§7, §8,
+// ADR-0119, issue #239).
+//
 // **And the halt beside it is the whole Run's.** The same run could not
 // establish that a Step failing inside an invoked Procedure stops its caller,
 // and said so in its handback rather than claiming it; the sentence now states
@@ -126,9 +138,13 @@ four, and each has one fact below that you need before you start.
    again, against the last Run that read it.
 5. **Stop. Hand the diff to the human.** Nothing you authored has authority until somebody has read it,
    and there is no approval command: approval is not a thing an agent grants itself.
-6. **` + "`run`" + `**, once they have. ` + "`probe`" + ` is the throwaway question that writes nothing — a ` + "`read`" + ` against
-   ` + "`local`" + `, no Definition — for one answer before a Procedure exists, and with ` + "`--response`" + ` it makes
-   no call at all and reads a ` + "`record:`" + ` against a response you fetched yourself.
+6. **Commit the artefacts, then ` + "`run`" + `** — once they have. A Run records every artefact by its git
+   blob id, and bytes nothing committed have no such object: the Record points at a revision that
+   resolves nowhere, the next ` + "`review`" + ` of that artefact opens at *no baseline*, and ` + "`changes`" + ` sees
+   no moved lines. ` + "`git commit`" + ` is yours to make, like the authoring.
+   ` + "`probe`" + ` is the throwaway question that writes nothing — a ` + "`read`" + ` against ` + "`local`" + `, no
+   Definition — for one answer before a Procedure exists, and with ` + "`--response`" + ` it makes no call
+   at all and reads a ` + "`record:`" + ` against a response you fetched yourself.
 
 Read the record back with ` + "`runs`" + `, ` + "`show`" + `, ` + "`records`" + ` and ` + "`changes`" + `. ` + "`changes`" + ` answers *what moved*,
 field by field, against the last Run. **The record is a branch in this repository** — ` + "`hyper-store`" + `,

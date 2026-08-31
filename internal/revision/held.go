@@ -81,3 +81,56 @@ func Held(repoRoot, object string) (Object, bool, error) {
 	}
 	return Object{Blob: record.object(), Bytes: record.content}, true, nil
 }
+
+// Committed is the blob id one commit holds at one path, and "" where it holds
+// no file there.
+//
+// It is the question `not-in-clone` splits on (§8, issue #239). A revision the
+// clone cannot resolve has two causes and one of them names an act: the object
+// may be one this clone was never given — shallow, partial, a rewritten
+// history — or it may be one nothing ever wrote, the Run having read the file
+// out of a working tree that was never committed. The commit the same entry
+// recorded tells the two apart without asking a remote: where it names exactly
+// that revision at that path, the artefact was committed and this clone does
+// not hold the object; where it names something else or nothing at all, the
+// bytes are in no commit and never were.
+//
+// **It reads the tree and never the blob**, which is what keeps the answer true
+// on a partial clone: a blobless clone holds every tree and none of the files
+// under them, so a reader that asked for the content would call the one case
+// this exists to tell apart *never committed*.
+//
+// **The absence is answered and a read that could not be performed is not.**
+// A path the commit's tree does not carry is an ordinary fact and comes back
+// empty, and so does a tree or a submodule standing where a file was named —
+// what the caller asked about is an artefact's own revision, and neither of
+// those is one. A commit this clone does not hold is the other half: it says
+// nothing about whether the file under it was committed, so it is reported as
+// the read it is and the caller keeps the weaker sentence (§8, ADR-0071).
+func Committed(repoRoot, commit, path string) (string, error) {
+	if commit == "" || path == "" {
+		return "", nil
+	}
+	// -z for Held's own reason — a path git would otherwise quote arrives
+	// whole — and the pathspec named explicitly, so the listing is this one
+	// file rather than the tree around it. It is `differs`' listing asked
+	// for one path, and what the two share is the reader rather than the
+	// map: `treeRecords` is where a second reading of git's format would be
+	// a second place to get it wrong, and what each caller then does with
+	// the records is a different question — that one compares a set against
+	// bytes it holds, this one answers one file's id.
+	listing, err := repository(repoRoot).run("ls-tree", "-z", commit, "--", path)
+	if err != nil {
+		return "", err
+	}
+	records, err := treeRecords(listing)
+	if err != nil {
+		return "", err
+	}
+	for _, record := range records {
+		if record.path == path && record.kind == "blob" {
+			return record.object, nil
+		}
+	}
+	return "", nil
+}

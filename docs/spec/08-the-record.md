@@ -870,6 +870,20 @@ from the working tree, unmoved by a rebase, and equal exactly where the content 
 `procedure_revision` is the same fact about the Procedure file. `repo_revision` is the commit at
 `HEAD`. All three are written whole and rendered abbreviated (§8).
 
+**A blob id is computed from the working tree, so it resolves exactly where the artefact was
+committed** — and `hyper` never writes one. The id is right about the content either way: it is git's
+own object name over the bytes that ran, so it compares equal to a later `git hash-object` of the same
+file whether or not any object database holds it. What it will not do, where nothing committed those
+bytes, is come back from a `git show`: the Record then names a revision that is in no commit, and the
+`repo_dirty` marker below is the same fact stated on the entry. `hyper` writing the blob itself would
+make every id resolve for as long as git kept it and no longer — an object nothing references is
+unreachable, and unreachable loose objects are what `git gc` prunes — so the promise would expire on a
+clock nobody set, on a member whose whole point is that a rebase does not move it. Provenance is
+therefore what it says it is and no more, and the act that makes it resolve is the author's: commit the
+artefacts, and then run. The orientation says so in the loop, `run` warns on stderr before its first
+Step where the tree it read has not been committed, and a `review` whose baseline is such a revision
+says so rather than saying the clone is behind (§8, §9, ADR-0119).
+
 `procedure_revision` is the revision of the **top-level** Procedure — the file `run.json`'s `procedure`
 names. A Run spans nested Procedures as one Run (§6), so that is the only reading with exactly one value
 at Run level, and it has one for every Run, every Run being a Run of a Procedure (ADR-0036). The member

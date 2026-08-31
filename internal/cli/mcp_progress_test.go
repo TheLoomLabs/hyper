@@ -98,7 +98,7 @@ func TestProgress_AStepBoundaryIsANotification(t *testing.T) {
 }
 
 // TestProgress_ARunNamingItselfSendsNothing is `Began` on this surface, held by
-// counting: §9's narration is two events and only one of them is a message
+// counting: §9's narration is three events and only one of them is a message
 // here.
 //
 // On the CLI the first event exists because the terminal line is not always
