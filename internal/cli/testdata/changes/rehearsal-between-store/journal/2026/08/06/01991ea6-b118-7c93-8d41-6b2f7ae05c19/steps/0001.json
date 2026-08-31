@@ -1,0 +1,24 @@
+{
+  "definition": "uptime",
+  "disposition": "ran",
+  "ended_at": "2026-08-06T11:04:02.000Z",
+  "id": "probe",
+  "identities": {
+    "digest": "sha256:54e33d1c51d1767366b6ca1cab4d3a7bb62cf5efc855e04212ee7aaad6815cc3",
+    "members": [
+      "cert.hyper.dev",
+      "queue.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "check_http",
+  "provenance": {
+    "definition_revision": "c3a17b09e4d582f61b7c0a94d3e85f207c6b1d43",
+    "manifest_digest": "sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1"
+  },
+  "provider": "uptime",
+  "schema_version": 1,
+  "started_at": "2026-08-06T11:03:18.000Z",
+  "step": 1,
+  "target": "local"
+}

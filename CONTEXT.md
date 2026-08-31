@@ -208,7 +208,9 @@ deliberately is not. The withheld Step and every Step after it are never reached
 which one it stopped at. Its outcome is `completed`: a halted rehearsal is the correct outcome of a
 correct operation, so the answer is partial on the page rather than in the exit code. It earns no
 exemption from any guardrail, and the entry it writes is marked as one — evidence that a rehearsal
-happened and evidence of nothing else, which every consumer of Journal evidence filters out.
+happened and evidence of nothing else, which every consumer of Journal evidence filters out. The reads
+it did perform are Observations like any other Run's, and the Comparison renders them for a rehearsal a
+caller names as its **subject** — the one end a rehearsal may be, and never the baseline.
 _Avoid_: Plan, Preview, Simulation, What-if, Trial run
 
 **Probe**:

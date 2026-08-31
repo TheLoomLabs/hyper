@@ -515,7 +515,9 @@ what is unguarded is the world.
 A dry-run performs the reads it reaches and stops rather than simulating an effect (ADR-0010). Those
 reads really happened, so they record Observations like any other, and the Run writes a Journal
 entry (§7) marked as a dry-run and carrying where it stopped. That entry is never a Comparison
-baseline: a Comparison reads back to the last non-dry Run (§8, ADR-0010).
+baseline: a Comparison reads back to the last non-dry Run (§8, ADR-0010). It is a Comparison **subject**
+only where a caller names it as one, which is how the Observations it recorded are read before any
+effectful Run exists (§8, ADR-0115).
 
 ## The outcome triple
 

@@ -395,10 +395,12 @@ it.
 
 `dry_run` is written on every entry, `false` included, and is the one marker in the Store that does not
 follow the absence rule above. Four independent readers filter rehearsals out — run-once Repeatability
-(§6), the identity digest below, and the Comparison as baseline and as subject (§8) — and a reader that
-takes absence for `false` refuses every run-once Step in the Procedure it rehearsed, permanently, with
-nothing but an artefact edit left (ADR-0001). The exception is bought by what getting it wrong costs,
-not by the shape of the field.
+(§6), the identity digest below, the Comparison's baseline, and the subject the Comparison chooses
+for itself (§8) — and a reader that takes absence for `false` refuses every run-once Step in the
+Procedure it rehearsed, permanently, with nothing but an artefact edit left (ADR-0001). The
+exception is bought by what getting it wrong costs, not by the shape of the field. The fourth is the
+only one a caller reaches past, by naming the rehearsal as the subject itself, and what comes back
+is what that Run read rather than a claim about what the world became (§8, ADR-0115).
 
 ### The Step file
 
@@ -824,9 +826,15 @@ narration that produced it — without it a Run id and the job that emitted it a
 A dry-run writes an entry marked as one (§6): `run.json`, a file per Step it reached, and
 `outcome.json`. That entry is evidence that a rehearsal happened and evidence of nothing else, and
 every consumer of Journal evidence filters it out — run-once Repeatability (§6), the identity digest
-above, and the Comparison as baseline and as subject alike (§8). A rehearsal that counted as evidence
-would permanently refuse every run-once Step in the Procedure it rehearsed, with no bypass to recover
-through and nothing but an artefact edit left (ADR-0001): the review aid would disarm the tool.
+above, and the Comparison's baseline (§8). A rehearsal that counted as evidence would permanently
+refuse every run-once Step in the Procedure it rehearsed, with no bypass to recover through and
+nothing but an artefact edit left (ADR-0001): the review aid would disarm the tool.
+
+**The Comparison's *subject* is the one end a caller may name a rehearsal as.** No rule ever picks one
+for either end: the subject a window chooses for itself passes a rehearsal over, and so does the
+baseline behind any subject. What `changes --subject <run-id>` asks is *what did this rehearsal read*,
+which the paragraph below is the reason there is an answer to, and the answer is a claim about a read
+rather than about what the world became (§8, ADR-0115). Every filter above is untouched.
 
 **The marker falls on the entry's side of the entry/version line, and no Record version carries one.**
 It is a question asked of a version all the same: a dry-run performs the reads it reaches, so its
@@ -839,7 +847,8 @@ recovery. Provenance has been on every version ever written, where a marker adde
 would answer only the versions written after it and leave every version already on a branch silent —
 so the surface that renders it reads the entry regardless, and a member on the file would be a second
 place to read one fact from, answering less than the first. `records` makes that join inside the one
-call and renders the answer on its row (§9, ADR-0114).
+call and renders the answer on its row (§9, ADR-0114), and the Comparison renders the versions
+themselves for the Run a caller names as its subject (§8, ADR-0115).
 
 ## Provenance
 

@@ -1,2 +1,2 @@
 hyper changes: unknown flag --sicne
-  changes takes --limit, --since, --target, --between and --kind, past --json, --repo-dir and --no-color
+  changes takes --limit, --since, --target, --between, --subject and --kind, past --json, --repo-dir and --no-color

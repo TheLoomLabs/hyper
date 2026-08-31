@@ -1848,11 +1848,20 @@ func inputText(name string, value json.RawMessage) (string, error) {
 // `observation`. §9 writes the argument out this way and the CLI's own flag
 // value is documented under the same reading (flags.go).
 //
-// **`since` and `between` name one window two ways, and naming it both ways is
-// a JSON-RPC error.** So is a `between` naming a rehearsal, an open entry, one
-// Run twice, two Procedures, or the two ends the wrong way round: every one of
-// them is a well-typed argument that names no window this surface can render,
-// and the command's own sentence is what comes back (§9, ADR-0060).
+// **`since`, `between` and `subject` name one window three ways, and naming it
+// more than one way is a JSON-RPC error.** So is a `between` naming a rehearsal
+// as its baseline, an open entry, one Run twice, two Procedures, or the two ends
+// the wrong way round: every one of them is a well-typed argument that names no
+// window this surface can render, and the command's own sentence is what comes
+// back (§9, ADR-0060).
+//
+// **`subject` is the argument this whole tool is reachable from a rehearsal
+// by.** Between a `--dry-run` and the effecting Run that follows it, the
+// Observations the rehearsal recorded are in the Store and nothing rendered
+// their values: `records` finds a version and does not read one, `run_show`
+// renders Dispositions, and the Comparison had no subject to take. Naming the
+// rehearsal is what gives it one, and the answer is what that Run read rather
+// than a claim about what the world became (§8, ADR-0115, issue #235).
 var changesTool = tool{
 	name:        "changes",
 	description: "Report what changed between two Runs of a Procedure: the Assets you moved, the Observations the world moved, and what moved in the code between them.",
@@ -1870,6 +1879,7 @@ var changesTool = tool{
 			"maxItems": 2,
 			"description": "The window's two ends named directly, baseline first and subject second — the order the header renders them in. A pair given the other way round is refused rather than quietly reordered."
 		},
+		"subject": {"type": "string", "minLength": 1, "description": "The window's subject named by id, with the baseline derived behind it: the Run before it, skipping rehearsals and open entries. It is the one place a rehearsal may be a side of a window, and it is what renders the field values a --dry-run recorded before any effectful Run exists. A rehearsal is still never a baseline."},
 		"target": {"type": "string", "minLength": 1, "description": "A Target's name, matched byte-exact over UTF-8. It narrows the two Record tables and never the header or the code facts beneath them."},
 		"record_kind": {
 			"enum": ["asset", "observation"],
@@ -1945,6 +1955,7 @@ var changesTool = tool{
 			Procedure  *string  `json:"procedure"`
 			Since      *string  `json:"since"`
 			Between    []string `json:"between"`
+			Subject    *string  `json:"subject"`
 			Target     *string  `json:"target"`
 			RecordKind *string  `json:"record_kind"`
 			Limit      *int     `json:"limit"`
@@ -1988,6 +1999,11 @@ var changesTool = tool{
 			}
 			argv = append(argv, "--between", named.Between[0], named.Between[1])
 		}
+		subject, err := flagsFor(namedValue{"subject", named.Subject, "Run", "--subject"})
+		if err != nil {
+			return nil, err
+		}
+		argv = append(argv, subject...)
 		narrowed, err := flagsFor(
 			namedValue{"target", named.Target, "Target", "--target"},
 			namedValue{"record_kind", named.RecordKind, "Record type", "--kind"},
@@ -2019,11 +2035,15 @@ var changesTool = tool{
 const windowSide = `{
 	"type": "object",
 	"additionalProperties": false,
-	"required": ["run", "trigger", "started", "outcome", "procedure_revision"],
+	"required": ["run", "trigger", "started", "dry_run", "outcome", "procedure_revision"],
 	"properties": {
 		"run": {"type": "string"},
 		"trigger": {"type": "string"},
 		"started": {"type": "string"},
+		"dry_run": {
+			"type": "boolean",
+			"description": "Whether that Run was a rehearsal. Written always, the bare false included — §7's one exception to the absence rule, on the surface that names two Runs. A baseline is never a rehearsal; a subject is one where the caller named it."
+		},
 		"outcome": {
 			"enum": ["completed", "refused", "failed"],
 			"description": "The entry's own, written always: a window never names an open entry, so there is always one."

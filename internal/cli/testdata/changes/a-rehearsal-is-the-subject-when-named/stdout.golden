@@ -1,0 +1,15 @@
+  watch
+  BASELINE  no baseline — first Run of watch
+  SUBJECT   01991d00-0000…  igor@thinkpad  Wed 5 Aug 10:00  completed  12s  procedure rev b0c94f1
+  rehearsal — the SUBJECT entry is a --dry-run: it reached no effect, so nothing below is a change it made
+
+  YOU DID THIS   0 assets
+
+  THE WORLD MOVED   2 observations
+  CHANGE    TARGET  DEFINITION  RECORD            ORDINAL  FIELDS
+  appeared  local   uptime      cert.hyper.dev    – → 1    days_left: 41 · host: cert.hyper.dev
+  appeared  local   uptime      status.hyper.dev  – → 1    host: status.hyper.dev · status: 200
+
+  THE CODE MOVED   0 facts
+
+  TOTALS  2 changes · 0 asset · 2 observation · 0 tombstone · the code did not move

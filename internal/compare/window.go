@@ -24,12 +24,15 @@ type Window struct {
 	Subject   Side
 }
 
-// Selection is what the caller named: which Procedure, and which of the two
-// ways of naming a window they used.
+// Selection is what the caller named: which Procedure, and the one of §9's
+// three ways of naming a window that has a rule behind it.
 //
-// `--between` is not here. It names two Runs directly, so it resolves two ids
-// against the Journal and builds a Window outright; what this type carries is
-// the selection that has a *rule* behind it rather than two names (§8, §9).
+// **The other two are not here, and for one reason.** `--between` names two
+// Runs directly and `--subject` names one, so each resolves an id against the
+// Journal and builds a Window outright — `--subject` with Preceding below for
+// the end it left derived. What this type carries is the selection that is a
+// *rule* rather than a name: the newest nameable Run, and `--since` moving the
+// baseline behind it (§8, §9, ADR-0115).
 type Selection struct {
 	// Procedure is the Procedure named positionally, and "" is the
 	// whole-Store mode: naming nothing compares across every Procedure at
@@ -143,4 +146,46 @@ func newest(a, b store.Entry) int {
 		return 1
 	}
 	return 0
+}
+
+// Preceding is the baseline behind a subject a caller named by id: the newest
+// nameable Run of the **same** Procedure to have started before it, and an
+// absent Side where there is none.
+//
+// It is the half of Select's rule that is a rule at all. `--subject` names one
+// end directly, the way `--between` names two, so what it leaves to be derived
+// is the other end — and deriving it here rather than in the command is what
+// keeps *which Run is a baseline* one answer: the same filter, the same
+// Procedure window and the same ordering, whether the subject was chosen by
+// rule or typed.
+//
+// **A rehearsal and an open entry are passed over here as they are there**, and
+// that is the whole of what `--subject` does not lift. §7 names four readers
+// that filter a rehearsal's entry out and this is one of them; what §8 now
+// distinguishes is the *subject*, which a caller may name, from the *baseline*,
+// which only a rule ever chooses — this one, or Select's. A rehearsal named as
+// a subject therefore never becomes a baseline: not its own window's, and not
+// one behind a later subject either.
+//
+// The subject is excluded by the comparison rather than by identity: `newest`
+// is total over the two keys §9 orders Runs on, so an entry that is the subject
+// compares equal to it and is dropped along with everything after it. A window
+// whose two ends were one Run would render a Comparison of a Run against
+// itself.
+func Preceding(entries []store.Entry, subject store.Entry) Side {
+	var behind []store.Entry
+	for _, entry := range entries {
+		if StandingOf(entry) != Nameable || entry.Procedure != subject.Procedure {
+			continue
+		}
+		if newest(entry, subject) <= 0 {
+			continue
+		}
+		behind = append(behind, entry)
+	}
+	if len(behind) == 0 {
+		return Side{}
+	}
+	slices.SortFunc(behind, newest)
+	return Side{Present: true, Entry: behind[0]}
 }

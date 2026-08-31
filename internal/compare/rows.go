@@ -103,8 +103,22 @@ type SideRow struct {
 	// a clock or a person, which is the whole of what §7 says a Trigger
 	// distinguishes. `show` is the surface that carries the four members an
 	// executor writes, its job being one entry read whole.
-	Trigger           string      `json:"trigger"`
-	Started           string      `json:"started"`
+	Trigger string `json:"trigger"`
+	Started string `json:"started"`
+	// DryRun is whether that Run was a rehearsal, and it is written
+	// always — the bare `false` included. It is §7's one exception to the
+	// absence rule, carried onto the surface that names two Runs for the
+	// reason it is carried onto `records`' rows and `show`'s header: a
+	// reader that takes its absence for `false` gets a permanent wrong
+	// answer, and `--subject` is what puts a rehearsal on this wire at all
+	// (§7, §8, ADR-0114, ADR-0115).
+	//
+	// A baseline's is `false` on every window there can be — Select and
+	// Preceding both pass a rehearsal over when choosing one, and
+	// `--between` refuses one in that position — and it is written there
+	// anyway, an exception that held on one member of a pair and not the
+	// other being a shape a consumer has to learn twice.
+	DryRun            bool        `json:"dry_run"`
 	Outcome           string      `json:"outcome"`
 	Ended             string      `json:"ended,omitempty"`
 	ProcedureRevision string      `json:"procedure_revision"`
@@ -147,6 +161,7 @@ func sideRowOf(side Side) *SideRow {
 		Run:               entry.Run.String(),
 		Trigger:           entry.Trigger.Text(),
 		Started:           store.InstantText(entry.StartedAt),
+		DryRun:            entry.DryRun,
 		ProcedureRevision: entry.Provenance.ProcedureRevision,
 		RepoDirty:         entry.Provenance.RepoDirty,
 	}

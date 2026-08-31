@@ -25,6 +25,11 @@ Report what changed between two Runs of a Procedure: the Assets you moved, the O
       "maxItems": 2,
       "description": "The window's two ends named directly, baseline first and subject second — the order the header renders them in. A pair given the other way round is refused rather than quietly reordered."
     },
+    "subject": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The window's subject named by id, with the baseline derived behind it: the Run before it, skipping rehearsals and open entries. It is the one place a rehearsal may be a side of a window, and it is what renders the field values a --dry-run recorded before any effectful Run exists. A rehearsal is still never a baseline."
+    },
     "target": {
       "type": "string",
       "minLength": 1,
@@ -80,6 +85,7 @@ Report what changed between two Runs of a Procedure: the Assets you moved, the O
                   "run",
                   "trigger",
                   "started",
+                  "dry_run",
                   "outcome",
                   "procedure_revision"
                 ],
@@ -92,6 +98,10 @@ Report what changed between two Runs of a Procedure: the Assets you moved, the O
                   },
                   "started": {
                     "type": "string"
+                  },
+                  "dry_run": {
+                    "type": "boolean",
+                    "description": "Whether that Run was a rehearsal. Written always, the bare false included — §7's one exception to the absence rule, on the surface that names two Runs. A baseline is never a rehearsal; a subject is one where the caller named it."
                   },
                   "outcome": {
                     "enum": [
@@ -147,6 +157,7 @@ Report what changed between two Runs of a Procedure: the Assets you moved, the O
                   "run",
                   "trigger",
                   "started",
+                  "dry_run",
                   "outcome",
                   "procedure_revision"
                 ],
@@ -159,6 +170,10 @@ Report what changed between two Runs of a Procedure: the Assets you moved, the O
                   },
                   "started": {
                     "type": "string"
+                  },
+                  "dry_run": {
+                    "type": "boolean",
+                    "description": "Whether that Run was a rehearsal. Written always, the bare false included — §7's one exception to the absence rule, on the surface that names two Runs. A baseline is never a rehearsal; a subject is one where the caller named it."
                   },
                   "outcome": {
                     "enum": [

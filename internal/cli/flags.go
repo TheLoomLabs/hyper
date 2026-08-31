@@ -80,13 +80,29 @@ type commandArgs struct {
 	// rather than two members because the flag takes two values at once and
 	// naming one of them is naming neither side of a window.
 	between [2]string
-	// betweenNamed says the flag was given, which is a fact `--since`
-	// beside it is a usage error on. The empty pair is not the test: a Run
+	// betweenNamed says the flag was given, which is a fact either of the
+	// other two window flags beside it is a usage error on. The empty pair
+	// is not the test: a Run
 	// id is never empty, but the question asked here is whether the caller
 	// named a window this way, and answering it off the values would make
 	// the two ways of naming one window tell each other apart by their
 	// contents.
 	betweenNamed bool
+	// subject is the Run id `--subject` named: the **third** way of naming
+	// one window, and the one that names the subject alone and leaves the
+	// baseline to be derived behind it (compare.Preceding).
+	//
+	// It is one member and not a pair because it names one end. The rule it
+	// carries is about that end and not about this flag: a rehearsal is
+	// nameable as a **subject**, here and as `--between`'s second id alike,
+	// and as a baseline nowhere. That is the whole of what §8 now
+	// distinguishes — a subject a caller typed from a baseline only a rule
+	// ever chooses (ADR-0115).
+	subject string
+	// subjectNamed says the flag was given, and it is a separate member for
+	// betweenNamed's reason: the question is whether the caller named a
+	// window this way, and a Run id that is never empty is not the test.
+	subjectNamed bool
 	// recordKind is one of §7's two Record types, and the empty string
 	// where the caller named none. It is the typed value rather than the
 	// text, so a command narrowing on it compares against a member of the
@@ -156,9 +172,14 @@ type parameters struct {
 	history bool
 	// between and kind say the command takes `--between <run-id> <run-id>`
 	// and `--kind`. §9 gives both to `changes` alone: `--between` is the
-	// second of the two ways of naming one window, and `--kind` narrows a
+	// second of the three ways of naming one window, and `--kind` narrows a
 	// Comparison to one of its two Record tables.
 	between bool
+	// subject says the command takes `--subject <run-id>`. §9 gives it to
+	// `changes` alone, and it is declared beside `--between` because it is
+	// the third of the three ways of naming one window — the order the
+	// message below names them in is this order (ADR-0115).
+	subject bool
 	kind    bool
 	// input, response, secretOut, dryRun and expansion are §9's five
 	// remaining parameters — `probe`'s two, `run`'s two, and `show`'s — and
@@ -211,6 +232,7 @@ func (p parameters) spelled() []string {
 		{"--name", p.name},
 		{"--history", p.history},
 		{"--between", p.between},
+		{"--subject", p.subject},
 		{"--kind", p.kind},
 		{"--input", p.input},
 		{"--response", p.response},
@@ -428,6 +450,14 @@ func parseArgs(command string, args []string, takes parameters, lookupenv func(s
 			// exist.
 			fmt.Fprintf(stderr, "hyper %s: --between takes two Run ids, spelled with spaces: --between <run-id> <run-id>\n", command)
 			return parsed, to, ExitUsage
+		case a == "--subject" && takes.subject:
+			value, code := nextValue(command, "--subject", args, &i, stderr)
+			if code != 0 {
+				return parsed, to, code
+			}
+			parsed.subject, parsed.subjectNamed = value, true
+		case strings.HasPrefix(a, "--subject=") && takes.subject:
+			parsed.subject, parsed.subjectNamed = strings.TrimPrefix(a, "--subject="), true
 		case a == "--kind" && takes.kind:
 			value, code := nextValue(command, "--kind", args, &i, stderr)
 			if code != 0 {

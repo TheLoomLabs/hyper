@@ -1,0 +1,23 @@
+{
+  "definition": "hetzner-staging",
+  "disposition": "ran",
+  "ended_at": "2026-08-04T09:13:51.000Z",
+  "id": "label",
+  "identities": {
+    "digest": "sha256:b9b2a3b2c9245ade7645004308eefdc6e3bfe573ffd976e8813c2570790544d5",
+    "members": [
+      "preview-8901"
+    ]
+  },
+  "kind": "mutate",
+  "operation": "label_server",
+  "provenance": {
+    "definition_revision": "c3a17b09e4d582f61b7c0a94d3e85f207c6b1d43",
+    "manifest_digest": "sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1"
+  },
+  "provider": "hetzner",
+  "schema_version": 1,
+  "started_at": "2026-08-04T09:12:50.000Z",
+  "step": 2,
+  "target": "staging"
+}

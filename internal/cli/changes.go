@@ -30,6 +30,7 @@ var changesParameters = parameters{
 	limit:   defaultListLimit,
 	since:   true,
 	between: true,
+	subject: true,
 	target:  true,
 	kind:    true,
 }
@@ -77,8 +78,15 @@ func RunChanges(args []string, to destination, process Process, wd, binaryVersio
 	// before this invocation can be judged wrong. It carries **no
 	// error_code** — an error_code names a check that declined an artefact,
 	// and an argument list is not one (§9, §12, ADR-0060).
-	if parsed.sinceNamed && parsed.betweenNamed {
-		fmt.Fprintf(to.narrate(), "hyper %s: --since and --between name one window two ways; give one of them\n", changesCommand)
+	if ways := windowFlagsNamed(parsed); len(ways) > 1 {
+		// Two or three, spelled as the word a sentence carries. There
+		// are three window flags and one is not a fault, so those are
+		// the only counts that reach here.
+		howMany := "two"
+		if len(ways) == 3 {
+			howMany = "three"
+		}
+		fmt.Fprintf(to.narrate(), "hyper %s: %s name one window %s ways; give one of them\n", changesCommand, inSequence(ways), howMany)
 		return ExitUsage
 	}
 	// At most one positional. **Naming none is not a usage error** — it is
@@ -247,9 +255,41 @@ func resolveProcedureName(named, repoRoot string, stderr io.Writer) int {
 	return 0
 }
 
+// windowFlagsNamed is which of the three ways of naming one window this
+// invocation used, in the order §9 states them.
+//
+// They are one list rather than a chain of pairwise tests because there are
+// three of them now: `--since` moves the baseline, `--between` names both ends
+// and `--subject` names one, and a caller who reached for two of them named one
+// window two ways whichever two they were (ADR-0115).
+func windowFlagsNamed(parsed commandArgs) []string {
+	var named []string
+	for _, flag := range []struct {
+		spelling string
+		given    bool
+	}{
+		{"--since", parsed.sinceNamed},
+		{"--between", parsed.betweenNamed},
+		{"--subject", parsed.subjectNamed},
+	} {
+		if flag.given {
+			named = append(named, flag.spelling)
+		}
+	}
+	return named
+}
+
 // changeWindows is the windows this invocation renders: the two ends chosen by
-// rule, or the two the caller named directly.
+// rule, the two the caller named directly, or the subject they named with the
+// baseline derived behind it.
 func changeWindows(entries []store.Entry, parsed commandArgs, named string, stderr io.Writer) ([]compare.Window, int) {
+	if parsed.subjectNamed {
+		window, code := subjectWindow(entries, parsed.subject, named, stderr)
+		if code != 0 {
+			return nil, code
+		}
+		return []compare.Window{window}, 0
+	}
 	if parsed.betweenNamed {
 		window, code := betweenWindow(entries, parsed.between, named, stderr)
 		if code != 0 {
@@ -270,15 +310,21 @@ func changeWindows(entries []store.Entry, parsed commandArgs, named string, stde
 // Every way this can fail is a usage error at `2` with no `error_code`, because
 // every one of them is a name that resolves to nothing a window can be made of
 // (§9, ADR-0060). An id no entry carries and a partial id arrive at one
-// message, nothing anywhere resolving a partial one (ADR-0047).
+// message, nothing anywhere resolving a partial one (ADR-0047), and that
+// message and the open entry's are the guard `--subject` shares (sideNamed).
 //
-// **A rehearsal and an open entry are refused in their own words.** They are
-// not one fault: a rehearsal is disqualified — letting one be a side would
-// retire the warning a real Run earned — and an open entry is *not yet
-// nameable*, an entry whose Run may be in flight and whose outcome the header
-// would have to render without having one (§7, §8). A caller who named either
-// is told which, because the remedies differ: one is a Run to re-run for real
-// and the other is a Run to wait for.
+// **A rehearsal is refused as the baseline and taken as the subject**, which
+// is the position and not the flag: `--between` names both ends, so a rehearsal
+// in the second is a rehearsal named as a subject, and refusing it there and
+// accepting it under `--subject` would be the surface deciding on the spelling
+// rather than on which end was named (ADR-0115). A rehearsal is no evidence of
+// what the world became and is therefore never the baseline, under either form.
+//
+// **An open entry is refused in either position, and in its own words.** It is
+// not the rehearsal's fault: an open entry is not disqualified at all, it is an
+// entry whose Run may be in flight and whose outcome the header would have to
+// render without having one, and the remedies differ — one is a Run to wait for
+// and the other is a Run to name at the other end (§7, §8).
 //
 // **Two Runs of two Procedures are refused too.** A Comparison is a window over
 // one Procedure — the rule that keeps a monitoring Run from being compared
@@ -287,18 +333,16 @@ func changeWindows(entries []store.Entry, parsed commandArgs, named string, stde
 func betweenWindow(entries []store.Entry, ids [2]string, named string, stderr io.Writer) (compare.Window, int) {
 	var sides [2]store.Entry
 	for i, id := range ids {
-		found, held := entryNamed(entries, id)
-		if !held {
-			fmt.Fprintf(stderr, "hyper %s: no Journal entry for run %q in this repository's Store\n"+
-				"  the %s branch is that namespace, and hyper runs enumerates it\n", changesCommand, id, store.BranchName)
-			return compare.Window{}, ExitUsage
+		found, code := sideNamed(entries, id, stderr)
+		if code != 0 {
+			return compare.Window{}, code
 		}
-		switch compare.StandingOf(found) {
-		case compare.Rehearsal:
-			fmt.Fprintf(stderr, "hyper %s: run %s is a rehearsal, which is neither side of a window — a --dry-run reaches no effect a Comparison reports\n", changesCommand, id)
-			return compare.Window{}, ExitUsage
-		case compare.Unclosed:
-			fmt.Fprintf(stderr, "hyper %s: run %s holds no account of how it ended, so it is not yet an entry a window can name\n", changesCommand, id)
+		// The one guard that is this form's own, and it is about the
+		// **position**: the first id is the baseline, which a rehearsal
+		// may never be. In the second it is a subject named by id,
+		// which is what `--subject` names too (ADR-0115).
+		if i == 0 && compare.StandingOf(found) == compare.Rehearsal {
+			fmt.Fprintf(stderr, "hyper %s: %s\n", changesCommand, rehearsalBaselineFault(id))
 			return compare.Window{}, ExitUsage
 		}
 		sides[i] = found
@@ -334,6 +378,110 @@ func betweenWindow(entries []store.Entry, ids [2]string, named string, stderr io
 		Baseline:  compare.Side{Present: true, Entry: sides[0]},
 		Subject:   compare.Side{Present: true, Entry: sides[1]},
 	}, 0
+}
+
+// subjectWindow is the window `--subject <run-id>` names: that Run as the
+// subject, and the baseline derived behind it by the rule Select derives one by
+// (compare.Preceding).
+//
+// **This is the one place a rehearsal is a side of a window**, and it is the
+// subject's side alone. A rehearsal performs the reads it reaches and records
+// Observations like any other Run (§6), so *what did this rehearsal see* is a
+// question the Store can answer and the Comparison is the only surface that
+// renders values — and the answer is a claim about what was read rather than
+// about what the world became, which is the claim ADR-0010 keeps this surface
+// from making. What it stays disqualified for is every reading that treats an
+// entry as evidence: baseline, run-once Repeatability and the identity digest
+// are untouched, and Preceding passes a rehearsal over behind this subject as
+// Select passes one over in front of it (§7, ADR-0115).
+//
+// Every way this can fail is a usage error at `2` with no `error_code`, as
+// `--between`'s are, and the two faults an id shares with that form — the
+// Journal not holding it, and its holding an open entry — are one guard both
+// call (sideNamed).
+//
+// **A positional that names another Procedure is refused rather than ignored.**
+// A Run id decides the Procedure outright, so a caller who typed both named two
+// and a window is over one.
+func subjectWindow(entries []store.Entry, id, named string, stderr io.Writer) (compare.Window, int) {
+	found, code := sideNamed(entries, id, stderr)
+	if code != 0 {
+		return compare.Window{}, code
+	}
+	if named != "" && found.Procedure != named {
+		fmt.Fprintf(stderr, "hyper %s: the positional names %s and run %s is a Run of %s; a window is over one Procedure\n",
+			changesCommand, named, id, found.Procedure)
+		return compare.Window{}, ExitUsage
+	}
+	return compare.Window{
+		Procedure: found.Procedure,
+		Baseline:  compare.Preceding(entries, found),
+		Subject:   compare.Side{Present: true, Entry: found},
+	}, 0
+}
+
+// sideNamed is the entry one id names, held to what both forms hold every id
+// they resolve to: the Journal has it, and it is not an open entry.
+//
+// It is one function because it is one rule. `--between` and `--subject` differ
+// in how many ids they take and in what the **position** of one means, and not
+// at all in what a name has to resolve to before either can use it — so the two
+// faults below are written once and reached from one guard rather than from two
+// that could drift.
+//
+// What it does **not** hold is the rehearsal, which is the whole of what the two
+// forms disagree about: a rehearsal is a side of a window under both, as the
+// subject, and a baseline under neither (ADR-0115).
+//
+// Every fault it writes is a usage error at `2` with no `error_code` — a name
+// that resolves to nothing a window can be made of is not a check that declined
+// an artefact (§9, ADR-0060).
+func sideNamed(entries []store.Entry, id string, stderr io.Writer) (store.Entry, int) {
+	found, held := entryNamed(entries, id)
+	if !held {
+		fmt.Fprintf(stderr, "hyper %s: %s\n", changesCommand, unknownRunFault(id))
+		return store.Entry{}, ExitUsage
+	}
+	if compare.StandingOf(found) == compare.Unclosed {
+		fmt.Fprintf(stderr, "hyper %s: %s\n", changesCommand, unclosedSideFault(id))
+		return store.Entry{}, ExitUsage
+	}
+	return found, 0
+}
+
+// unknownRunFault is what an id no Journal entry carries earns. It names the
+// namespace the id was resolved against and the command that enumerates it,
+// which is what every name resolved against a namespace on this surface does
+// (§9).
+//
+// It is two lines with the second indented under the first — the shape these
+// surfaces write a namespace in — and, like its two siblings, it carries no
+// trailing newline: the caller writes that, so three sentences reached from one
+// place are written the same way.
+func unknownRunFault(id string) string {
+	return fmt.Sprintf("no Journal entry for run %q in this repository's Store\n"+
+		"  the %s branch is that namespace, and hyper runs enumerates it", id, store.BranchName)
+}
+
+// unclosedSideFault is what an open entry earns as either end of a window under
+// either form. It is **not** the rehearsal's fault below: an open entry is not
+// disqualified at all, it is not yet an entry a window can name, and the
+// remedies differ — one is a Run to wait for and the other is a Run to name at
+// the other end (§7, §8).
+func unclosedSideFault(id string) string {
+	return fmt.Sprintf("run %s holds no account of how it ended, so it is not yet an entry a window can name", id)
+}
+
+// rehearsalBaselineFault is what a rehearsal named as a **baseline** earns, and
+// it carries the remedy the same Run has as a subject.
+//
+// The two ends part company here. A rehearsal is no evidence of what the world
+// became, so letting one be the baseline would retire the warning a real Run
+// earned — that is ADR-0010's reading and it is untouched. Being asked what
+// that rehearsal *read* is a different question, and `--subject` is where it is
+// asked (ADR-0115).
+func rehearsalBaselineFault(id string) string {
+	return fmt.Sprintf("run %s is a rehearsal, which is never a window's baseline — a --dry-run is no evidence of what the world became; --subject %s renders what it read", id, id)
 }
 
 // entryNamed is the entry one id names, and whether the Journal holds it. The
@@ -677,6 +825,11 @@ func writeWindowBlock(w io.Writer, window compare.WindowRow, rows []compare.Chan
 	if err := writeHeaderLines(w, window); err != nil {
 		return err
 	}
+	if line := rehearsalLine(window); line != "" {
+		if _, err := fmt.Fprintln(w, changesIndent+line); err != nil {
+			return err
+		}
+	}
 	for _, line := range contestLines(window) {
 		if _, err := fmt.Fprintln(w, changesIndent+line); err != nil {
 			return err
@@ -980,6 +1133,32 @@ func revisionCell(side *compare.SideRow) string {
 		cell += "+"
 	}
 	return cell
+}
+
+// rehearsalLine is what a window whose subject is a rehearsal earns beneath
+// the header: one stated line saying so, and how to read the tables under it.
+//
+// **It is a line and not a cell**, which is the shape the contest below already
+// has and for the same reason. The header's columns are the six facts §8 names
+// a Run with; a seventh, blank on every Comparison but the ones a caller asked
+// for by id, would be a column the page carries in order to say nothing. A
+// qualification of a side that is not one of those six facts goes beneath the
+// header as a stated line.
+//
+// **It stands above the contest lines** because it says what kind of Run this
+// was, where those say how one ended: a reader who has not been told the
+// subject is a rehearsal is reading the tables wrong already.
+//
+// It is the subject's alone and there is no loop over the two sides. A baseline
+// is never a rehearsal under any form — `Select` passes one over, `Preceding`
+// passes one over, and `--between` refuses one in that position outright — so a
+// line for the other end would be a sentence for a window that cannot exist
+// (§7, ADR-0115).
+func rehearsalLine(window compare.WindowRow) string {
+	if window.Subject == nil || !window.Subject.DryRun {
+		return ""
+	}
+	return "rehearsal — the " + subjectLabel + " entry is a --dry-run: it reached no effect, so nothing below is a change it made"
 }
 
 // contestLines is what a contested or reaped end of the window earns beneath

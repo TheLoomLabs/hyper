@@ -1,0 +1,14 @@
+{
+  "content": [
+    {"type":"text","text":"1 window, 2 Observations"}
+  ],
+  "structuredContent": {
+    "rows": [
+      {"type":"window","procedure":"watch","subject":{"run":"01991d00-0000-7000-8000-000000000002","trigger":"igor@thinkpad","started":"2026-08-05T10:00:00.000Z","dry_run":true,"outcome":"completed","ended":"2026-08-05T10:00:12.000Z","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}},
+      {"type":"observation","change":"appeared","target":"local","definition":"uptime","name":"cert.hyper.dev","to_ordinal":1,"fields":{"days_left":41,"host":"cert.hyper.dev"}},
+      {"type":"observation","change":"appeared","target":"local","definition":"uptime","name":"status.hyper.dev","to_ordinal":1,"fields":{"host":"status.hyper.dev","status":200}}
+    ],
+    "truncated": false
+  },
+  "isError": false
+}

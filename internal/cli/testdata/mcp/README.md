@@ -311,6 +311,14 @@ change forms across both tables — which is where the `observation` rows are, a
 the reason it is here rather than left to the `asset` rows the two narrowed
 cases carry.
 
+`changes/a-rehearsal-is-the-subject-when-named` is the second surface's half of
+issue #235, and it is here rather than left to the CLI corpus because **that is
+the condition the ticket names**: the agent that found the gap had only this
+surface, and `records` and `run_show` carry no field values by contract
+(ADR-0115). One rehearsal in the Journal, no effectful Run anywhere, `subject`
+naming it, and the two Observations come back with their values — `dry_run: true`
+on the one side the window has, and no `baseline` member at all.
+
 `run_show/an-entry-read-back` and `run_show/an-expansion-asked-for` are one
 Store driven twice, and the pair is the whole of what `expansion` does: the
 entry's second Step carries a selector, no row shows one without the argument,
@@ -329,11 +337,11 @@ naming `hyper store init` — which is correct rather than awkward, creating the
 record being the human's act and an agent's part in it being to say that it has
 not happened.
 
-The four usage cases are the pairs §9's malformed set puts on this surface:
+The usage cases are the pairs §9's malformed set puts on this surface:
 `runs/usage-an-outcome-outside-the-triple` is a value outside a closed set the
-**command** closes where the flag is read, `records/usage-since-without-history`
-and `changes/usage-since-and-between` are the two argument pairs the commands
-refuse together, and `run_show/an-unknown-run-id` is a positional that satisfies
+**command** closes where the flag is read, `records/usage-since-without-history`,
+`changes/usage-since-and-between` and `changes/usage-subject-and-between` are the
+argument pairs the commands refuse together, and `run_show/an-unknown-run-id` is a positional that satisfies
 every schema and names nothing. Each carries the sentence its command wrote and
 each is paired with its twin one directory up.
 

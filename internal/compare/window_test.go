@@ -244,3 +244,65 @@ func TestSelect_AProcedureThatRanOnlyRehearsalsNamesNoWindow(t *testing.T) {
 		t.Errorf("Select() answered %d windows, want none — a rehearsal is neither side", len(windows))
 	}
 }
+
+// `--subject` (§8, issue #235): the Comparison's subject named by id, and the
+// baseline chosen behind it by the same rule Select chooses one by.
+
+func TestPreceding_IsTheNewestNameableRunOfTheSameProcedureBeforeIt(t *testing.T) {
+	subject := run("14", "watch", at(12, 0), at(12, 2))
+
+	baseline := compare.Preceding([]store.Entry{
+		run("15", "watch", at(13, 0), at(13, 2)),
+		subject,
+		run("13", "watch", at(11, 0), at(11, 2)),
+		run("12", "watch", at(10, 0), at(10, 2)),
+		run("21", "retire", at(11, 30), at(11, 32)),
+	}, subject)
+
+	if !baseline.Present {
+		t.Fatal("Preceding() answered no baseline; want the Run before the subject")
+	}
+	if got, want := baseline.Entry.Run.String(), runID("13").String(); got != want {
+		t.Errorf("baseline = %s, want %s — the newest Run of the same Procedure to have started before it", got, want)
+	}
+}
+
+func TestPreceding_PassesOverARehearsalAndAnOpenEntry(t *testing.T) {
+	// The three filters §7 states hold here whichever end is being chosen:
+	// a rehearsal named as the *subject* still never becomes a baseline,
+	// for itself or for anyone behind it.
+	rehearsal := run("13", "watch", at(11, 0), at(11, 2))
+	rehearsal.DryRun = true
+	open := run("12", "watch", at(10, 0), time.Time{})
+	open.Owner = store.OutcomeFile{}
+	subject := run("14", "watch", at(12, 0), at(12, 2))
+
+	baseline := compare.Preceding([]store.Entry{subject, rehearsal, open, run("11", "watch", at(9, 0), at(9, 2))}, subject)
+
+	if !baseline.Present {
+		t.Fatal("Preceding() answered no baseline; want the nameable Run behind the two that are not")
+	}
+	if got, want := baseline.Entry.Run.String(), runID("11").String(); got != want {
+		t.Errorf("baseline = %s, want %s", got, want)
+	}
+}
+
+func TestPreceding_AnswersNoneWhereTheSubjectIsTheFirstRunOfItsProcedure(t *testing.T) {
+	subject := run("11", "watch", at(9, 0), at(9, 2))
+	subject.DryRun = true
+
+	if baseline := compare.Preceding([]store.Entry{subject}, subject); baseline.Present {
+		t.Error("Preceding() answered a baseline; want none — the subject is the first Run of its Procedure")
+	}
+}
+
+func TestPreceding_NeverAnswersTheSubjectItself(t *testing.T) {
+	// A nameable subject is in the listing it is being chosen a baseline
+	// out of, and a window whose two ends are one Run renders a Comparison
+	// of a Run against itself.
+	subject := run("11", "watch", at(9, 0), at(9, 2))
+
+	if baseline := compare.Preceding([]store.Entry{subject}, subject); baseline.Present {
+		t.Errorf("Preceding() answered %s; want no baseline", baseline.Entry.Run.String())
+	}
+}

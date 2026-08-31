@@ -533,8 +533,24 @@ impossible (ADR-0026). Nothing is stored to spare it the walk, and the walk alwa
 `changes [procedure]` renders §8's Comparison. Naming a Procedure selects it and omitting one compares
 across every Procedure at once, which is why the Procedure is positional here and a parameter on `runs`
 — it decides which rendering you get rather than filtering the rows of one. It takes `--since
-<timestamp>` or `--between <run-id> <run-id>`, and `--target`, `--kind`, and `--limit`; `--since` and
-`--between` together is a usage error, the two being different ways of naming one window.
+<timestamp>`, `--between <run-id> <run-id>` or `--subject <run-id>`, and `--target`, `--kind`, and
+`--limit`; any two of the first three together is a usage error, the three being different ways of
+naming one window.
+
+`--subject` names the window's subject and leaves the baseline to §8's rule — the Run before it, a
+rehearsal and an open entry passed over — where the other two forms fix the subject at the newest Run or
+name both ends outright. **It is the one place a rehearsal may be a side of a window**, and the reason
+it exists: between a `run --dry-run` and the effectful Run that follows it, the Observations the
+rehearsal recorded sit in the Store with nothing rendering their values, `records` being the surface
+that finds a version rather than the one that reads a change, and §8's Comparison having no subject to
+take. Naming the rehearsal gives it one. It stays disqualified everywhere else — never a baseline, and
+never the subject a window chose for itself (§8, ADR-0115).
+
+An id no Journal entry carries and an open entry are usage errors under `--subject` in the words
+`--between` refuses them in, and a positional naming another Procedure is one too: a Run id decides the
+Procedure outright, so naming both names two and a window is over one. A rehearsal is refused as
+`--between`'s **first** id and taken as its second, the position and not the flag being what says which
+end was named.
 
 `records` takes `--target`, `--definition`, `--name`, `--history`, `--since`, and `--limit`, and writes one row
 per Record: its identity, its ordinal, the Run and Step that wrote the version, whether that Run was a
@@ -1378,12 +1394,17 @@ it, and the header and the Refusal rows are the sketch's list made complete rath
 `show` renders both, and an `outputSchema` is declared once and for every call of the tool.
 
 ```jsonc
-changes(procedure?, since?, between?, target?, record_kind?, limit?)
+changes(procedure?, since?, between?, subject?, target?, record_kind?, limit?)
 // → rows: §8's window, asset, observation and code rows, unchanged
 ```
 
 `record_kind` is the CLI's `--kind`, spelled out: in a flat argument object beside tools carrying an
 Operation's Kind, one name cannot hold two senses.
+
+`subject` is the CLI's `--subject` under the same name, and it is what makes a rehearsal's Observations
+reachable from this surface: the agent that found the gap had only this surface, and `records` and
+`run_show` carry no field values by contract (§8, ADR-0115, issue #235). Both of a `window` row's sides
+carry `dry_run`, written always.
 
 ```jsonc
 records(target?, definition?, name?, history?, since?, limit?)

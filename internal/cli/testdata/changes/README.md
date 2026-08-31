@@ -66,7 +66,10 @@ Every case that reaches the record carries three inputs, which is
   with another case, which is `repo-from`'s shape one branch over. Two seeds
   here are shared: [`spec-store/`](spec-store), which is §8's own worked
   Comparison, and [`moved-store/`](moved-store), which is the four forms of a
-  row that example has none of. A page case and its `--json` twin assert two
+  row that example has none of. Two more carry a rehearsal:
+  [`rehearsal-store/`](rehearsal-store), whose only entry is one, and
+  [`rehearsal-between-store/`](rehearsal-between-store), which is `moved-store/`
+  with one between its two Runs. A page case and its `--json` twin assert two
   renderings of **one** Store (ADR-0026), which two copies of it would let
   drift apart.
 
@@ -100,7 +103,8 @@ against the specification rather than against this implementation's taste.
   `dry_run` entry between the two Runs and an open entry above them, each
   passed over, so the window is the two Runs on either side of it. They are two
   cases and not one because they are two facts: a rehearsal is **disqualified**
-  and an open entry is **not yet nameable** (§8).
+  and an open entry is **not yet nameable** (§8). Neither is chosen by rule; a
+  rehearsal a caller **names** is the third way of naming a window below.
 - [`a-refused-run-still-stands-as-a-baseline/`](a-refused-run-still-stands-as-a-baseline)
   — an outcome does not disqualify a baseline, a refused Run's completed Steps
   having reached the world like any other's.
@@ -132,7 +136,7 @@ that Run read are nowhere in git, and the marker is what stops the header
 asserting otherwise; the `-json` twin carries `repo_dirty: true` and the
 revision whole, one fact in the two notations.
 
-## The two ways of naming one window
+## The three ways of naming one window
 
 - [`since-folds-everything-after-the-last-run-before-it/`](since-folds-everything-after-the-last-run-before-it)
   — three Runs and one `--since`: the baseline is the last Run before the
@@ -165,9 +169,49 @@ revision whole, one fact in the two notations.
   `11:05:09`.
 - [`between-names-two-runs/`](between-names-two-runs) — the two Runs named
   directly, baseline first, skipping the Run between them.
-- [`usage-since-and-between/`](usage-since-and-between) — the two together is a
-  usage error at `2` with no `error_code`, the two being different ways of
-  naming one window.
+- [`usage-since-and-between/`](usage-since-and-between),
+  [`usage-subject-and-since/`](usage-subject-and-since) and
+  [`usage-subject-and-between/`](usage-subject-and-between) — any two together
+  is a usage error at `2` with no `error_code`, the three being different ways
+  of naming one window. The message names which two were given, and it is one
+  list rather than three pairwise tests.
+
+## `--subject`, and the rehearsal that has a reader
+
+The third form names the **subject** and leaves the baseline to §8's rule. It
+is the one place a rehearsal may be a side of a window, and issue #235 is what
+it is for: between a `run --dry-run` and the effectful Run behind it, the
+Observations the rehearsal recorded had no surface that would render their
+values (ADR-0115).
+
+- [`a-rehearsal-is-the-subject-when-named/`](a-rehearsal-is-the-subject-when-named)
+  and its [`-json` twin](a-rehearsal-is-the-subject-when-named-json), over
+  [`rehearsal-store/`](rehearsal-store) — the acceptance case, and the whole of
+  the ticket in one page. One Journal entry, a rehearsal, and the two
+  Observations its one `read` Step recorded: `no baseline — first Run`, the
+  stated `rehearsal — ` line beneath the header, `YOU DID THIS` empty, and the
+  values themselves under `THE WORLD MOVED`. No effectful Run exists anywhere
+  in the seed.
+- [`subject-names-a-run-and-the-baseline-behind-it/`](subject-names-a-run-and-the-baseline-behind-it),
+  over [`spec-store/`](spec-store) — the **general** form, with no rehearsal in
+  it: naming the middle of three Runs makes it the subject and the one below it
+  the baseline, where every other form fixes the subject at the newest.
+- [`subject-skips-a-rehearsal-for-its-baseline/`](subject-skips-a-rehearsal-for-its-baseline)
+  and
+  [`between-takes-a-rehearsal-as-the-subject/`](between-takes-a-rehearsal-as-the-subject),
+  over [`rehearsal-between-store/`](rehearsal-between-store) — one seed read
+  from both ends. The first names the newest Run and gets the Run *below* the
+  rehearsal as its baseline, which is the filter holding where a caller reached
+  past it for the other end. The second names the rehearsal as `--between`'s
+  second id and is taken: the rule is the **position** and never the flag.
+- [`usage-subject-an-unknown-run/`](usage-subject-an-unknown-run) and
+  [`usage-subject-an-open-entry/`](usage-subject-an-open-entry) — the two
+  sentences `--between` refuses those with, written once and called from both
+  forms.
+- [`usage-subject-disagrees-with-the-positional/`](usage-subject-disagrees-with-the-positional)
+  — a Run id decides the Procedure outright, so naming both names two.
+- [`usage-subject-names-no-value/`](usage-subject-names-no-value) — one value,
+  where `--between` takes two.
 
 ## Naming a Procedure, and naming none
 
@@ -249,8 +293,11 @@ resolves to nothing a window can be made of:
   entry carries, pointed at `hyper runs`, which enumerates the namespace.
 - [`usage-between-a-rehearsal/`](usage-between-a-rehearsal) and
   [`usage-between-an-open-entry/`](usage-between-an-open-entry) — the two
-  standings, refused in their own words, because the remedies differ: one is a
-  Run to perform for real and the other is a Run to wait for.
+  standings, refused in their own words, because the remedies differ. The
+  rehearsal is in the **first** id, which is the baseline: a rehearsal is no
+  evidence of what the world became and is never one, and the sentence carries
+  `--subject` as the remedy for the same Run. An open entry is refused in
+  either position, being not yet an entry a window can name.
 - [`usage-between-two-procedures/`](usage-between-two-procedures) and
   [`usage-between-disagrees-with-the-positional/`](usage-between-disagrees-with-the-positional)
   — a window is over one Procedure, which is the rule that keeps a monitoring

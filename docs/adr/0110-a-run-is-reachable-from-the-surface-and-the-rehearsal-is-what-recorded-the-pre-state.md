@@ -114,7 +114,9 @@ until a second Run exists.* For the length of that gap, four Observations sat in
 surface on the product that would show their values. An operator who rehearses a rollout precisely to
 see what the fleet is on before committing to it is in that gap, and this task is that operator. It is
 issue #235, and it sharpens issue #230 rather than duplicating it: #230 is a *response* nothing shows,
-this is a *Record* nothing shows.
+this is a *Record* nothing shows. _ADR-0115 decides it:_ the Comparison takes a rehearsal as its
+**subject** where a caller names one by id, and a rehearsal is a baseline nowhere. The gap this
+session sat in is now one `changes --subject <run-id>`.
 
 ## The account is in the repository, and the agent said it was not
 
@@ -200,7 +202,7 @@ and a missing rendering — and not the recording itself.
 - **Three defects, ticketed with this transcript as their evidence**: issue #233 (the account's
   location is unreachable from every surface an agent is allowed to call — ADR-0113), issue #234 (a
   Record version does not say the Run that wrote it was a rehearsal — ADR-0114), issue #235 (nothing
-  renders a Record's fields until a non-rehearsal Run exists).
+  renders a Record's fields until a non-rehearsal Run exists — ADR-0115).
 - **ADR-0100's fix holds on a third transcript.** `review` returned its page in the structured
   content twice and the session read both.
 

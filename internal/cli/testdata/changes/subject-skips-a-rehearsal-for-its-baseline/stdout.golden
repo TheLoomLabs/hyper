@@ -1,0 +1,21 @@
+  retire-preview-envs
+  BASELINE  01991c3a-7d40…  cron           Tue 4 Aug 09:12  completed  1m48s  procedure rev a91f0c2
+  SUBJECT   01991ea6-b118…  igor@thinkpad  Thu 6 Aug 11:03  completed  2m31s  procedure rev b0c94f1
+
+  YOU DID THIS   2 assets
+  CHANGE     TARGET   DEFINITION       RECORD        ORDINAL  FIELDS
+  changed    staging  hetzner-staging  preview-8901  1 → 2    region: fsn1 → nbg1 · user_data: changed
+  destroyed  staging  hetzner-staging  preview-8999  – → 1    † confirmed 11:05
+
+  THE WORLD MOVED   2 observations
+  CHANGE    TARGET  DEFINITION  RECORD            ORDINAL  FIELDS
+  appeared  local   uptime      queue.hyper.dev   – → 2    status: 503
+  vanished  local   uptime      status.hyper.dev  1 → –    status: 200 · stdout
+
+  THE CODE MOVED   2 facts
+  SUBJECT                        FACT                 FROM     TO
+  procedure retire-preview-envs  procedure revision   a91f0c2  b0c94f1
+  —                              repository revision  1f0a3d7  88bc402
+  other lines could not be counted · git diff 1f0a3d7 88bc402
+
+  TOTALS  4 changes · 2 asset · 2 observation · 1 tombstone · the code moved

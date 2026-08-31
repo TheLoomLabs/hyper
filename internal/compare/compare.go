@@ -109,8 +109,12 @@ const (
 	// disqualify one**: a refused Run's completed Steps reached the world
 	// like any other's, so the triple is not consulted here at all.
 	Nameable Standing = iota + 1
-	// Rehearsal is an entry marked `dry_run`, disqualified as baseline and
-	// as subject alike (§7).
+	// Rehearsal is an entry marked `dry_run`. It is disqualified as a
+	// **baseline** under every form, and as the subject no rule may choose
+	// — which is what Select and Preceding read this for. It is not
+	// disqualified as a subject a caller **named**: `changes --subject`
+	// reads past this value deliberately, asking what that Run read rather
+	// than what the world became (§7, §8, ADR-0115).
 	Rehearsal
 	// Unclosed is an entry holding no account of how it ended: neither its
 	// own Run's `outcome.json` nor another Run's closing write. It is

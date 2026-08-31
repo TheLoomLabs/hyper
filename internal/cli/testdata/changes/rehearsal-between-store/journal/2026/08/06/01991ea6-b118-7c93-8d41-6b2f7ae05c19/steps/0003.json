@@ -1,0 +1,23 @@
+{
+  "definition": "hetzner-staging",
+  "disposition": "ran",
+  "ended_at": "2026-08-06T11:05:49.000Z",
+  "id": "retire",
+  "identities": {
+    "digest": "sha256:47bcecc4241e1144d7d58ce6b628489b5dc1b6ae216261099501ac43e328a7f9",
+    "members": [
+      "preview-8999"
+    ]
+  },
+  "kind": "destroy",
+  "operation": "delete_server",
+  "provenance": {
+    "definition_revision": "c3a17b09e4d582f61b7c0a94d3e85f207c6b1d43",
+    "manifest_digest": "sha256:2b7e5c81f0a394d6e2b7c051a83f6d940e17c5b28a306f4d91e75b0c2f8a63d1"
+  },
+  "provider": "hetzner",
+  "schema_version": 1,
+  "started_at": "2026-08-06T11:04:30.000Z",
+  "step": 3,
+  "target": "staging"
+}

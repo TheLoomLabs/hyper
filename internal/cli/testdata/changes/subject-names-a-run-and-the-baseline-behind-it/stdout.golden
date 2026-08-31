@@ -1,0 +1,12 @@
+  retire-preview-envs
+  BASELINE  01991840-0000…  igor@thinkpad  Sun 2 Aug 09:12  completed  41s    procedure rev a91f0c2
+  SUBJECT   01991c3a-7d40…  cron           Tue 4 Aug 09:12  completed  1m48s  procedure rev a91f0c2
+
+  YOU DID THIS   0 assets
+
+  THE WORLD MOVED   0 observations
+
+  THE CODE MOVED   0 facts
+  other lines could not be counted · git diff 1f0a3d7 1f0a3d7
+
+  TOTALS  0 changes · 0 asset · 0 observation · 0 tombstone · the code could not be fully read

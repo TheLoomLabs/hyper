@@ -1,0 +1,18 @@
+{
+  "dry_run": true,
+  "procedure": "watch",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe",
+    "repo_revision": "88bc402f71d3e6a95c0428be1f7d3a09c5e64b12"
+  },
+  "run_id": "01991d00-0000-7000-8000-000000000002",
+  "schema_version": 1,
+  "started_at": "2026-08-05T10:00:00.000Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}

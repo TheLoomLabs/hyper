@@ -515,28 +515,57 @@ against the Run before it, and nothing in `hyper` renders a proposed change befo
 
 ### The window
 
-The baseline is the previous Run of the same Procedure, so a monitoring Run is never compared against a
-provisioning one. That window is total rather than partial: every Run is a Run of a Procedure
-(ADR-0036), so no Run reaches the world outside some Procedure's Comparison. `since <t>` is sugar for *take the last Run before that instant and fold everything
-after it into one rendering*; `between` names two Runs directly; a whole-Store mode compares across
-every Procedure at once. **`since`'s bound is a lower bound on `started_at`, and it includes the instant
-it names**: a Run that began exactly at `t` is inside the window, and the baseline is the Run before it.
-It is the Run's *start* that is compared because that is the instant every entry has — an open entry has
-no end at all, and a reaped one's is on the closing Run's clock (§7) — which is the reason §9 orders
-`runs` on the same member. It is inclusive because the value a caller types is one this tool handed
-them: `started` goes out in the record's own spelling, and a bound that excluded what it named would
-drop the very Run whose value was copied to write it. `runs` and `records` take the same flag and the
-same boundary; which member each compares it against is its own axis's (§9). Those parameters — `since`
-or `between`, `target`, `kind`, `limit` — are typed and closed, and there is no predicate dialect over
-them: a caller wanting an arbitrary filter takes the rows and applies it themselves (ADR-0013).
+The baseline is the previous Run of the same Procedure, so a monitoring Run is never compared
+against a provisioning one. That window is total rather than partial: every Run is a Run of a
+Procedure (ADR-0036), so no Run reaches the world outside some Procedure's Comparison. `since <t>`
+is sugar for *take the last Run before that instant and fold everything after it into one
+rendering*; `between` names two Runs directly; `subject` names one, the subject, and leaves the
+baseline to the rule above; a whole-Store mode compares across every Procedure at once. **`since`'s
+bound is a lower bound on `started_at`, and it includes the instant it names**: a Run that began
+exactly at `t` is inside the window, and the baseline is the Run before it. It is the Run's *start*
+that is compared because that is the instant every entry has — an open entry has no end at all, and
+a reaped one's is on the closing Run's clock (§7) — which is the reason §9 orders `runs` on the same
+member. It is inclusive because the value a caller types is one this tool handed them: `started`
+goes out in the record's own spelling, and a bound that excluded what it named would drop the very
+Run whose value was copied to write it. `runs` and `records` take the same flag and the same
+boundary; which member each compares it against is its own axis's (§9). Those parameters — `since`
+or `between` or `subject`, `target`, `kind`, `limit` — are typed and closed, and there is no
+predicate dialect over them: a caller wanting an arbitrary filter takes the rows and applies it
+themselves (ADR-0013). The three window parameters name one window three ways and any two of them
+together is a usage error.
 
 An outcome does not disqualify a baseline, a refused Run's completed Steps having reached the world
-like any other's. A dry-run entry is disqualified as baseline and as subject alike (§7), and a Probe
-writes no Journal entry and can never be either (ADR-0009). **An open entry is neither** — one with no
-`outcome.json` (§7), whose Run may be in flight or may be gone, and which `hyper` never guesses about.
-It is not disqualified the way a rehearsal is; it is not yet an entry a window can name, the header
-below rendering an outcome it does not have. Where no baseline exists the header says so as a named
-state — *no baseline — first Run of `<Procedure>`* — with every Record rendering as created or appeared.
+like any other's. **A dry-run entry is never a baseline, and is the subject where a caller names it
+as one** (§7, ADR-0115). It is chosen by no rule: the subject the window picks for itself is the
+newest Run that is neither a rehearsal nor open, and the baseline behind either subject is picked
+under the same filter, so a rehearsal is never an end a Comparison arrived at on its own. A Probe
+writes no Journal entry and can never be either end (ADR-0009). **An open entry is neither** — one
+with no `outcome.json` (§7), whose Run may be in flight or may be gone, and which `hyper` never
+guesses about. It is not disqualified the way a rehearsal is; it is not yet an entry a window can
+name, the header below rendering an outcome it does not have. Where no baseline exists the header
+says so as a named state — *no baseline — first Run of `<Procedure>`* — with every Record rendering
+as created or appeared.
+
+**Why the two ends part company.** A rehearsal is no evidence of what the world *became*, which is
+what a baseline asserts, and letting one stand there would retire the warning a real Run earned
+(ADR-0010). It is evidence of what the world *was when it was read*: a dry-run performs the reads it
+reaches and records Observations like any other Run (§6), and between a rehearsal and the effecting Run
+that follows it those Observations were in the Store with nothing on the product rendering their
+values — `records` finds a version rather than reading one (§9) and the Comparison had no subject to
+take. Asking *what did this rehearsal see* is answered off versions that exist, and the answer is a
+claim about a read rather than about a change, which is the claim ADR-0010 keeps this surface from
+making. Nothing else moves: run-once Repeatability (§6) and the identity digest (§7) filter a
+rehearsal's entry exactly as before, and so does every baseline.
+
+A rehearsal named as the subject renders its three tables like any other window's, and the header
+carries a stated line beneath it saying what it is — *rehearsal — the `SUBJECT` entry is a `--dry-run`:
+it reached no effect, so nothing below is a change it made*. `YOU DID THIS` is empty by construction
+where the baseline is absent, a rehearsal reaching no effectful Step; where there is a baseline it
+holds what moved between the two instants, which is what that table holds on every window — this
+surface says *this differs from when we last looked* and never *this Run did it*. The line is a line
+and not a seventh column for the reason the contest below is: the header's columns are the six facts
+each Run is named with, and a column blank on every window but the ones a caller asked for by id is a
+column carried to say nothing.
 
 **Each side of the window is an instant, and it is that entry's own last one** — `outcome.json`'s
 `ended_at` where the Run wrote it, and the last Step file's where the entry's only account is a
@@ -550,7 +579,11 @@ its own Run wrote, so the window's side is that `ended_at` like any other Run's.
 beside it names another Run's clock and is never an endpoint.
 
 The header names both Runs, each with its id, its Trigger, when it started, its outcome, how long it
-took, and the `procedure_revision` it recorded (§7). A duration derives within one Journal entry; two
+took, and the `procedure_revision` it recorded (§7). **Each side of the row stream carries `dry_run`
+beside those, written always — the bare `false` included**, §7's one exception to the absence rule on
+the surface that names two Runs. A baseline's is `false` on every window there can be and it is written
+there anyway: an exception that held on one member of a pair and not the other is a shape a consumer
+has to learn twice. A duration derives within one Journal entry; two
 entries' timestamps are never subtracted (§7). **A reaped entry's duration cell renders the word
 `reaped`.** No duration exists to render there and the entry's account being a `closed-by/` file is what
 says so (§7); a column whose every other cell is a duration and this one names why there is none is the
@@ -1381,7 +1414,7 @@ $ hyper review procedures/retire-preview-envs.yaml --json
 
 ```
 $ hyper changes --since 2026-08-05T00:00:00Z --json
-{"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","outcome":"completed","procedure_revision":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","outcome":"completed","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}}
+{"type":"window","procedure":"retire-preview-envs","baseline":{"run":"01991c3a-7d40-7a11-9c2e-4f0b8d61a3e7","trigger":"cron","started":"2026-08-04T09:12:03Z","dry_run":false,"outcome":"completed","procedure_revision":"a91f0c2d5b83e47196c0af2b1d7e63840f5a92c1"},"subject":{"run":"01991ea6-b118-7c93-8d41-6b2f7ae05c19","trigger":"igor@thinkpad","started":"2026-08-06T11:03:18Z","dry_run":false,"outcome":"completed","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe"}}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8801","from_ordinal":4,"to_ordinal":5,"confirmed_at":"2026-08-06T11:04:41Z","fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8802","from_ordinal":3,"to_ordinal":4,"confirmed_at":"2026-08-06T11:04:52Z","fields":{"region":"fsn1","server_type":"cx22"}}
 {"type":"asset","change":"destroyed","target":"staging","definition":"hetzner-staging","name":"preview-8806","from_ordinal":7,"to_ordinal":8,"confirmed_at":"2026-08-06T11:05:09Z","fields":{"region":"fsn1","server_type":"cx22"}}

@@ -1,0 +1,20 @@
+  retire-preview-envs
+  BASELINE  01991c3a-7d40…  cron           Tue 4 Aug 09:12  completed  1m48s  procedure rev a91f0c2
+  SUBJECT   01991d00-0000…  igor@thinkpad  Wed 5 Aug 10:00  completed  12s    procedure rev b0c94f1
+  rehearsal — the SUBJECT entry is a --dry-run: it reached no effect, so nothing below is a change it made
+
+  YOU DID THIS   0 assets
+
+  THE WORLD MOVED   1 observation
+  CHANGE   TARGET  DEFINITION  RECORD            ORDINAL  FIELDS
+  changed  local   uptime      status.hyper.dev  1 → 2    status: 200 → 503 · stdout: changed
+
+  THE CODE MOVED   4 facts
+  SUBJECT                        FACT                 FROM            TO
+  definition hetzner-staging     definition revision  c3a17b0         –
+  manifest hetzner               manifest digest      sha256:2b7e5c8  –
+  procedure retire-preview-envs  procedure revision   a91f0c2         b0c94f1
+  —                              repository revision  1f0a3d7         88bc402
+  other lines could not be counted · git diff 1f0a3d7 88bc402
+
+  TOTALS  1 changes · 0 asset · 1 observation · 0 tombstone · the code moved

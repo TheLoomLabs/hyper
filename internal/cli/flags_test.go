@@ -48,6 +48,7 @@ func everyParameter() parameters {
 		name:       true,
 		history:    true,
 		between:    true,
+		subject:    true,
 		kind:       true,
 		input:      true,
 		response:   true,
@@ -64,9 +65,9 @@ func everyParameter() parameters {
 // and not the other would otherwise ship a message naming a flag the command
 // refuses.
 //
-// Ten of the fifteen are held against parseArgs directly: whatever it makes of
-// the value handed with them, none of them may come back *unknown*. The other
-// five never reach it, their commands taking them off the argument list first,
+// Eleven of the sixteen are held against parseArgs directly: whatever it makes
+// of the value handed with them, none of them may come back *unknown*. The
+// other five never reach it, their commands taking them off the argument list first,
 // so each is held against the splitter that does the taking (flags.go,
 // issue #215).
 func TestParameters_EverySpellingIsOneItsCommandActuallyTakes(t *testing.T) {
@@ -146,7 +147,7 @@ func TestParseArgs_AnUnknownFlagNamesTheNamespaceItWasResolvedAgainst(t *testing
 			takes:   changesParameters,
 			args:    []string{"--help"},
 			want: "hyper changes: unknown flag --help\n" +
-				"  changes takes --limit, --since, --target, --between and --kind, past --json, --repo-dir and --no-color\n",
+				"  changes takes --limit, --since, --target, --between, --subject and --kind, past --json, --repo-dir and --no-color\n",
 		},
 		{
 			name:    "a command with none",
