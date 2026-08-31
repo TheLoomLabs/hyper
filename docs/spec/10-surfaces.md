@@ -469,6 +469,31 @@ Four commands over the record, taking typed, closed parameters and nothing else.
 dialect over them and none behind them: a caller wanting an arbitrary filter takes the rows and applies
 it themselves (ADR-0013).
 
+**Two of the four say where the record is, and they say it on every answer.** `runs` and `records` are
+the two whose job is *finding* something in the Store, and each begins its page with one sentence: the
+record is the `hyper-store` branch of this repository, it is never checked out, and it travels with a
+clone. All four render the account's **content**, and content is not location: an agent that had run a
+Procedure and gone looking for the account searched the working tree, found a clean `git status`, no
+`.hyper/` and no `store/`, and told a human that a clone would get the Procedure and not the history
+(ADR-0113). The three claims are the three that search got wrong: the branch, because nothing an agent
+may call named it; *never checked out*, because the Store sits nowhere locally (§7); and *travels with a
+clone*, because portability rather than existence is what was denied. It stands **above** the rows, for
+the reason the truncation marker stands above them in a `text` block below — a fact about the answer as a
+whole is met before the rows or not at all, a reader who has reached the last row having stopped reading.
+
+The other two carry no such line and stay that way: `show` resolves an id its caller already holds and
+`changes` compares two Runs they already found, so neither is a search, and a session that ran all four
+would read one sentence four times. **They still name the branch in the sentences they write where they
+found nothing**, and that is not the same fact: `show` and `changes` name it when a Run id resolves to
+nothing, which is a name resolved against a namespace like any other (above), and `changes` names it again
+where no window could be built at all. The two commands that carry the location line are the two whose own
+empty sentences therefore do *not* name it, that line standing over them — a page saying it twice in three
+lines would be this surface saying one thing twice.
+
+The line is prose on the page and carries **no row and no member on the wire**: the branch is fixed (§7)
+rather than found, so a row would be a row every consumer parses on every call to be told what §7 already
+states. What the MCP surface does with it is below.
+
 `runs` takes `--since`, `--procedure`, `--target`, `--outcome`, and `--limit`, and writes one row per
 Journal entry: the Run id, when it started, its Trigger, its outcome, its Procedure, the Targets it
 bound, and the version of `hyper` that performed it. The Trigger is on every row, being the only thing
@@ -834,7 +859,7 @@ not `run_show` — and it puts `install`, `store init` and `compact` out of reac
 which is true of both, rather than as *absent from this surface*, which is true only of the server and
 is read as permission by the reader holding a terminal.
 
-It states nine things, each of them something the tool set cannot teach. Every tool carries a
+It states ten things, each of them something the tool set cannot teach. Every tool carries a
 description and `operation` goes further — it answers *the Manifest's own lines, verbatim*, which
 teaches the authoring format at the moment a caller needs it — but all of them arrive with a call
 already in mind, and none of these is about a call:
@@ -853,6 +878,14 @@ already in mind, and none of these is about a call:
   otherwise. Narration is not an outcome — `probe` prints `no response arrived` and exits `0` — and an
   agent that reads the prose beside a result rather than its Disposition reports a Run that halted when
   none did.
+- **Where the record lives**: the account is a branch of this repository — `hyper-store`, append-only,
+  never checked out — so the working tree shows nothing of it and it travels with a clone like any other
+  branch. It is stated in the paragraph about **reading the record back**, beside the four commands that do
+  it, and not in a subordinate clause of a paragraph about something else: the clause stood in this text
+  already, inside the warning about the `--response` file, and an agent that had read the whole file went
+  looking for the account in the working tree and reported to a human that a clone would get the Procedure
+  and not the history. A fact stated in the wrong paragraph is a fact the reader does not meet
+  (ADR-0113).
 - **The three commands that are the human's, and why** — an agent that does not know runs them, which
   is the exact bypass their absence from the tool set exists to prevent. They are stated as *the
   human's* rather than as *absent here*, because the second is true only of this surface and the same
@@ -998,6 +1031,7 @@ Refusal answering past one (ADR-0102).
 | --- | --- |
 | any ordinary return | one summary line, outcome first |
 | `check` | that line, and beneath it the rows as §8's renderer drew them |
+| `runs`, `records` | that line, and beneath it where the record is |
 | `review` | the full rendered review surface — the gutter, `AUTHORITY`, `FLAGS` |
 | a Refusal | the full rendered Refusal — Step table, caret excerpt, `EDIT ONE OF`, retry sentence |
 
@@ -1025,6 +1059,17 @@ What goes beneath the line is the row set, so a `check` that found nothing puts 
 clean answer is the summary line alone, `check`'s own page being a sentence about a count and not a
 table. No other ordinary return carries its rows: a listing is a result set, and a table in its `text`
 block would say twice what `structuredContent` says once.
+
+**`runs` and `records` have a row of their own for the same reason, over a fact with no row behind it
+at all** (ADR-0113). The Inspection section above gives those two commands one sentence saying where the
+record is, and on the terminal it stands on the page. This surface's analogue of the page is the `text`
+block, not `structuredContent` — so the sentence goes there, beneath the summary line, on every answer
+including the one that found nothing. That last part is where it differs from `check`'s row: `check`
+promises the rows and an empty set keeps that promise by standing where they would, while this sentence
+promises nothing about the rows and is most needed exactly where there are none, a listing that came back
+empty being the call most easily read as *there is no record*. It is the only member of this table composed
+from neither the rows nor the structured half, and it is composed from nothing found: what it states is
+fixed by §7 and true of every repository that has a Store at all.
 
 **`review`'s page is written into the structured content as well** (ADR-0100). MCP's two halves are
 asymmetric, and not in the direction the table above assumes: `structuredContent` is the result —

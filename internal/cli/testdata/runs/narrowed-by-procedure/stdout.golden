@@ -1,3 +1,5 @@
+the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
+
 RUN             STARTED                   TRIGGER        OUTCOME    CONTESTED  PROCEDURE        TARGETS          HYPER
 01991c3a-7d40…  2026-08-05T14:20:00.000Z  igor                                 publish-preview  staging          1.4.0
 019912ab-5e60…  2026-08-03T08:00:00.000Z  igor@thinkpad  completed  yes        publish-preview  local · staging  1.3.2

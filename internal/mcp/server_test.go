@@ -12,6 +12,7 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/TheLoomLabs/hyper/internal/render"
+	"github.com/TheLoomLabs/hyper/internal/store"
 )
 
 // The surface, held to what §9 fixes about it (issue #195).
@@ -836,15 +837,20 @@ func TestCall_NoToolButAReviewCarriesARenderingMember(t *testing.T) {
 
 // TestCall_ATextBlockIsASummaryLineOnEveryToolTheTableDoesNotName is the first
 // row of the same table, held over a tool that answers a rendering of its own
-// and still summarises: §9 names three cases and a listing is none of them.
+// and still summarises: §9 names four cases and a namespace listing is none of
+// them.
 //
 // The rendering is supplied and deliberately not carried, which is what makes
 // this a case about the table rather than about an empty buffer.
+//
+// `targets` is the exemplar rather than `runs`, which used to stand here and
+// now names a row of its own (issue #233): what this holds is the **default**,
+// so it has to be asked of a tool that declares nothing.
 func TestCall_ATextBlockIsASummaryLineOnEveryToolTheTableDoesNotName(t *testing.T) {
 	rows := []render.Row{stubRow{Type: "entry", Name: "a"}, stubRow{Type: "entry", Name: "b"}}
 	server := returning(Answer{Rows: rows, Terminal: render.NewResultRow(false), Rendering: reviewPage})
 
-	envelope, err := server.Call(t.Context(), "runs", json.RawMessage(`{}`))
+	envelope, err := server.Call(t.Context(), "targets", json.RawMessage(`{}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -853,6 +859,50 @@ func TestCall_ATextBlockIsASummaryLineOnEveryToolTheTableDoesNotName(t *testing.
 	}
 	if strings.Contains(envelope.Content[0].Text, "AUTHORITY") {
 		t.Error("the text block carries the page; §9 gives the whole rendering to review and to a Refusal, and to nothing else")
+	}
+}
+
+// TestCall_TheTwoListingsOverTheRecordSayWhereTheRecordIs is §9's fourth row:
+// `runs` and `records` carry store.Location beneath the summary line, on every
+// answer including the one that found nothing (§9, ADR-0113, issue #233).
+//
+// **What it is holding is a false statement a session made in front of a
+// human.** An agent that had just run two Procedures went looking for the
+// account, found no `.hyper/`, no `store/` and a clean `git status`, and
+// reported that a clone would get the Procedure and not the history. Nothing it
+// was allowed to call would have contradicted it: these two tools render the
+// account's content and rendered its location nowhere.
+//
+// The empty answer is asserted beside the full one because it is the call most
+// easily read as *there is no record*, and because it is where the two arms of
+// §9's table differ: `check`'s rows stand where the rows are, and this sentence
+// stands whether or not there are any.
+func TestCall_TheTwoListingsOverTheRecordSayWhereTheRecordIs(t *testing.T) {
+	for _, one := range []struct {
+		name string
+		tool string
+		rows []render.Row
+		want string
+	}{
+		{"runs", "runs", []render.Row{stubRow{Type: "entry", Name: "a"}}, "1 Journal entry"},
+		{"records", "records", []render.Row{stubRow{Type: "record", Name: "a"}}, "1 Record"},
+		{"runs over an empty Store", "runs", nil, "no rows"},
+		{"records over an empty Store", "records", nil, "no rows"},
+	} {
+		t.Run(one.name, func(t *testing.T) {
+			server := returning(Answer{Rows: one.rows, Terminal: render.NewResultRow(false)})
+
+			envelope, err := server.Call(t.Context(), one.tool, json.RawMessage(`{}`))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got, want := envelope.Content[0].Text, one.want+"\n\n"+store.Location; got != want {
+				t.Errorf("the text block is %q, want the summary line and the record's location beneath it: %q", got, want)
+			}
+			if !strings.Contains(envelope.Content[0].Text, "travels with a clone") {
+				t.Error("the text block never says the record travels with a clone; portability is the half of the fact a session got backwards")
+			}
+		})
 	}
 }
 

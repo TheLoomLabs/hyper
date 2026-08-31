@@ -1,6 +1,6 @@
 {
   "content": [
-    {"type":"text","text":"2 Records, truncated"}
+    {"type":"text","text":"2 Records, truncated\n\nthe record is the hyper-store branch of this repository — never checked out, and it travels with a clone"}
   ],
   "structuredContent": {
     "rows": [

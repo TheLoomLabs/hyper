@@ -59,6 +59,33 @@ const (
 // `origin` and it is not configurable, for BranchName's own reason.
 const RemoteName = "origin"
 
+// Location is where the record is, in one sentence, for the surfaces that
+// render the record's *content* and would otherwise never say where it is held
+// (§7, §9, ADR-0113, issue #233).
+//
+// **It says three things and each of them was a wrong answer somebody gave.**
+// The branch, because nothing an agent may call names it. *Never checked out*,
+// because the Store sits nowhere locally (*Where the Store sits locally*, §7,
+// ADR-0075) and a reader who goes looking finds a clean `git status`, no
+// `.hyper/` and no `store/` — the search that returns empty and reads as
+// *absent*. And *travels with a clone*, because that is the claim the sealed
+// acceptance run got backwards in front of a human: an agent that had just run
+// two Procedures reported that a clone would get the Procedure and not the
+// history, which is false of every Store there has ever been.
+//
+// It is spelled here rather than at either surface because both write it —
+// `runs` and `records` on their page, and the tools carrying them in their text
+// block — and a sentence maintained twice is a sentence that disagrees with
+// itself the first time either is edited (internal/cli's runsPage and
+// recordsPage, internal/mcp's answerText).
+//
+// It is prose and carries no member on the wire. What it states is a constant
+// of the design and never a result — the branch is fixed (BranchName above), so
+// a row repeating it would be a row every consumer parses on every call to be
+// told what §7 already fixed. The page is where a reader is, and the page is
+// where it goes.
+const Location = "the record is the " + BranchName + " branch of this repository — never checked out, and it travels with a clone"
+
 // trackingRef is where a fetch puts what the remote holds: the ordinary
 // remote-tracking ref, which is also what a `git clone` of a repository that
 // already had a Store leaves behind.

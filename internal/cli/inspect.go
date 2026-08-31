@@ -103,3 +103,30 @@ func reportReadStoreFault(command string, to destination, err error) int {
 	fmt.Fprintf(to.narrate(), "hyper %s: %s\n", command, err)
 	return ExitProblems
 }
+
+// writeRecordLocation writes the line a listing over the record begins with:
+// where the record is, and a blank line under it (§9, ADR-0113, issue #233).
+//
+// **It stands above the table**, because a fact about the answer as a whole is
+// met before the rows or not at all — a reader who has reached the last row has
+// stopped reading. §9 decides the same thing for the one other line of this
+// kind, where it puts the truncation marker on the line a reader meets *before*
+// the table rather than after it. That is the MCP text block's ordering rather
+// than this page's: the terminal's own truncation line is narration and goes to
+// stderr (RunRuns), which is why this is the reasoning borrowed and not the
+// rule applied.
+//
+// It is `runs`'s and `records`' and not all four of this file's callers', which
+// is §9's line and stated there. What it comes to here is that both of them
+// already wrote this fact on the page they produced when they found nothing:
+// a listing that names the namespace it ranged over when it is empty has no
+// reason to stop naming it when it is not, so this is the same sentence read
+// where the list has rows.
+//
+// The sentence itself is store.Location, spelled in the store package because
+// the tools carrying these two commands write it too and a sentence maintained
+// twice disagrees with itself (internal/mcp's answerText).
+func writeRecordLocation(w io.Writer) error {
+	_, err := fmt.Fprintf(w, "%s\n\n", store.Location)
+	return err
+}

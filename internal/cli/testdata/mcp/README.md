@@ -266,6 +266,16 @@ tool differently, a client holding every server's tools in one flat namespace
 where a bare `show` names nothing, and the pairings above follow the tool to
 `../../show/` rather than looking for a corpus that does not exist.
 
+**Every `runs/` and `records/` envelope here that answers at all carries a second
+line in its text block**, beneath the summary line and separated from it by a
+blank one: *the record is the `hyper-store` branch of this repository — never
+checked out, and it travels with a clone* (ADR-0113, issue #233). It is §9's
+fourth text-block row and the one composed from neither the rows nor the
+structured half, so its whole trace on this surface is the `content` block —
+`structuredContent` is byte-identical to what it was. `runs/store-absent` is the
+exception and is not one: a Refusal carries the Refusal rendering alone.
+`run_show/` and `changes/` carry nothing of the kind, for the reason §9 states.
+
 The truncated cases are what the ticket is really about, and there are four of
 them — one per marker the four commands can write.
 `runs/a-cut-listing-names-the-time-axis`, `changes/the-limit-cuts-the-tables`,

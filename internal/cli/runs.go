@@ -387,20 +387,31 @@ func (n narrowings) bound(targets []string) bool {
 	return n.target == "" || slices.Contains(targets, n.target)
 }
 
-// runsPage is `runs`'s page: the table, or the sentence that stands where it
-// has no rows.
+// runsPage is `runs`'s page: where the record is, and under it the table or the
+// sentence that stands where it has no rows.
 //
 // An empty table is written as nothing at all by the renderer, header included
 // — what stands in its place is the command's own (§8) — and here it is a
 // sentence naming what was looked for. A header over no rows would read as a
 // listing that found some.
+//
+// **The location line stands on every page and not only on the empty one.**
+// This page named the branch when it had nothing to list, which is where the
+// fact was easiest to state and where an agent that has run a Procedure never
+// meets it: a session reading back a Run it just performed reads a table, and
+// a table of Runs says what the account holds and never where it is held
+// (writeRecordLocation, ADR-0113, issue #233). The empty sentence below no
+// longer names the branch a second time.
 func runsPage(w io.Writer, rows []render.Row, narrowed bool) error {
+	if err := writeRecordLocation(w); err != nil {
+		return err
+	}
 	if len(rows) == 0 {
 		if narrowed {
 			_, err := fmt.Fprintln(w, "no Journal entry matched")
 			return err
 		}
-		_, err := fmt.Fprintf(w, "no Journal entry in this repository's Store — the %s branch is that namespace\n", store.BranchName)
+		_, err := fmt.Fprintln(w, "no Journal entry in this repository's Store")
 		return err
 	}
 	return render.WriteTable(w, runsColumns, rows)

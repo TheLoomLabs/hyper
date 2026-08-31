@@ -673,20 +673,28 @@ func (n recordNarrowings) window(versions []store.Version) []store.Version {
 	return kept
 }
 
-// recordsPage is `records`'s page: the table, or the sentence that stands where
-// it has no rows.
+// recordsPage is `records`'s page: where the record is, and under it the table
+// or the sentence that stands where it has no rows.
 //
 // An empty table is written as nothing at all by the renderer, header included
 // — what stands in its place is the command's own (§8) — and here it is a
 // sentence naming what was looked for. A header over no rows would read as a
 // listing that found some.
+//
+// The location line is `runs`'s own and stands here for the same reason: this
+// is the other command whose job is finding something in the Store, and a
+// listing of Record versions says what the account holds and never where it is
+// held (writeRecordLocation, ADR-0113, issue #233).
 func recordsPage(w io.Writer, rows []render.Row, narrowed bool) error {
+	if err := writeRecordLocation(w); err != nil {
+		return err
+	}
 	if len(rows) == 0 {
 		if narrowed {
 			_, err := fmt.Fprintln(w, "no Record matched")
 			return err
 		}
-		_, err := fmt.Fprintf(w, "no Record in this repository's Store — the %s branch is that namespace\n", store.BranchName)
+		_, err := fmt.Fprintln(w, "no Record in this repository's Store")
 		return err
 	}
 	return render.WriteTable(w, recordsColumns, rows)

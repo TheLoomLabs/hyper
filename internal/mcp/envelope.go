@@ -497,11 +497,12 @@ func outcomeFor(code int) (string, bool) {
 	return "", false
 }
 
-// answerText is the text block of an ordinary return, which is the three rows
-// of §9's asymmetric table that are a property of the tool: *any ordinary
-// return* carries one summary line, **`check`** carries its rows beneath that
-// line, and **`review`** carries the full rendered review surface (§9, issue
-// #214). The fourth is a Refusal's, and it is envelopeOf's.
+// answerText is the text block of an ordinary return, which is the four rows of
+// §9's asymmetric table that are a property of the tool: *any ordinary return*
+// carries one summary line, **`check`** carries its rows beneath that line,
+// **`runs`** and **`records`** carry where the record lives beneath it, and
+// **`review`** carries the full rendered review surface (§9, issues #214 and
+// #233). The fifth is a Refusal's, and it is envelopeOf's.
 //
 // **The table is keyed on the tool and not on what the tool found**, which is
 // why the case comes in from the tool set rather than being read off the answer
@@ -574,6 +575,17 @@ func answerText(answered Answer, block textBlock, structured Structured, kinds [
 			return "", fmt.Errorf("the command exited %d and found %d rows and rendered none of them, which is a fault in the server: this tool's text block promises the rows and there is nothing to keep the promise with (§9)", answered.Exit, len(structured.Rows))
 		}
 		return line + "\n\n" + answered.Rendering, nil
+
+	case locationBeneathSummary:
+		// It is written on every path this arm reaches, the empty
+		// listing included, which is where it differs from `check`'s
+		// arm above. `check`'s rows are what its line promised and an
+		// empty set keeps that promise by standing where they would;
+		// this sentence promises nothing about the rows at all — it
+		// says where the tool looked, and a tool that found nothing in
+		// the record is the call most likely to be read as *there is no
+		// record* (store.Location, tools.go).
+		return line + "\n\n" + store.Location, nil
 
 	case wholeRendering:
 		if answered.Rendering == "" {

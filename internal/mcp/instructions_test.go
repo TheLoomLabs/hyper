@@ -75,6 +75,43 @@ func TestInstructions_StateTheLoop(t *testing.T) {
 	}
 }
 
+// TestInstructions_SayWhereTheRecordLives is the fact a session got backwards
+// in front of a human (§9, ADR-0113, issue #233).
+//
+// The clause stood in the text already — *a Store that is append-only and
+// travels in the repository* — inside the paragraph about the `--response` file
+// and why not to author a throwaway Operation to look at a body. An agent asked
+// what its repository's account amounted to read the whole file at its fifth
+// call, went looking for the account in the working tree, found no `.hyper/`,
+// no `store/` and a clean `git status`, and reported that a clone would get the
+// Procedure and not the history. It is stated now in the paragraph about
+// **reading the record back**, which is the paragraph an agent is in when it
+// asks the question.
+//
+// Portability is asserted in its own right because it is the half that was
+// wrong: *there is a record* and *the record survives leaving this machine* are
+// two claims, and the session got the first one right.
+func TestInstructions_SayWhereTheRecordLives(t *testing.T) {
+	carried := unwrapped(Instructions("1.4.0"))
+
+	if !strings.Contains(carried, "hyper-store") {
+		t.Error("the orientation never names the branch the record is on; no surface an agent may call names it either, and the working tree shows nothing")
+	}
+	if !strings.Contains(carried, "travels with a clone") {
+		t.Error("the orientation never says the record travels with a clone; that is the claim a session got backwards, and existence is not portability")
+	}
+
+	// Where it is said is the whole of what this ticket was about, so the
+	// paragraph is what the case reads: the sentence stands with the four
+	// commands that read the record back, and not beside the `--response`
+	// file it used to.
+	reading := strings.Index(carried, "Read the record back with")
+	located := strings.Index(carried, "The record is a branch in this repository")
+	if reading < 0 || located < reading {
+		t.Error("the fact does not stand in the paragraph about reading the record back; a fact stated in the wrong paragraph is a fact the reader does not meet")
+	}
+}
+
 // TestInstructions_PutTheThreeCommandsOutOfReachAndSayWhy is the third,
 // and the one with teeth. `install`, `store init` and `compact` are the human's
 // **deliberately**, and an agent that does not know that runs them — which is

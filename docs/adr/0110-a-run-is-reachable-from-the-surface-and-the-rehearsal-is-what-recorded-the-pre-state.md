@@ -169,7 +169,9 @@ rehearsed, the ordering would have carried the run. The design is right and this
 **Changing something on the product because the account is hard to locate.** Refused, on ADR-0106's
 line. Issue #233 has its own acceptance criteria and a real choice inside it — a location fact on a
 surface, or a clause moved to the paragraph an agent reads for it — and neither is a decision this ADR
-gets to make on one transcript.
+gets to make on one transcript. _ADR-0113 decides it:_ both, one sentence in two registers — `runs` and
+`records` begin every answer with where the record is, and the orientation states it in the paragraph
+about reading the record back rather than in the one about the `--response` file.
 
 **Sharpening `fleet-rollout` so that a rehearsal is not available.** Refused, and it is the same shape
 ADR-0106 refused for the `409` that never fired. The rehearsal was the *correct* answer to an unmet

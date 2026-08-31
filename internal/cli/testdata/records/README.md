@@ -112,11 +112,22 @@ alone would not name one.
   narrower question. The narration reports the counts and never the constant,
   which is an implementation's to pick and nothing's to read back.
 
+## Where the record is
+
+Every case here that renders a page begins with the same line: *the record is
+the `hyper-store` branch of this repository — never checked out, and it travels
+with a clone* (ADR-0113, issue #233). It is `runs`'s own and stands here for the
+same reason — this is the other command whose job is finding something in the
+Store — above the table on every page, the empty ones included. The Refusals and
+the usage errors carry none of it, having read no record. No `-json` golden
+carries it either: the sentence is prose on the page and no row on the wire.
+
 ## The empty states, the usage errors and the Refusals
 
 - [`an-empty-store/`](an-empty-store) and [`nothing-matched/`](nothing-matched) —
   the two sentences that stand where a table has no rows, told apart by whether
-  the caller narrowed anything at all.
+  the caller narrowed anything at all. Neither names the branch any more, the
+  line above them naming it.
 - [`usage-since-without-history/`](usage-since-without-history) — exit `2` with
   no `error_code`. Without `--history` the parameter would filter Heads by when
   they last moved, which is a change read on the command whose job is finding a

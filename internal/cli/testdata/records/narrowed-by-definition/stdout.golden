@@ -1,3 +1,5 @@
+the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
+
 TARGET   DEFINITION  RECORD            ORDINAL  RUN             STEP  KIND         TOMBSTONE  ORPHANED  SECRETS               HYPER
 local    uptime      status.hyper.dev  2        01991f00-0000…  1     observation                       account_id · api_key  1.4.0
 staging  uptime      cert.hyper.dev    1        01991a00-0000…  4     observation                                             1.4.0

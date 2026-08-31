@@ -3,9 +3,10 @@ package mcp
 import "fmt"
 
 // Instructions is the orientation: what `hyper` is, the five artefacts, the
-// loop an agent drives them through, the three commands that are the human's
-// and why, that a Refusal is final, and a worked example of each artefact (§9,
-// ADR-0093, ADR-0095, ADR-0096, ADR-0101, issues #209, #211, #212 and #218).
+// loop an agent drives them through, where the record lives, the three commands
+// that are the human's and why, that a Refusal is final, and a worked example
+// of each artefact (§9, ADR-0093, ADR-0095, ADR-0096, ADR-0101, ADR-0113,
+// issues #209, #211, #212, #218 and #233).
 //
 // **It reaches an agent two ways, and the text is one text.** The `initialize`
 // handshake carries it in the field the protocol has for exactly this —
@@ -111,7 +112,9 @@ four, and each has one fact below that you need before you start.
    no call at all and reads a ` + "`record:`" + ` against a response you fetched yourself.
 
 Read the record back with ` + "`runs`" + `, ` + "`show`" + `, ` + "`records`" + ` and ` + "`changes`" + `. ` + "`changes`" + ` answers *what moved*,
-field by field, against the last Run.
+field by field, against the last Run. **The record is a branch in this repository** — ` + "`hyper-store`" + `,
+append-only, never checked out — so the working tree shows nothing of it, and it travels with a clone like
+any other branch. ` + "`runs`" + ` and ` + "`records`" + ` say so on every answer; ` + "`git log hyper-store`" + ` reads it directly.
 
 **Add a ` + "`cadence:`" + ` and you are not finished**: an unprojected recurrence is ` + "`projection-stale`" + ` at
 ` + "`check`" + `, and ` + "`project`" + ` is the repair.
@@ -213,8 +216,8 @@ and answers the Records that projection would have written with the paths that r
 beneath them. It is the only way to see a ` + "`mutate`" + `'s projection at all, a Probe never invoking one.
 The file is scratch and ` + "`hyper`" + ` neither writes it nor loads it — **put it in ` + "`.gitignore`" + `**, a
 saved response being the one place a token can end up in the tree by accident. **Do not author a
-throwaway Operation projecting ` + "`$.body`" + ` to look at a response**: that writes a whole body into a
-Store that is append-only and travels in the repository, and only ` + "`compact`" + ` takes it out again.
+throwaway Operation projecting ` + "`$.body`" + ` to look at a response**: that writes a whole body into the
+append-only record above, and only ` + "`compact`" + ` takes it out again.
 
 ## The rest of the repository
 

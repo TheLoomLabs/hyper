@@ -95,6 +95,18 @@ case, and each drives the shared Journal:
 The other form of that line — a cap nobody named — needs fifty-one entries to
 reach and is asserted at [runs_test.go](../../runs_test.go) instead.
 
+## Where the record is
+
+Every case here that renders a page begins with the same line: *the record is
+the `hyper-store` branch of this repository — never checked out, and it travels
+with a clone* (ADR-0113, issue #233). It is above the table on every page this
+command writes, including the two empty ones below, and it is the reason those
+two no longer name the branch a second time. The cases that render no page carry
+none of it — `store-absent`, `version-pin-mismatch` and the usage errors below
+never open the Store, and a command that did not read the record has nothing to
+say about where it is. No `-json` golden carries it either: the sentence is prose
+on the page and no row on the wire.
+
 ## Where there are no rows
 
 An empty table is written as nothing at all, header included, so what stands in

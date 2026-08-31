@@ -47,11 +47,12 @@ type tool struct {
 	// malformed call (§9, server.go).
 	argv func(arguments json.RawMessage) ([]string, error)
 	// text is §9's text-block table read as a property of the tool, which is
-	// how §9 states three of its four rows: *any ordinary return* carries
-	// one summary line, **`check`** carries its rows beneath that line, and
-	// **`review`** carries the full rendered review surface. The remaining
-	// row is a Refusal's, which is a property of the path rather than of the
-	// tool and is therefore not here.
+	// how §9 states four of its five rows: *any ordinary return* carries one
+	// summary line, **`check`** carries its rows beneath that line,
+	// **`runs`** and **`records`** carry where the record lives beneath it,
+	// and **`review`** carries the full rendered review surface. The
+	// remaining row is a Refusal's, which is a property of the path rather
+	// than of the tool and is therefore not here.
 	//
 	// It is a member on the tool rather than a composition the tool
 	// supplies, because what it selects between is three readings of one
@@ -117,6 +118,25 @@ const (
 	// `isError`*, which would append a Run's page to the summary line §9
 	// composes for `run` on purpose.
 	rowsBeneathSummary
+	// locationBeneathSummary is the summary line and, under it, where the
+	// record the tool just read is held — store.Location, the sentence the
+	// two commands' own pages begin with (ADR-0113, issue #233).
+	//
+	// **It is `runs` and `records`, the two tools whose job is finding
+	// something in the Store.** The CLI half writes that sentence on the
+	// page, and the page is what this block is the analogue of: a client is
+	// not obliged to surface `structuredContent` and most do not, so a fact
+	// carried only there is a fact an agent may never meet. That is
+	// `check`'s argument at a second return, and it is the one the record's
+	// own location needs most — the fact has no row to be read off, being a
+	// constant of the design rather than a result.
+	//
+	// It is a case of its own rather than a clause of the summary line
+	// because the summary line is *composed from the answer*: it counts the
+	// rows by their own discriminator, and a tool that appended a sentence
+	// to it would be a tool holding a rendering. This is §9's table gaining
+	// a row, which is where a text block's shape is decided.
+	locationBeneathSummary
 	// wholeRendering is the command's page, byte for byte, in place of any
 	// line of this surface's own. It is `review`'s, and the promise is what
 	// makes it a case of its own: what the block carries is what the
@@ -1069,6 +1089,7 @@ const cutOrComplete = `{
 // neither, which is why its cut is the default's alone (§9, providersTool).
 var runsTool = tool{
 	name:        "runs",
+	text:        locationBeneathSummary,
 	description: "List the Journal, newest first: one row per Run, with its Trigger, its outcome, the Targets it bound and the version of hyper that performed it.",
 	input: closedObject(`{
 		"since": {
@@ -2047,6 +2068,7 @@ const windowSide = `{
 // says it cut (records.go).
 var recordsTool = tool{
 	name:        "records",
+	text:        locationBeneathSummary,
 	description: "Find a version: one row per Record with its ordinal, the Run and Step that wrote it, its state and its Provenance — or every version of one, under history.",
 	input: closedObject(`{
 		"target": {"type": "string", "minLength": 1, "description": "The identity's first column, matched byte-exact over UTF-8."},

@@ -336,13 +336,23 @@ STEP  ID     KIND  DISPOSITION  RECORDS
 completed · exit 0 · run 01a043df-521e-7a0a-b723-05eaa2bb0588
 
 $ hyper runs
+the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
+
 RUN             STARTED                   TRIGGER      OUTCOME    CONTESTED  PROCEDURE  TARGETS  HYPER
 01a043df-521e…  2026-08-27T15:38:24.158Z  you@machine  completed             say-hello  local    0.0.1-alpha
 
 $ hyper records
+the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
+
 TARGET  DEFINITION  RECORD                       ORDINAL  RUN             STEP  KIND         TOMBSTONE  ORPHANED  SECRETS  HYPER
 local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1     observation                                0.0.1-alpha
 ```
+
+Neither listing is reading a directory. The record is an orphan branch, `hyper-store`, written with git
+plumbing and never checked out — so `ls` and `git status` show nothing of it, `git log hyper-store` reads
+it, and `git push` sends it wherever the code goes
+([ADR-0006](docs/adr/0006-the-record-travels-in-the-repository.md),
+[ADR-0113](docs/adr/0113-a-listing-over-the-record-says-where-the-record-is.md)).
 
 ### Three things that will catch you, and why each is a rule
 
