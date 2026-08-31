@@ -12,6 +12,7 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/artefact"
 	"github.com/TheLoomLabs/hyper/internal/cli"
 	"github.com/TheLoomLabs/hyper/internal/mcp"
+	"github.com/TheLoomLabs/hyper/internal/schema"
 )
 
 // The worked example the orientation carries, held to the only standard that
@@ -281,12 +282,6 @@ func TestInstructions_TheBoundRuleNamesWhatMakesADestroyOpaque(t *testing.T) {
 // boundSentence is the one sentence of the orientation that states the Bound
 // rule, unwrapped the way a reader takes it in.
 //
-// **Exactly one, and that is an assertion rather than a lookup.** The
-// orientation is a budget paid on every session in every harness (ADR-0093), and
-// the repair issue #218 asked for is a rule stated whole in the sentence that
-// already stood — not a paragraph about Bounds added beside it. Two sentences
-// here is the manual the text may not become; none is the rule gone.
-//
 // A sentence states the rule where it names the key or the term `CONTEXT.md`
 // fixes for it, which is the pair a second sentence about Bounds would have to
 // evade both of to slip past this. The Step's own `bound: 5` inside the worked
@@ -296,16 +291,7 @@ func TestInstructions_TheBoundRuleNamesWhatMakesADestroyOpaque(t *testing.T) {
 func boundSentence(t *testing.T, instructions string) string {
 	t.Helper()
 
-	var carried []string
-	for _, sentence := range strings.SplitAfter(strings.Join(strings.Fields(instructions), " "), ". ") {
-		if strings.Contains(sentence, "`bound:`") || strings.Contains(sentence, "Bound") {
-			carried = append(carried, strings.TrimSpace(sentence))
-		}
-	}
-	if len(carried) != 1 {
-		t.Fatalf("the orientation states the Bound rule in %d sentences, want exactly one: %q", len(carried), carried)
-	}
-	return carried[0]
+	return theOneSentence(t, instructions, "the Bound rule", "`bound:`", "Bound")
 }
 
 // exampleRepository is the orientation's own worked example, whose `destroy`
@@ -471,6 +457,135 @@ func TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestInstructions_TheInvocationKeySetItStatesIsTheOneCheckHolds is issue
+// #237's fence, on the Bound rule's footing above.
+//
+// **A key set the binary closes and the text leaves open-sounding is one the
+// reader enumerates.** The orientation and §3 both said an invocation names an
+// `id:` and a `procedure:` *in place of* the binding, which reads as *those
+// three are replaced and the rest still apply* — and `invocationDeclaration`
+// admits exactly two properties. The sealed acceptance run of 2026-08-30 found
+// the real set the only way that sentence left open to it: fourteen invented keys
+// written onto one invocation in a single call, fourteen `unknown-key` rows
+// back, and `args:`, `over:` and `params:` refused the same way in later calls
+// (ADR-0111, ADR-0117).
+//
+// So the two keys are stated as the closed set they are, and the claim is held
+// to the checker rather than to a reader: an invocation carrying nothing beside
+// them checks clean, and the two keys an author reaches for first — the `args:`
+// that would parameterise a shared Procedure and the `when:` that would gate it
+// — are `unknown-key`. Each answer `check` declines names the word the
+// orientation has to carry for an agent to have avoided writing it.
+//
+// **The callee is written here rather than read off the text**, unlike the case
+// above it. What this reads is the entry that *invokes*, so the Procedure on the
+// other side of it is a fixture and nothing more: the smallest legible callee is
+// one `read` Step, and taking the shipped `require:` fragment instead would tie
+// this case to a paragraph it makes no claim about.
+func TestInstructions_TheInvocationKeySetItStatesIsTheOneCheckHolds(t *testing.T) {
+	sentence := invocationSentence(t, mcp.Instructions("1.4.0"))
+
+	base := map[string]string{
+		"hyper.yaml": validHyperYAML,
+		"targets/archive.yaml": "kind: target-declaration\ntarget: archive\nclass: local\n" +
+			"kinds: [read]\ncapabilities: [shell]\n",
+		"definitions/archive-audit.yaml": "kind: definition\ndefinition: archive-audit\nprovider: shell\n" +
+			"kinds: [read]\ntargets: [archive]\n",
+		"procedures/verify-archive.yaml": "kind: procedure\nprocedure: verify-archive\ntargets: [archive]\nsteps:\n" +
+			"  - id: archive-sound\n    definition: archive-audit\n    operation: read\n    target: archive\n" +
+			"    args:\n      command: [sh, -c, \"sha256sum -c /srv/archive/SHA256SUMS\"]\n",
+	}
+
+	for _, c := range []struct {
+		name    string
+		carried string
+		code    string
+		stated  string
+	}{
+		{name: "the two keys and nothing beside them"},
+		{
+			name:    "an invocation parameterised with args:",
+			carried: "    args: {tree: /srv/archive}\n",
+			code:    schema.CodeUnknownKey,
+			stated:  "`args:`",
+		},
+		{
+			name:    "an invocation gated with when:",
+			carried: "    when: {step: archive-sound, field: exit_code, equals: 0}\n",
+			code:    schema.CodeUnknownKey,
+			stated:  "no other key",
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			root := t.TempDir()
+			for path, content := range base {
+				writeFile(t, filepath.Join(root, path), content)
+			}
+			writeFile(t, filepath.Join(root, "procedures/promote.yaml"),
+				"kind: procedure\nprocedure: promote\ntargets: [archive]\nsteps:\n"+
+					"  - id: verify\n    procedure: verify-archive\n"+c.carried)
+
+			var stdout, stderr bytes.Buffer
+			exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, cli.Streams(&stdout, &stderr), emptyEnvironment, t.TempDir(), "1.4.0")
+			codes := errorCodesIn(t, stdout.String())
+
+			switch {
+			case c.code == "" && exit != cli.ExitClean:
+				t.Fatalf("check declines the invocation the orientation teaches with %v (exit %d)\n%s", codes, exit, stderr.String())
+			case c.code != "" && !slices.Contains(codes, c.code):
+				t.Fatalf("check answers %v and not %s (exit %d); the key set the checker holds is not the one the orientation states", codes, c.code, exit)
+			}
+			// The pairing: a key `check` refuses with no word for it in
+			// the sentence an author reads is the enumeration this
+			// ticket exists to have paid for once.
+			if c.stated != "" && !strings.Contains(sentence, c.stated) {
+				t.Errorf("check answers %s for this key and the orientation's invocation sentence never says %q: %q", c.code, c.stated, sentence)
+			}
+		})
+	}
+}
+
+// invocationSentence is the one sentence of the orientation that states what an
+// invocation admits, unwrapped the way a reader takes it in.
+//
+// A sentence states this where it says that a Procedure **invokes another**,
+// which is the phrase the paragraph opens on and the one an author scanning for
+// composition stops at. *No other key* is not the mark: the `require:` sentence
+// two paragraphs down says the same words about a different entry shape, and a
+// mark that catches both would hold neither.
+func invocationSentence(t *testing.T, instructions string) string {
+	t.Helper()
+
+	return theOneSentence(t, instructions, "what an invocation admits", "invokes another")
+}
+
+// theOneSentence is the single unwrapped sentence of the orientation carrying
+// any of marks, and the assertion that there is exactly one of it.
+//
+// **Exactly one, and that is an assertion rather than a lookup.** The
+// orientation is a budget paid on every session in every harness (ADR-0093), and
+// both repairs its callers hold it to are clauses of a sentence that already
+// stood — the Bound's exception (issue #218) and the invocation's closed key set
+// (issue #237) — rather than a paragraph added beside one. Two sentences here is
+// the manual the text may not become; none is the rule gone.
+//
+// `what` names the claim in the failure line, since a reader of one is being
+// told which rule the text has stopped stating in one place.
+func theOneSentence(t *testing.T, instructions, what string, marks ...string) string {
+	t.Helper()
+
+	var carried []string
+	for _, sentence := range strings.SplitAfter(strings.Join(strings.Fields(instructions), " "), ". ") {
+		if slices.ContainsFunc(marks, func(mark string) bool { return strings.Contains(sentence, mark) }) {
+			carried = append(carried, strings.TrimSpace(sentence))
+		}
+	}
+	if len(carried) != 1 {
+		t.Fatalf("the orientation states %s in %d sentences, want exactly one: %q", what, len(carried), carried)
+	}
+	return carried[0]
 }
 
 // taughtRequirement is the `steps:` fragment the orientation's shared-check

@@ -447,11 +447,14 @@ Steps are sequenced without (ADR-0002). A Step names its `id:`, its `definition:
 `target:` it binds, the `args:` the Operation's input schema requires, an `over:` selector, a `bound:` on
 the Records an effectful Step may affect, and a `when:` condition rooted at an earlier Step's Record,
 carrying `step:` beside `field:`. A nested invocation names an `id:` and a `procedure:` in place of
-`definition:`/`operation:`/`target:`, and its Steps render under the invoking Step's path with the
-invoked Procedure's transitive envelope. A **Requirement** names an `id:` and a `require:` in place of
-both, and `require:` is a predicate at the condition's own root — `step:` beside `field:`, rooted at an
-earlier Step of this same Procedure. A comment is permitted on any line, rendered verbatim in place
-on the line it was written on and never read by `hyper`; it is source rather than annotation and never
+`definition:`/`operation:`/`target:`, **and no other key**: there is no `args:`, no `over:`, no `bound:`
+and no `when:` on one, so an invoked Procedure is a fixed block rather than a parameterised one, and
+what differs between two callers is two Procedures rather than two invocations (ADR-0008, ADR-0117).
+Its Steps render under the invoking Step's path with the invoked Procedure's transitive envelope.
+A **Requirement** names an `id:` and a `require:` in place of both the binding and a `procedure:`, and
+`require:` is a predicate at the condition's own root — `step:` beside `field:`, rooted at an earlier
+Step of this same Procedure. A comment is permitted on any line, rendered verbatim in place on the
+line it was written on and never read by `hyper`; it is source rather than annotation and never
 enters the review's gutter, which carries only what `hyper` derived (§8). No directive syntax may ever
 exist inside one, since that would be a bypass wearing a comment.
 

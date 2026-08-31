@@ -113,8 +113,8 @@ func TestInstructions_SayWhereTheRecordLives(t *testing.T) {
 }
 
 // TestInstructions_SayHowAProcedureComposesAndHowASharedCheckHalts is issue
-// #236's fact, and it is three facts in one paragraph because separately none
-// of them is actionable.
+// #236's fact and issue #237's two beside it, and they are one paragraph
+// because separately none of them is actionable.
 //
 // Nothing else here mentions composition, and the worked Procedure is a flat
 // list of Steps — so an agent asked for one shared check invoked by two routes
@@ -126,14 +126,33 @@ func TestInstructions_SayWhereTheRecordLives(t *testing.T) {
 // authority table of the artefact whose point is that it writes nothing
 // (§9, ADR-0111, ADR-0116).
 //
+// **The key set is stated closed, and the halt is stated as the whole Run's.**
+// Two clauses on the sentence that already stood, and each answers a separate
+// thing the same run paid for. It enumerated the invocation's two keys by
+// writing fourteen invented ones onto one invocation and reading fourteen
+// `unknown-key` rows back, an open-sounding key set being one whoever needs it
+// enumerates. And it handed its reviewer the halt as an assumption it *could
+// not confirm propagates out of a sub-procedure* — so the halt is stated of
+// whatever halts inside a callee rather than of the `require:` alone, which is
+// where issue #236 left it and is narrower than §6 (ADR-0111, ADR-0117,
+// issue #237).
+//
+// The strings below are read against the composition paragraph, so each is long
+// enough to name it: *no other key* alone stands in the `require:` sentence too,
+// where it says the same thing about a different entry shape.
+//
 // What the fragment itself is held to is a `check`, one package over, on the
 // Bound rule's own footing (internal/cli's
-// TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts).
+// TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts and
+// TestInstructions_TheInvocationKeySetItStatesIsTheOneCheckHolds).
 func TestInstructions_SayHowAProcedureComposesAndHowASharedCheckHalts(t *testing.T) {
 	carried := unwrapped(Instructions("1.4.0"))
 
 	for _, stated := range []string{
 		"procedure: verify-archive",
+		"and no other key, so there is no `args:` on one",
+		"a shared Procedure is a fixed block",
+		"halts the whole Run",
 		"No `when:` and no reference reaches across that boundary",
 		"require: {step: archive-sound, field: exit_code, equals: 0}",
 		"halts the Run",

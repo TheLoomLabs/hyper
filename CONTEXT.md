@@ -89,9 +89,11 @@ _Avoid_: Model, Instance, Config, Binding, Profile
 
 **Procedure**:
 An ordered set of Steps, declaring the full set of Targets it may touch. Procedures contain Steps
-directly — there is no grouping level between them — and compose by invoking one another. What is
-sequenced beside those Steps, taking no position among them, is the Requirement each one may be
-stopped by.
+directly — there is no grouping level between them — and compose by invoking one another, a nested
+invocation naming the Procedure it invokes and passing it nothing: a shared Procedure is a fixed
+block rather than a parameterised one, and a halt anywhere inside it is a halt of the whole Run.
+What is sequenced beside those Steps, taking no position among them, is the Requirement each one may
+be stopped by.
 _Avoid_: Workflow, Playbook, Pipeline, Job
 
 **Step**:

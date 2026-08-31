@@ -6,7 +6,7 @@ import "fmt"
 // loop an agent drives them through, where the record lives, the three commands
 // that are the human's and why, that a Refusal is final, and a worked example
 // of each artefact (§9, ADR-0093, ADR-0095, ADR-0096, ADR-0101, ADR-0113,
-// issues #209, #211, #212, #218 and #233).
+// ADR-0117, issues #209, #211, #212, #218, #233 and #237).
 //
 // **It reaches an agent two ways, and the text is one text.** The `initialize`
 // handshake carries it in the field the protocol has for exactly this —
@@ -63,6 +63,25 @@ func Instructions(version string) string {
 // write was taught the artefact `check` declines. That claim is now held to
 // `check` itself rather than to a reader, in one sentence, by
 // TestInstructions_TheBoundRuleIsTheOneCheckHolds (§9, ADR-0101, issue #218).
+//
+// **And a set the binary closes is stated as closed.** It is the Bound rule's
+// own lesson read off the other axis: *an `id:` and a `procedure:` in place of
+// `definition:`/`operation:`/`target:`* is true and reads as *those three are
+// replaced and the rest still apply*, so an agent that needed to know what an
+// invocation admits enumerated it — fourteen invented keys on one invocation,
+// fourteen `unknown-key` rows back. The two keys are stated as the closed set
+// they are, with what the closure costs an author beside them: a shared
+// Procedure is fixed rather than parameterised. That claim is held to `check`
+// by TestInstructions_TheInvocationKeySetItStatesIsTheOneCheckHolds one package
+// over (§9, ADR-0111, ADR-0117, issue #237).
+//
+// **And the halt beside it is the whole Run's.** The same run could not
+// establish that a Step failing inside an invoked Procedure stops its caller,
+// and said so in its handback rather than claiming it; the sentence now states
+// it of whatever halts inside a callee, where issue #236 stated it of the
+// `require:` alone. It is a Run's behaviour rather than a `check`'s, so what
+// holds it is a golden — internal/cli/testdata/run/a-halt-inside-a-nested-procedure,
+// whose caller's own next Step renders `never-reached` (§6, ADR-0111).
 //
 // **Its length is a design constraint rather than an aesthetic one.** It is
 // paid for on every session in every harness — as a handshake field whether or
@@ -314,10 +333,13 @@ it, and never generalise from a ` + "`probe`" + ` to a Run.
 
 ## A shared check halts; it does not hand a verdict back
 
-**A Procedure invokes another** with a ` + "`procedure:`" + ` in place of the binding — ` + "`- {id: verify, procedure: verify-archive}`" + `,
-` + "`id:`" + ` and ` + "`procedure:`" + ` and nothing else — and what it invokes runs as Steps of the one Run. **No ` + "`when:`" + `
-and no reference reaches across that boundary**: what an invoked Procedure did is not a fact its caller
-can condition on, and its ` + "`targets:`" + ` count against the caller's declared envelope.
+**A Procedure invokes another** with a ` + "`procedure:`" + ` in place of the binding —
+` + "`- {id: verify, procedure: verify-archive}`" + `, ` + "`id:`" + ` and ` + "`procedure:`" + ` and no other key, so there is no
+` + "`args:`" + ` on one and **a shared Procedure is a fixed block rather than a parameterised one**. What it
+invokes runs as Steps of the one Run, and **whatever halts inside it halts the whole Run**, however
+deep the invocation goes. **No ` + "`when:`" + ` and no reference reaches across that boundary**: what an
+invoked Procedure did is not a fact its caller can condition on, and its ` + "`targets:`" + ` count against
+the caller's declared envelope.
 
 So a check that has to stop the work does it from the inside, with a ` + "`require:`" + ` entry of its own:
 
@@ -332,12 +354,12 @@ So a check that has to stop the work does it from the inside, with a ` + "`requi
     require: {step: archive-sound, field: exit_code, equals: 0}
 ` + "```" + `
 
-A ` + "`require:`" + ` is a ` + "`when:`" + `'s predicate read for the other answer: a ` + "`when:`" + ` that does not hold **skips**
-the Step it is written on, and a ` + "`require:`" + ` that does not hold **halts the Run** — here and in whatever
-invoked this Procedure, one Run having one outcome however deep the invocation goes. It takes an ` + "`id:`" + `
-and a ` + "`require:`" + ` and no other key, and it **claims no Kind and binds no Target**. Never reach for an
-effectful Step that exits non-zero in order to make a check able to fail: that puts ` + "`mutate`" + ` in the
-authority table of the one artefact whose point is that it writes nothing.
+A ` + "`require:`" + ` is a ` + "`when:`" + `'s predicate read for the other answer: a ` + "`when:`" + ` that does not hold
+**skips** the Step it is written on, and a ` + "`require:`" + ` that does not hold **halts the Run**, which is
+how a check invoked by two callers stops both. It takes an ` + "`id:`" + ` and a ` + "`require:`" + ` and no other key,
+and it **claims no Kind and binds no Target**. Never reach for an effectful Step that exits non-zero
+in order to make a check able to fail: that puts ` + "`mutate`" + ` in the authority table of the one artefact
+whose point is that it writes nothing.
 
 ## Three of the sixteen commands are the human's
 

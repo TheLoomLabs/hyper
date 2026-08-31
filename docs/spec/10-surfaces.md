@@ -906,15 +906,29 @@ already in mind, and none of these is about a call:
   otherwise. Narration is not an outcome — `probe` prints `no response arrived` and exits `0` — and an
   agent that reads the prose beside a result rather than its Disposition reports a Run that halted when
   none did.
-- **That a Procedure invokes another, that nothing reaches across that boundary, and that a shared
-  check therefore halts on a `require:` of its own.** Three facts and one paragraph, because separately
-  none of them is actionable: an agent that knows composition exists and not the boundary writes a
-  `when:` on the invocation, and one that knows the boundary and not the `require:` does what the sealed
-  run of 2026-08-30 did — moves the halt inside the check with a `mutate` Step that exits non-zero,
-  which puts effectful authority on the one artefact whose point is that it writes nothing (ADR-0111,
-  ADR-0116). Nothing else in this text mentions composition at all, and the worked Procedure is a flat
-  list of Steps. The `require:` fragment is held to `check` by a case, on the Bound's own footing
-  (`TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts`).
+- **That a Procedure invokes another, what an invocation admits, that a halt inside one halts the whole
+  Run, that nothing else reaches across that boundary, and that a shared check therefore halts on a
+  `require:` of its own.** Five facts and one paragraph, because separately none of them is actionable:
+  an agent that knows composition exists and not the boundary writes a `when:` on the invocation, and
+  one that knows the boundary and not the `require:` does what the sealed run of 2026-08-30 did — moves
+  the halt inside the check with a `mutate` Step that exits non-zero, which puts effectful authority on
+  the one artefact whose point is that it writes nothing (ADR-0111, ADR-0116). Nothing else in this text
+  mentions composition at all, and the worked Procedure is a flat list of Steps.
+
+  **A set the binary closes is stated as closed**, which is the exception rule below read off the other
+  axis. *An `id:` and a `procedure:` in place of `definition:`/`operation:`/`target:`* is true and reads
+  as *those three are replaced and the rest still apply*, so the same run enumerated the two keys the
+  only way that sentence left it — fourteen invented keys on one invocation, fourteen `unknown-key`
+  rows back — and spent roughly twenty-seven of its fifty-nine calls on grammar. What the closure
+  costs is stated beside it, since it changes the design rather than the syntax: a shared Procedure is
+  fixed rather than parameterised. And the halt is stated as the whole Run's rather than only the
+  `require:`'s, that being the property every composed safety check rests on and the one the same
+  session marked *I could not confirm this* in its handback (ADR-0117). The key set is held to `check`
+  by a case, on the Bound's own footing
+  (`TestInstructions_TheInvocationKeySetItStatesIsTheOneCheckHolds`, beside
+  `TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts` for the `require:` fragment); the halt is
+  a Run's rather than a `check`'s, and what holds it is a golden — a halt inside a callee, and the
+  caller's own next Step `never-reached`.
 - **Where the record lives**: the account is a branch of this repository — `hyper-store`, append-only,
   never checked out — so the working tree shows nothing of it and it travels with a clone like any other
   branch. It is stated in the paragraph about **reading the record back**, beside the four commands that do
