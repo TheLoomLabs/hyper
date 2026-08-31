@@ -585,6 +585,120 @@ func TestInstructions_TheInvocationKeySetItStatesIsTheOneCheckHolds(t *testing.T
 	}
 }
 
+// TestInstructions_TheFieldARequirementRootsAtIsTheOneCheckHolds is issue
+// #242's fence, on the two above's own footing.
+//
+// **A predicate the reviewer cannot read is the review surface defeated on the
+// one artefact it exists for.** The sealed acceptance run of 2026-08-31 authored
+// the Requirement shape correctly and took the example's `exit_code` with it,
+// three times, against a wall of three files whose contents are the facts: what
+// `review` rendered was three `OPAQUE` Steps and three `require:` lines saying an
+// exit code was zero, with `= open` inside a command string (ADR-0120, ADR-0122).
+//
+// So the orientation states what a `require:` roots at, and the claim is held to
+// the checker rather than to a reader: the value-comparing spelling it now points
+// at checks clean, a field no Operation projects is `reference-unresolvable`, the
+// field written as a path is `schema-mismatch`, and a projected field the
+// Manifest declares `secret:` is `predicate-type-mismatch`. Each answer `check`
+// declines names the words the sentence has to carry for an author not to have
+// written it.
+//
+// **The last of the four is why the sentence carries an exception at all.** *Any
+// projected field* is a rule with one hole in it, and a rule stated in that text
+// without its exception is one an agent authors the half it was given of
+// (ADR-0101, issue #218). It is the one case the shell Provider cannot express —
+// it projects no secret — so the repository carries a second Provider whose
+// Operation does, and the Requirement roots at whichever of the two Steps the
+// case names.
+//
+// **The Steps under the Requirement are fixtures and the sentence is the text's.**
+// What this reads is the entry that *halts*, so what it roots at is written here
+// — the shipped fragment is the `sha256sum -c` case, whose whole point is that
+// its verdict is its status.
+func TestInstructions_TheFieldARequirementRootsAtIsTheOneCheckHolds(t *testing.T) {
+	sentence := requirementSentence(t, mcp.Instructions("1.4.0"))
+
+	base := map[string]string{
+		"hyper.yaml": validHyperYAML,
+		"targets/control.yaml": "kind: target-declaration\ntarget: control\nclass: local\n" +
+			"kinds: [read]\ncapabilities: [shell]\n",
+		"definitions/change-control.yaml": "kind: definition\ndefinition: change-control\nprovider: shell\n" +
+			"kinds: [read]\ntargets: [control]\n",
+		"providers/vault.yaml": "kind: provider\nprovider: vault\nschema-version: 1\nclass: vault\n" +
+			"capabilities: [http]\nauth:\n  header: {name: Authorization, prefix: \"Bearer \"}\n" +
+			"operations:\n  read_lease:\n    kind: read\n    repeatability: repeatable\n    deadline: 30s\n" +
+			"    http: {method: GET, host: \"{from-target}\", path: /lease}\n" +
+			"    record:\n      identity: $.body.id\n" +
+			"      fields: {state: $.body.state, token: $.body.token}\n    secret: [token]\n",
+		"targets/vault.yaml": "kind: target-declaration\ntarget: vault\nclass: vault\n" +
+			"kinds: [read]\ncapabilities: [http]\nhosts: [vault.internal]\n" +
+			"auth:\n  token: {env: VAULT_TOKEN}\n",
+		"definitions/lease-audit.yaml": "kind: definition\ndefinition: lease-audit\nprovider: vault\n" +
+			"kinds: [read]\ntargets: [vault]\n",
+	}
+
+	for _, c := range []struct {
+		name   string
+		step   string
+		field  string
+		code   string
+		stated string
+	}{
+		{name: "the value on the require: line", step: "read-window", field: "stdout"},
+		{
+			name:   "a field no Operation projects",
+			step:   "read-window",
+			field:  "window",
+			code:   artefact.CodeReferenceUnresolvable,
+			stated: "projected",
+		},
+		{
+			name:   "the field written as a path",
+			step:   "read-window",
+			field:  "$.stdout",
+			code:   schema.CodeMismatch,
+			stated: "`$.` path",
+		},
+		{
+			name:   "a projected field the Manifest declares secret",
+			step:   "read-lease",
+			field:  "token",
+			code:   artefact.CodePredicateTypeMismatch,
+			stated: "`secret:`",
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			root := t.TempDir()
+			for path, content := range base {
+				writeFile(t, filepath.Join(root, path), content)
+			}
+			writeFile(t, filepath.Join(root, "procedures/change-control-permits.yaml"),
+				"kind: procedure\nprocedure: change-control-permits\ntargets: [control, vault]\nsteps:\n"+
+					"  - id: read-window\n    definition: change-control\n    operation: read\n    target: control\n"+
+					"    args:\n      command: [cat, control/window]\n"+
+					"  - id: read-lease\n    definition: lease-audit\n    operation: read_lease\n    target: vault\n"+
+					"  - id: window-open\n    require: {step: "+c.step+", field: "+c.field+", equals: \"open\\n\"}\n")
+
+			var stdout, stderr bytes.Buffer
+			exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, cli.Streams(&stdout, &stderr), emptyEnvironment, t.TempDir(), "1.4.0")
+			codes := errorCodesIn(t, stdout.String())
+
+			switch {
+			case c.code == "" && exit != cli.ExitClean:
+				t.Fatalf("check declines the spelling the orientation points at with %v (exit %d)\n%s", codes, exit, stderr.String())
+			case c.code != "" && !slices.Contains(codes, c.code):
+				t.Fatalf("check answers %v and not %s (exit %d); what a require: roots at is not what the orientation states", codes, c.code, exit)
+			}
+			// The pairing: a field `check` declines with no word for it
+			// in the sentence an author reads is the discovery this
+			// ticket exists to have paid for once.
+			if c.stated != "" && !strings.Contains(sentence, c.stated) {
+				t.Errorf("check answers %s for this field and the orientation's require: sentence never says %q: %q", c.code, c.stated, sentence)
+			}
+		})
+	}
+}
+
 // invocationSentence is the one sentence of the orientation that states what an
 // invocation admits, unwrapped the way a reader takes it in.
 //
@@ -597,6 +711,20 @@ func invocationSentence(t *testing.T, instructions string) string {
 	t.Helper()
 
 	return theOneSentence(t, instructions, "what an invocation admits", "invokes another")
+}
+
+// requirementSentence is the one sentence of the orientation that states what a
+// Requirement's `require:` may root at, unwrapped the way a reader takes it in.
+//
+// A sentence states this where it says a `require:` **roots at** something,
+// which is the phrase an author scanning for what may go on the line stops at.
+// The two words are the mark rather than `require:` alone: the key is named
+// throughout that section, in the fenced example and in the prose either side of
+// it, and a mark that caught all of them would hold none of them.
+func requirementSentence(t *testing.T, instructions string) string {
+	t.Helper()
+
+	return theOneSentence(t, instructions, "what a require: roots at", "roots at")
 }
 
 // theOneSentence is the single unwrapped sentence of the orientation carrying

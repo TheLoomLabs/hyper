@@ -179,6 +179,48 @@ func TestInstructions_SayHowAProcedureComposesAndHowASharedCheckHalts(t *testing
 	}
 }
 
+// TestInstructions_SayWhatARequirementRootsAtAndWhereThePredicateGoes is the
+// paragraph above read one line further down: the shape is authorable, and the
+// fact under review still ends up somewhere a reviewer cannot read it.
+//
+// The sealed acceptance run of 2026-08-31 wrote the shape correctly three times
+// and copied the example's `exit_code` with it — `sh -c 'test "$(cat
+// control/window)" = open'` gated on `require: {field: exit_code, equals: 0}`,
+// against a wall of three files whose contents are the facts. What `review` then
+// renders is three `OPAQUE` flags and three `require:` lines saying an exit code
+// was zero: the predicate a reviewer is being asked to approve is `= open`, and
+// it is inside the command string (ADR-0120, ADR-0122, issue #242).
+//
+// **`exit_code` is right in the example and is the weaker of two spellings
+// everywhere else.** `sha256sum -c` projects no other verdict, so the example
+// stays — an exit code is a field like any other and an example comparing a
+// value would stop teaching that. What was missing is the sentence saying a
+// `require:` roots at *any* field the Step projected — with its one exception
+// beside it, a field declared `secret:` reaching the Store as a constant no
+// comparison can read — and that where the fact has a value the value belongs on
+// the line `review` renders verbatim, that line being the whole of what §8 gives
+// a Requirement.
+//
+// What the sentence itself is held to is a `check`, one package over, on the
+// Bound rule's own footing
+// (internal/cli's TestInstructions_TheFieldARequirementRootsAtIsTheOneCheckHolds).
+func TestInstructions_SayWhatARequirementRootsAtAndWhereThePredicateGoes(t *testing.T) {
+	carried := unwrapped(Instructions("1.4.0"))
+
+	for _, stated := range []string{
+		"roots at any field the Step it names projected",
+		"never a `$.` path",
+		"never one the Manifest declares `secret:`",
+		"compare the value",
+		"field: stdout",
+		"renders verbatim",
+	} {
+		if !strings.Contains(carried, stated) {
+			t.Errorf("the orientation never says %q; an agent copying the example puts the fact under review inside a command string no rendering can look into", stated)
+		}
+	}
+}
+
 // TestInstructions_PutTheThreeCommandsOutOfReachAndSayWhy is the third,
 // and the one with teeth. `install`, `store init` and `compact` are the human's
 // **deliberately**, and an agent that does not know that runs them — which is

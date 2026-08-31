@@ -95,6 +95,21 @@ func Instructions(version string) string {
 // holds it is a golden — internal/cli/testdata/run/a-halt-inside-a-nested-procedure,
 // whose caller's own next Step renders `never-reached` (§6, ADR-0111).
 //
+// **And a predicate is written where the review shows it.** The `require:`
+// above is the shape a session authored right first time and then filled the
+// weaker way: `sh -c 'test "$(cat control/window)" = open'` gated on
+// `exit_code`, three times, against a wall of three files whose contents are the
+// facts. The example stays as it is — `sha256sum -c` says its verdict in its
+// status, its `stdout` being a per-file report rather than a value to compare —
+// and an example comparing a value would stop teaching that an exit code is a
+// field like any other — and what is stated beside it is that a `require:` roots
+// at any projected field, so where the fact has a value the value goes on the
+// line §8 gives a Requirement whole. The rule carries its exception on
+// ADR-0101's rule: a field the Manifest declares `secret:` reaches the Store as a
+// constant, and a predicate over one Refuses. That claim is held to `check` by
+// TestInstructions_TheFieldARequirementRootsAtIsTheOneCheckHolds one package
+// over (§5, §8, ADR-0120, ADR-0122, issue #242).
+//
 // **Its length is a design constraint rather than an aesthetic one.** It is
 // paid for on every session in every harness — as a handshake field whether or
 // not the model reads it, and as a file the harness reads up front — so it
@@ -378,6 +393,18 @@ how a check invoked by two callers stops both. It takes an ` + "`id:`" + ` and a
 and it **claims no Kind and binds no Target**. Never reach for an effectful Step that exits non-zero
 in order to make a check able to fail: that puts ` + "`mutate`" + ` in the authority table of the one artefact
 whose point is that it writes nothing.
+
+**A ` + "`require:`" + ` roots at any field the Step it names projected** — the field's own name, never a ` + "`$.`" + `
+path, and never one the Manifest declares ` + "`secret:`" + `, which reaches the Store as a constant no
+comparison can read — and where the fact under review has a value, compare the value. ` + "`exit_code`" + ` is
+right above because ` + "`sha256sum -c`" + ` says its verdict in its status, what it writes to ` + "`stdout`" + ` being a
+per-file report rather than a value. A window that must read ` + "`open`" + ` is a value:
+` + "`" + `command: [cat, control/window]` + "`" + ` with ` + "`" + `require: {step: read-window, field: stdout, equals: "open\n"}` + "`" + `
+states *the window must read* ` + "`open`" + ` on the ` + "`require:`" + ` line itself, which ` + "`review`" + ` renders verbatim
+and a diff carries, where ` + "`" + `sh -c 'test "$(cat control/window)" = open'` + "`" + ` gated on ` + "`exit_code`" + ` states
+it inside a quoted command argument and leaves the ` + "`require:`" + ` line saying only that a status was
+zero. Both Steps are **opaque** either way; what moves is whether the reviewer can read what is
+being required.
 
 ## Three of the sixteen commands are the human's
 

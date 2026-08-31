@@ -43,6 +43,18 @@ an earlier Step produced, so a call has already gone out, which is exactly what 
 The one thing at a Requirement that *is* a Refusal is a predicate that cannot decide, which Refuses
 wherever it stands (`predicate-type-mismatch`, ADR-0035).
 
+**What a Requirement asks for is its predicate, so the predicate is where the reviewable fact
+belongs.** A Requirement's whole content is on the line being read — a Step of this same file, one
+field name, one operator, and no derived cell beside it (§8) — and a `require:` roots at any field the
+Step it names projected (§3, §12), so which of two spellings an author writes is a live choice at
+every Requirement. A Step whose command embeds the comparison, gated on a `require:` reading `exit_code`,
+halts identically to one that projects the value and compares it — and its `require:` line states only
+that a status was zero, the fact under review having been written into a quoted argument of an Opaque
+request. That is the fault above read off the other axis and on the same artefact, the one whose whole
+purpose is to be read before anything runs. It is the author's to avoid rather than something `check`
+can refuse: both spellings are well-formed, and an Opaque request is by definition one `hyper` cannot
+tell the two apart in (ADR-0122).
+
 ## `opaque` and `destroy`
 
 An `opaque` Operation's effects are ones `hyper` cannot describe, so an `opaque` `destroy` cannot be

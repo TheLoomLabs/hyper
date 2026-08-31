@@ -951,6 +951,18 @@ already in mind, and none of these is about a call:
   `TestInstructions_TheSharedCheckItTeachesIsOneCheckAccepts` for the `require:` fragment); the halt is
   a Run's rather than a `check`'s, and what holds it is a golden — a halt inside a callee, and the
   caller's own next Step `never-reached`.
+
+  **And a predicate is stated where the review shows it.** The shape is authorable from that sentence
+  — the sealed run of 2026-08-31 wrote a three-Requirement check in a first draft, from `AGENTS.md`
+  alone — and the one worked `require:` beside it gates on `exit_code`, which that run copied onto
+  three files whose contents are the facts, leaving `= open` in a quoted command argument and three
+  `require:` lines saying an exit code was zero (§5, §8, ADR-0120). So the text says a `require:` roots
+  at any field the Step projected — bar one declared `secret:`, which no comparison can read — and
+  that where the fact has a value the value goes on the line, and the example is left as it is:
+  `sha256sum -c` says its verdict in its status, its `stdout` being a per-file report rather than a
+  value, and an example comparing a value would stop teaching that an exit code is a field like any
+  other. It is held to `check` by a case, on the two above's own footing
+  (`TestInstructions_TheFieldARequirementRootsAtIsTheOneCheckHolds`, ADR-0122).
 - **Where the record lives**: the account is a branch of this repository — `hyper-store`, append-only,
   never checked out — so the working tree shows nothing of it and it travels with a clone like any other
   branch. It is stated in the paragraph about **reading the record back**, beside the four commands that do
