@@ -187,6 +187,20 @@ install -m 755 hyper ~/bin/hyper   # anywhere on your PATH
 hyper version
 ```
 
+**While this repository is private, the two `curl`s answer `404`** — GitHub does not serve a
+release asset of a private repository to a read carrying no credential, and `-f` turns that into a
+silent exit `22`, so the `grep` below it reads a file that is not there. It is the same fact
+[`hyper project` reports](#one-step-here-is-a-workaround-and-it-is-the-digest), for the same reason.
+Fetch the two files with a `gh` authenticated as somebody who can read the repository, and the rest
+of the block is unchanged:
+
+```bash
+gh release download v$VERSION -p hyper-$VERSION-$PLATFORM.tar.gz -p checksums.txt
+```
+
+The check, the unpack and the install read the same bytes whichever way they arrived, and the
+`curl` pair is what will be right for every reader the day this repository opens.
+
 ### From source
 
 Go 1.25 or newer, which `go.mod` carries. `go install` is fine — it takes `-ldflags` like any
