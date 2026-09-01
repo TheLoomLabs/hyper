@@ -78,6 +78,19 @@ Manifest, it contains no code; it may not shadow a built-in Provider's name, and
 reserved to built-ins are never granted to it.
 _Avoid_: Plugin, Package, Module
 
+**Ref**:
+Where a Manifest is published, and the whole of what `install` takes: an absolute `https://` URL
+naming the file itself. It is a location rather than a name in anyone's namespace, so nothing expands
+it and nobody owns it, and it is recorded as the caller typed it — whatever redirect the bytes
+arrived through.
+_Avoid_: Package name, Coordinate, Identifier, URI
+
+**Registry**:
+Wherever a Manifest and the `checksums.txt` beside it are published — a static host, a branch, a
+bucket. `hyper` names none, ships none, and asks nothing of one beyond serving two files out of one
+directory.
+_Avoid_: Index, Hub, Catalogue, Repository
+
 ### Authored artefacts
 
 **Definition**:
@@ -242,7 +255,8 @@ _Avoid_: Query, Check, Ad-hoc run, One-shot
 What caused a Run to happen — a clock or a person — and which executor it happened on. A fact about
 the occasion rather than about the code, and the only thing that distinguishes a world that has not
 changed from one nobody has looked at.
-_Avoid_: Source, Cause, Origin, Event
+_Avoid_: Source, Cause, Event; and Origin, as a name for the Trigger — an installed
+Manifest's `origin:` block names where its bytes came from, which is a different thing.
 
 **Refusal**:
 A terminal Run outcome in which a guardrail declined before any effect reached the world. Usually
