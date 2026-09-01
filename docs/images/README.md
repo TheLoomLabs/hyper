@@ -1,6 +1,6 @@
 # `docs/images/`
 
-The README's hero, and nothing else.
+The README's hero, and the card GitHub shows in a link preview.
 
 An image is none of the five reviewed artefacts. It carries no authority, no
 `check` counts it, and nothing about a Run reads it — the same argument
@@ -9,64 +9,69 @@ made for `AGENTS.md`. It lives here rather than at the repository root for that
 reason: the root is where the one artefact with no directory sits, and a file
 with no authority does not belong beside it.
 
-A repository whose claim is that reading the artefact is sufficient should not
-hold a blob nobody can read. So the hero is **SVG, hand-written, and reviewed
-like anything else here**: no raster, no external font, no script. `git diff`
-over it says what moved.
+## This directory used to hold no raster, and now it holds nothing else
 
-`social-preview.png` is the one raster, and it is here under protest rather than
-by preference — GitHub's *Settings → General → Social preview* accepts PNG, JPG
-and GIF and **no SVG**, so the card that represents this repository in every
-link preview cannot be the format the rest of this directory argues for. The
-compromise is that the PNG is never authored: `social-preview.svg` sits beside
-it, is what anyone edits, and the PNG is regenerated from it. Review the SVG;
-the PNG is output.
+The earlier hero was hand-written SVG, and this file argued for that at length:
+a repository whose claim is that reading the artefact is sufficient should not
+hold a blob nobody can read, so the hero was linework `git diff` could speak
+about.
+
+**That argument was right about artefacts and wrong about this file.** What it
+bought was a hero that could be diffed and a hero that looked like a diagram —
+and the thing it was diagramming was `hyper`'s own `review` screen, quoted
+verbatim, which made the image a claim about a rendering that went stale the
+moment the rendering moved. The SVG discipline was being applied to the one file
+in the repository that is not an argument and is not read: it is what somebody
+sees for two seconds before deciding whether to keep scrolling.
+
+So the hero is now a photograph, and the honest consequence is that **nobody can
+review it by reading it.** That is a real cost and it is accepted here rather
+than argued away. It is bounded: the image asserts nothing about the tool that
+could become false, so a reader is never misled by a hero that drifted — the
+worst it can do is be a picture somebody dislikes.
 
 ## What it depicts
 
-[§0](../spec/01-what-hyper-is.md)'s worked example, abridged: an agent widened a
-`destroy` Step's Bound from 3 to 5, and the review renders `DESTROY`, `WIDENED`
-and `ENVELOPE` beside the lines that made the claim. **It is a claim, like any
-diagram, and nothing checks it** — the wording is §0's verbatim, so if §0's
-example changes this file is stale and should be regenerated with it.
+A precision optical instrument on a steel frame: **five machined apertures held
+in line, each narrower than the one before.** A single beam enters the widest and
+passes through all five; what emerges from the last is the word.
 
-The three pills — *no plan*, *no daemon*, *no telemetry* — are
-[§13](../spec/14-non-goals-and-honest-limits.md)'s, and are three of the six the
-README's own non-goals section states in full.
+That is `hyper`'s shape. An agent could do anything. The Manifest declares the
+Capabilities it needs; the Target declaration grants a subset; the Bound caps how
+far a Step may reach; the review approves what is left. **What touches the world
+is only what every one of them permitted** — and each plate is an object with
+graduations engraved on it, which is the other half of the claim: the narrowing
+is not hidden in a service, it is a thing you can pick up and read.
 
-## Regenerating the social preview
+The beam is not stopped by the plates. Nothing here is about refusal for its own
+sake; it is about arriving *exact*.
 
-`social-preview.svg` is 1280x640, the 2:1 ratio GitHub crops that card to, and
-it is dark-only: a social card is a fixed image and cannot answer a
-`prefers-color-scheme` query the way the hero does. Any headless renderer will
-do; this is the one used:
+## The files
 
-```bash
-google-chrome --headless --screenshot=docs/images/social-preview.png \
-  --window-size=1280,640 --force-device-scale-factor=1 \
-  file://$PWD/docs/images/social-preview.svg
-```
+| file | size | where it is used |
+|---|---|---|
+| `hero.jpg` | 1280×490 | the README's first element |
+| `social-preview.jpg` | 1280×640 | GitHub's link-preview card |
 
-Uploading it is a manual step and has to be — the REST API exposes no social
-preview, so `gh` cannot set it. It is *Settings → General → Social preview →
-Edit*, and the file must stay under 1 MB.
+Both are crops of one master, and **the master is not in this repository** — it
+is a generated image kept outside the tree, so re-cropping needs it rather than
+being derivable from what is here. That is the second cost of the format change,
+stated so nobody goes looking.
 
-## The two hero files
+JPEG rather than PNG: the content is photographic, and at quality 92 with no
+chroma subsampling it is visually identical to the PNG at a sixth of the bytes.
+The social card must stay under GitHub's 1 MB limit, which the PNG very nearly
+was not.
 
-`hero-light.svg` and `hero-dark.svg` are generated from one template and
-**differ only in their palette**. Every coordinate is identical, which is
-mechanically checkable:
+## Uploading the social preview
 
-```bash
-diff <(sed -E 's/#[0-9a-f]{6}|0\.[0-9]+//g' hero-light.svg) \
-     <(sed -E 's/#[0-9a-f]{6}|0\.[0-9]+//g' hero-dark.svg)
-```
+There is no API for it — the REST API exposes no social preview, so `gh` cannot
+set it. It is *Settings → General → Social preview → Edit*, by hand, and the file
+must stay under 1 MB.
 
-An edit made to one and not the other shows up there rather than as a hero that
-is subtly wrong in one theme. `README.md` selects between them with `<picture>`
-and `prefers-color-scheme`, which GitHub wraps in its own `<themed-picture>`;
-the `<img>` fallback is the light file, which is what a renderer understanding
-neither will show.
+## Diagrams
 
-This directory holds no diagrams. The structural ones are mermaid, written in
-the README itself — GitHub renders them natively, and they are reviewed as text.
+This directory holds none. The structural ones are mermaid, written in the README
+itself — GitHub renders them natively, and they are reviewed as text. The
+argument at the top of this file still holds for those: a diagram makes a claim,
+and a claim should be readable.

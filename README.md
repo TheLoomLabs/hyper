@@ -1,7 +1,4 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.svg">
-  <img src="docs/images/hero-light.svg" alt="hyper — the review surface, abridged: an agent widened a destroy Step's Bound from 3 to 5, and the review flags DESTROY, WIDENED and ENVELOPE beside the lines that made the claim, before anything ran. Nothing reaches the world unreviewed; nothing changes unseen.">
-</picture>
+<img src="docs/images/hero.jpg" alt="hyper — a precision optical instrument photographed in a dark studio: five machined apertures held in line on a steel frame, each narrower than the one before, with a single beam entering the widest and emerging from the last as the word hyper.">
 
 # hyper
 
