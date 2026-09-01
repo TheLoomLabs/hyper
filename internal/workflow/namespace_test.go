@@ -31,6 +31,7 @@ func TestProcedureOf_IsPathReadBackwards(t *testing.T) {
 func TestProcedureOf_AnswersFalseOutsideTheNamespace(t *testing.T) {
 	outside := []string{
 		".github/workflows/release.yml",
+		".github/workflows/suite.yml",
 		".github/workflows/hyper-nightly.yaml",
 		".github/workflows/nested/hyper-nightly.yml",
 		".github/hyper-nightly.yml",

@@ -70,10 +70,20 @@ archive runs, and a browser download does — `xattr -d com.apple.quarantine
 1. Land everything, on `main`, with the tests green.
 2. Push the tag: `git tag v0.0.1-alpha && git push origin v0.0.1-alpha`.
 3. [`.github/workflows/release.yml`](../../.github/workflows/release.yml) does
-   the rest — it pins the toolchain to go.mod's directive, builds through
+   the rest — it runs the suite on the tree the tag names, pins the toolchain to
+   go.mod's directive, builds through
    [`scripts/release.sh`](../../scripts/release.sh), checks that the binary
    inside the artefact reports the tag, and creates the release with the
    archives and `checksums.txt`.
+
+Step 1 is no longer only an instruction to a person. `release.yml` calls
+[`suite.yml`](../../.github/workflows/suite.yml) and `publish` waits on it, so a
+tag pushed at a red tree fails before anything is published — on the tree under
+the tag rather than on whatever `main` last ran
+([ADR-0123](../adr/0123-the-suite-is-run-by-a-machine-and-a-prepared-machine-may-not-skip.md),
+[#243](https://github.com/TheLoomLabs/hyper/issues/243)). What that costs is the
+suite's minutes between the push and the release, which is the same wait a pull
+request pays.
 
 Nothing else publishes, and the version is never written into a tracked file
 here: the tag is the only place a release's version is authored, and every

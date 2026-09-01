@@ -18,6 +18,13 @@
 # here. What it does share is the ethos: one action, pinned by commit, and no
 # setup action deciding which bytes build the binary — the toolchain is pinned
 # below by the directive in go.mod, which is a file under review here.
+#
+# **Nothing is published until the suite is green on the tree being published**
+# (issue #243). `suite.yml` is called rather than transcribed, and `publish`
+# waits on it: a tag is pushed at a commit, no `push` or `pull_request` run
+# covers it, and a green `main` is not the tree under the tag. What used to
+# stand in front of the one thing here that reaches the world was the
+# string comparison below — a gate on the label on the tin.
 name: release
 
 on:
@@ -29,7 +36,14 @@ permissions:
   contents: write
 
 jobs:
+  # The same file `main` and every pull request run, on the tree the tag names.
+  # It is named by path, which is this commit's copy of it — the one form of
+  # `uses:` that needs no commit pin because it already is one.
+  suite:
+    uses: ./.github/workflows/suite.yml
+
   publish:
+    needs: [suite]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8

@@ -170,10 +170,16 @@ func pinnedBy(t *testing.T, repo string) string {
 // needSeal skips where `bwrap` is present but cannot build a namespace — a
 // container with user namespaces switched off, which is a property of the
 // machine rather than of anything this repository can fix.
+//
+// **Where the machine claims it was prepared, the same fact is a failure**
+// (`unavailable`, suite_test.go, issue #243). This case and the tools it needs
+// are the whole of what fences six acceptance tasks, so a runner that lost
+// `bwrap` between one job and the next would go green having run none of it —
+// the silent version of the rot #222 closed.
 func needSeal(t *testing.T) {
 	t.Helper()
 
 	if err := exec.Command("bwrap", "--bind", "/", "/", "--dev", "/dev", "true").Run(); err != nil {
-		t.Skipf("bwrap cannot build a namespace here (%v); the acceptance harness cannot be sealed", err)
+		unavailable(t, "bwrap cannot build a namespace here (%v); the acceptance harness cannot be sealed", err)
 	}
 }

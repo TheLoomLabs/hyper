@@ -10,6 +10,7 @@ expected to look like when it lands.
 
 ```bash
 go build ./...
+go vet ./...
 go test ./...
 ```
 
@@ -30,6 +31,24 @@ go test ./internal/cli -run 'TestGolden/check/'
 ```
 
 Run `go test ./...` whole before you open a change.
+
+## What runs it besides you
+
+[`.github/workflows/suite.yml`](.github/workflows/suite.yml) runs `go build`,
+`go vet` and `go test` over everything, on every push to `main` and on every
+pull request, and [`release.yml`](.github/workflows/release.yml) calls that same
+file and waits on it — so a tag cannot publish a tree the suite fails on
+([ADR-0123](docs/adr/0123-the-suite-is-run-by-a-machine-and-a-prepared-machine-may-not-skip.md),
+[#243](https://github.com/TheLoomLabs/hyper/issues/243)).
+
+The runner installs `bubblewrap`, because the acceptance seam below needs it,
+and the test step sets **`SUITE_PREPARED=1`**. That variable is one claim: *the
+tools are installed and a namespace can be built here*. The gates in `cmd/hyper`
+that would otherwise skip — a tool missing from `PATH`, a `bwrap` that cannot
+build a namespace — fail instead when it is set, because on a machine that
+promised the tool, its absence is a defect in the promise. Leave it unset
+locally, where a skip is the honest answer: a suite that failed on a machine
+without `bwrap` would be asserting something about the machine.
 
 ## The golden corpus
 

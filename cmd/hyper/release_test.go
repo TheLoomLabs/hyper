@@ -14,8 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/TheLoomLabs/hyper/internal/release"
 	"github.com/TheLoomLabs/hyper/internal/workflow"
 )
@@ -104,30 +102,11 @@ func TestRelease_TheArtefactHoldsTheBinaryTheInstallStepInvokes(t *testing.T) {
 // files it wrote are uploaded to one release (§11, issue #191).
 //
 // It reads the steps and never the file, a workflow's own comments being the
-// one place every string below could appear while the job did none of it.
+// one place every string below could appear while the job did none of it. The
+// reading is `suite_test.go`'s, which is where the two workflows' shared rules
+// are held — one parser rather than two that drift (issue #243).
 func TestRelease_TheTagRunsTheScriptTheseCasesRun(t *testing.T) {
-	source, err := os.ReadFile(filepath.Join(root(t), ".github", "workflows", "release.yml"))
-	if err != nil {
-		t.Fatalf("this repository publishes no release: %v", err)
-	}
-
-	var published struct {
-		Jobs map[string]struct {
-			Steps []struct {
-				Run string `yaml:"run"`
-			} `yaml:"steps"`
-		} `yaml:"jobs"`
-	}
-	if err := yaml.Unmarshal(source, &published); err != nil {
-		t.Fatalf("the release workflow does not parse: %v", err)
-	}
-
-	var runs []string
-	for _, job := range published.Jobs {
-		for _, step := range job.Steps {
-			runs = append(runs, step.Run)
-		}
-	}
+	runs := runsOf(workflowOf(t, "release.yml"))
 	if len(runs) == 0 {
 		t.Fatal("the release workflow runs no step at all")
 	}
@@ -183,6 +162,10 @@ func hostPlatform(t *testing.T) string {
 	case "darwin/arm64":
 		return "aarch64-darwin"
 	}
+	// A skip and not `unavailable`: what this one says is that the release
+	// publishes nothing for this architecture, which no preparation of the
+	// machine could change. `SUITE_PREPARED` claims the tools are installed,
+	// not that the runner is one of the four platforms (issue #243).
 	t.Skipf("the release publishes nothing for %s/%s; a released binary cannot be run here", runtime.GOOS, runtime.GOARCH)
 	return ""
 }
@@ -220,13 +203,17 @@ func digestOf(t *testing.T, path string) string {
 	return "sha256:" + hex.EncodeToString(sum.Sum(nil))
 }
 
-// needTools skips where the machine cannot build or unpack a release. A case
-// that cannot run says so rather than passing on an assertion it never reached.
+// needTools skips where the machine is missing something a case needs on
+// PATH — building or unpacking a release here, sealing the acceptance harness
+// in the case next door. A case that cannot run says so rather than passing on
+// an assertion it never reached, and on a machine that claims it was prepared
+// it says so by failing, which is `unavailable`'s rule (suite_test.go, issue
+// #243).
 func needTools(t *testing.T, tools ...string) {
 	t.Helper()
 	for _, tool := range tools {
 		if _, err := exec.LookPath(tool); err != nil {
-			t.Skipf("%s is not on PATH; a release cannot be built here", tool)
+			unavailable(t, "%s is not on PATH; a case that needs it cannot run here", tool)
 		}
 	}
 }

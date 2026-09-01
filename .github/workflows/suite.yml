@@ -1,0 +1,97 @@
+# What runs the suite, on every event a change arrives by (issue #243).
+#
+# Until this file the only workflow here was `release.yml`, a tag was its whole
+# trigger, and it published. `docs/build/releasing.md`'s first act — *land
+# everything, on `main`, with the tests green* — was an instruction to a person
+# and an assertion nothing checked: a tag pushed against a red tree built,
+# version-checked and published. That worked while one person did all of it in
+# sequence, which is a habit rather than a property this repository holds.
+#
+# **It is callable as well as triggered**, and that is why `release.yml` can
+# wait on it. A green `main` says nothing about the tree a tag names — neither
+# `push` nor `pull_request` fires for a tag, and the commit a tag points at is
+# not the one the last `main` run tested — so the release calls this same file
+# rather than carrying a second transcription of it, the way it already runs
+# `scripts/release.sh` rather than a copy of its commands.
+#
+# The rules it shares with `release.yml` are that file's, for that file's
+# reasons: every action pinned by commit, and no setup action deciding which
+# bytes build the binary — the toolchain is the directive in go.mod, which is a
+# file under review here.
+# `cmd/hyper/suite_test.go` holds all of it, reading the steps and never the
+# comments.
+name: suite
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  suite:
+    runs-on: ubuntu-24.04
+    # The suite is minutes; `internal/cli` is ~110s of it and the acceptance
+    # seam builds a binary per task. The bound is here so that a case that
+    # hangs — a sealed namespace that never comes back, a child nothing reaps —
+    # costs a job rather than the six hours a runner would otherwise give it.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+
+      # go.mod's directive exactly, read from it rather than written here, and
+      # spelled the same way `release.yml` spells it: the Go this repository
+      # builds and tests against lives in one file. Left alone it would be
+      # whichever Go the image ships wherever that satisfies the directive.
+      - name: pin the toolchain to go.mod's directive
+        run: echo "GOTOOLCHAIN=go$(go list -m -f '{{.GoVersion}}')" >> "$GITHUB_ENV"
+
+      # `cmd/hyper`'s acceptance case runs the setup half of
+      # `scripts/acceptance/run.sh`, which seals a mount namespace with
+      # `bwrap(1)`, and the image ships no bubblewrap. Without it the case
+      # skips in silence and the fence that ranges over `tasks/*.md` — the one
+      # thing keeping six acceptance tasks from going unchecked — is the single
+      # part of the suite this job does not run.
+      - name: install bubblewrap
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap
+
+      # Ubuntu 24.04 restricts unprivileged user namespaces through AppArmor,
+      # and a namespace is the whole of what `bwrap` needs. The package ships a
+      # profile that permits it; where that has not taken effect the
+      # restriction is lifted here, on a runner this job owns for its lifetime
+      # and which is not a security boundary for anything the seal does
+      # (ADR-0099). The second invocation is what makes this step's answer the
+      # job's: if a namespace still cannot be built, the failure is here, where
+      # it names its cause, rather than in `go test` where it would read as a
+      # test that could not run.
+      - name: the runner can build a namespace
+        run: |
+          bwrap --bind / / --dev /dev true ||
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --bind / / --dev /dev true
+
+      - name: build
+        run: go build ./...
+
+      - name: vet
+        run: go vet ./...
+
+      # `SUITE_PREPARED` is this job saying that everything above happened: the
+      # tools are installed and a namespace can be built, so a case that says it
+      # cannot run here is a defect in the steps above rather than a property of
+      # the machine. The gates in `cmd/hyper` read it and fail instead of
+      # skipping — without it a runner that lost `bwrap` would go green while
+      # running none of the acceptance seam, which is exactly the state this
+      # workflow exists to end.
+      - name: test
+        env:
+          SUITE_PREPARED: '1'
+        run: go test ./...
