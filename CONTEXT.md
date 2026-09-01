@@ -73,9 +73,9 @@ renders it. A Provider naming no scheme sends no credential.
 _Avoid_: Auth method, Credential type, Signer, Protocol
 
 **Extension**:
-A Provider authored and distributed by someone other than `hyper` itself. Being a Manifest, it
-contains no code; it may not shadow a built-in Provider's name, and the Capabilities reserved to
-built-ins are never granted to it.
+A Provider authored by someone other than `hyper` itself, whether or not it was fetched. Being a
+Manifest, it contains no code; it may not shadow a built-in Provider's name, and the Capabilities
+reserved to built-ins are never granted to it.
 _Avoid_: Plugin, Package, Module
 
 ### Authored artefacts
