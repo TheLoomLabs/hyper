@@ -37,11 +37,17 @@ spelling of the basename are the publisher's tool's rather than something compos
 | `no-trailing-newline/` | 2690 B, ends `7d` | `e3c5b659…` |
 
 The alteration in `mismatch/` is one line — `path: /v1/locations` reads `path: /v1/servers` — chosen
-because it is what this Manifest *can* express. Every Operation in it carries `host: "{from-target}"`,
-so **a tampered Manifest cannot redirect a request to a host the installing repository did not already
-name.** That is a real property of the Manifest schema and it narrows what a substitution buys an
-attacker, but it does not close the door: an altered `path`, `query` or auth header still reaches the
-Target under the Target's own credential, which is why the digest is the check that matters.
+because it is what a substitution of this Manifest can usefully express. **A tampered Manifest cannot
+redirect a request to a host the installing repository did not grant**, and the reason is the grant
+rather than the Manifest: `ResolveHost` expands the Operation's `host:` template to a candidate set
+and admits only its intersection with the Target declaration's `hosts:`, answering `host-not-granted`
+where that is empty (§3, [ADR-0029](0029-a-host-is-a-candidate-set-a-grant-and-their-intersection.md),
+[ADR-0042](0042-a-probe-is-bounded-by-the-grant-it-binds.md)). A Manifest writing a literal host is
+within the schema — `host:` is a required string and only its *holes* are constrained to
+`from-target` or a declared enumeration — so nothing about the Manifest is what stops it; the
+Target's grant is. That narrows what a substitution buys an attacker without closing the door: an
+altered `path`, `query` or auth header still reaches the granted host under the Target's own
+credential, which is why the digest is the check that matters.
 
 Served bytes were confirmed byte-identical to committed bytes before any `install` ran. Both files
 come back `text/plain; charset=utf-8` with zero redirects on `raw.githubusercontent.com`, and one
