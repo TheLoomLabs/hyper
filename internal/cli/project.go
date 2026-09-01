@@ -359,7 +359,8 @@ func readDeclaration(loaded repository.Loaded) standingDeclaration {
 // limit — all of them can differ between two invocations of an identical command
 // line, which is exactly what `77` promises they cannot, and `1` is where
 // `install` already puts them (§11, §12, ADR-0060). Which statuses fall on which
-// side is internal/release's. Nothing is written on either path.
+// side is internal/release's, and which remedy the Refusal names is remedyFor's.
+// Nothing is written on either path.
 func frozenDigest(dial capability.Dial, declared standingDeclaration, binaryVersion string, to destination) (string, int) {
 	if declared.version == binaryVersion {
 		return declared.digest, 0
@@ -372,12 +373,40 @@ func frozenDigest(dial capability.Dial, declared standingDeclaration, binaryVers
 		// An unreleased binary runs and checks and cannot project, which
 		// is the same statement as: every pin in every repository names a
 		// version somebody can download (§11).
-		return "", refuse(to, release.CodeArtefactAbsent, absent.Error()+" — publish a release for "+binaryVersion+", or install a released hyper")
+		return "", refuse(to, release.CodeArtefactAbsent, absent.Error()+" — "+remedyFor(absent, binaryVersion))
 	case err != nil:
 		fmt.Fprintf(to.narrate(), "hyper project: the checksum for %s did not arrive: %s\n", binaryVersion, err)
 		return "", ExitProblems
 	}
 	return digest, 0
+}
+
+// remedyFor is the sentence after the em dash on a `release-artefact-absent`
+// Refusal, and there are two of them because the two absences are of different
+// standing (#254, ADR-0127).
+//
+// **A remedy may not assert what the answer could not establish.** Where the
+// checksums file arrived and named no artefact, the release is readable and its
+// contents were seen: it does not hold this version's artefact, and the two
+// routes out are publishing one and running a binary some release does name.
+// Where nothing arrived, the status was `404` or `410` — and this read carries no
+// credential (ADR-0007), so a release published where nothing unauthenticated
+// may read it answers exactly as an absent one does. Telling that operator to
+// publish a release they have already published, and to install a released
+// binary they are already running, is a remedy that is false twice over and
+// leaves the true route out — make it readable — unnamed. So the sentence names
+// the third possibility rather than resolving it, which is the one honest thing
+// to say about an answer that cannot tell them apart.
+//
+// **The Refusal and the exit code are unchanged**, and that is the point: `77`
+// promises a verbatim retry Refuses identically, which a private release keeps —
+// it is `hyper`'s reading of the fact that is corrected here and never its
+// verdict (§11, §12).
+func remedyFor(absent *release.Absent, binaryVersion string) string {
+	if absent.Arrived() {
+		return "publish a release for " + binaryVersion + ", or install a released hyper"
+	}
+	return "publish a release for " + binaryVersion + ", make an existing one readable unauthenticated, or install a released hyper"
 }
 
 // reasonFor is what a file operation failed with, less the path it already

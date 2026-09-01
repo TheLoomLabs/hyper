@@ -49,10 +49,11 @@ func TestDigest_FreezesTheLineNamingTheArtefact(t *testing.T) {
 	}
 }
 
-// TestDigest_NoChecksumsFileUnderTheTagIsAbsent is two of the code's three
-// shapes arriving as one answer: a tag with no release under it and a release
-// with no checksums file beside it are both *nothing is published there*, and
-// the answer arrived, which is what makes it a check declining (§11).
+// TestDigest_NoChecksumsFileUnderTheTagIsAbsent is three of the code's shapes
+// arriving as one answer: a tag with no release under it, a release with no
+// checksums file beside it and a release nobody may read unauthenticated are
+// all `404` on a fetch that carries no credential, and the answer arrived,
+// which is what makes it a check declining (§11, ADR-0007, ADR-0127).
 func TestDigest_NoChecksumsFileUnderTheTagIsAbsent(t *testing.T) {
 	dial := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not Found", http.StatusNotFound)
@@ -69,12 +70,17 @@ func TestDigest_NoChecksumsFileUnderTheTagIsAbsent(t *testing.T) {
 			t.Errorf("the fault is %q, want it to name %q", absent, want)
 		}
 	}
+	if absent.Arrived() {
+		t.Errorf("Arrived() = true, want false: nothing was read, and a private release answers this way too (#254)")
+	}
 }
 
-// TestDigest_NoLineForTheArtefactIsAbsent is the third shape: the file is there
-// and names no artefact for the platform `runs-on` fixes, which is a
-// disagreement between the release and the template the binary holds and cannot
-// be argued out of (§11).
+// TestDigest_NoLineForTheArtefactIsAbsent is the shape that arrives as its own
+// answer: the file is there and names no artefact for the platform `runs-on`
+// fixes, which is a disagreement between the release and the template the
+// binary holds and cannot be argued out of. It is also the only absence here
+// that was observed rather than inferred, which is what Arrived reports and
+// what parts the two remedies (§11, ADR-0127).
 func TestDigest_NoLineForTheArtefactIsAbsent(t *testing.T) {
 	dial := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "3a1f0b6c0d9e4a7b8c5d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b  hyper-"+version+"-aarch64-linux.tar.gz")
@@ -88,6 +94,9 @@ func TestDigest_NoLineForTheArtefactIsAbsent(t *testing.T) {
 	}
 	if !strings.Contains(absent.Error(), workflow.ArtefactName(version)) {
 		t.Errorf("the fault is %q, want it to name the artefact it looked for", absent)
+	}
+	if !absent.Arrived() {
+		t.Errorf("Arrived() = false, want true: the file was read, so this absence was observed rather than inferred (#254)")
 	}
 }
 

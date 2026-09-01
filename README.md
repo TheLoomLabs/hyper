@@ -378,13 +378,15 @@ it, and `git push` sends it wherever the code goes
 The documented first act on a new repository is `hyper project`, which writes the version pin,
 freezes the digest of the released artefact beside it
 ([§11](docs/spec/12-distribution-and-version-pinning.md)), and leaves an `AGENTS.md` where the
-repository has none. It cannot succeed today, because no release of `hyper` has been
-published:
+repository has none. It cannot succeed today, and the reason is the fourth shape §11 names:
+`v0.0.1-alpha` is published, this repository is private, and the read `project` makes carries no
+credential — so the release answers `404` exactly as an absent one would
+([ADR-0125](docs/adr/0125-the-world-answered-for-the-first-time-and-the-two-404s-differed-only-in-the-kind.md)):
 
 ```console
 $ hyper project
 refused: release-artefact-absent
-  https://github.com/TheLoomLabs/hyper/releases/download/v0.0.1-alpha/checksums.txt answered 404 — publish a release for 0.0.1-alpha, or install a released hyper
+  https://github.com/TheLoomLabs/hyper/releases/download/v0.0.1-alpha/checksums.txt answered 404 — publish a release for 0.0.1-alpha, make an existing one readable unauthenticated, or install a released hyper
 ```
 
 So the quickstart writes `hyper.yaml` by hand, with a placeholder digest. That placeholder is
@@ -393,8 +395,9 @@ digest — and it is **not** inert in a generated workflow, where the digest is 
 checks fetched bytes against. `hyper project` on this repository would happily write a
 workflow that verifies against sixty-four zeros.
 
-Once `v0.0.1-alpha` is cut ([`docs/build/releasing.md`](docs/build/releasing.md)), the first step
-becomes `hyper project`, the hand-written pin goes away, and the `AGENTS.md` comes with it.
+Once `v0.0.1-alpha` is readable — the tag is cut
+([`docs/build/releasing.md`](docs/build/releasing.md)); it is this repository that is closed — the
+first step becomes `hyper project`, the hand-written pin goes away, and the `AGENTS.md` comes with it.
 
 ## Your first repository
 

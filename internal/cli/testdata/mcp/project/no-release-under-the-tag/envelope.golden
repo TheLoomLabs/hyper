@@ -1,6 +1,6 @@
 {
   "content": [
-    {"type":"text","text":"refused: release-artefact-absent\n  https://github.com/TheLoomLabs/hyper/releases/download/v1.4.0/checksums.txt answered 404 — publish a release for 1.4.0, or install a released hyper\n\na verbatim retry refuses identically: no argument to this tool, and no flag anywhere, overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."}
+    {"type":"text","text":"refused: release-artefact-absent\n  https://github.com/TheLoomLabs/hyper/releases/download/v1.4.0/checksums.txt answered 404 — publish a release for 1.4.0, make an existing one readable unauthenticated, or install a released hyper\n\na verbatim retry refuses identically: no argument to this tool, and no flag anywhere, overrides a guardrail (ADR-0001) — the way past is the edit or the command named above."}
   ],
   "isError": true
 }

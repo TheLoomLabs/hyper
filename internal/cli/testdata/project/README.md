@@ -77,8 +77,8 @@ retirement. Both bind one Target under one scheme, so both carry the same one
 | `usage-dry-run` | `--dry-run` is `run`'s and no other command's: the diff `project` writes is the rehearsal |
 | `the-pin-the-binary-disagrees-with` | the upgrade, seen whole: a declaration pinning `1.3.0` under a `1.4.0` binary, the checksum resolved once and frozen, and the two scalars moved with the comments and `retention:` carried through |
 | `a-repository-with-no-pin` | no `hyper.yaml` at all: one is created carrying `kind:`, `version:` and `digest:`, and **no `retention:`** |
-| `no-release-under-the-tag` | `release-artefact-absent`: the checksums file answers `404`, which is a tag with no release and a release with no checksums file alike |
-| `no-line-for-the-artefact` | the same code's third shape: the file is there and names no artefact for the platform `runs-on` fixes |
+| `no-release-under-the-tag` | `release-artefact-absent`: the checksums file answers `404`, which is a tag with no release, a release with no checksums file, and a release nobody may read unauthenticated alike — so the remedy names the third possibility rather than resolving it (#254) |
+| `no-line-for-the-artefact` | the same code's third shape, and the one absence it observes rather than infers: the file is there and names no artefact for the platform `runs-on` fixes, so the remedy is the two routes out and no more |
 | `a-checksum-that-never-arrived` | the connection is refused: exit `1`, the world resisting rather than a check declining, and nothing written |
 | `an-agents-file-that-stands-is-left-alone` | an `AGENTS.md` about the repository's linter, standing before the command ran and byte-identical after it: the note is created or left alone, never overwritten |
 

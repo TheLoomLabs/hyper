@@ -38,24 +38,52 @@ import (
 // CodeArtefactAbsent is the one error_code this package's answers reach (§12).
 const CodeArtefactAbsent = "release-artefact-absent"
 
-// Absent is `release-artefact-absent`'s three shapes as one error: no release
-// under the tag, no checksums file beside it, and no line in that file for the
-// artefact the compiled-in template names.
+// Absent is `release-artefact-absent`'s shapes as one error: no release under
+// the tag, no checksums file beside it, a release published where nothing
+// unauthenticated may read it, and no line in the file for the artefact the
+// compiled-in template names.
 //
-// The three are one code because all three are the same fact for a reader —
-// there is no artefact to pin — and because the remedy for each is a released
-// binary rather than an edit. Two of them are also one *answer*: a tag with no
-// release and a release with no checksums file are both a request for something
-// that is not there, and a second read to tell them apart would be `project`
-// resolving twice to render a distinction nobody acts on (§11).
+// They are one code because all of them are the same fact for a reader — there
+// is no artefact this binary can pin — and because the remedy for each is a
+// release or a different binary rather than an edit. The first three are also
+// one *answer*: a tag with no release, a release with no checksums file and a
+// release nobody may read are all `404` on this read, and a second read to tell
+// them apart would be `project` resolving twice — and, for the third, resolving
+// twice with a credential it does not have and will not take (§11, ADR-0007).
 //
-// What separates it from every other failure here is that the answer **arrived**,
-// which is what makes it a check declining rather than the world resisting: a
-// host that never responded is a fetch that did not complete, and that is
-// `install`'s own rule one command over (§11, ADR-0060).
-type Absent struct{ fault string }
+// What separates it from every other failure here is that the answer
+// **arrived**, which is what makes it a check declining rather than the world
+// resisting: a host that never responded is a fetch that did not complete, and
+// that is `install`'s own rule one command over (§11, ADR-0060).
+type Absent struct {
+	fault string
+
+	// arrived is whether the checksums file was read, which Arrived
+	// states.
+	arrived bool
+}
 
 func (a *Absent) Error() string { return a.fault }
+
+// Arrived answers whether the checksums file itself was read: true where it
+// arrived and named no artefact for this version, false where the release host
+// answered `404` or `410` and nothing was read at all.
+//
+// **It exists because the two are absences of different standing, and a remedy
+// that ignored the difference is wrong for a whole class of repository
+// (#254).** A file that arrived and names no artefact is an absence observed:
+// the release is readable, and what is missing is missing. A `404` is an
+// absence *inferred* from a status that a published release nobody may read
+// answers identically — this fetch carries no credential (ADR-0007) — so a
+// remedy asserting the release is not published states as fact the one thing
+// the answer cannot establish. Which sentence each gets is `project`'s
+// (internal/cli/project.go, §11).
+//
+// It is not a second error_code. §12's set is closed and both are the same fact
+// for a reader — there is no artefact to pin — and a reader handed a code of
+// its own would be handed a distinction `hyper` cannot make: the private shape
+// is invisible here, and what parts them is only whether the file was read.
+func (a *Absent) Arrived() bool { return a.arrived }
 
 // MaxChecksums is how much of a checksums file is read. It is a few hundred
 // bytes by construction — one `sha256sum` line per published file — and the cap
@@ -98,7 +126,7 @@ func Digest(ctx context.Context, dial capability.Dial, version string) (string, 
 	defer response.Body.Close()
 
 	if absent, answered := absentAt(response.StatusCode); absent {
-		return "", &Absent{fmt.Sprintf("%s answered %d", url, response.StatusCode)}
+		return "", &Absent{fault: fmt.Sprintf("%s answered %d", url, response.StatusCode)}
 	} else if !answered {
 		return "", fmt.Errorf("%s answered %d", url, response.StatusCode)
 	}
@@ -112,7 +140,7 @@ func Digest(ctx context.Context, dial capability.Dial, version string) (string, 
 	if digest, named := DigestIn(string(published), name); named {
 		return digest, nil
 	}
-	return "", &Absent{fmt.Sprintf("%s names no %s", url, name)}
+	return "", &Absent{fault: fmt.Sprintf("%s names no %s", url, name), arrived: true}
 }
 
 // absentAt sorts a status line into the two answers this package has: absent

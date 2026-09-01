@@ -518,8 +518,9 @@ is correct; the widening that worked in `not-run`'s case fails here on the set's
 direction;
 `version-pin-absent`, a command that needs the pin and finds none; and `release-artefact-absent`,
 `project` unable to resolve a published artefact for its own version — no release under the tag, no
-checksums file beside it, or no line in that file for the artefact the compiled-in template names
-(§11). Four are the Extension's:
+checksums file beside it, no line in that file for the artefact the compiled-in template names, or a
+release published where nothing unauthenticated may read it, which answers as the first two do and is
+named in the remedy rather than in a code of its own (§11). Four are the Extension's:
 `origin-digest-mismatch`, fetched bytes or an installed Manifest that no longer match the digest
 `install` verified — the check and the Provenance field it guards name one fact (§7);
 `provider-name-collision`, a Manifest taking a built-in Provider's name;

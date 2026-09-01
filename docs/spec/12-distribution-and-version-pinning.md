@@ -80,6 +80,17 @@ checksums file beside it, and no line in that file for the artefact the template
 binary therefore runs and checks and cannot project, which is the same statement as: every pin in every
 repository names a version somebody can download.
 
+**A fourth shape reaches it and cannot be told from the first two.** This read carries no credential
+and never will (ADR-0007), so a release that is published where nothing unauthenticated may read it —
+a private repository, a private fork — answers exactly as an absent one does. `hyper` classifies it
+with them, which `77` allows on its own criterion: a verbatim retry Refuses identically. What the
+Refusal may not do is state as fact the thing the answer could not establish, so the remedy turns on
+whether the checksums file was read (ADR-0127). Where it arrived and named no artefact, the release
+was readable and its contents were seen: the remedy names publishing a release for this version and
+installing a binary some release does name. Where nothing arrived, the remedy names those two and,
+between them, making an existing release readable unauthenticated — the third possibility named
+rather than resolved.
+
 **A fetch that did not complete is exit `1` and not that code**, which is `install`'s own rule one
 command over (§9, ADR-0060): a host that did not respond, a resolution that timed out, no network at
 all — and equally a release host that answered a rate limit or a bad gateway, which is an answer that
