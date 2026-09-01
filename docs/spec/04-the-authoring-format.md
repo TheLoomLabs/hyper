@@ -135,6 +135,25 @@ conjunct its own, which is what the gutter annotates and what the Comparison ren
 from. A predicate list is always AND;
 there is no disjunction anywhere in it (ADR-0022).
 
+A predicate rooted at an earlier Step takes **every Record that Step acted on** and holds where each of
+them satisfies it. That is the reading the operator set already has — a predicate is a filter, and a
+filter over a population is the same AND a predicate list is — so a Step of `series` cardinality, and a
+Step ranging over an Expansion, are roots like any other and neither is declined. `series-reference`
+(§4) declines the **reference** and not the predicate, and the difference is the position rather than an
+inconsistency: a value takes one thing and a filter takes a population, so the shape that has to name
+one Record is the one written where a scalar was expected. Every Record is evaluated whether or not an
+earlier one settled the answer, so whether a Run Refuses does not depend on which Record a response
+happened to project first (ADR-0035); where the root acted on no Record at all the predicate does not
+hold, there being nothing for the operator to be true of and no fall-through to the Store (§6).
+
+**A root that expands is a stricter test than a root that does not, and it is the author's to mean.** A
+`require:` rooted at a list read asks its question of every member the list came back with, which is
+what an operator saying *make sure it is still watching what you think it is* usually does not mean —
+the one they meant is the Record of the Step that created the thing. Nothing declines the wider
+reading: it halts more and never less, and a rule that guessed which one was intended would be `hyper`
+reading a sentence out of an artefact. What the halt says instead is how many Records the root held and
+how many of them satisfied the test, which is where the difference is visible (§6, ADR-0126).
+
 A `field:` is one of two things, decided by the root it is written under. At the two Record roots — a
 selector, and a condition or the `require:` that shares its root — it names one key of the Manifest's
 `fields:` mapping and nothing else: a Record's field names are flat and authored, so there is no path

@@ -388,44 +388,54 @@ func TestStepFile_CarriesTheAnsweredSectionSevenPublishesForEachCapability(t *te
 	}{
 		"an http status that came back": {
 			answered: store.HTTPAnswer{Host: "api.cloudflare.com", Status: store.Arrived(500)},
-			want: `  "answered": {
-    "host": "api.cloudflare.com",
-    "status": 500
-  },`,
+			want: `  "answered": [
+    {
+      "host": "api.cloudflare.com",
+      "status": 500
+    }
+  ],`,
 		},
 		"a request that never left": {
 			answered: store.HTTPAnswer{Host: "api.cloudflare.com"},
-			want: `  "answered": {
-    "host": "api.cloudflare.com"
-  },`,
+			want: `  "answered": [
+    {
+      "host": "api.cloudflare.com"
+    }
+  ],`,
 		},
 		"a command that exited nonzero": {
 			answered: store.ShellAnswer{Command: `["rm","-rf","/srv/app/releases/r41"]`, ExitCode: store.Arrived(1)},
-			want: `  "answered": {
-    "command": "[\"rm\",\"-rf\",\"/srv/app/releases/r41\"]",
-    "exit_code": 1
-  },`,
+			want: `  "answered": [
+    {
+      "command": "[\"rm\",\"-rf\",\"/srv/app/releases/r41\"]",
+      "exit_code": 1
+    }
+  ],`,
 		},
 		"a child that never started": {
 			answered: store.ShellAnswer{Command: `["rm","-rf","/srv/app/releases/r41"]`},
-			want: `  "answered": {
-    "command": "[\"rm\",\"-rf\",\"/srv/app/releases/r41\"]"
-  },`,
+			want: `  "answered": [
+    {
+      "command": "[\"rm\",\"-rf\",\"/srv/app/releases/r41\"]"
+    }
+  ],`,
 		},
 		"a command that exited zero after all": {
 			// 0 is an exit code a command really gives, so the
 			// absence above is carried by the Answer and never by
 			// the value.
 			answered: store.ShellAnswer{Command: `["true"]`, ExitCode: store.Arrived(0)},
-			want: `  "answered": {
-    "command": "[\"true\"]",
-    "exit_code": 0
-  },`,
+			want: `  "answered": [
+    {
+      "command": "[\"true\"]",
+      "exit_code": 0
+    }
+  ],`,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			file := stepFile()
-			file.Answered = tc.answered
+			file.Answered = []store.MemberAnswer{{Answered: tc.answered}}
 
 			if got := string(file.Encode()); !strings.Contains(got, tc.want) {
 				t.Errorf("step file:\n%s\nwant it to carry:\n%s", got, tc.want)

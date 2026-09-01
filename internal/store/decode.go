@@ -383,3 +383,27 @@ func (f *fields) run(key string) RunID {
 	}
 	return id
 }
+
+// blocks answers a list member's elements as readers of their own, so that the
+// members inside each are closed exactly as the file's own are. It answers nil
+// where the file carries no such member, and faults where an element is not a
+// mapping.
+//
+// It is block's own answer over a sequence, and it reads the one member that is
+// per-member rather than per-file: a Step's `answered` (§7, ADR-0126).
+func (f *fields) blocks(key string) []*fields {
+	array, present := f.array(key)
+	if !present {
+		return nil
+	}
+	readers := make([]*fields, 0, len(array))
+	for i, element := range array {
+		mapping, ok := element.(Mapping)
+		if !ok {
+			f.fault("%q holds something that is not a mapping at position %d", key, i)
+			return nil
+		}
+		readers = append(readers, newFields(mapping, f.err))
+	}
+	return readers
+}

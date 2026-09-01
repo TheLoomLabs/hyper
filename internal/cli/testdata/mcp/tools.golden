@@ -2081,23 +2081,30 @@ Read one Journal entry back whole: its header, the Refusal its Run recorded, and
                 }
               },
               "answered": {
-                "type": "object",
-                "additionalProperties": false,
-                "description": "What an effectful call gave back where it did not give the ordinary answer. Its presence is that fact; a read's status is the answer, and the answer is in the Record.",
-                "properties": {
-                  "host": {
-                    "type": "string"
-                  },
-                  "status": {
-                    "type": "integer",
-                    "description": "Absent where no response arrived at all, which is the Step whose request provably never left."
-                  },
-                  "command": {
-                    "type": "string"
-                  },
-                  "exit_code": {
-                    "type": "integer",
-                    "description": "Absent where the command was never started: 0 is an answer a shell command gives, and reading an unset field as one is how a request that never left acquires an exit code."
+                "type": "array",
+                "description": "One entry per member of this Step's Expansion whose effectful call did not give the ordinary answer, in Expansion order. A read's status is the answer and is in the Record; which of the three cases ended the Step is read from the disposition beside this list rather than off any one entry.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "member": {
+                      "type": "string",
+                      "description": "The member of expanded_to this answer is about, and absent where the Step resolved no selector and there is none to name. It is what tells which of the Tombstones a destroy wrote was written on a 404."
+                    },
+                    "host": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "description": "Absent where no response arrived at all, which is the member whose request provably never left."
+                    },
+                    "command": {
+                      "type": "string"
+                    },
+                    "exit_code": {
+                      "type": "integer",
+                      "description": "Absent where the command was never started: 0 is an answer a shell command gives, and reading an unset field as one is how a request that never left acquires an exit code."
+                    }
                   }
                 }
               },

@@ -1,7 +1,9 @@
 {
-  "answered": {
-    "host": "api.hetzner.cloud"
-  },
+  "answered": [
+    {
+      "host": "api.hetzner.cloud"
+    }
+  ],
   "definition": "hetzner-staging",
   "disposition": "attempted-world-untouched",
   "ended_at": "2026-08-06T11:03:34.000Z",

@@ -1,8 +1,11 @@
 {
-  "answered": {
-    "host": "api.hetzner.cloud",
-    "status": 404
-  },
+  "answered": [
+    {
+      "host": "api.hetzner.cloud",
+      "member": "preview-8801",
+      "status": 404
+    }
+  ],
   "definition": "hetzner-staging",
   "disposition": "ran",
   "ended_at": "2026-08-06T11:03:24.000Z",

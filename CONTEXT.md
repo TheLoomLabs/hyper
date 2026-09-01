@@ -102,8 +102,9 @@ _Avoid_: Task, Job, Stage
 
 **Requirement**:
 An entry in a Procedure carrying an `id:` and a predicate and nothing else: where the predicate holds
-of what an earlier Step of the same Procedure acted on, the Run goes on; where it does not, the Run
-halts. It is not a Step — it binds no Target, invokes no Operation, declares no Kind and writes no
+of everything an earlier Step of the same Procedure acted on, the Run goes on; where it does not, the
+Run halts. A Step that expanded, or one whose Operation is of `series` cardinality, is as legal a root
+as any other and the predicate is asked of every Record it acted on. It is not a Step — it binds no Target, invokes no Operation, declares no Kind and writes no
 Journal file — which is what lets a shared, read-only check stop the Procedure that invoked it without
 claiming authority over anything.
 _Avoid_: Assertion, Guard, Gate, Precondition, Check

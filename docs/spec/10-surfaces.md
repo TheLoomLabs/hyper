@@ -521,9 +521,10 @@ form §8's header uses.
 one entry in full: each Step's Disposition with the Record identities it acted on, `hyper`'s own account
 of what it did to reach that outcome — a Pattern's attempts, its pages, its poll iterations — and, on a
 Step a projection failure halted, the path that failed to project beside the partial set it wrote
-(§6, §7). On an effectful Step whose call answered anything but `2xx` it writes the host reached and the
-status got, which is as true of the `404` that completed a `destroy` as of the `500` that halted one
-(§7, ADR-0050). Each of those sits beside that Step's own Provenance and all of it beside the Run's
+(§6, §7). On an effectful Step it writes one line-group per member of the Expansion whose call answered
+anything but `2xx` — the member it was, the host reached and the status got — which is as true of the
+`404` that completed a `destroy` as of the `500` that halted one, and is what says which of the
+Tombstones a `destroy` wrote was written on which (§7, ADR-0050, ADR-0126). Each of those sits beside that Step's own Provenance and all of it beside the Run's
 (§7). Under
 `--expansion` each Step
 also carries its selector, what that selector expanded to, and its Bound, which is what §8's Refusal

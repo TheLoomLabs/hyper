@@ -189,11 +189,12 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	// whose identity collides is one reached that will not be concluded
 	// about.
 	reachedIdentities := 0
-	// What a call gave back where it completed the Step without giving the
-	// ordinary answer, which in this milestone is a `destroy`'s `404` and
-	// nothing else. It is the **first** in Expansion order, and it reaches
-	// the Step file only where nothing halted (§7, effect.go).
-	var completed store.Answered
+	// What the members of this Expansion were told where they were not told
+	// the ordinary answer — a `destroy`'s `404` in this milestone, and the
+	// answer that halted the Step where one did. One entry per such member
+	// and in Expansion order, which is the order the walk hands them back
+	// in (§7, ADR-0126, drain.go, effect.go).
+	var answers []store.MemberAnswer
 	var halted error
 	// How many members the walk took, which on a `read` is every one of
 	// them and on an effectful Step is every one up to and including the
@@ -271,12 +272,30 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 			continue
 		}
 		acted.add(turn.Concluded.account)
-		if completed == nil {
-			completed = turn.Concluded.answered
+		// **Every member that was not answered the ordinary way writes
+		// one entry**, whether it completed on that answer or halted on
+		// it. A key holding one of them could say only that a non-`2xx`
+		// reached this Step, and on a `destroy` that is the fact
+		// ADR-0050 put here and nowhere else — which of the Tombstones
+		// this Step wrote was written on a `404` (ADR-0126).
+		//
+		// The member is named from the Expansion rather than from the
+		// answer: a Step that resolved no selector names none, which is
+		// the silence `expanded_to` keeps on the same Step.
+		if answered := turn.Concluded.answered; answered != nil {
+			answers = append(answers, store.MemberAnswer{Member: expanded.named(turn.At), Answered: answered})
 		}
 		if turn.Fault != nil {
 			if halted == nil {
 				halted = turn.Fault
+			}
+			// The halt's own answer, where the halt named one. A
+			// deadline names none — there is no answer to name, and
+			// the key exists to say what one was — and the
+			// Disposition beside the list is what carries that
+			// (§7, effect.go).
+			if answered := answeredBy(turn.Fault); answered != nil {
+				answers = append(answers, store.MemberAnswer{Member: expanded.named(turn.At), Answered: answered})
 			}
 			// The one it could not conclude about: the identity it
 			// could not read, the collection it could not find, or
@@ -436,13 +455,15 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 		file.Identities = store.Concluded(names, previous)
 	}
 	file.Pattern = acted.written(reached.Disposition)
-	// What an effectful call gave back where it did not give the ordinary
-	// answer: the host and the status. Its presence is the fact that
-	// something other than the ordinary answer decided this Step — the
-	// halt, the `404` that completed a `destroy`, or the request that never
-	// left — and it is written on effectful Steps and **never on a `read`**
-	// (§7, effect.go).
-	file.Answered = whatAnswered(halted, completed)
+	// What the calls gave back where they did not give the ordinary answer:
+	// the host and the status, one entry per member of the Expansion that
+	// was told one. Its presence is the fact that something other than the
+	// ordinary answer reached this Step — the halt, the `404` that
+	// completed a `destroy`, or the request that never left — and which of
+	// §6's three ended the **Step** is read from the Disposition beside it.
+	// It is written on effectful Steps and **never on a `read`** (§7,
+	// ADR-0126, effect.go).
+	file.Answered = answers
 	// The path that failed to project, where that is what halted the Run.
 	// The set beside it is then partial and this path is what says so — the
 	// digest says nothing about partiality either way — and it is held here
@@ -565,14 +586,15 @@ func (r run) decided(authored sequenced, position int) (bool, []Refusal) {
 		return true, nil
 	}
 
-	held, mismatch := when.holds(r.acted[stepKey{authored.Namespace, when.Step}], r.started)
+	acted := r.acted[stepKey{authored.Namespace, when.Step}]
+	held, _, mismatch := when.holds(acted, r.started)
 	if mismatch == "" {
 		return held, nil
 	}
 
 	cited := r.citation(authored, position, selector{})
 	return false, []Refusal{r.refusal(CodePredicateTypeMismatch,
-		fmt.Sprintf("on the Record step %s acted on, %s", when.Step, mismatch),
+		fmt.Sprintf("%s, %s", rootedAt(when.Step, len(acted)), mismatch),
 		cited.at(when.Line, "when."+when.Operator))}
 }
 

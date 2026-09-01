@@ -168,3 +168,29 @@ func file(version int, subject string, required []string, fill func(members)) []
 	m.require(subject, required)
 	return Encode(Mapping(m))
 }
+
+// blocks writes a list of nested mappings built by fill, one per element, and
+// writes nothing where there are none — the absence rule applied to a member
+// that is a list of blocks.
+//
+// It is block's own rule over a sequence, and it exists for the one member that
+// is per-member rather than per-file: a Step's `answered`, which holds one
+// entry per member of the Expansion whose call was not answered the ordinary
+// way (§7, ADR-0126). An element that filled none of itself is impossible
+// rather than dropped, a hole in a positional list being a worse fault than an
+// absent one.
+func (m members) blocks(key string, count int, fill func(int, members)) {
+	if count == 0 {
+		return
+	}
+	array := make(Array, count)
+	for i := range count {
+		nested := members{}
+		fill(i, nested)
+		if len(nested) == 0 {
+			impossible("%q holds an element carrying nothing at position %d (§7)", key, i)
+		}
+		array[i] = Mapping(nested)
+	}
+	m[key] = array
+}

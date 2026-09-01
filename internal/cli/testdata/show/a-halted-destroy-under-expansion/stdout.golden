@@ -23,6 +23,7 @@ SELECTOR             assets · created_at older_than 14d
                      = older_than: 14d resolved to 2026-07-23T11:03:18Z
 EXPANDED TO          preview-8801
 BOUND                5
+MEMBER               preview-8801
 HOST                 api.hetzner.cloud
 STATUS               404
 DEFINITION REVISION  4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a
@@ -41,6 +42,10 @@ SELECTOR             assets · labels.role equals preview
 EXPANDED TO          preview-8806 · preview-8802 · preview-8815 · preview-8821 · preview-8830
 BOUND                8
 ATTEMPTS             3
+MEMBER               preview-8806
+HOST                 api.hetzner.cloud
+STATUS               404
+MEMBER               preview-8815
 HOST                 api.hetzner.cloud
 STATUS               500
 DEFINITION REVISION  4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a

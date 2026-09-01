@@ -1,0 +1,20 @@
+kind: procedure
+procedure: require-series
+targets: [local]
+steps:
+  - id: items
+    definition: inventory-read
+    operation: list_items
+    target: local
+    args:
+      host: series.hyper.dev
+
+  - id: all-ready
+    require: {step: items, field: state, equals: ready}
+
+  - id: after
+    definition: inventory-read
+    operation: read_item
+    target: local
+    args:
+      host: item.hyper.dev

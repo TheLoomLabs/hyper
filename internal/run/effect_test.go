@@ -205,7 +205,7 @@ func TestHaltedByDeadline_AnEffectfulShellStepIsAttemptedOutcomeUnknown(t *testi
 		// There is no answer to name, and `answered` is the key that
 		// says what one was — so a deadline writes none whatever the
 		// Capability (§7).
-		if named := whatAnswered(halted, nil); named != nil {
+		if named := answeredBy(halted); named != nil {
 			t.Errorf("a %s shell Step that reached its deadline answers %+v, want nothing", tc.kind, named)
 		}
 	}

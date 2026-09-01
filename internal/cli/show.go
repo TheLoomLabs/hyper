@@ -411,7 +411,7 @@ type entryStepRow struct {
 	Selector             *selectorRow      `json:"selector,omitempty"`
 	Resolved             map[string]string `json:"resolved,omitempty"`
 	Pattern              *patternRow       `json:"pattern,omitempty"`
-	Answered             *answeredRow      `json:"answered,omitempty"`
+	Answered             []answeredRow     `json:"answered,omitempty"`
 	ProjectionFailedPath string            `json:"projection_failed_path,omitempty"`
 	// resolvedOperands is the relative operands the rendered selector
 	// holds, glossed against the entry's own `started_at`. It is not on the
@@ -448,16 +448,17 @@ type patternRow struct {
 	Polls    int `json:"polls,omitempty"`
 }
 
-// answeredRow is what an effectful call gave back where it did not give the
-// ordinary answer: the host reached and the status got, or the command run and
-// the code it exited with.
+// answeredRow is what one member of a Step's Expansion was told where it was
+// not the ordinary answer: which member it was, and the host reached and the
+// status got, or the command run and the code it exited with.
 //
-// Its presence is the fact that something other than the ordinary answer
-// decided the Step, and it is effectful-only — a read's status is the answer,
-// and the answer is in the Record wherever the Manifest projected it (§7,
-// ADR-0050). The status is absent where no response arrived at all, which is
-// the Step whose request provably never left.
+// It is effectful-only — a read's status is the answer, and the answer is in
+// the Record wherever the Manifest projected it (§7, ADR-0050). The status is
+// absent where no response arrived at all, which is the member whose request
+// provably never left, and `member` is absent where the Step resolved no
+// selector and there is none to name (ADR-0126).
 type answeredRow struct {
+	Member   string `json:"member,omitempty"`
 	Host     string `json:"host,omitempty"`
 	Status   *int   `json:"status,omitempty"`
 	Command  string `json:"command,omitempty"`
@@ -501,9 +502,7 @@ func entryStepRowOf(held *store.Store, entry store.Entry, step store.StepFile, e
 	if pattern := (patternRow{Attempts: step.Pattern.Attempts, Pages: step.Pattern.Pages, Polls: step.Pattern.Polls}); pattern != (patternRow{}) {
 		row.Pattern = &pattern
 	}
-	if answered := answeredRowOf(step.Answered); answered != nil {
-		row.Answered = answered
-	}
+	row.Answered = answeredRowsOf(step.Answered)
 	if expansion && step.Selector.Declared != nil {
 		expanded := step.Selector.ExpandedTo
 		if expanded == nil {
@@ -531,24 +530,30 @@ func entryStepRowOf(held *store.Store, entry store.Entry, step store.StepFile, e
 	return row, nil
 }
 
-// answeredRowOf is the Capability's own answer as a row, and nil where the call
-// gave the ordinary answer or the Step made none.
-func answeredRowOf(answered store.Answered) *answeredRow {
-	switch answer := answered.(type) {
-	case store.HTTPAnswer:
-		row := answeredRow{Host: answer.Host}
-		if status, arrived := answer.Status.Code(); arrived {
-			row.Status = &status
+// answeredRowsOf is the members' own answers as rows, in the Expansion order
+// the entry holds them in, and nil where every call gave the ordinary answer or
+// the Step made none.
+func answeredRowsOf(answered []store.MemberAnswer) []answeredRow {
+	var rows []answeredRow
+	for _, entry := range answered {
+		row := answeredRow{Member: entry.Member}
+		switch answer := entry.Answered.(type) {
+		case store.HTTPAnswer:
+			row.Host = answer.Host
+			if status, arrived := answer.Status.Code(); arrived {
+				row.Status = &status
+			}
+		case store.ShellAnswer:
+			row.Command = answer.Command
+			if code, arrived := answer.ExitCode.Code(); arrived {
+				row.ExitCode = &code
+			}
+		default:
+			continue
 		}
-		return &row
-	case store.ShellAnswer:
-		row := answeredRow{Command: answer.Command}
-		if code, arrived := answer.ExitCode.Code(); arrived {
-			row.ExitCode = &code
-		}
-		return &row
+		rows = append(rows, row)
 	}
-	return nil
+	return rows
 }
 
 // resolveMembers is the identity set this Step concluded about, and the Run the
@@ -896,8 +901,14 @@ func stepValues(row entryStepRow) []labelledValue {
 			labelledValue{"PAGES", numberText(p.Pages)},
 			labelledValue{"POLLS", numberText(p.Polls)})
 	}
-	if a := row.Answered; a != nil {
+	// One group per member of the Expansion that was not answered the
+	// ordinary way, in Expansion order, each led by the member it is about
+	// — which is what joins it to `EXPANDED TO` above. A Step that resolved
+	// no selector names no member and renders the Capability's labels
+	// alone, exactly as it did before the key was per member (ADR-0126).
+	for _, a := range row.Answered {
 		values = append(values,
+			labelledValue{"MEMBER", a.Member},
 			labelledValue{"HOST", a.Host},
 			labelledValue{"STATUS", answerText(a.Status)},
 			labelledValue{"COMMAND", a.Command},

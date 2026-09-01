@@ -206,18 +206,19 @@ func versionsIn(branch, prefix string) []string {
 	return held
 }
 
-// withoutAnswered is a Step file with its `answered` block taken out, which is
-// what the two cases above are held against each other with. The block is four
-// lines of the canonical encoding and it sits at the top, `answered` sorting
-// before every other member a Step file carries (§7).
+// withoutAnswered is a Step file with its `answered` list taken out, which is
+// what the two cases above are held against each other with. The list sits at
+// the top, `answered` sorting before every other member a Step file carries,
+// and it is one entry per member of the Expansion that was not answered the
+// ordinary way (§7, ADR-0126).
 func withoutAnswered(step string) string {
-	opening := strings.Index(step, `  "answered": {`)
+	opening := strings.Index(step, `  "answered": [`)
 	if opening < 0 {
 		return step
 	}
-	closing := strings.Index(step[opening:], "\n  },\n")
+	closing := strings.Index(step[opening:], "\n  ],\n")
 	if closing < 0 {
 		return step
 	}
-	return step[:opening] + step[opening+closing+len("\n  },\n"):]
+	return step[:opening] + step[opening+closing+len("\n  ],\n"):]
 }

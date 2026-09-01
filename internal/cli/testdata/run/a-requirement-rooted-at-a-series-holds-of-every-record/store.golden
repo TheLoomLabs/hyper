@@ -1,0 +1,175 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae0aa02/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae0aa02/run.json (474 bytes)
+{
+  "dry_run": false,
+  "procedure": "require-series",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "5fe24a23dfe1c5d1966496fb925d84ea039eac35",
+    "repo_revision": "9f5af908fc3960608a0e6065cc36a1556c634e94"
+  },
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae0aa02",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae0aa02/steps/0001.json (661 bytes)
+{
+  "definition": "inventory-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "items",
+  "identities": {
+    "digest": "sha256:47a421e2265d43de0a6a0ed9ad3c79e50ca0175763a17a19b7e3f0019d63fbf7",
+    "members": [
+      "one",
+      "three",
+      "two"
+    ]
+  },
+  "kind": "read",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3"
+  },
+  "provider": "inventory",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae0aa02/steps/0002.json (634 bytes)
+{
+  "definition": "inventory-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "after",
+  "identities": {
+    "digest": "sha256:fc0a1802f3a36335ca1ca39b9375f15ce5799ab8ececd0a5acc5272f117dcf2c",
+    "members": [
+      "crate"
+    ]
+  },
+  "kind": "read",
+  "operation": "read_item",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3"
+  },
+  "provider": "inventory",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 2,
+  "target": "local"
+}
+=== records/local/inventory-read/crate/01991f20-b118-7c93-8d41-6b2f7ae0aa02-0002.json (703 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "name": "a crate of nothing",
+    "note": "still here"
+  },
+  "name": "crate",
+  "operation": "read_item",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "5fe24a23dfe1c5d1966496fb925d84ea039eac35",
+    "repo_revision": "9f5af908fc3960608a0e6065cc36a1556c634e94"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae0aa02",
+  "schema_version": 1,
+  "step": 2,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/one/01991f20-b118-7c93-8d41-6b2f7ae0aa02-0001.json (664 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "one",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "5fe24a23dfe1c5d1966496fb925d84ea039eac35",
+    "repo_revision": "9f5af908fc3960608a0e6065cc36a1556c634e94"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae0aa02",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/three/01991f20-b118-7c93-8d41-6b2f7ae0aa02-0001.json (666 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "three",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "5fe24a23dfe1c5d1966496fb925d84ea039eac35",
+    "repo_revision": "9f5af908fc3960608a0e6065cc36a1556c634e94"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae0aa02",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/inventory-read/two/01991f20-b118-7c93-8d41-6b2f7ae0aa02-0001.json (664 bytes)
+{
+  "definition": "inventory-read",
+  "fields": {
+    "state": "ready"
+  },
+  "name": "two",
+  "operation": "list_items",
+  "provenance": {
+    "definition_revision": "ea1dce380f2e3837565ee5671eed8cc88ace5b6b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:3fd0255a94abc56726ce410f525020bd9e25270f38721269e188446be81dcad3",
+    "procedure_revision": "5fe24a23dfe1c5d1966496fb925d84ea039eac35",
+    "repo_revision": "9f5af908fc3960608a0e6065cc36a1556c634e94"
+  },
+  "record_type": "observation",
+  "run_id": "01991f20-b118-7c93-8d41-6b2f7ae0aa02",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

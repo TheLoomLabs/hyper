@@ -65,7 +65,13 @@ func TestEveryShape_DecodesBackToTheValueItWasWrittenFrom(t *testing.T) {
 		want := stepFile()
 		want.Path = "retire.probe"
 		want.Pattern = store.Pattern{Attempts: 5}
-		want.Answered = store.HTTPAnswer{Host: "api.cloudflare.com", Status: store.Arrived(500)}
+		// Two entries, because the key is per member of the Expansion and
+		// one of them would round-trip a list of one whatever the shape
+		// underneath it was (ADR-0126).
+		want.Answered = []store.MemberAnswer{
+			{Member: "preview-01.example.com", Answered: store.HTTPAnswer{Host: "api.cloudflare.com", Status: store.Arrived(404)}},
+			{Member: "preview-02.example.com", Answered: store.HTTPAnswer{Host: "api.cloudflare.com", Status: store.Arrived(500)}},
+		}
 		want.ProjectionFailedPath = "$.result.records[0].id"
 		roundTrip(t, want, want.Encode, store.DecodeStepFile)
 	})
@@ -289,12 +295,12 @@ func TestEveryShape_RefusesToWriteWhatSectionSevenSaysCannotExist(t *testing.T) 
 	for name, encode := range map[string]func(){
 		"an answer naming neither a host nor a command": func() {
 			file := stepFile()
-			file.Answered = store.ShellAnswer{}
+			file.Answered = []store.MemberAnswer{{Answered: store.ShellAnswer{}}}
 			file.Encode()
 		},
 		"an http answer naming no host": func() {
 			file := stepFile()
-			file.Answered = store.HTTPAnswer{Status: store.Arrived(500)}
+			file.Answered = []store.MemberAnswer{{Answered: store.HTTPAnswer{Status: store.Arrived(500)}}}
 			file.Encode()
 		},
 		"an identity set carrying no digest": func() {

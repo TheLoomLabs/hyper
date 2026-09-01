@@ -1,8 +1,11 @@
 {
-  "answered": {
-    "host": "api.hetzner.cloud",
-    "status": 500
-  },
+  "answered": [
+    {
+      "host": "api.hetzner.cloud",
+      "member": "preview-8815",
+      "status": 500
+    }
+  ],
   "definition": "hetzner-staging",
   "disposition": "ran",
   "ended_at": "2026-08-06T11:03:52.000Z",

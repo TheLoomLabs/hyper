@@ -19,6 +19,7 @@ TARGET               staging
 STARTED              2026-08-06T11:03:18.000Z
 ENDED                2026-08-06T11:03:24.000Z
 RECORDS              preview-8801
+MEMBER               preview-8801
 HOST                 api.hetzner.cloud
 STATUS               404
 DEFINITION REVISION  4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a
@@ -34,6 +35,7 @@ STARTED              2026-08-06T11:03:24.000Z
 ENDED                2026-08-06T11:03:52.000Z
 RECORDS              preview-8802 · preview-8806
 ATTEMPTS             3
+MEMBER               preview-8815
 HOST                 api.hetzner.cloud
 STATUS               500
 DEFINITION REVISION  4d7e118c9a03f5b26e1d84a70c3f9b52d6081e4a

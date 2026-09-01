@@ -34,12 +34,15 @@ Editing it by hand is editing evidence.
     "host": "thinkpad"
   }
 }
-=== journal/2026/04/02/01991e21-3c9f-7b04-9d18-5c7e2a94f084/steps/0001.json (1153 bytes)
+=== journal/2026/04/02/01991e21-3c9f-7b04-9d18-5c7e2a94f084/steps/0001.json (1211 bytes)
 {
-  "answered": {
-    "host": "api.cloudflare.com",
-    "status": 500
-  },
+  "answered": [
+    {
+      "host": "api.cloudflare.com",
+      "member": "preview-04.example.com",
+      "status": 500
+    }
+  ],
   "definition": "preview-dns",
   "disposition": "ran",
   "ended_at": "2026-04-02T09:41:14.221Z",

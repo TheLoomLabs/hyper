@@ -110,12 +110,18 @@ func readCondition(when *yaml.Node) (condition, bool) {
 // A `{step:, path:}` reference to the same Step answers *resolves to nothing*
 // there instead (arguments.go), and the difference is the position rather than
 // an inconsistency: a filter takes a population and a value takes one thing.
-// §12 states the rule for neither — every earlier Step in its text has one
-// Record — so this is the reading the operator set already has rather than a
-// sentence quoted from it.
-func (c condition) holds(records []store.Mapping, instant time.Time) (bool, string) {
+// That is why `series-reference` declines the reference and not the predicate —
+// the two roots are the same words in different positions, and only one of them
+// needs one Record to mean anything (§3, §4, ADR-0126).
+//
+// **How many of them satisfied it travels back beside the verdict**, for the
+// halt a `require:` writes. It names no member and no observed value, which is
+// what ADR-0035 keeps every predicate report from doing; what it says is that
+// the root was a population at all, which is the fact an author rooting at an
+// expanding Step by accident has no other way to be told (requirement.go).
+func (c condition) holds(records []store.Mapping, instant time.Time) (held bool, satisfied int, mismatch string) {
 	if len(records) == 0 {
-		return false, ""
+		return false, 0, ""
 	}
 
 	held, found := true, ""
@@ -124,10 +130,13 @@ func (c condition) holds(records []store.Mapping, instant time.Time) (bool, stri
 		if mismatch != "" && found == "" {
 			found = mismatch
 		}
+		if matched {
+			satisfied++
+		}
 		held = held && matched
 	}
 	if found != "" {
-		return false, found
+		return false, satisfied, found
 	}
-	return held, ""
+	return held, satisfied, ""
 }

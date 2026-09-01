@@ -34,12 +34,15 @@ Editing it by hand is editing evidence.
     "host": "thinkpad"
   }
 }
-=== journal/2026/04/02/01991f50-b118-7c93-8d41-6b2f7ae06a06/steps/0001.json (976 bytes)
+=== journal/2026/04/02/01991f50-b118-7c93-8d41-6b2f7ae06a06/steps/0001.json (1033 bytes)
 {
-  "answered": {
-    "command": "[\"rm\",\"-rf\",\"/srv/app/releases/r42\"]",
-    "exit_code": 1
-  },
+  "answered": [
+    {
+      "command": "[\"rm\",\"-rf\",\"/srv/app/releases/r42\"]",
+      "exit_code": 1,
+      "member": "/srv/app/releases/r42"
+    }
+  ],
   "definition": "host-ops",
   "disposition": "ran",
   "ended_at": "2026-04-02T09:41:14.221Z",

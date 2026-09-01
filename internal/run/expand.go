@@ -202,6 +202,20 @@ type expansion struct {
 	Members  []member
 }
 
+// named is the name one member of this Expansion holds in `expanded_to`, and ""
+// where the Step resolved no selector — the same silence names() keeps, at one
+// position rather than over the list.
+//
+// It is what a per-member fact on the Step file is written beside: an entry
+// naming a member is joinable to `expanded_to` by name, and one on a Step with
+// no selector has nothing to join to and names nothing (§7, ADR-0126).
+func (e expansion) named(at int) string {
+	if e.Selector.Form == "" || at >= len(e.Members) {
+		return ""
+	}
+	return e.Members[at].Name
+}
+
 // names is what `expanded_to` holds: the members' names in **Expansion order**
 // and not sorted, and the empty list where the Expansion resolved to nothing.
 //

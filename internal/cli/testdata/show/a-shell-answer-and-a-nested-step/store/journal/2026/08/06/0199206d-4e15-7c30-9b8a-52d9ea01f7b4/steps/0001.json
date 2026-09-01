@@ -1,8 +1,10 @@
 {
-  "answered": {
-    "command": "rm -rf /var/cache/build",
-    "exit_code": 2
-  },
+  "answered": [
+    {
+      "command": "rm -rf /var/cache/build",
+      "exit_code": 2
+    }
+  ],
   "definition": "housekeeping",
   "disposition": "ran",
   "ended_at": "2026-08-06T11:03:20.000Z",

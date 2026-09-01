@@ -1,6 +1,7 @@
 package store
 
 import (
+	"fmt"
 	"slices"
 	"time"
 )
@@ -148,6 +149,40 @@ type Answered interface {
 	write(m members)
 }
 
+// MemberAnswer is one member of a Step's Expansion that was not answered the
+// ordinary way: which member it was, and the Capability's own account of what
+// came back.
+//
+// **It is per member and not per Step**, which is the whole of ADR-0126. A
+// `destroy` expanding over five Assets makes five calls and each is answered on
+// its own; one key holding one of the five says a non-2xx answer reached this
+// Step and leaves which of them unrecoverable — and on a `destroy` that is the
+// one fact ADR-0050 put here and nowhere else, the Tombstone written on a 404
+// being byte-identical to the one written on a 204.
+//
+// Member is "" on a Step that resolved no selector, there being no member to
+// name: the same silence `expanded_to` keeps on that Step, and the reason the
+// key is written beside the Capability's members rather than around them.
+type MemberAnswer struct {
+	// Member is the name this member holds in `expanded_to`, and "" where
+	// the Step resolved no selector.
+	Member string
+	// Answered is what the call gave back, at the Capability the Operation
+	// reached through.
+	Answered Answered
+}
+
+// answeredMembers is the key one entry of `answered` writes, read by the
+// decoder to tell an entry that named a Capability from one that named none.
+const memberKey = "member"
+
+// write puts one member's answer into its element: the member it was, and the
+// Capability's own members beside it.
+func (a MemberAnswer) write(m members) {
+	m.text(memberKey, a.Member)
+	a.Answered.write(m)
+}
+
 // Answer is an integer a call may not have given back: an HTTP status, a shell
 // exit code. The zero value is *no answer arrived*, which is the case §7 states
 // the key is absent for, and Arrived is the one door a value comes through — so
@@ -286,9 +321,15 @@ type StepFile struct {
 	Selector Selector
 	// Pattern is hyper's own account of the work.
 	Pattern Pattern
-	// Answered is what an effectful call gave back where it did not give
-	// the ordinary answer, and nil otherwise.
-	Answered Answered
+	// Answered is what the members of this Step's Expansion were told where
+	// they were not told the ordinary answer — one entry per such member,
+	// in Expansion order — and nil where every call was answered ordinarily
+	// or the Step made none.
+	//
+	// It is a list because the Step is one and the calls are many: a Step
+	// expanding over five Assets is answered five times, and a single key
+	// could hold at most one of the five (ADR-0126).
+	Answered []MemberAnswer
 	// ProjectionFailedPath is the path that failed to project on a Step
 	// halted by a projection that did not resolve (§6). The identity set
 	// beside it is then partial and this path is what says so — the digest
@@ -314,17 +355,19 @@ func (f StepFile) Encode() []byte {
 		m.block("identities", f.Identities.write)
 		m.block("selector", f.Selector.write)
 		m.block("pattern", f.Pattern.write)
-		if f.Answered != nil {
-			m.block("answered", f.Answered.write)
+		m.blocks("answered", len(f.Answered), func(i int, entry members) {
+			f.Answered[i].write(entry)
 			// Which of the two it names is what a reader tells the
 			// Capabilities apart by, and naming neither is the
 			// empty `answered` §7 says is never written — the
 			// failed exec whose fact would vanish exactly where it
-			// is least ordinary.
-			if named, _ := m["answered"].(Mapping); named["host"] == nil && named["command"] == nil {
+			// is least ordinary. A `member` alone does not save it:
+			// the entry would then say which member and nothing
+			// about what it was told.
+			if entry["host"] == nil && entry["command"] == nil {
 				impossible("an answer names neither the host it reached nor the command it ran (§7)")
 			}
-		}
+		})
 		m.text("projection_failed_path", f.ProjectionFailedPath)
 	})
 }
@@ -443,16 +486,18 @@ func DecodeStepFile(data []byte) (StepFile, error) {
 			}
 			r.join(pattern, "pattern")
 		}
-		if answered := r.block("answered"); answered != nil {
+		for i, answered := range r.blocks("answered") {
+			entry := MemberAnswer{Member: answered.text(memberKey)}
 			switch {
 			case answered.carries("host"):
-				f.Answered = HTTPAnswer{Host: answered.text("host"), Status: answered.answer("status")}
+				entry.Answered = HTTPAnswer{Host: answered.text("host"), Status: answered.answer("status")}
 			case answered.carries("command"):
-				f.Answered = ShellAnswer{Command: answered.text("command"), ExitCode: answered.answer("exit_code")}
+				entry.Answered = ShellAnswer{Command: answered.text("command"), ExitCode: answered.answer("exit_code")}
 			default:
 				answered.fault("an answer names the host it reached or the command it ran")
 			}
-			r.join(answered, "answered")
+			f.Answered = append(f.Answered, entry)
+			r.join(answered, fmt.Sprintf("answered[%d]", i))
 		}
 	})
 }

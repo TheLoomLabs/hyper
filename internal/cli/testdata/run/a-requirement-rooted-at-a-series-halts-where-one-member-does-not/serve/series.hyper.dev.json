@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "headers": {"Content-Type": "application/json"},
+  "body": "{\"records\":[{\"id\":\"one\",\"state\":\"ready\"},{\"id\":\"two\",\"state\":\"degraded\"},{\"id\":\"three\",\"state\":\"ready\"}]}"
+}

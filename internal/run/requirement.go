@@ -89,22 +89,61 @@ func (r run) verdict(required requirement) ([]Refusal, error) {
 			namedRequirement(required), condition.Step, condition.Field)
 	}
 
-	held, mismatch := condition.holds(acted, r.started)
+	held, satisfied, mismatch := condition.holds(acted, r.started)
 	if mismatch != "" {
 		return []Refusal{{RefusalMember: store.RefusalMember{
 			ErrorCode: CodePredicateTypeMismatch,
 			File:      required.Declared.Path,
 			Line:      condition.Line,
 			Field:     fmt.Sprintf("steps[%d].require.%s", required.Index, condition.Operator),
-			Message:   fmt.Sprintf("on the Record step %s acted on, %s", condition.Step, mismatch),
+			Message:   fmt.Sprintf("%s, %s", rootedAt(condition.Step, len(acted)), mismatch),
 			StepID:    required.ID,
 		}}}, nil
 	}
 	if !held {
-		return nil, fmt.Errorf("requirement %s did not hold: %s of the Record step %s acted on does not satisfy %s, and no Step after this line runs",
-			namedRequirement(required), condition.Field, condition.Step, asWritten(condition.predicate))
+		return nil, fmt.Errorf("requirement %s did not hold: %s, and no Step after this line runs",
+			namedRequirement(required), unmet(condition, satisfied, len(acted)))
 	}
 	return nil, nil
+}
+
+// unmet is the middle of the halt: what did not satisfy what, and — where the
+// Step the Requirement roots at acted on more than one Record — how many of
+// them did.
+//
+// **The count is the whole of what the expanding root adds**, and it is here
+// because nothing else tells an author their root was a population. A `require:`
+// roots at a Step and a Step of `series` cardinality, or one ranging over an
+// Expansion, is as legal a root as any other and holds of every Record it acted
+// on (§3, condition.go). An author who meant *this one* and wrote the list read
+// has authored a stricter predicate than the one they meant, and the sentence
+// they get on the halt is the first place that is visible — *of the Record*,
+// singular, said the opposite (ADR-0126).
+//
+// It names no member and no observed value: what an author edits is the
+// operand, and naming whichever member came first is the thing ADR-0035 keeps
+// every predicate report from doing.
+func unmet(against condition, satisfied, records int) string {
+	if records == 1 {
+		return fmt.Sprintf("%s of the Record step %s acted on does not satisfy %s",
+			against.Field, against.Step, asWritten(against.predicate))
+	}
+	return fmt.Sprintf("step %s acted on %d Records and %s satisfies %s on %d of them — a require: holds of every one",
+		against.Step, records, against.Field, asWritten(against.predicate), satisfied)
+}
+
+// rootedAt is how a predicate report names the root it read: the Records the
+// Step it names acted on, counted where there is more than one.
+//
+// It is shared by the two Record roots because the roots are one root — a
+// `when:` and a `require:` are the same predicate at the same place (§3,
+// condition.go) — and a reader told *the Record* where there were nine has been
+// told something false about which values the operator was handed (ADR-0126).
+func rootedAt(step string, records int) string {
+	if records == 1 {
+		return fmt.Sprintf("on the Record step %s acted on", step)
+	}
+	return fmt.Sprintf("on the %d Records step %s acted on", records, step)
 }
 
 // asWritten is the test a Requirement carries, spelled the way its author wrote

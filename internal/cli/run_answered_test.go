@@ -104,8 +104,8 @@ func stepFilesIn(t *testing.T, dir string) map[string]map[string]any {
 // decided this Step, and under this Capability the case where that matters most
 // is the one with the least in it: a child that could not be started at all has
 // no exit code, no stdout and no stderr, so `command` is the whole of the block.
-// Were it left to the identity set beside it the block would encode to
-// `answered: {}`, which the encoding suppresses outright — and the fact would
+// Were it left to the identity set beside it the entry would encode to
+// `{}`, which the encoding suppresses outright — and the fact would
 // vanish exactly where it is least ordinary, on a `destroy` besides, which
 // projects nothing and declares no identity anywhere in the entry.
 //
@@ -117,24 +117,34 @@ func TestAnswered_NoShellStepAnywhereWritesItEmpty(t *testing.T) {
 
 	walkTestdata(t, "store.golden", func(dir string) {
 		for path, step := range stepFilesIn(t, dir) {
-			answered, carried := step["answered"].(map[string]any)
+			entries, carried := step["answered"].([]any)
 			if !carried {
 				continue
 			}
-			if len(answered) == 0 {
-				t.Errorf("%s carries an empty answered; a block with nothing in it is suppressed by the encoding and says nothing at all", path)
+			if len(entries) == 0 {
+				t.Errorf("%s carries an empty answered; a list with nothing in it is suppressed by the encoding and says nothing at all", path)
 				continue
 			}
-			command, named := answered["command"].(string)
-			if !named {
-				continue
-			}
-			if command == "" {
-				t.Errorf("%s names an empty command; the argv as run is what a shell answer is written from (§12)", path)
-			}
-			commands++
-			if _, exited := answered["exit_code"]; !exited {
-				neverStarted++
+			for _, held := range entries {
+				answered, _ := held.(map[string]any)
+				// A `member` alone does not save an entry: it
+				// would say which member and nothing about what
+				// it was told (§7, ADR-0126).
+				if len(answered) == 0 || (len(answered) == 1 && answered["member"] != nil) {
+					t.Errorf("%s carries an answer naming no host and no command; the fact something other than the ordinary answer reached this member would say nothing at all", path)
+					continue
+				}
+				command, named := answered["command"].(string)
+				if !named {
+					continue
+				}
+				if command == "" {
+					t.Errorf("%s names an empty command; the argv as run is what a shell answer is written from (§12)", path)
+				}
+				commands++
+				if _, exited := answered["exit_code"]; !exited {
+					neverStarted++
+				}
 			}
 		}
 	})

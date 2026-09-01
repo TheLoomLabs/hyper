@@ -137,29 +137,22 @@ func dispositionAfter(fault error) store.Disposition {
 	return store.DispositionRan
 }
 
-// whatAnswered is what the Step file holds under `answered`: what the fault the
-// Run carries gave back, and — where nothing halted — what the **first member
-// in Expansion order** that completed on something other than the ordinary
-// answer was told.
+// answeredBy is what the fault that halted a member gave back, and nil where it
+// named none.
 //
-// The two arms are one key because §7 makes them one sentence: its presence is
-// the fact that something other than the ordinary answer decided this Step, and
-// which of §6's three cases it was is read from the Disposition beside it.
+// **The halt's answer is one member's like any other.** It is the last entry an
+// effectful Expansion writes — the walk stops at the first error, everything it
+// confirmed already committed — and it sits beside the entries the members in
+// front of it wrote rather than in place of them (§6, §7, ADR-0126).
 //
-// **A Step that halted answers with the halt**, read off the fault the Run
-// carries rather than off whichever member happened to answer one — so the file
-// names what ended the Step, whatever an earlier member of its Expansion was
-// told. That is failedPath's own sentence one file over (§6, §7, reading.go).
-//
-// It answers with the halt **even where the halt names none**, which is the
-// deadline: no answer came back, and a `404` an earlier member was told would
-// read against the *attempted, outcome unknown* beside it as an answer this
-// Step ended on. §7's key says which of §6's three cases decided the Step, and
-// the Disposition is what tells them apart — so the two must not disagree.
-func whatAnswered(fault error, completed store.Answered) store.Answered {
-	if fault == nil {
-		return completed
-	}
+// **A halt that names none writes none**, which is the deadline: no answer came
+// back, and the key exists to say what one was. What ended the Step is then
+// read from the Disposition, which is where *which of §6's three cases* has
+// always been read from — so a `404` an earlier member was told stands as that
+// member's answer and makes no claim about what ended the Step. Before the key
+// was per member the two could not be told apart, and the earlier member's
+// answer had to be dropped to keep the singular one honest.
+func answeredBy(fault error) store.Answered {
 	var effect effectFault
 	if errors.As(fault, &effect) {
 		return effect.answered

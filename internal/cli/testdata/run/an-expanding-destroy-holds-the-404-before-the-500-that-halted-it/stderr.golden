@@ -1,0 +1,3 @@
+run 01991e21-3c9f-7b04-9d18-5c7e2a94aa03
+step 1/1 retire
+hyper run: step retire: api.cloudflare.com answered 500, and a destroy Step completes on 2xx and on 404 besides — hyper follows no redirect and does not read the shape of an error body to decide whether its own effect happened

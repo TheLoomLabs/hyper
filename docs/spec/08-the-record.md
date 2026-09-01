@@ -695,35 +695,60 @@ declared at all. How many times `hyper` may have touched the world is the fact t
 to carry, and *one attempt* and *no retry declared* are the same silence everywhere else and must not be
 here.
 
-An **effectful** Step whose call did not answer `2xx` carries one thing more, under `answered`: the host
-it reached and the status it got. It covers the three cases §6 makes of an answer that was not the
-ordinary one — the halt, the `404` that completes a `destroy`, and the request that never left at all —
-and no others, so its presence is the fact that something other than the ordinary answer decided this
-Step, and which of the three it was is read from the Disposition beside it. Where no response arrived
-the `status` inside it is absent, on the rule the response object carries (§3, ADR-0050), so a Step that
-is *attempted, world untouched* writes the host alone. It says the request did not arrive and never
+An **effectful** Step carries one thing more, under `answered`: **one entry per member of its Expansion
+whose call did not answer `2xx`**, in Expansion order, each holding the host it reached, the status it
+got, and — where the Step resolved a selector — the `member` of `expanded_to` it is about. It covers the
+three cases §6 makes of an answer that was not the ordinary one — the halt, the `404` that completes a
+`destroy`, and the request that never left at all — and no others, so an entry's presence is the fact
+that something other than the ordinary answer reached that member, and **which of the three ended the
+Step** is read from the Disposition beside the list rather than off any entry in it. Where no response
+arrived the `status` inside an entry is absent, on the rule the response object carries (§3, ADR-0050),
+so a member whose request never left writes the host alone. It says the request did not arrive and never
 which of ADR-0018's members stopped it (§12, §13, ADR-0062).
 
 ```json
-"answered": {"host": "api.cloudflare.com", "status": 500}
+"answered": [
+  {"member": "preview-01.example.com", "host": "api.cloudflare.com", "status": 404},
+  {"member": "preview-02.example.com", "host": "api.cloudflare.com", "status": 500}
+]
 ```
 
-A `shell` Step carries the same key with its own Capability's members: the command it ran and the code
-it exited with, and the `exit_code` absent where the command could not be started at all (§3, §6). Its
-threshold is `0` rather than `2xx`, and it covers two of the three cases rather than all of them, there
-being no `404` for a command to answer with: a nonzero exit that halted the Step, and a child that never
-started, which is *attempted, world untouched* under the other Capability and carries the command alone.
+**It is a list because the Step is one and the calls are many** (ADR-0126). A `destroy` expanding over
+five Assets is answered five times, and a key holding one of the five says only that a non-`2xx` answer
+reached this Step: which of the Tombstones it wrote was written on a `404` would not be recoverable, and
+two Runs in which a different Asset had already gone would leave byte-identical entries. That fact is
+carried here and nowhere else — ADR-0050 put it off the Record deliberately and onto this key — so a
+per-Step key kept the relocation only for the Step whose Expansion is one member, which is not the
+ordinary shape of a `destroy`.
+
+A member that halted the Step writes the **last** entry, an effectful Expansion stopping at the first
+error with everything in front of it already committed (§6). A halt that names no answer at all — the
+deadline — writes none, and the entries in front of it stand as what those members were told and make no
+claim about what ended the Step: the Disposition is where that has always been read from, and a key that
+is per member no longer has to drop an earlier member's answer to keep a per-Step reading honest.
+
+A Step that resolved no selector writes one entry naming no member, which is the silence `expanded_to`
+keeps on the same Step: there is no member for it to name, and an entry naming one would name something
+the entry does not otherwise hold.
+
+A `shell` Step's entries carry the same `member` with its own Capability's members beside it: the command
+it ran and the code it exited with, and the `exit_code` absent where the command could not be started at
+all (§3, §6). Its threshold is `0` rather than `2xx`, and it covers two of the three cases rather than
+all of them, there being no `404` for a command to answer with: a nonzero exit that halted the Step, and
+a child that never started, which is *attempted, world untouched* under the other Capability and carries
+the command alone.
 
 ```json
-"answered": {"command": "[\"rm\",\"-rf\",\"/srv/app/releases/r41\"]", "exit_code": 1}
+"answered": [{"command": "[\"rm\",\"-rf\",\"/srv/app/releases/r41\"]", "exit_code": 1}]
 ```
 
 `command` is written rather than left to the identity set beside it for two reasons. A `destroy`
 projects nothing and declares no identity (§3), so on the Kind where this key matters most there is no
-projected `command` anywhere in the entry. And it is what keeps the key from ever being written empty:
-a failed exec would otherwise leave `answered: {}`, which the encoding above suppresses outright, and
-the fact that something other than the ordinary answer decided this Step would vanish exactly where it
-is least ordinary.
+projected `command` anywhere in the entry. And it is what keeps an entry from ever being written empty:
+a failed exec would otherwise leave `{}`, which the encoding above suppresses outright, and the fact
+that something other than the ordinary answer decided this Step would vanish exactly where it is least
+ordinary. A `member` alone does not save it — the entry would then say which member and nothing about
+what it was told — so an entry naming neither a host nor a command is one `hyper` will not write.
 
 It is here rather than on any Record for the reason the Pattern account is (ADR-0018): what it holds is
 that a non-`2xx` answer changed what `hyper` did, which is `hyper`'s own conduct rather than the world's
@@ -732,7 +757,10 @@ the Record wherever its Manifest projected it — an `uptime` version carrying `
 everything a second copy in the Journal would, and the one thing a Journal copy would add is a claim
 that `hyper` thought a `503` was untoward, which on a `read` it does not (§6). And on a `destroy` it is
 the whole of what tells a Tombstone written on `404` from one written on `204`: the Record says the
-thing is gone, and nothing there says how `hyper` learned it, which is the line ADR-0010 draws.
+thing is gone, and nothing there says how `hyper` learned it, which is the line ADR-0010 draws. The
+`member` is what carries that across an Expansion, and it is a name off `expanded_to` rather than a
+second copy of the Record for the same reason the key is here at all — the Record says what stands, and
+the entry says which of this Step's calls was answered that way.
 
 A Step halted by a projection that did not resolve (§6) carries the identities it concluded about and no
 others, and one thing more, under `projection_failed_path`: the path that failed to project. The set is

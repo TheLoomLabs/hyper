@@ -99,6 +99,58 @@ func TestRequirement_HaltsWhereTheNamedStepActedOnNothing(t *testing.T) {
 	}
 }
 
+// **A `require:` rooted at a Step that expanded holds of every Record it acted
+// on** — a Step of `series` cardinality, or one ranging over an Expansion, is as
+// legal a root as any other (§3, ADR-0126).
+//
+// The Run corpus drives the halt end to end; what is held here is the verdict,
+// and the sentence it hands an author. That sentence is the whole of what makes
+// the wider reading legible: an author who meant the Record of one Step and
+// wrote the list read has authored a stricter test than the one they meant, and
+// the count is where the difference shows.
+func TestRequirement_HoldsOfEveryRecordTheStepActedOn(t *testing.T) {
+	required := requiring(t, "{step: probe, field: state, equals: ready}")
+
+	ready := actingOn(store.Mapping{"state": store.String("ready")}, store.Mapping{"state": store.String("ready")})
+	if _, err := ready.verdict(required); err != nil {
+		t.Fatalf("verdict() = %v, want the Run to go on where every Record satisfied the predicate", err)
+	}
+
+	mixed := actingOn(
+		store.Mapping{"state": store.String("ready")},
+		store.Mapping{"state": store.String("degraded")},
+		store.Mapping{"state": store.String("ready")},
+	)
+	_, err := mixed.verdict(required)
+	if err == nil {
+		t.Fatal("verdict() = nil, want a halt where one of three Records did not satisfy the predicate")
+	}
+	// The population, the count, and the rule — and no member and no
+	// observed value, which is what ADR-0035 keeps every predicate report
+	// from naming.
+	for _, want := range []string{"acted on 3 Records", "on 2 of them", "holds of every one"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the halt reads %q, want it to carry %q", err, want)
+		}
+	}
+	if strings.Contains(err.Error(), "degraded") {
+		t.Errorf("the halt reads %q, want it to name no observed value (ADR-0035)", err)
+	}
+}
+
+// A root that acted on one Record says so in the singular, which is every
+// Requirement authored before an Expansion was a legal root.
+func TestRequirement_NamesOneRecordInTheSingular(t *testing.T) {
+	_, err := actingOn(store.Mapping{"exit_code": store.Int(1)}).
+		verdict(requiring(t, "{step: probe, field: exit_code, equals: 0}"))
+	if err == nil {
+		t.Fatal("verdict() = nil, want a halt")
+	}
+	if !strings.Contains(err.Error(), "of the Record step probe acted on") {
+		t.Errorf("the halt reads %q, want it to name one Record in the singular", err)
+	}
+}
+
 // A predicate that cannot decide Refuses wherever it stands (ADR-0035), and it
 // cites the artefact coordinate: the file, the Requirement's own entry, and
 // the operator inside it. It carries no `step` — a Requirement takes no

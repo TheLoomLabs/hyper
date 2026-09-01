@@ -69,7 +69,7 @@ func TestCondition_HoldsOfTheRecordTheNamedStepActedOn(t *testing.T) {
 		"the Record lacks the field": {[]store.Mapping{{"host": store.String("a")}}, false},
 	} {
 		t.Run(name, func(t *testing.T) {
-			held, mismatch := when.holds(c.acted, time.Time{})
+			held, _, mismatch := when.holds(c.acted, time.Time{})
 			if mismatch != "" {
 				t.Fatalf("mismatch %q, want a comparison", mismatch)
 			}
@@ -95,7 +95,7 @@ func TestCondition_DoesNotHoldWhereTheNamedStepActedOnNothing(t *testing.T) {
 		"the Step concluded about nothing": {},
 	} {
 		t.Run(name, func(t *testing.T) {
-			held, mismatch := conditionOf(t, "{step: probe, field: status, absent: true}").holds(acted, time.Time{})
+			held, _, mismatch := conditionOf(t, "{step: probe, field: status, absent: true}").holds(acted, time.Time{})
 			if held {
 				t.Error("the condition held over a Step that acted on no Record")
 			}
@@ -113,7 +113,7 @@ func TestCondition_DoesNotHoldWhereTheNamedStepActedOnNothing(t *testing.T) {
 func TestCondition_RefusesAValueItCannotCompare(t *testing.T) {
 	when := conditionOf(t, "{step: probe, field: status, greater_than: 10}")
 
-	held, mismatch := when.holds([]store.Mapping{{"status": store.String("up")}}, time.Time{})
+	held, _, mismatch := when.holds([]store.Mapping{{"status": store.String("up")}}, time.Time{})
 	if held {
 		t.Error("the condition held over a value it cannot compare")
 	}
@@ -134,17 +134,17 @@ func TestCondition_HoldsOfEveryRecordTheStepActedOn(t *testing.T) {
 	when := conditionOf(t, "{step: probe, field: status, equals: \"200\"}")
 
 	all := []store.Mapping{{"status": store.String("200")}, {"status": store.String("200")}}
-	if held, _ := when.holds(all, time.Time{}); !held {
+	if held, _, _ := when.holds(all, time.Time{}); !held {
 		t.Error("the condition did not hold where every Record matched")
 	}
 
 	one := []store.Mapping{{"status": store.String("200")}, {"status": store.String("503")}}
-	if held, _ := when.holds(one, time.Time{}); held {
+	if held, _, _ := when.holds(one, time.Time{}); held {
 		t.Error("the condition held where one of two Records did not match")
 	}
 
 	uncomparable := []store.Mapping{{"status": store.String("503")}, {"status": store.Bool(true)}}
-	if _, mismatch := conditionOf(t, "{step: probe, field: status, starts_with: \"5\"}").holds(uncomparable, time.Time{}); mismatch == "" {
+	if _, _, mismatch := conditionOf(t, "{step: probe, field: status, starts_with: \"5\"}").holds(uncomparable, time.Time{}); mismatch == "" {
 		t.Error("a value the operator cannot compare passed unreported behind a Record that already excluded the set")
 	}
 }
@@ -157,11 +157,11 @@ func TestCondition_ReadsTheInstantTheRunSuppliesRatherThanAClock(t *testing.T) {
 	acted := []store.Mapping{{"seen_at": store.String("2026-04-02T09:00:00Z")}}
 
 	later, _ := time.Parse(time.RFC3339, "2026-04-02T11:00:00Z")
-	if held, _ := when.holds(acted, later); !held {
+	if held, _, _ := when.holds(acted, later); !held {
 		t.Error("the condition did not hold two hours after the value it was compared against")
 	}
 	sooner, _ := time.Parse(time.RFC3339, "2026-04-02T09:30:00Z")
-	if held, _ := when.holds(acted, sooner); held {
+	if held, _, _ := when.holds(acted, sooner); held {
 		t.Error("the condition held half an hour after the value it was compared against")
 	}
 }
