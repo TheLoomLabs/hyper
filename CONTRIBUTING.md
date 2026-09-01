@@ -134,6 +134,14 @@ machine that has run the harness before does not hand the next session an older
 run's answer key. If you keep transcripts around, they stay where they are and
 the harness works around them.
 
+**A repair to what an agent reads owes a run.** The suite asserts what the
+harness did and never what an agent did (#221), so a clause added to the
+orientation, or a `check` row or `review` rendering reworded, is fenced by
+nothing here — the ticket that lands one names the run it owes and either buys
+it or writes down why not
+([`docs/agents/acceptance-re-runs.md`](docs/agents/acceptance-re-runs.md),
+[#250](https://github.com/TheLoomLabs/hyper/issues/250)).
+
 **A task is fenced by existing.** That test ranges over every task file in
 `scripts/acceptance/tasks/` rather than naming one, so adding a task file — and
 the `.setup.sh` beside it, which is part of the same artefact — is the whole of

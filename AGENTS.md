@@ -12,6 +12,11 @@ Default canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `read
 
 Single-context layout — root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
 
+### Acceptance re-runs
+
+A repair to what an agent *reads* is fenced by no case in the suite, and owes a sealed run. When one
+is owed, which task, and what deferring it looks like: `docs/agents/acceptance-re-runs.md`.
+
 ## The spec, and building from it
 
 `docs/spec/` is the specification — what `hyper` does, in fourteen sections.
