@@ -173,7 +173,7 @@ func pinnedBy(t *testing.T, repo string) string {
 //
 // **Where the machine claims it was prepared, the same fact is a failure**
 // (`unavailable`, suite_test.go, issue #243). This case and the tools it needs
-// are the whole of what fences six acceptance tasks, so a runner that lost
+// are the whole of what fences seven acceptance tasks, so a runner that lost
 // `bwrap` between one job and the next would go green having run none of it —
 // the silent version of the rot #222 closed.
 func needSeal(t *testing.T) {

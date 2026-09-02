@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -25,6 +29,19 @@ import (
 //
 // These cases drive the handler directly rather than over TLS: the certificate
 // is main.go's business, and the transport is not what any of this is about.
+//
+// **There are two worlds now** (issue #255). Everything below but the last three
+// cases drives `monitor-coverage`'s, because that is the state these routes were
+// written against and the one whose transcripts are compared across years. The
+// last three, in the order they stand: the first world's bytes held against a
+// golden so a later fixture cannot move them, the second world's own arrangement,
+// and the shipped documentation held to naming nothing the service does not
+// answer.
+
+// coverage is the monitors `monitor-coverage` starts with — the world every case
+// below that does not say otherwise is driving, and the length the counts in them
+// are against.
+func coverage() []monitor { return fixtures()["coverage"].monitors }
 
 // listing is the shape of an answer to the list route, spelled once because two
 // helpers below read it.
@@ -41,7 +58,7 @@ type listing struct {
 // agent whose Manifest declares no Auth scheme meets one status rather than a
 // different one per call (§3).
 func TestLookout_ACallWithoutTheTokenIsRefusedWhateverItAsksFor(t *testing.T) {
-	api := &lookout{token: "fixture", monitors: seeded()}
+	api := fixtures()["coverage"].serve("fixture")
 
 	for _, call := range []struct{ method, path string }{
 		{http.MethodGet, "/v1/monitors"},
@@ -58,8 +75,8 @@ func TestLookout_ACallWithoutTheTokenIsRefusedWhateverItAsksFor(t *testing.T) {
 			t.Errorf("%s %s without a token answered %q, want unauthorized", call.method, call.path, code)
 		}
 	}
-	if held := len(api.monitors); held != len(seeded()) {
-		t.Errorf("the monitors moved under a call nobody was allowed to make: %d stand, want %d", held, len(seeded()))
+	if held := len(api.monitors); held != len(coverage()) {
+		t.Errorf("the monitors moved under a call nobody was allowed to make: %d stand, want %d", held, len(coverage()))
 	}
 }
 
@@ -71,7 +88,7 @@ func TestLookout_ACallWithoutTheTokenIsRefusedWhateverItAsksFor(t *testing.T) {
 // offset spelled in the clear, since an offset an author can compute is one
 // nobody has to carry.
 func TestLookout_TheListPagesAtTwoAndLimitReachesTheRest(t *testing.T) {
-	api := &lookout{token: "fixture", monitors: seeded()}
+	api := fixtures()["coverage"].serve("fixture")
 
 	first := page(t, api, "/v1/monitors")
 	if len(first.Data.Monitors) != pageSize {
@@ -95,7 +112,7 @@ func TestLookout_TheListPagesAtTwoAndLimitReachesTheRest(t *testing.T) {
 	}
 
 	whole := page(t, api, "/v1/monitors?limit=100")
-	if len(whole.Data.Monitors) != len(seeded()) || whole.Data.Cursor != "" {
+	if len(whole.Data.Monitors) != len(coverage()) || whole.Data.Cursor != "" {
 		t.Errorf("limit=100 held %d monitors and cursor %q, want all of them and no cursor",
 			len(whole.Data.Monitors), whole.Data.Cursor)
 	}
@@ -120,7 +137,7 @@ func TestLookout_TheListPagesAtTwoAndLimitReachesTheRest(t *testing.T) {
 // meets, and a `window` that is not a whole number of seconds is where
 // ADR-0078's typing rule meets an API that checks.
 func TestLookout_ACreateAnswersOneObjectAndSaysNoTheDocumentedWays(t *testing.T) {
-	api := &lookout{token: "fixture", monitors: seeded()}
+	api := fixtures()["coverage"].serve("fixture")
 
 	answer := ask(t, api, http.MethodPost, "/v1/monitors", `{"service":"checkout","window":60}`, "fixture")
 	if answer.Code != http.StatusCreated {
@@ -159,7 +176,7 @@ func TestLookout_ACreateAnswersOneObjectAndSaysNoTheDocumentedWays(t *testing.T)
 			t.Errorf("%s answered %d %q, want %d %s", refusal.body, answer.Code, code, refusal.status, refusal.code)
 		}
 	}
-	if held := len(api.monitors); held != len(seeded())+1 {
+	if held := len(api.monitors); held != len(coverage())+1 {
 		t.Errorf("%d monitors stand; a create that was said no to must leave the list where it was", held)
 	}
 }
@@ -171,7 +188,7 @@ func TestLookout_ACreateAnswersOneObjectAndSaysNoTheDocumentedWays(t *testing.T)
 // `DELETE` is also the one answer here with no body at all, which is the
 // exception the envelope comment in api.go states.
 func TestLookout_ARefReachesOneMonitorAndRetiresIt(t *testing.T) {
-	api := &lookout{token: "fixture", monitors: seeded()}
+	api := fixtures()["coverage"].serve("fixture")
 
 	answer := ask(t, api, http.MethodGet, "/v1/monitors/mon_0d3e88", "", "fixture")
 	var one struct {
@@ -190,8 +207,8 @@ func TestLookout_ARefReachesOneMonitorAndRetiresIt(t *testing.T) {
 	if answer.Code != http.StatusNoContent || answer.Body.Len() != 0 {
 		t.Errorf("DELETE answered %d with %d bytes, want 204 and nothing", answer.Code, answer.Body.Len())
 	}
-	if held := page(t, api, "/v1/monitors?limit=100").Data.Monitors; len(held) != len(seeded())-1 {
-		t.Errorf("%d monitors stand after a delete, want %d", len(held), len(seeded())-1)
+	if held := page(t, api, "/v1/monitors?limit=100").Data.Monitors; len(held) != len(coverage())-1 {
+		t.Errorf("%d monitors stand after a delete, want %d", len(held), len(coverage())-1)
 	}
 
 	for _, gone := range []string{"/v1/monitors/mon_0d3e88", "/v1/monitors/mon_nothing"} {
@@ -247,4 +264,147 @@ func errorCode(t *testing.T, body string) string {
 		t.Fatalf("%v: %s", err, body)
 	}
 	return answer.Error.Code
+}
+
+// TestLookout_TheCoverageFixtureIsTheBytesThatTaskHasAlwaysSeen is a golden and
+// nothing more. `monitor-coverage`'s transcripts are read against one another
+// across years, and every one of them was produced against these four monitors in
+// this order against a page size of two — so a seeded monitor renamed, reordered
+// or added is a comparison that has quietly changed its subject. A second task
+// arriving with its own world is exactly when that becomes possible, which is why
+// this case arrives with it (issue #255).
+func TestLookout_TheCoverageFixtureIsTheBytesThatTaskHasAlwaysSeen(t *testing.T) {
+	want := []monitor{
+		{Ref: "mon_4a91c7", Service: "legacy-import", Window: 300, Muted: true, State: "active", Created: "2025-11-02T08:41:19Z"},
+		{Ref: "mon_0d3e88", Service: "ingest", Window: 60, State: "active", Created: "2026-01-14T10:02:47Z"},
+		{Ref: "mon_b71f20", Service: "mailer", Window: 60, State: "active", Created: "2026-03-30T16:55:08Z"},
+		{Ref: "mon_2c5a94", Service: "billing", Window: 60, State: "active", Created: "2026-06-11T09:20:33Z"},
+	}
+	if got := fixtures()["coverage"]; !reflect.DeepEqual(got.monitors, want) || got.unreachable != nil {
+		t.Errorf("the coverage fixture is\n%+v\nand every monitor-coverage transcript was produced against\n%+v", got, want)
+	}
+	if len(want)%pageSize != 0 || len(want)/pageSize != 2 {
+		t.Errorf("%d monitors at a page size of %d is no longer the two even pages that task's paging trap is", len(want), pageSize)
+	}
+}
+
+// TestLookout_AServiceThatDoesNotAnswerItsFirstLookIsNotKept is the retirement
+// fixture's own arrangement, and the whole of what it buys (issue #255). A
+// `destroy` Step expanding over two Assets meets a `404` on one member and a
+// `204` on the other only if one of the two monitors is gone without `hyper`
+// having deleted it — §5 drops a Tombstoned member from a later Expansion, so
+// re-running a retire Procedure cannot produce it, and nothing inside the seal
+// can reach into the service and remove one by hand.
+//
+// The create's answer is asserted to be unchanged, because that is what makes the
+// caller accountable for a monitor the world does not hold: a `503` here would be
+// an ordinary failed call and would leave nothing behind to disagree with.
+func TestLookout_AServiceThatDoesNotAnswerItsFirstLookIsNotKept(t *testing.T) {
+	world := fixtures()["retirement"]
+	api := world.serve("fixture")
+
+	answer := ask(t, api, http.MethodPost, "/v1/monitors", `{"service":"pricing","window":60}`, "fixture")
+	if answer.Code != http.StatusCreated {
+		t.Fatalf("the create for an unreachable service answered %d, want 201: %s", answer.Code, answer.Body)
+	}
+	var created struct {
+		Data struct {
+			Monitor monitor `json:"monitor"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(answer.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	gone := created.Data.Monitor
+	if gone.Ref == "" || gone.Service != "pricing" || gone.Window != 60 {
+		t.Fatalf("the create answered %+v, want the monitor it minted for pricing", gone)
+	}
+
+	held := page(t, api, "/v1/monitors?limit=100").Data.Monitors
+	if len(held) != len(world.monitors) {
+		t.Errorf("%d monitors stand after a create that was not kept, want %d", len(held), len(world.monitors))
+	}
+	for _, standing := range held {
+		if standing.Service == "pricing" {
+			t.Errorf("pricing is in the list; a service that did not answer its first look is not one we kept")
+		}
+	}
+	for _, method := range []string{http.MethodGet, http.MethodDelete} {
+		answer := ask(t, api, method, "/v1/monitors/"+gone.Ref, "", "fixture")
+		if code := errorCode(t, answer.Body.String()); answer.Code != http.StatusNotFound || code != "no_such_monitor" {
+			t.Errorf("%s the dropped ref answered %d %q, want 404 no_such_monitor", method, answer.Code, code)
+		}
+	}
+
+	// The other half of the same Step: a service that does answer is kept, and
+	// its `DELETE` is the `204` the `404` above stands beside.
+	if answer := ask(t, api, http.MethodPost, "/v1/monitors", `{"service":"warehouse","window":60}`, "fixture"); answer.Code != http.StatusCreated {
+		t.Fatalf("the create for a reachable service answered %d, want 201: %s", answer.Code, answer.Body)
+	}
+	kept := page(t, api, "/v1/monitors?limit=100").Data.Monitors
+	if len(kept) != len(world.monitors)+1 {
+		t.Fatalf("%d monitors stand after a create that was kept, want %d", len(kept), len(world.monitors)+1)
+	}
+	if answer := ask(t, api, http.MethodDelete, "/v1/monitors/"+kept[len(kept)-1].Ref, "", "fixture"); answer.Code != http.StatusNoContent {
+		t.Errorf("the delete for the kept monitor answered %d, want 204", answer.Code)
+	}
+}
+
+// TestLookout_TheDocumentationQuotesTheAnswersTheServiceGives holds the file the
+// sealed session is graded against to the service it describes. The document
+// names a refusal one way throughout — a status and a code in one span, `409
+// already_watched` — so that is what is read out of it and held against what
+// `route` can actually answer.
+//
+// It is the one direction worth asserting. An author who cannot find a documented
+// code is debugging our prose, where a code the documentation does not mention —
+// `no_such_route`, `method_not_allowed` — is the ordinary reticence of a vendor's
+// reference and no lie. The six named below are the ones an author meets on a
+// documented route, and requiring them is what stops this case passing because a
+// document said nothing at all.
+//
+// One document is shipped by both setup scripts rather than a heredoc in each
+// (issue #255), which is what makes this one file to hold anything against.
+func TestLookout_TheDocumentationQuotesTheAnswersTheServiceGives(t *testing.T) {
+	statuses := map[string]int{
+		"BadRequest": http.StatusBadRequest, "Unauthorized": http.StatusUnauthorized,
+		"NotFound": http.StatusNotFound, "Conflict": http.StatusConflict,
+		"MethodNotAllowed": http.StatusMethodNotAllowed,
+	}
+	source, err := os.ReadFile("api.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	answers := map[string]int{}
+	for _, found := range regexp.MustCompile(`reject\(w, http\.Status(\w+), "([a-z_]+)"`).FindAllStringSubmatch(string(source), -1) {
+		status, known := statuses[found[1]]
+		if !known {
+			t.Fatalf("api.go answers http.Status%s and this case does not know its number", found[1])
+		}
+		answers[found[2]] = status
+	}
+	if len(answers) == 0 {
+		t.Fatal("no refusals were found in api.go; this case would pass for the wrong reason")
+	}
+
+	documentation, err := os.ReadFile("api.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quoted := map[string]bool{}
+	for _, found := range regexp.MustCompile("`([0-9]{3}) ([a-z_]+)`").FindAllStringSubmatch(string(documentation), -1) {
+		status, answered := answers[found[2]]
+		switch {
+		case !answered:
+			t.Errorf("api.md quotes %q and the service never answers it", found[2])
+		case strconv.Itoa(status) != found[1]:
+			t.Errorf("api.md quotes %s %s and the service answers %d", found[1], found[2], status)
+		}
+		quoted[found[2]] = true
+	}
+	for _, met := range []string{"already_watched", "no_such_monitor", "invalid_window", "window_out_of_range", "invalid_cursor", "invalid_limit"} {
+		if !quoted[met] {
+			t.Errorf("api.md does not quote %q, which an author meets on a documented route", met)
+		}
+	}
 }

@@ -1,8 +1,16 @@
-// Command lookout is the fixture API the `monitor-coverage` acceptance task
-// points a Provider Manifest at (issue #227). It mints a certificate, listens
-// on a free loopback port, and serves a small JSON API behind a bearer token
-// until it is killed. Nothing in `hyper` knows it exists: it is reached the way
-// any vendor's API is, over TLS, through a Manifest an agent authored.
+// Command lookout is the fixture API the `monitor-coverage` and
+// `monitor-retirement` acceptance tasks point a Provider Manifest at (issues
+// #227 and #255). It mints a certificate, listens on a free loopback port, and
+// serves a small JSON API behind a bearer token until it is killed. Nothing in
+// `hyper` knows it exists: it is reached the way any vendor's API is, over TLS,
+// through a Manifest an agent authored.
+//
+// **One service, two worlds.** `-fixture` names the initial state it starts in,
+// and each of those states is a task's fiction: which monitors are already
+// there, and which services will not answer the first look a create takes at
+// them. The states and the argument for each are in api.go; nothing else about
+// the service varies between them, so a Manifest written against one is a
+// Manifest that works against the other.
 //
 // **Why any of this is here** is [ADR-0105](../../../docs/adr/0105-the-acceptance-endpoint-is-a-local-tls-server-and-no-artefact-trusts-it.md).
 // A task that asks for a Manifest needs something for that Manifest to talk to,
@@ -52,15 +60,20 @@
 //     answers a single object under `data.monitor` with a `state` of its own, so
 //     a projection written off the list does not resolve against the create.
 //
-// Two further facts of it are load-bearing rather than decorative. The list
+// Three further facts of it are load-bearing rather than decorative. The list
 // pages at two, so an agent that does not reach for a pagination Pattern sees
 // half the monitors and concludes the other half are missing — and creating one
-// that exists is refused `409`, which halts an effectful Step (§6). And `window`
+// that exists is refused `409`, which halts an effectful Step (§6). `window`
 // is validated as a whole number of seconds, so a Manifest that sends the
 // integer as a string — the composition rule ADR-0078 states, a stray character
-// beside a hole — is refused `400` rather than quietly accepted. Neither is
-// announced as a trap anywhere: they are properties of an API, and the
-// documentation the setup script ships describes them the way a vendor's would.
+// beside a hole — is refused `400` rather than quietly accepted. And a monitor
+// is looked at as soon as it is added, so a service that does not answer that
+// first look leaves a `201` in the caller's hands and nothing in the list —
+// which is the only way a monitor `hyper` created is gone before `hyper`
+// deleted it, and therefore the only way to a `404` on a `destroy` from inside
+// the seal (issue #255). None of the three is announced as a trap anywhere:
+// they are properties of an API, and the documentation the setup scripts ship
+// describes them the way a vendor's would.
 package main
 
 import (
@@ -75,12 +88,15 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"maps"
 	"math/big"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -99,9 +115,19 @@ const (
 
 func main() {
 	dir := flag.String("dir", "", "directory to write the certificate and the report into")
+	name := flag.String("fixture", "", "the named initial state to serve")
 	flag.Parse()
 	if *dir == "" {
 		log.Fatal("lookout: -dir is required")
+	}
+	// Named rather than defaulted, and fatal rather than empty (issue #255). A
+	// default would be one task's world served to a task that forgot to say
+	// which it wanted, and an unknown name that started an empty service would
+	// be a transcript about a fixture nobody wrote. What a task passes is the
+	// name; what the arrangement is *for* is the comment beside it in api.go.
+	world, known := fixtures()[*name]
+	if !known {
+		log.Fatalf("lookout: -fixture is one of %s", strings.Join(slices.Sorted(maps.Keys(fixtures())), ", "))
 	}
 	// Absolute, because the report is read by a script and the path in it is
 	// handed to a process with a working directory of its own.
@@ -114,7 +140,7 @@ func main() {
 	if _, err := rand.Read(token); err != nil {
 		log.Fatalf("lookout: %v", err)
 	}
-	api := &lookout{token: hex.EncodeToString(token), monitors: seeded()}
+	api := world.serve(hex.EncodeToString(token))
 
 	pair, root, err := mint()
 	if err != nil {
