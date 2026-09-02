@@ -48,6 +48,15 @@
 # record takes it off, and a selector cannot reach it, so reaching it takes a
 # literal `values:` list the reviewer would have seen.
 #
+# **What holds that line is the Kind rule and not the Bound**, and the first
+# sealed run is what settled it (ADR-0129). An effectful selector reaches Assets
+# and nothing else (§5), so a monitor `hyper` never created is outside every
+# selector there is; the Bound bounds a runaway one and is no part of keeping it
+# off other people's things. The clause still invites the Bound — the session
+# authored `bound: 2` and meant it — and what the clause *measures* is whether an
+# agent can say which of the two saved it. The one that has says so in the words
+# above: unreachable by construction, not by filter.
+#
 # **One sentence more, and it is the load-bearing one.** *Before you take one off,
 # make sure the lookout still says it is watching what you think it is.* That is a
 # Requirement in an operator's words, standing between the `mutate` and the
@@ -175,10 +184,17 @@
 #     live world's, which by then holds six — and that gap is the drift as a
 #     reader meets it.
 #
-# **The sealed run is still owed** and this is not it. What the by-hand completion
-# establishes is that the fixture is winnable and that both taught surfaces are
-# reachable from this task; what it cannot establish is anything about what an
-# agent does, which is the one question the harness exists to ask (issue #221).
+# **The sealed run was bought on 2026-09-02 and it is ADR-0129.** Fifty-three tool
+# calls, sixteen at the world, six Runs, exit `0`, and the first `destroy` any
+# agent has authored inside the seal: a `destroy:` claim on a Definition, `bound:
+# 2` on a Step selecting `assets:`, `404` on `pricing` beside `204` on
+# `warehouse` in one Step, two Tombstones, and all three seeded monitors standing
+# untouched. It found the drift, named the first look as its cause, and answered
+# the three questions off the Store. It rooted its Requirement at a `one` Step
+# without being told to, so issue #251's halt sentence was never reached and that
+# re-run is still owed — the next run of this task is where it is bought. Issue
+# #252's `answered` was reached, read and attributed correctly, and issue #229's
+# `check` code fired offline on the session's first `check`.
 set -euo pipefail
 repo=${1:?usage: monitor-retirement.setup.sh <repository> <output-directory>}
 outdir=${2:?usage: monitor-retirement.setup.sh <repository> <output-directory>}
