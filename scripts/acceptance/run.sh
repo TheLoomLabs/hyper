@@ -22,9 +22,12 @@
 # pin, a Target, a Definition, a Procedure, and no `providers/` — with a Store
 # initialised (ADR-0104), the MCP server wired, `AGENTS.md` written by
 # `hyper project`, and a headless Claude Code session run inside a mount
-# namespace where the source checkout, the neighbouring checkouts, every cached
-# copy of their text, and this script's own output directory are not there to be
-# read. The session's own transcript is the output.
+# namespace whose home directory holds three paths and nothing else — the client
+# running the session, the credential it authenticates with, and an onboarding
+# flag. So the source checkout, the neighbouring checkouts, every cached copy of
+# their text, this script's own output directory and whatever an attended session
+# happened to leave in `$HOME` are none of them there to be read. The session's
+# own transcript is the output.
 #
 # The seal is `bwrap(1)`, which needs no privilege and no daemon. It is not a
 # security boundary and is not trying to be one: the sandboxed session runs as
@@ -32,10 +35,11 @@
 # is not being kept from anything. What it does is make the specification
 # absent, which is the one property the evidence depends on.
 #
-# **Two things in here cannot be hidden, and the claim is written to say so**
-# (issue #231). §9 states one transport — the server is the same binary, started
-# by the client over stdio, one process per client, dying with it — and there is
-# no `serve`, no daemon and no remote transport (ADR-0088). So `hyper mcp` is a
+# **Two things about `hyper` in here cannot be hidden, and the claim is written
+# to say so** (issue #231). §9 states one transport — the server is the same
+# binary, started by the client over stdio, one process per client, dying with
+# it — and there is no `serve`, no daemon and no remote transport (ADR-0088).
+# So `hyper mcp` is a
 # *child of the sealed session*: `claude` reads `mcp.json` from inside the
 # namespace and execs the binary that file names from inside it. Both stay
 # reachable and no amount of binding changes that, which makes ADR-0099's *no
@@ -46,11 +50,18 @@
 # *could* be hidden and the fixture would simply stop working, so it is kept
 # deliberately, by the rule below rather than by necessity.
 #
+# **The client and its credential cannot be hidden either** (issue #257). `$HOME`
+# goes wholesale now, and on this machine Claude Code is installed inside it — so
+# the binary running the session and the credential it authenticates with are
+# bound back there by name. A seal that hid them would be hiding the session, and
+# neither is anything a task is about.
+#
 # So what this harness claims, and what the assertion below holds it to, is
 # narrower than *nothing is reachable*: **no source checkout, no second binary,
 # no fixture internals — and the one binary that is reachable is the one the MCP
-# server is** (ADR-0109). The gap is not an oversight and closing it is not
-# available.
+# server is** (ADR-0109) — *binary* there meaning a `hyper`, the client being the
+# session rather than something inside it. The gap is not an oversight and
+# closing it is not available.
 set -euo pipefail
 
 task=${1:?usage: run.sh <task-file> <output-directory>}
@@ -283,34 +294,49 @@ for value in supplied:
 
 # What the seal covers, and why each one.
 #
-#   the checkout        the specification, the ADRs, `internal/*.go` — the
-#                       thing three runs went and read
-#   $HOME/bin           where a stamped `hyper` is kept on this machine; the
-#                       condition being repeated is that there is none on PATH
-#   ~/.claude/projects  every session transcript on this machine, which for
-#                       this project quote the specification at length
-#   history.jsonl,      the same text again, in the caches Claude Code keeps
-#   file-history,       beside it
-#   shell-snapshots,
-#   session-env
-#   ~/.claude.json      per-project prompt history, same reason
-#   settings.json,      this machine's hooks, plugins and skills, which are
-#   plugins, skills     configuration a user installing `hyper` does not have,
-#                       and would be a second uncontrolled variable
+#   $HOME               **wholesale** (issue #257). A `--tmpfs`, with the three
+#                       paths the sealed session's own processes must open bound
+#                       back on top by name. Every entry below that names a path
+#                       inside it is a consequence of this line rather than a
+#                       cover of its own.
+#   the checkout        the specification, the ADRs, `internal/*.go` — the thing
+#                       three runs went and read. Its *parent* goes rather than
+#                       the checkout alone, the sibling directories being where a
+#                       solved `providers/` was found once already; the line is
+#                       here for a checkout kept outside `$HOME`.
 #   the build cache     a linked `bin/lookout` and the archives behind it: the
-#                       fixture's compiled text, not the specification's
+#                       fixture's compiled text, not the specification's. Same
+#                       case — on this machine it is `~/.cache/go-build` and the
+#                       first line has it.
 #   the output          everything this script writes, but for the repository
 #   directory           and the files `keep` names below, with reasons
 #   previous output     the same list again, one run of this harness ago; found
 #   directories         by search, since nothing here remembers where they went
 #
-# The parent of the checkout goes rather than the checkout alone: the sibling
-# directories are where a solved `providers/` was found once already.
+# **The list used to run the other way, and that is what issue #257 closed.**
+# Nine covers named the places this project's text was known to collect —
+# `$HOME/bin`, five Claude Code caches, the prompt history, the build cache —
+# and each of them was added when something turned out to be reachable. What a
+# list of that shape cannot cover is the thing that grows: when the
+# `monitor-retirement` run was prepared, `$HOME` held six directories of session
+# material left by three earlier tickets — a working Provider Manifest and nine
+# Runs, six raw transcripts quoting Manifests whole, the published
+# `v0.0.1-alpha` archive, and the by-hand completion of the very task about to be
+# run, an hour old. None of it matched any search here and none of it was ever
+# going to: the next one is named something else.
+#
+# ADR-0099's rule is what condemns the shape rather than the entries — *whether a
+# given run forages is a property of the run and not of the setup, so the setup
+# cannot be trusted to control for it: it has to be made impossible* — and a list
+# of what to hide is a setup being trusted to control for it. So the home
+# directory goes and what the session needs comes back, which is the same
+# inversion ADR-0109 made one directory in.
 empty=$outdir/.empty
-mkdir -p "$empty" "$outdir/projects"
+mkdir -p "$empty"
+# The one fact about this machine the sealed session is handed rather than
+# left to discover. Without it the first turns go on onboarding, and the
+# transcript is about the client.
 printf '{"hasCompletedOnboarding":true,"installMethod":"native","autoUpdates":false}\n' >"$outdir/.claude.json"
-printf '{}\n' >"$outdir/.settings.json"
-: >"$outdir/.history.jsonl"
 
 # `--clearenv`, because the harness is usually invoked from inside an agent
 # session and that session's environment is not a fact about a user's machine.
@@ -319,35 +345,127 @@ printf '{}\n' >"$outdir/.settings.json"
 # session to be running as a child of the one that started it, at an effort
 # level it did not choose. The first run of this harness leaked all of those.
 seal=(
-	bwrap --bind / / --ro-bind "$empty" "$(dirname "$root")"
+	bwrap --bind / /
 	--clearenv
 	--setenv HOME "$HOME" --setenv USER "${USER:-$(id -un)}" --setenv LOGNAME "${USER:-$(id -un)}"
 	--setenv PATH /usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
 	--setenv LANG "${LANG:-C.UTF-8}" --setenv TERM "${TERM:-dumb}"
 	--setenv DISABLE_AUTOUPDATER 1
 )
-# Operands in `bwrap`'s own order — option, source, destination — so that this
-# list reads against the man page rather than backwards from it. A destination
-# this machine does not have is skipped: there is no history to hide in a
-# `~/.claude` that has none, and `bwrap` treats a missing destination as a hard
-# error rather than something to create.
+
+# The rules the covers below are written in, stated once each.
+#
+# `cover` hides a path outside `$HOME`. Operands in `bwrap`'s own order —
+# option, source, destination — so that the calls read against the man page
+# rather than backwards from it. A destination this machine does not have is
+# skipped, `bwrap` treating a missing destination as a hard error rather than
+# something to create; and so is a destination inside `$HOME`, where an empty
+# bind would not hide a path but **create** one — an empty `~/dev` in a home
+# directory the tmpfs below has already emptied, and a line the inventory would
+# then have to be taught to expect.
 cover() {
+	case $3/ in
+	"$HOME"/*) return 0 ;;
+	esac
 	[ -e "$3" ] && seal+=("$1" "$2" "$3")
 	return 0
 }
-cover --ro-bind "$empty" "$HOME/bin"
-cover --ro-bind "$empty" "$HOME/.claude/file-history"
-cover --ro-bind "$empty" "$HOME/.claude/shell-snapshots"
-cover --ro-bind "$empty" "$HOME/.claude/session-env"
-cover --ro-bind "$empty" "$HOME/.claude/plugins"
-cover --ro-bind "$empty" "$HOME/.claude/skills"
-cover --ro-bind "$outdir/.settings.json" "$HOME/.claude/settings.json"
-cover --bind "$outdir/.history.jsonl" "$HOME/.claude/history.jsonl"
-cover --bind "$outdir/.claude.json" "$HOME/.claude.json"
-cover --bind "$outdir/projects" "$HOME/.claude/projects"
 
-# Go's build cache is covered, and the reason is the fixture rather than the
-# specification (issue #231). It holds no source — compiled archives, linked
+# `keep` is one fact written once: a path the sealed session's own processes must
+# open is bound back over a tmpfs, *and* is what the assertion below expects to
+# find reachable there. Two lists would be two lists to keep in agreement. The
+# directories on the way to a kept path come with it, `bwrap` creating them in
+# the tmpfs as it binds, so `allow` records the whole chain rather than the path
+# alone. The chain is what an output directory nested under `$HOME` needs: the
+# walk below descends from `$HOME` to it and prints every directory on the way.
+# Past `$HOME` it keeps walking to `/`, which is looser than it needs to be and
+# costs nothing — those are ancestors of a walk's own root, which `find` never
+# prints, so nothing is ever compared against them.
+#
+# **`keep` is strict, unlike `cover`, and the difference is whose path it is.**
+# Everything handed to `keep` here is one this script created a few lines above —
+# the `.claude.json`, the repository, `bin/hyper`, `mcp.json`, and a path an
+# `endpoint.env` named that the parser above already checked exists. A missing
+# one is a defect in this script, and `bwrap`'s hard error is the right report
+# for it: a silent skip would be a sealed session started without its repository.
+# The two paths that belong to the *machine* rather than to this script are
+# guarded where they are named, below.
+allowed=()
+allow() {
+	local path=$1
+	while [ "$path" != / ]; do
+		allowed+=("$path")
+		case $path in
+		"$HOME") break ;;
+		esac
+		path=$(dirname "$path")
+	done
+}
+keep() {
+	local source=$2 destination=${3:-$2}
+	seal+=("$1" "$source" "$destination")
+	allow "$destination"
+}
+
+# **`$HOME` goes whole, and three things come back** (issue #257).
+#
+# Two of them are the session itself and cannot be anything else, for the reason
+# `mcp.json` and `bin/hyper` cannot (ADR-0109): a seal that hid them would hide
+# the thing being measured. Claude Code is installed under `$HOME` on this
+# machine — `~/.local/bin/claude`, a symlink `bwrap` resolves as it binds, so
+# what lands at that path is the binary itself — and its credential is what lets
+# the session authenticate at all. The path is read once and used twice: the
+# client bound here is the one `bwrap` execs at the bottom of this script. Neither is new inside the seal; what is new is
+# that they are named rather than merely surviving a list of what to hide.
+# Neither is anything the task is about, and the credential is worth exactly what
+# it was worth before, the seal never having been a security boundary.
+#
+# The third is the onboarding flag above, which is a fact about the client and
+# not about the machine.
+#
+# **What is deliberately not bound back is everything the old list named.** The
+# Claude caches, the prompt history and its backups, `$HOME/bin`, the build
+# cache: all of them are inside `$HOME` and are gone by construction rather than
+# by nine lines that have to stay abreast of what Claude Code writes and what a
+# session leaves behind. `~/.claude/settings.json` was covered with `{}` and is
+# now simply absent, which is the same absence of hooks, plugins and skills;
+# `~/.claude/history.jsonl` and `~/.claude/projects` were bound to files in the
+# output directory and are now the tmpfs's, which is what ADR-0111 wanted — a
+# sealed session's auto-memory write lands in a home directory that dies with the
+# namespace, so reusing an output directory can no longer carry one session's
+# notes into the next.
+#
+# **Both machine paths are guarded, and neither is a fact this script can assume.**
+# A client kept outside `$HOME` needs no bind and gets none; a machine with no
+# client and no credential at all — the runner that runs the setup half, where
+# `ACCEPTANCE_SETUP_ONLY` stops before the session — keeps neither, and a session
+# it cannot start is not one it is starting. On a machine where the session *is*
+# about to run, a credential that is not here is a session that cannot
+# authenticate, and the report for that is the empty transcript at the bottom of
+# this script.
+#
+# **The credential is bound writable.** Claude Code refreshes its own token, and
+# a refresh it cannot persist would turn a long run into a transcript about
+# authentication. The writer is the same client doing the same thing it does
+# outside the seal, and what it writes is the machine's own credential.
+seal+=(--tmpfs "$HOME")
+client=$(command -v claude || true)
+case $client/ in
+"$HOME"/*) keep --ro-bind "$client" ;;
+esac
+credential=$HOME/.claude/.credentials.json
+if [ -e "$credential" ]; then
+	keep --bind "$credential"
+fi
+keep --bind "$outdir/.claude.json" "$HOME/.claude.json"
+
+# The checkout, where it is kept outside `$HOME`. The parent of it goes rather
+# than the checkout alone: the sibling directories are where a solved
+# `providers/` was found once already.
+cover --ro-bind "$empty" "$(dirname "$root")"
+
+# Go's build cache, on the same terms, and the reason is the fixture rather than
+# the specification (issue #231). It holds no source — compiled archives, linked
 # binaries and cached `go test` output — but one of those linked binaries is
 # `bin/lookout`, built minutes earlier by a setup script, and hiding the
 # fixture's binary in the output directory while leaving a copy of it here would
@@ -359,12 +477,12 @@ cover --ro-bind "$empty" "$(go env GOCACHE)"
 # **A previous run's output directory is covered too, and it has to be found
 # rather than known** (issue #231). The cover below is over the directory this
 # script was handed; a machine that has run this harness before has others, and
-# `/home/idabic/acceptance-217` and `-227` were both sitting in `$HOME` when
-# this was written, each holding a `bin/lookout`, an `endpoint.env` and a
-# transcript. Covering one and leaving the rest is the mistake that covering the
-# checkout's *parent* rather than the checkout alone already answers, and a
-# harness whose every run left the next one a directory to read would be a hole
-# that widens with use.
+# `/home/idabic/acceptance-217` and `-227` were both sitting in `$HOME` when this
+# was written, each holding a `bin/lookout`, an `endpoint.env` and a transcript.
+# Covering one and leaving the rest is the mistake that covering the checkout's
+# *parent* rather than the checkout alone already answers, and a harness whose
+# every run left the next one a directory to read would be a hole that widens
+# with use.
 #
 # A harness output directory is an `mcp.json` naming `HYPER_REPO_DIR`, exactly as
 # a checkout is a `go.mod` naming this module — the thing is looked for rather
@@ -372,13 +490,18 @@ cover --ro-bind "$empty" "$(go env GOCACHE)"
 # where what it finds can still be covered; the same search runs inside as the
 # assertion, where it could only complain. This run's own directory is skipped,
 # and so is any directory this run's output is inside of.
+#
+# **`$HOME` is no longer one of the roots** (issue #257). An output directory
+# kept there is covered by the tmpfs above, so searching for one would buy a
+# `cover` call that `cover` now declines — and the walk was the expensive half of
+# a fence that runs on every `go test ./cmd/hyper`, once per task.
 while IFS= read -r configuration; do
 	previous=$(dirname "$configuration")
 	case $outdir/ in
 	"$previous"/*) continue ;;
 	esac
 	cover --ro-bind "$empty" "$previous"
-done < <(find "$HOME" /opt /srv /var/tmp -name mcp.json -readable \
+done < <(find /opt /srv /var/tmp -name mcp.json -readable \
 	-exec grep -l "HYPER_REPO_DIR" {} + 2>/dev/null)
 
 # **The output directory is covered too, and it is the one this script writes
@@ -393,25 +516,18 @@ done < <(find "$HOME" /opt /srv /var/tmp -name mcp.json -readable \
 # A `--tmpfs` rather than an empty bind, because the repository lives *inside*
 # this directory and has to come back on top of it. The binds above take their
 # sources from here and keep working: `bwrap` resolves a source against the old
-# root, so a tmpfs over the destination side does not hide `$outdir/.empty` from
-# the operand naming it. The transcript needs no reachable path — it is written
-# through a redirect this shell opens before `bwrap` runs.
+# root, so a tmpfs over the destination side does not hide `$outdir/.empty` or
+# `$outdir/.claude.json` from the operands naming them. The transcript needs no
+# reachable path — it is written through a redirect this shell opens before
+# `bwrap` runs.
+#
+# **The cover is `allow`ed rather than `keep`t**, because it is a tmpfs and
+# not a bind: where the output directory sits inside `$HOME` this line creates
+# the path in the home directory's tmpfs, and the walk below meets it and the
+# chain down to it exactly as it meets a kept path's.
 seal+=(--tmpfs "$outdir")
+allow "$outdir"
 
-# `keep` is one fact written once: a path the sealed session's own processes
-# must open is bound back over the tmpfs, *and* is what the assertion below
-# expects to find reachable there. Two lists would be two lists to keep in
-# agreement. The directories on the way to a kept path come with it, `bwrap`
-# creating them in the tmpfs as it binds.
-allowed=()
-keep() {
-	seal+=("$1" "$2" "$2")
-	local path=$2
-	while [ "$path" != "$outdir" ] && [ "$path" != / ]; do
-		allowed+=("$path")
-		path=$(dirname "$path")
-	done
-}
 keep --bind "$repo"
 keep --ro-bind "$outdir/bin/hyper"
 keep --ro-bind "$outdir/mcp.json"
@@ -434,21 +550,27 @@ seal+=(--proc /proc --dev /dev --die-with-parent --chdir "$repo")
 # the thing rather than by trusting the lists above. A checkout of `hyper` is
 # a `go.mod` naming its module path, so that is what is searched for — under the
 # home directory and the handful of places a second checkout is plausibly kept.
-# A `hyper` on `PATH` is the other condition issue #214's runs had, and covering
-# `$HOME/bin` is not the same fact as there being none.
+# A `hyper` on `PATH` is the other condition issue #214's runs had, and an empty
+# `$HOME` is not the same fact as there being none.
 #
 # The three run as one walk rather than three: they share a root list and the
 # `-name` tests are disjoint, so a second pass over `$HOME` would buy nothing but
-# the seconds this case pays on every `go test ./cmd/hyper`.
+# the seconds this case pays on every `go test ./cmd/hyper`. Since issue #257
+# that leg walks a tmpfs holding half a dozen paths, so what it costs is nothing
+# and what it says is that the covers came back empty-handed.
 #
-# **The output directory is asserted twice over, and the two halves catch
-# different things** (issue #231).
+# **Two directories are inventoried, and the inventory is the half of this that
+# survives a list going stale** (issue #231, issue #257).
 #
-# *This* run's directory is asserted as an **inventory**: the search prints
-# everything it can reach under it with the repository pruned, and what `keep`
-# bound back is the whole of what may come back. A list of forbidden names would
-# go stale the first time a task leaves a file nobody thought of; an inventory
-# does not.
+# `$HOME` and the output directory are each a tmpfs with a `keep` list bound back
+# on top, and one walk asserts both: it prints everything reachable under them
+# with the repository pruned, and what `keep` and `allow` recorded is the
+# whole of what may come back. A list of forbidden names — a fourth `-name`
+# beside the three above — goes stale the first time a task leaves a file nobody
+# thought of, or the first time session material is kept under a name nobody has
+# used yet, which is how `$HOME` came to be uncovered for every sealed run so
+# far. An inventory does not go stale. It goes noisy, and a name it did not
+# expect is the operator's to explain.
 #
 # **A previous run's directory is asserted by name**, because it is covered by a
 # search rather than by a path and a search that quietly matched nothing would
@@ -480,7 +602,7 @@ report=$("${seal[@]}" /bin/sh -c '
 		\( -name go.mod -readable -exec grep -l "^module github.com/TheLoomLabs/hyper$" {} + \) -o \
 		\( -name mcp.json -readable -exec grep -l "HYPER_REPO_DIR" {} + \) -o \
 		\( -type f -name lookout -print \) 2>/dev/null
-	find "$1" -mindepth 1 -path "$2" -prune -o -print || exit 1
+	find "$HOME" "$1" -mindepth 1 -path "$2" -prune -o -print || exit 1
 	command -v hyper 2>/dev/null
 	echo SEALED
 ' sh "$outdir" "$repo" || true)
@@ -506,7 +628,7 @@ fi
 # well above the 180 calls of the run being repeated; it is there so a session
 # that has stopped making progress stops rather than runs all night.
 status=0
-"${seal[@]}" "$(command -v claude)" \
+"${seal[@]}" "$client" \
 	--print --verbose --output-format stream-json \
 	--strict-mcp-config --mcp-config "$outdir/mcp.json" \
 	--permission-mode bypassPermissions \

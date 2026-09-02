@@ -77,11 +77,19 @@ linked copy of the fixture's binary; **the harness's own output directory** is c
 decision left uncovered and which holds a stamped `hyper`, a compiled copy of the acceptance
 fixture's API, the fixture's credential three times over and the session's transcript as it is
 written; and so is every output directory a *previous* run left on the machine, found by searching
-for the `mcp.json` this harness writes rather than by a path anything remembers. The rule below is what condemned it (issue #231). Two of the files in that directory can
+for the `mcp.json` this harness writes rather than by a path anything remembers. The rule below is
+what condemned it (issue #231). Two of the files in that directory can
 never be hidden — the MCP server is a child of the sealed session and reads `mcp.json` and the binary
 it names from inside the namespace — so what the seal claims is narrower than it reads here: no
 source checkout, no second binary, no fixture internals, and the one binary that is reachable is the
 one the MCP server is.
+
+_ADR-0130 amends this:_ the list is not a list any more. `$HOME` goes wholesale, under a `--tmpfs`,
+and three paths come back on top of it by name — the client, its credential, and the onboarding flag
+(issue #257). The rule below condemned the *shape* as much as it condemned any entry: six directories
+of session material were sitting in `$HOME` when the run ADR-0129 reads was prepared — a working
+Provider Manifest, six transcripts, a stamped `hyper`, and the by-hand answer to the task about to be
+run — matching none of the searches and never going to, since the next one is named something else.
 
 **It is not a security boundary and is not trying to be one.** The sealed session runs as the same
 user against the same filesystem and is not being kept from anything it sets out to reach. What it

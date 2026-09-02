@@ -55,4 +55,6 @@ Every prior run was read into an ADR, and that stays the shape. Two things the r
 `CONTRIBUTING.md`'s *The acceptance harness* section owns the how, and
 `scripts/acceptance/run.sh`'s header owns what the seal covers and why. Put the output directory
 outside the checkout and outside its parent — the script refuses otherwise, and a previous run's
-directory is covered by search rather than by memory, so old ones may stay where they are.
+directory is covered by search rather than by memory, so old ones may stay where they are. So may
+the material a run of your own leaves behind: `$HOME` is covered wholesale (ADR-0130), and nothing
+about where you keep a transcript, a throwaway repository or a by-hand answer is load-bearing.

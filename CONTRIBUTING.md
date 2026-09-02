@@ -134,6 +134,19 @@ machine that has run the harness before does not hand the next session an older
 run's answer key. If you keep transcripts around, they stay where they are and
 the harness works around them.
 
+**And `$HOME` is covered wholesale**, with three paths bound back on top of the
+tmpfs: the Claude Code binary, the credential it authenticates with, and a
+`.claude.json` carrying the onboarding flag
+([ADR-0130](docs/adr/0130-the-seal-covers-the-home-directory-and-the-session-comes-back-by-name.md),
+[#257](https://github.com/TheLoomLabs/hyper/issues/257)). The cover used to be a
+list of the places this project's text collects, and what a list cannot keep up
+with is the material an attended session leaves behind — a throwaway repository,
+a transcript, a by-hand answer to the task about to be run, which several
+tickets now require somebody to produce. So the seal names what to keep instead.
+**Leave that material wherever you like**: nothing about where it sits is
+load-bearing any more, and the harness neither reads it nor refuses because of
+it.
+
 **A repair to what an agent reads owes a run.** The suite asserts what the
 harness did and never what an agent did (#221), so a clause added to the
 orientation, or a `check` row or `review` rendering reworded, is fenced by

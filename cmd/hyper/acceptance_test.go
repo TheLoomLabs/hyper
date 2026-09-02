@@ -87,10 +87,7 @@ func TestAcceptance_TheSealedHarnessHandsAnAgentTheQuickstartAndNothingElse(t *t
 			}
 
 			into := t.TempDir()
-			command := exec.Command("bash", "scripts/acceptance/run.sh", task, into)
-			command.Dir = root(t)
-			command.Env = append(command.Environ(), "ACCEPTANCE_SETUP_ONLY=1")
-			if out, err := command.CombinedOutput(); err != nil {
+			if out, err := setUp(t, task, into); err != nil {
 				t.Fatalf("scripts/acceptance/run.sh: %v\n%s", err, out)
 			}
 			repo := filepath.Join(into, "repo")
@@ -182,4 +179,119 @@ func needSeal(t *testing.T) {
 	if err := exec.Command("bwrap", "--bind", "/", "/", "--dev", "/dev", "true").Run(); err != nil {
 		unavailable(t, "bwrap cannot build a namespace here (%v); the acceptance harness cannot be sealed", err)
 	}
+}
+
+// TestAcceptance_TheSealCoversWhatAnAttendedSessionLeftInTheHomeDirectory
+// plants session material in a home directory and asserts the harness runs
+// against it (issue #257).
+//
+// The seal used to cover a *list* of the places this project's text collects,
+// and every entry on it was added when something turned out to be reachable.
+// What a list of that shape cannot cover is the material an attended session
+// leaves behind — a thing several tickets now require somebody to produce, and
+// the next one is named something the list has never heard of. ADR-0130 has the
+// finding and what was decided about it; `$HOME` goes wholesale now, with what
+// the sealed session's own processes must open bound back on top.
+//
+// **`HOME` is redirected rather than written to**, so this case plants nothing
+// on the machine running it. What that costs is the two paths that belong to the
+// machine rather than to `run.sh` — the client and its credential, neither of
+// which is under a `t.TempDir()`. `run.sh` guards both where it names them, for
+// the runner that has neither, so their absence here is the ordinary path rather
+// than a hole in this case. The Go caches are handed over explicitly, `go env`
+// deriving all three from `HOME` and a build against an empty cache being a
+// minute this case has no use for.
+//
+// **It names one task where the case above ranges over all of them**, and the
+// difference is what is being asserted. That case asserts a property of each
+// task's own repository, so a task fenced by nothing is rot; the seal is built
+// the same way whatever the task, so one is enough and the cheapest is the one
+// to pay for. A task that ships a service would spend a `go build` of the
+// fixture's API on a question about `$HOME`.
+//
+// **The material is planted under two kinds of name, and both are load-bearing.**
+// The `hyper-249-*` names match none of the seal's three searches, which is the
+// finding this case is about: a harness that went back to a cover list would
+// pass here in silence. The `go.mod` and the `lookout` beside them do match, so
+// a harness that stopped covering `$HOME` — or one whose inventory stopped
+// walking it — fails loudly rather than quietly. Together they say the material
+// is *covered* rather than *complained about*, which is the distinction
+// ADR-0109 drew when the same finding was one directory in: refusing on it
+// would make the operator delete this project's own evidence.
+func TestAcceptance_TheSealCoversWhatAnAttendedSessionLeftInTheHomeDirectory(t *testing.T) {
+	needTools(t, "bash", "bwrap", "git", "go", "python3")
+	needSeal(t)
+
+	home := t.TempDir()
+	for path, content := range map[string]string{
+		// #249's throwaway repository: a working Provider Manifest.
+		"hyper-249-hetzner/providers/lookout.yaml": "kind: provider\nprovider: lookout\n",
+		// #255's by-hand completion of the task about to be run.
+		"hyper-255-artefacts/retire.yaml": "kind: procedure\nprocedure: retire\n",
+		// #249's transcripts, which quote Manifests whole.
+		"hyper-249-transcripts/session.jsonl": "{\"kind\":\"provider\"}\n",
+		// The names the seal's own searches match, so that a seal which
+		// stopped covering the home directory fails under this case.
+		"hyper-249-checkout/go.mod": "module github.com/TheLoomLabs/hyper\n\ngo 1.25\n",
+		"hyper-249-bin/lookout":     "the fixture's answer key\n",
+	} {
+		planted := filepath.Join(home, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(planted), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(planted, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	task := filepath.Join("scripts", "acceptance", "tasks", "snapshot-lifecycle.md")
+	if _, err := os.Stat(filepath.Join(root(t), task)); err != nil {
+		t.Fatalf("%s is what this case drives the harness with: %v", task, err)
+	}
+
+	into := t.TempDir()
+	environment := append([]string{"HOME=" + home}, goEnv(t, "GOPATH", "GOCACHE", "GOMODCACHE")...)
+	if out, err := setUp(t, task, into, environment...); err != nil {
+		t.Fatalf("the seal did not hold over a home directory holding session material: %v\n%s", err, out)
+	}
+}
+
+// setUp runs the harness's setup half — everything up to and including the
+// seal's own assertion, and not the session behind it — and answers what it
+// printed. `ACCEPTANCE_SETUP_ONLY` is what stops it there, a session not being
+// something a test can run (ADR-0099), and both cases in this file drive it
+// through here so that the half a test *can* run is one invocation rather than
+// two that drift.
+func setUp(t *testing.T, task, into string, environment ...string) (string, error) {
+	t.Helper()
+
+	command := exec.Command("bash", "scripts/acceptance/run.sh", task, into)
+	command.Dir = root(t)
+	command.Env = append(command.Environ(), "ACCEPTANCE_SETUP_ONLY=1")
+	command.Env = append(command.Env, environment...)
+	out, err := command.CombinedOutput()
+	return string(out), err
+}
+
+// goEnv answers `NAME=value` for each Go variable named. The case above needs
+// it because it moves `HOME`, and `go env` derives `GOPATH` and both caches
+// from `HOME` — a `go build` against an empty cache is a minute spent on a
+// question about the seal. One invocation rather than one each, so that the
+// answers cannot come from three different toolchains.
+func goEnv(t *testing.T, names ...string) []string {
+	t.Helper()
+
+	out, err := exec.Command("go", append([]string{"env"}, names...)...).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(values) != len(names) {
+		t.Fatalf("go env answered %d values for %d variables:\n%s", len(values), len(names), out)
+	}
+	assignments := make([]string, len(names))
+	for i, name := range names {
+		assignments[i] = name + "=" + values[i]
+	}
+	return assignments
 }

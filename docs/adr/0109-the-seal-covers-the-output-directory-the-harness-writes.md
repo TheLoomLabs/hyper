@@ -8,6 +8,11 @@ from inside the namespace. Go's build cache is covered beside it, and so is **ev
 a previous run left on the machine**, found by searching for the `mcp.json` this harness writes. This
 closes the hole ADR-0106 recorded and issue #231 booked.
 
+_ADR-0130 amends this:_ `$HOME` is covered the same way, for the same reason one directory further
+out — a tmpfs, with the client, its credential and the onboarding flag bound back on top (issue
+#257). That retires the cover list this decision extended, and with it the two lines below that name
+`$HOME/bin` and `~/.claude/projects` as covers of their own.
+
 **The two things that stay were never buyable.** §9 states one transport — *the server is the same
 binary, started by the client over stdio: one process per client, dying with it* — and there is no
 `serve`, no daemon and no remote transport (ADR-0088). So `hyper mcp` is a **child of the sealed
@@ -95,7 +100,9 @@ one a directory to read.
 **A harness output directory is an `mcp.json` naming `HYPER_REPO_DIR`**, exactly as a checkout is a
 `go.mod` naming this module. The search runs on the host, before the seal is built, so that what it
 finds can be *covered* rather than merely complained about — this run's own directory skipped, and
-any directory this run's output sits inside skipped with it. `endpoint.env` is not searched for by
+any directory this run's output sits inside skipped with it. _ADR-0130 amends this:_ the search no
+longer walks `$HOME`, an output directory kept there being covered wholesale; `/opt`, `/srv` and
+`/var/tmp` are what is left of the roots. `endpoint.env` is not searched for by
 name anywhere: it is too ordinary a filename to fire on only this harness's copies, this machine
 carrying an unrelated one under `~/.config`, and every copy that matters is in a directory the
 `mcp.json` rule already names.

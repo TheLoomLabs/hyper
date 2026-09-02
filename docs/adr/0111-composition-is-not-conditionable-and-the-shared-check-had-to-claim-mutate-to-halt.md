@@ -283,6 +283,11 @@ No cross-run contamination is possible while each run is given its own output di
 worth writing down, because **reusing one would carry a previous session's notes into the next**, and
 nothing in `run.sh` clears `projects/`.
 
+_ADR-0130 amends this:_ the bind is gone. `$HOME` is covered by a tmpfs and `~/.claude/projects` is
+now the tmpfs's own, so a sealed session's auto-memory write lands in a home directory that dies with
+the namespace and reaches no output directory at all. The hazard this paragraph names is closed
+rather than managed (issue #257).
+
 **Three of fifty-nine calls went on that memory write.** Like the `ToolSearch` tax ADR-0110 records, it
 is a fact about the client rather than about `hyper`, and it is noted so that a call count read off a
 transcript is read with it in mind.
