@@ -184,19 +184,9 @@ install -m 755 hyper ~/bin/hyper   # anywhere on your PATH
 hyper version
 ```
 
-**While this repository is private, the two `curl`s answer `404`** — GitHub does not serve a
-release asset of a private repository to a read carrying no credential, and `-f` turns that into a
-silent exit `22`, so the `grep` below it reads a file that is not there. It is the same fact
-[`hyper project` reports](#one-step-here-is-a-workaround-and-it-is-the-digest), for the same reason.
-Fetch the two files with a `gh` authenticated as somebody who can read the repository, and the rest
-of the block is unchanged:
-
-```bash
-gh release download v$VERSION -p hyper-$VERSION-$PLATFORM.tar.gz -p checksums.txt
-```
-
-The check, the unpack and the install read the same bytes whichever way they arrived, and the
-`curl` pair is what will be right for every reader the day this repository opens.
+**Neither `curl` carries a credential and neither needs one.** The release is public, and it is the
+same read `hyper project` makes when it freezes the digest into your Repository declaration
+([ADR-0131](docs/adr/0131-project-wrote-a-digest-for-the-first-time-and-the-network-contributed-one-scalar.md)).
 
 ### From source
 
@@ -227,34 +217,39 @@ you](#three-things-that-will-catch-you-and-why-each-is-a-rule).
 With a stamped `hyper` on your `PATH`, the sequence below runs against the built-in `shell`
 Provider on your own machine.
 
-**You are about to write four small files by hand, and only three of them stay your job.**
-`hyper.yaml` is `hyper project`'s to write once a release exists —
-[that is the workaround below](#one-step-here-is-a-workaround-and-it-is-the-digest). The other
-three `hyper` scaffolds on purpose: there is no `init`, no template and no generator, because
-a Definition is what an **agent** writes and you review. Three is the floor rather than a
+**You are about to write three small files by hand, and `hyper` writes the fourth.**
+`hyper.yaml` is `hyper project`'s — [step 1 below](#step-1-is-the-only-one-that-reaches-the-network).
+The other three `hyper` scaffolds on purpose: there is no `init`, no template and no generator,
+because a Definition is what an **agent** writes and you review. Three is the floor rather than a
 tutorial's padding — a Run needs a Target to act on, a Definition to act through, and a
 Procedure to sequence. Write them once to see how small the format is and what `review` does
 with it, then [wire up the MCP server](#the-two-surfaces) and stop writing them by hand.
 
-**1. Make a repository.** The Store is a branch of it, so there has to be one.
+**1. Make a repository, and pin it.** The Store is a branch of it, so there has to be one.
+`hyper project` writes the version pin — the version this binary was stamped with, and the digest
+published for it — and leaves an `AGENTS.md` where you have none.
 
-```bash
-mkdir demo && cd demo && git init -b main
-mkdir targets definitions procedures
-```
+```console
+$ mkdir demo && cd demo && git init -b main
+$ mkdir targets definitions procedures
 
-**2. Write four artefacts.** The Repository declaration, a Target, a Definition, a Procedure —
-the fifth artefact `check` counts is the built-in `shell` Manifest, which ships inside the
-binary.
+$ hyper project
+no Procedure declares a Cadence, and no generated workflow stands
 
-`hyper.yaml` — which version of `hyper` may act here, and how long Records are kept:
-
-```yaml
+$ cat hyper.yaml
 kind: repository-declaration
 version: 0.0.1-alpha
-digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
-retention: 90d
+digest: sha256:d9a64425368560358e5931b8de389a36f207d275e935c54a4bd5eb59c3db4096
 ```
+
+That sentence is the honest answer rather than a failure: nothing here declares a `cadence:`, so
+there is no workflow to project. There is no `retention:` either, and that is deliberate — a
+repository that has not stated a policy has not agreed to lose anything, and `project` does not
+author one on your behalf. Add one when you mean it.
+
+**2. Write three artefacts.** A Target, a Definition, a Procedure. With the Repository declaration
+`project` just wrote and the built-in `shell` Manifest that ships inside the binary, those are the
+five `check` counts.
 
 `targets/local.yaml` — this machine, and what it grants:
 
@@ -384,31 +379,30 @@ it, and `git push` sends it wherever the code goes
   keys, disagreeing with each other. Correct, and surprising the first time, which is why the
   Target above carries `capabilities: [shell]` and no `hosts:` at all.
 
-### One step here is a workaround, and it is the `digest:`
+### Step 1 is the only one that reaches the network
 
-The documented first act on a new repository is `hyper project`, which writes the version pin,
-freezes the digest of the released artefact beside it
-([§11](docs/spec/12-distribution-and-version-pinning.md)), and leaves an `AGENTS.md` where the
-repository has none. It cannot succeed today, and the reason is the fourth shape §11 names:
-`v0.0.1-alpha` is published, this repository is private, and the read `project` makes carries no
-credential — so the release answers `404` exactly as an absent one would
-([ADR-0125](docs/adr/0125-the-world-answered-for-the-first-time-and-the-two-404s-differed-only-in-the-kind.md)):
+`hyper project` fetches one file — `checksums.txt` from the release tag matching its own version —
+reads the line naming `hyper-<version>-x86_64-linux.tar.gz`, and freezes that digest into
+`hyper.yaml`. **That one read is the whole of what the pin ever reaches the network for**
+([§11](docs/spec/12-distribution-and-version-pinning.md),
+[ADR-0020](docs/adr/0020-the-hyper-version-is-pinned-by-the-repository.md)) — it carries no
+credential, opens no Store and writes no Journal entry, because `project` is not a Run. Everything
+else in this quickstart is offline: `check`, `review` and `store init` by construction, and step 6
+because the Procedure above runs `echo` on this machine.
 
-```console
-$ hyper project
-refused: release-artefact-absent
-  https://github.com/TheLoomLabs/hyper/releases/download/v0.0.1-alpha/checksums.txt answered 404 — publish a release for 0.0.1-alpha, make an existing one readable unauthenticated, or install a released hyper
-```
+**Why that one fetch is worth a step of its own.** A release tag is a mutable pointer and its
+assets can be replaced after publication; a digest in a reviewed file is not. Freezing it is what
+turns the one into the other, it happens attended, and it lands in a diff you read — which is also
+the whole of the upgrade ritual later on: install a new binary, run `hyper project`, read the diff.
 
-So the quickstart writes `hyper.yaml` by hand, with a placeholder digest. That placeholder is
-inert for everything above — the gate compares the *version* and nothing local ever reads the
-digest — and it is **not** inert in a generated workflow, where the digest is the line a runner
-checks fetched bytes against. `hyper project` on this repository would happily write a
-workflow that verifies against sixty-four zeros.
+The digest is inert on this machine — the version pin gate compares the *version* and nothing
+local ever reads the digest — and it is **not** inert in a generated workflow, where it is the
+line a runner checks fetched bytes against before it executes them. That is the reason not to
+hand-write one.
 
-Once `v0.0.1-alpha` is readable — the tag is cut
-([`docs/build/releasing.md`](docs/build/releasing.md)); it is this repository that is closed — the
-first step becomes `hyper project`, the hand-written pin goes away, and the `AGENTS.md` comes with it.
+If `project` refuses `release-artefact-absent` at exit `77`, the binary you are running is not one
+any readable release names — an unstamped `go build` reports `unknown` and there is no
+`v-unknown` tag. [Install from a release](#from-a-release), or stamp the build.
 
 ## Your first repository
 
@@ -429,10 +423,6 @@ the repository Refuses `version-pin-absent` and tells you to run `hyper project`
 
 Steps 1 and 2 happen once. **Steps 3 to 8 are the loop you stay in.** `hyper` on its own prints
 the whole command tree, so what is available is never more than one invocation away.
-
-Step 1 cannot succeed until a release is published — see
-[the workaround](#one-step-here-is-a-workaround-and-it-is-the-digest), which is to write those
-four lines of `hyper.yaml` by hand.
 
 ### Telling the agent what to do
 
