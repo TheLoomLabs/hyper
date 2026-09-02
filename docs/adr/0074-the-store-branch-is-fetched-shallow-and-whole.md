@@ -80,13 +80,18 @@ the wire.
   a descendant of the boundary, so no absence exists to name and §12's sets do not move. A fetch that
   cannot complete is already the contention code `75` (§7), and ADR-0061's test has nothing new to fire
   on. This is the fourth shape of a closed set staying closed by not being asked.
-- **`hyper` names the Store ref explicitly.** ADR-0071 records that `checkout` leaves
-  `remote.origin.fetch` pinned to the single ref it took; a fetch relying on the configured refspec
-  therefore reaches nothing on a runner. The same trap, at a second site, and written down rather than
-  relied on.
-- **On a runner the Store fetch re-creates `.git/shallow` after the deepen step has cleared it**, with a
-  boundary naming the Store branch alone. Nothing on the code branch is truncated, and no later step
-  reads that file.
+- **`hyper` names the Store ref explicitly**, rather than relying on the remote's configured refspec.
+  ADR-0071 recorded that `checkout` leaves `remote.origin.fetch` pinned to the single ref it took;
+  **measured on a runner, it does not** — `git remote add` writes the wildcard, and the fetch's own
+  `--depth=1` refspec configures nothing (#246,
+  [ADR-0132](0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)).
+  Naming the ref is right either way, which is why this consequence survives the fact under it being
+  wrong; what does not survive is ADR-0071's reason for the deepen step's spelling.
+- **On a runner the Store fetch does not re-create `.git/shallow`.** This consequence was written on the
+  same false premise: since the deepen step's `--unshallow` has already taken the Store branch whole,
+  `hyper`'s fetch finds nothing to bring and writes no boundary. Measured in a runner-shaped clone, no
+  `.git/shallow` exists after the Run. On a laptop that lacks the branch the depth-1 fetch is as
+  described.
 - **A `--single-branch` laptop clone gains a shallow Store**, its owner having opted out of the branch
   already. This is the one clone where Compaction and shallowness can meet, and there `git log` is short
   by exactly the history that was never fetched. On every path `hyper` projects they cannot meet at all:

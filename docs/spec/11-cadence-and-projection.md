@@ -399,17 +399,23 @@ no Provenance member at all — would move without a single row saying so (§8,
 [ADR-0071](../adr/0071-a-missing-git-object-is-an-absence-to-name-never-a-supply-to-substitute.md),
 [ADR-0086](../adr/0086-a-code-fact-is-read-where-it-is-authored.md)).
 
-**It deepens the code branch and not the Store.** `fetch-depth: 0` is the obvious spelling and it is
-*all history for all branches and tags* by the action's own documentation, which fetches the Store
-branch — the one branch §13 names as growing without bound — on every scheduled Run of every Procedure.
-`checkout` leaves `remote.origin.fetch` pinned to the single ref it checked out, so an `--unshallow`
-after it inherits that refspec and reaches nothing else. That is written down rather than relied on.
+**It was written to deepen the code branch and not the Store, and on a runner it deepens both.**
+`fetch-depth: 0` is the obvious spelling and it is *all history for all branches and tags* by the
+action's own documentation, which fetches the Store branch — the one branch §13 names as growing
+without bound — on every scheduled Run of every Procedure. This step was written to avoid that cost by
+inheriting a narrow refspec, on the belief that `checkout` leaves `remote.origin.fetch` pinned to the
+single ref it took. **Measured on a runner, that belief is false** (#246,
+[ADR-0132](../adr/0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)):
+`checkout` runs `git init` and `git remote add`, which write the wildcard
+`+refs/heads/*:refs/remotes/origin/*`, and the explicit refspec on its own `--depth=1` fetch configures
+nothing — so a bare `--unshallow` takes every branch with complete history, the Store branch included,
+and the cost declined above is paid anyway.
 
-**What the Store gets instead is `hyper`'s own depth-1 fetch, naming the ref**, the checkout having left
-neither the branch nor a refspec that reaches it (§7,
-[ADR-0074](../adr/0074-the-store-branch-is-fetched-shallow-and-whole.md)). It lands after this step, so
-the `.git/shallow` this step just cleared comes back with a boundary naming the Store branch alone: the
-code branch stays whole, and nothing later in the file reads that path. The two depths are opposite
+**What the Store gets is `hyper`'s own depth-1 fetch, naming the ref**, which is correct whatever the
+checkout left and is the reason the deepen step's behaviour is a cost rather than a fault (§7,
+[ADR-0074](../adr/0074-the-store-branch-is-fetched-shallow-and-whole.md)). It lands after this step and,
+on a runner, finds the branch already whole, so the `.git/shallow` this step cleared does not come back:
+the code branch stays whole, and nothing later in the file reads that path. The two depths are opposite
 because the two branches are read differently — the code branch is read *at revisions the Store names*,
 and the Store is read at its tip and nowhere else.
 

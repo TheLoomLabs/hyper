@@ -24,9 +24,18 @@ and never on one that did not.
 words it is *all history for all branches and tags*. The Store is an orphan branch in the same repository
 (ADR-0006), append-only, machine-written, and named in §13 as growing without bound and never reclaimable
 from a clone. `fetch-depth: 0` therefore fetches the whole Store on every scheduled Run of every
-Procedure, to read a handful of blobs off the code branch. `checkout` leaves `remote.origin.fetch` pinned
-to the ref it checked out, so a guarded `git fetch --unshallow` after it inherits that refspec and touches
-nothing else — one more line, and the one that does not pay the cost this project has already measured.
+Procedure, to read a handful of blobs off the code branch. A guarded `git fetch --unshallow` was taken
+instead, on the ground that `checkout` leaves `remote.origin.fetch` pinned to the ref it checked out, so
+an `--unshallow` inheriting that refspec touches nothing else — one more line, and the one that does not
+pay the cost this project has already measured.
+
+**That ground is false, measured on a runner** (#246,
+[ADR-0132](0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)):
+`checkout` does not clone, it runs `git init` and `git remote add`, and `git remote add` writes the
+wildcard `+refs/heads/*:refs/remotes/origin/*`. The `--unshallow` inherits *that* and fetches every
+branch with complete history. The decision below stands — a missing object is still an absence to name —
+but the line chosen to implement it pays the cost this paragraph declined, and what to do about it is
+open.
 
 ## Why this is not a corner
 

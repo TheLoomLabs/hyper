@@ -66,8 +66,10 @@ other way round: a version's `written_at` sits inside the file, so ordering a se
 of it, and under a filter each of those is a lazy fetch — which would make *a read-only Run proceeds
 offline* false wherever the network is.
 
-`hyper` names the ref explicitly rather than relying on the remote's configured refspec, a checkout
-having left it pinned to the one ref it took (§10, ADR-0071).
+`hyper` names the ref explicitly rather than relying on the remote's configured refspec. ADR-0071 gave
+the reason as *a checkout leaves it pinned to the one ref it took*, which #246 measured and found false —
+`git remote add` writes the wildcard — so the practice is right and the reason for it was not (§10,
+[ADR-0132](../adr/0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)).
 
 ### Where the Store sits locally
 

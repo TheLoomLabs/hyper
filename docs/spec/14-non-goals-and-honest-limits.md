@@ -426,7 +426,12 @@ no command in the tool stops that.
 **`hyper`'s own sync pays for the live tree, and pays it once per environment that lacks the branch.**
 The sync is a depth-1 fetch (§7, ADR-0074), so it costs what the branch currently holds rather than
 what it has ever held — but on a runner the branch is always absent, `actions/checkout` taking one ref
-(§10), so **every scheduled occurrence of every Procedure fetches the whole live Store from scratch**.
+(§10), so **every scheduled occurrence of every Procedure fetches the whole live Store from scratch** —
+and on a runner it is worse than that. The deepen step's `--unshallow` inherits the wildcard refspec
+`checkout` leaves behind and takes the Store branch's **entire history** before `hyper` starts, so what
+recurs is the clause above rather than this one: the curve named there as the rarer act is paid on every
+Run (#246,
+[ADR-0132](../adr/0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)).
 This is the curve that recurs, and the clause above names the rarer act. Compaction does reclaim from
 this one, which is the only place in the tool where it buys anything on the wire.
 
