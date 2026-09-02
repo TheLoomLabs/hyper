@@ -189,10 +189,32 @@ same read `hyper project` makes when it freezes the digest into your Repository 
 ([ADR-0131](docs/adr/0131-project-wrote-a-digest-for-the-first-time-and-the-network-contributed-one-scalar.md)).
 
 **The two macOS archives are notarised by nobody**, and `spctl --assess` rejects both. Each was
-downloaded and run on a machine matching it — every archive above was, which is
-[ADR-0133](docs/adr/0133-three-archives-nobody-had-run-carried-and-the-release-stamps-three-of-four-dirty.md)
-— but only ever fetched with `curl`, which sets no quarantine attribute. What a **browser** download
-does has not been measured ([#262](https://github.com/TheLoomLabs/hyper/issues/262)).
+downloaded and run on a machine matching it, which is
+[ADR-0133](docs/adr/0133-three-archives-nobody-had-run-carried-and-the-release-stamps-three-of-four-dirty.md),
+and the download has since been walked with a browser
+([ADR-0137](docs/adr/0137-a-browser-sets-the-attribute-and-the-shell-runs-what-finder-offers-to-delete.md)).
+**Run it from a shell, as above, and it runs.** What a browser download changes is what *Finder*
+does with it:
+
+- Safari, Chrome and Firefox all set `com.apple.quarantine` on the archive, and double-clicking a
+  Chrome or Firefox download lets Archive Utility carry that attribute onto `hyper` itself. Safari,
+  left at its defaults, unpacks one layer for you and quarantines what it leaves.
+  **`curl` sets no attribute at all**, so the commands above never meet any of this.
+- **Double-clicking `hyper` then fails**, with *"hyper" Not Opened · Apple could not verify "hyper"
+  is free of malware*, offering **Move to Trash**. Running it from a Terminal, quarantined or not,
+  exits `0` — a binary a shell `exec`s is not assessed, and one Finder opens is.
+- Safari asks *Do you want to allow downloads on "release-assets.githubusercontent.com"?* before it
+  will fetch anything. That host is where the release redirects to; it is not one this README sends
+  you to, and it is the only way Safari writes the file.
+
+**Neither is notarised, and they are not signed alike** — Go's linker ad-hoc signs the `arm64`
+binary, because Apple Silicon will not exec an unsigned one, and leaves the Intel one unsigned. Both
+are notarised by nobody, which is what Gatekeeper is asking about, so there is no version of this it
+approves of. [Building from source](#from-source) sidesteps the whole of it — a binary your own
+toolchain wrote was never downloaded by anything, so nothing quarantines it.
+
+This was walked on ephemeral CI machines running macOS 15.7, **with SIP disabled**, which is the
+runner image's doing and not a stock Mac's.
 
 ### From source
 
@@ -211,6 +233,13 @@ mkdir -p ~/bin   # anywhere on your PATH
 go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" \
   -o ~/bin/hyper ./cmd/hyper
 ```
+
+**A `go install` at a version reports no commit**, and that is not a missing flag. Go stamps
+`vcs.revision` and `vcs.time` from the repository a build's source sits in, and module mode
+builds from the module cache — a zip the proxy served, with no `.git` in it — so `hyper version`
+answers `commit unknown` and `built unknown` under a version that is right. The pin gate reads
+the first line and nothing else, so the binary installs, checks and projects. Building from a
+clone stamps all three.
 
 **It is the flag that matters, not the command.** `hyper` learns its own version from the
 linker, so a bare `go install` or `go build` stamps nothing, reports `unknown`, and Refuses the

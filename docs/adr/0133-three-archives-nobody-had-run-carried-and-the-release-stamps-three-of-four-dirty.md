@@ -172,15 +172,20 @@ flags, propagated through Safari's own unpacking rather than through `tar` — i
 incidental measurement makes that gap concrete: a quarantined `.tar.gz` unpacked with `tar -xzf`
 carried the attribute onto the extracted binary on the Intel runner and **did not** on the Apple
 Silicon one, two macOS 15.7 machines differing on the propagation step the whole story runs through.
-**#262** owns the walk, and needs a Mac.
+**#262** owns the walk. It did not need a Mac in the end — the runners carry a window server, and a
+browser started rather than `open`ed downloads on both
+([ADR-0137](0137-a-browser-sets-the-attribute-and-the-shell-runs-what-finder-offers-to-delete.md)).
 
 `releasing.md` also said *the README says so where it says to download*. The README has never carried
 an `xattr` line. Corrected in place, together with what the archives actually are.
 
 ## What this does not establish
 
-- **The browser download has not been walked.** #262. Every quarantine fact above comes from an
-  attribute written with `xattr -w` on a machine with SIP off.
+- **The browser download has not been walked.** #262, and it has been since:
+  [ADR-0137](0137-a-browser-sets-the-attribute-and-the-shell-runs-what-finder-offers-to-delete.md).
+  The attribute written with `xattr -w` above turned out to be the right shape, and what it was
+  missing was everything downstream of it — Archive Utility propagates on both architectures, and
+  `open` refuses what a shell runs. SIP was still off.
 - **No archive has run on a machine somebody owns.** Three ephemeral runners, created for the job
   and destroyed after it, all in one datacentre. A laptop's `$HOME`, its shell, its git and its
   filesystem case-sensitivity are still untried, and the runners' filesystems were never asked what

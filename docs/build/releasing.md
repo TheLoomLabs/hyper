@@ -36,6 +36,28 @@ it is. A flagless `go install`, a `go build` with no flags, and a `go test` bina
 are all unstamped builds; `go install` stamps like any other build when it is
 given `-ldflags`.
 
+**What `go install pkg@version` cannot stamp is the commit**, and no flag
+changes it. Go writes `vcs.revision`, `vcs.time` and `vcs.modified` from the
+repository a build's source sits in; module mode builds from the module cache,
+which holds a zip the proxy served and no `.git` at all, so there is nothing for
+`-buildvcs` to read. The version is the linker's and arrives; the two facts
+below it do not:
+
+```
+$ go install -ldflags "-X …/internal/version.Version=0.0.1-alpha" \
+    github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.1-alpha
+$ hyper version
+hyper 0.0.1-alpha
+commit  unknown
+built   unknown
+```
+
+The pin gate reads the first line and nothing else, so such a binary installs,
+checks and projects (#262,
+[ADR-0137](../adr/0137-a-browser-sets-the-attribute-and-the-shell-runs-what-finder-offers-to-delete.md)).
+The same source built from a clone stamps all three, which is what the release
+does and why its archives carry a commit.
+
 ## What a release publishes
 
 Two kinds of file under one tag, and the binary names both by a template it
@@ -71,15 +93,41 @@ first *valid on disk*; `codesign` says of the second *code object is not signed
 at all*. **`spctl --assess --type execute` rejects both**, notarisation being
 what it is asking for.
 
-What follows from that for somebody downloading one is less settled than this
-file used to say. `curl` sets no quarantine attribute — confirmed on both
-architectures — and a browser download does. But a quarantine attribute written
-by hand did **not** stop either binary from running: `spctl` assesses, the
-kernel execs, and a binary `exec`ed from a shell is not assessed. So
-`xattr -d com.apple.quarantine ./hyper` is the repair for an attribute rather
-than a repair anything here has been observed to need, and the README carries
-no such line. **The browser download has never been walked**, and #262 owns
-both that walk and the decision about signing.
+**The browser download has now been walked**, on both runners, with Safari,
+Chrome and Firefox ([#262](https://github.com/TheLoomLabs/hyper/issues/262),
+[ADR-0137](../adr/0137-a-browser-sets-the-attribute-and-the-shell-runs-what-finder-offers-to-delete.md)).
+What it found is that the two ways of running the binary disagree, and the
+disagreement is the whole of the consequence:
+
+- **A browser sets `com.apple.quarantine`**, in the shape
+  `0081;<ts>;<agent>;<uuid>`, which is what #247 guessed with `xattr -w` and got
+  right. `curl` still sets nothing.
+- **Archive Utility carries it onto the binary.** ADR-0133 had `tar`
+  propagating on one architecture and not the other and called that the gap;
+  the unpacker a person actually gets propagates on both.
+- **A shell runs it and Finder will not.** `./hyper version` exits `0` with the
+  attribute attached. Double-clicked, the same file raises *"hyper" Not Opened ·
+  Apple could not verify "hyper" is free of malware*, over **Done** and **Move
+  to Trash** — the second of which is the highlighted default on Apple Silicon.
+- **Safari asks first**, and names `release-assets.githubusercontent.com`, which
+  is where the release redirects and is not a host any document here sends
+  anyone to.
+
+Whether `xattr -d com.apple.quarantine ./hyper` takes that dialog away is
+**still not measured**: the sheet is modal and every reading after it was taken
+behind it, three ways round it having failed. ADR-0137 Claim 5 records the three.
+Nothing here recommends the line, and nothing here rules it out.
+
+**Where that was measured matters and is not a stock Mac.** Both machines are
+ephemeral GitHub-hosted runners on macOS 15.7 with **SIP disabled**, which is
+the image's doing and which no workflow can change. Gatekeeper assessment was
+enabled on both, and a browser really did write the attribute — but the one
+confound ADR-0133 named first survives, and closing it still needs a Mac
+somebody owns.
+
+`spctl --assess` answers `rejected` throughout — before the download, after it,
+with the attribute and without — so **the assessment is not what decides**. What
+decides is whether the launch goes through LaunchServices.
 
 ## Cutting one
 

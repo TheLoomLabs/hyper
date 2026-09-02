@@ -2,9 +2,12 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
 	"debug/buildinfo"
+	"debug/macho"
+	"encoding/binary"
 	"encoding/hex"
 	"io"
 	"os"
@@ -24,6 +27,19 @@ import (
 // case that published the running version would agree with the templates for
 // whichever reason the running version happens to agree with them.
 const released = "1.4.0"
+
+// The Mach-O spellings of what a signature is. `codesign -dv` renders the pair
+// as `flags=0x20002(adhoc,linker-signed)`, which is the string ADR-0133 read
+// off the Macs and the number this reads off the file.
+const (
+	lcCodeSignature      = 0x1d    // LC_CODE_SIGNATURE
+	csAdhoc              = 0x0002  // CS_ADHOC — signed by nobody, with no identity
+	csLinkerSigned       = 0x20000 // CS_LINKER_SIGNED — written by the linker rather than by codesign
+	adhocLinkerSigned    = csAdhoc | csLinkerSigned
+	superBlobMagic       = 0xfade0cc0 // CSMAGIC_EMBEDDED_SIGNATURE
+	codeDirectoryMagic   = 0xfade0c02 // CSMAGIC_CODEDIRECTORY
+	codeDirectoryFlagsAt = 12         // magic, length, version, then flags
+)
 
 // TestRelease_PublishesTheTwoFilesTheBinaryNames is the other half of the pin
 // mechanism, exercised without a tag: the release script writes the artefact
@@ -191,6 +207,57 @@ func TestRelease_EveryArchiveOfOneReleaseIsStampedFromACleanTree(t *testing.T) {
 	}
 }
 
+// TestRelease_TheMacOSArchivesCarrySignaturesNobodyIssued holds the fact the
+// README and docs/build/releasing.md state at the point a person downloads: the
+// two macOS archives are notarised by nobody, and they are not signed alike.
+// Go's linker ad-hoc signs `darwin/arm64`, because Apple Silicon will not exec
+// an unsigned binary at all, and leaves `darwin/amd64` alone because Intel will
+// (§11, ADR-0133, ADR-0137, issue #262).
+//
+// **It is a claim the docs make and nothing else could catch.** The asymmetry
+// is the toolchain's rather than this repository's — `release.sh` passes no
+// signing flag and holds no identity — so a Go release that started signing
+// `darwin/amd64`, or stopped signing `darwin/arm64`, would leave two documents
+// describing a publication that had changed underneath them, and no case above
+// this one reads a byte of either macOS archive. #247 read these flags with
+// `codesign` on the machines themselves, which needed two Macs; a Mach-O load
+// command is the same fact and needs none.
+//
+// What it does not assert is anything about notarisation, which is not in the
+// bytes: notarisation is a ticket stapled to Apple's servers, and the whole of
+// what a file can say about it is a stapled ticket this one does not carry.
+// *Nobody notarised these* is a fact about the release process — there is no
+// identity anywhere in it — and it is stated where a person reads it rather
+// than asserted here against bytes that cannot answer.
+func TestRelease_TheMacOSArchivesCarrySignaturesNobodyIssued(t *testing.T) {
+	published := publish(t, released, "aarch64-darwin", "x86_64-darwin")
+
+	for _, want := range []struct {
+		platform string
+		signed   bool
+		because  string
+	}{
+		{"aarch64-darwin", true, "Apple Silicon will not exec an unsigned binary, so Go's linker ad-hoc signs one"},
+		{"x86_64-darwin", false, "Intel execs an unsigned binary, so Go's linker leaves one alone"},
+	} {
+		unpacked := unpack(t, archiveOf(published, released, want.platform))
+		flags, signed := codeDirectoryFlagsOf(t, unpacked)
+
+		if signed != want.signed {
+			t.Errorf("the %s archive's binary carries a code signature = %v, want %v — %s, and the README and docs/build/releasing.md say so where a person downloads it",
+				want.platform, signed, want.signed, want.because)
+			continue
+		}
+		if !signed {
+			continue
+		}
+		if flags != adhocLinkerSigned {
+			t.Errorf("the %s archive's binary is signed with CodeDirectory flags %#x, want %#x (adhoc | linker-signed) — a signature from anything but the linker is one this release process cannot account for",
+				want.platform, flags, adhocLinkerSigned)
+		}
+	}
+}
+
 // hostPlatform is this machine as the release names platforms.
 func hostPlatform(t *testing.T) string {
 	t.Helper()
@@ -350,6 +417,77 @@ func needTools(t *testing.T, tools ...string) {
 			unavailable(t, "%s is not on PATH; a case that needs it cannot run here", tool)
 		}
 	}
+}
+
+// codeDirectoryFlagsOf answers the CodeDirectory flags of a Mach-O binary and
+// whether it carries a signature at all — `codesign -dv`'s two answers, read
+// off a file by a machine that is not a Mac.
+//
+// It reads the embedded signature the way the format is laid out rather than
+// the way a tool reports it: LC_CODE_SIGNATURE names an offset, a SuperBlob
+// there indexes blobs by type, and the CodeDirectory's fourth word is the
+// flags. A binary with no such load command is not signed, which is an answer
+// and not a failure — it is the answer `x86_64-darwin` gives.
+func codeDirectoryFlagsOf(t *testing.T, path string) (uint32, bool) {
+	t.Helper()
+
+	image, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := macho.NewFile(bytes.NewReader(image))
+	if err != nil {
+		t.Fatalf("%s is not a Mach-O binary: %v — the release publishes this platform as one", path, err)
+	}
+
+	for _, load := range file.Loads {
+		raw, ok := load.(macho.LoadBytes)
+		if !ok || len(raw) < 16 {
+			continue
+		}
+		if file.ByteOrder.Uint32(raw[0:4]) != lcCodeSignature {
+			continue
+		}
+
+		// The load command's byte order is the binary's; everything inside
+		// the signature is big-endian whatever the architecture, which is
+		// why the two are read with different hands.
+		at := file.ByteOrder.Uint32(raw[8:12])
+		if magic := wordAt(t, path, image, at); magic != superBlobMagic {
+			t.Fatalf("%s has an LC_CODE_SIGNATURE whose blob magic is %#x, want %#x — this is not the embedded signature the format describes", path, magic, superBlobMagic)
+		}
+
+		// The SuperBlob indexes blobs by type, and the CodeDirectory is the
+		// one carrying the flags. It is found by its magic rather than by
+		// its position: what comes first in the blob is not fixed.
+		count := wordAt(t, path, image, at+8)
+		for i := uint32(0); i < count; i++ {
+			blob := at + wordAt(t, path, image, at+12+i*8+4)
+			if wordAt(t, path, image, blob) != codeDirectoryMagic {
+				continue
+			}
+			return wordAt(t, path, image, blob+codeDirectoryFlagsAt), true
+		}
+		t.Fatalf("%s carries an embedded signature with no CodeDirectory in it; there is no flags word to read", path)
+	}
+	return 0, false
+}
+
+// wordAt reads the four bytes at an offset inside an embedded code signature,
+// where every word is network order on both architectures the release
+// publishes.
+//
+// **It bounds-checks because the offsets come out of the bytes they index.** A
+// SuperBlob says where its own blobs are, so a truncated or malformed archive
+// walks off the end — and a case that reports `index out of range` has told
+// nobody which archive was short. Failing here says which file and how far past
+// it went, which is the manner `modifiedFlagOf` next door already sets.
+func wordAt(t *testing.T, path string, image []byte, at uint32) uint32 {
+	t.Helper()
+	if uint64(at)+4 > uint64(len(image)) {
+		t.Fatalf("%s's code signature names an offset %d, and the file is %d bytes; the signature runs past the end of the archive's own binary", path, at, len(image))
+	}
+	return binary.BigEndian.Uint32(image[at:])
 }
 
 // root is the repository root, which is where the release script and the
