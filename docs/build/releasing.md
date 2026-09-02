@@ -58,12 +58,28 @@ names, `x86_64-linux`. What a release publishes beyond it is the release
 process's own, and three are published beside it for laptops —
 `aarch64-linux`, `x86_64-darwin` and `aarch64-darwin`. There is no Windows
 build: no `runs-on` here names one, so it would be a platform the release
-carried and nothing tested.
+carried and nothing tested. **All four have now been downloaded and executed
+on a machine that matches them** (#247,
+[ADR-0133](../adr/0133-three-archives-nobody-had-run-carried-and-the-release-stamps-three-of-four-dirty.md)),
+which is what makes publishing them a measurement rather than a hope.
 
-The macOS archives are **cross-compiled from the Linux runner and are neither
-signed nor notarised.** `curl` sets no quarantine attribute so a fetched
-archive runs, and a browser download does — `xattr -d com.apple.quarantine
-./hyper` is the repair, and the README says so where it says to download.
+The macOS archives are **cross-compiled from the Linux runner and notarised by
+nobody**, and they are not signed alike: Go's linker ad-hoc signs the
+`darwin/arm64` binary, because Apple Silicon will not exec an unsigned one at
+all, and leaves `darwin/amd64` unsigned. `codesign --verify --strict` calls the
+first *valid on disk*; `codesign` says of the second *code object is not signed
+at all*. **`spctl --assess --type execute` rejects both**, notarisation being
+what it is asking for.
+
+What follows from that for somebody downloading one is less settled than this
+file used to say. `curl` sets no quarantine attribute — confirmed on both
+architectures — and a browser download does. But a quarantine attribute written
+by hand did **not** stop either binary from running: `spctl` assesses, the
+kernel execs, and a binary `exec`ed from a shell is not assessed. So
+`xattr -d com.apple.quarantine ./hyper` is the repair for an attribute rather
+than a repair anything here has been observed to need, and the README carries
+no such line. **The browser download has never been walked**, and #262 owns
+both that walk and the decision about signing.
 
 ## Cutting one
 

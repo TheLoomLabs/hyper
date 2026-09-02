@@ -177,7 +177,7 @@ BASE=https://github.com/TheLoomLabs/hyper/releases/download/v$VERSION
 curl -fLO $BASE/hyper-$VERSION-$PLATFORM.tar.gz
 curl -fLO $BASE/checksums.txt
 grep " hyper-$VERSION-$PLATFORM.tar.gz$" checksums.txt | sha256sum -c -
-# macOS has no sha256sum:                              | shasum -a 256 -c -
+# where there is no sha256sum:                         | shasum -a 256 -c -
 
 tar -xzf hyper-$VERSION-$PLATFORM.tar.gz
 install -m 755 hyper ~/bin/hyper   # anywhere on your PATH
@@ -187,6 +187,12 @@ hyper version
 **Neither `curl` carries a credential and neither needs one.** The release is public, and it is the
 same read `hyper project` makes when it freezes the digest into your Repository declaration
 ([ADR-0131](docs/adr/0131-project-wrote-a-digest-for-the-first-time-and-the-network-contributed-one-scalar.md)).
+
+**The two macOS archives are notarised by nobody**, and `spctl --assess` rejects both. Each was
+downloaded and run on a machine matching it — every archive above was, which is
+[ADR-0133](docs/adr/0133-three-archives-nobody-had-run-carried-and-the-release-stamps-three-of-four-dirty.md)
+— but only ever fetched with `curl`, which sets no quarantine attribute. What a **browser** download
+does has not been measured ([#262](https://github.com/TheLoomLabs/hyper/issues/262)).
 
 ### From source
 
