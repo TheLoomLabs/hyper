@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"crypto/sha256"
+	"debug/buildinfo"
 	"encoding/hex"
 	"io"
 	"os"
@@ -133,19 +134,60 @@ func TestRelease_TheArtefactCarriesTheBinaryTheTagNames(t *testing.T) {
 	platform := hostPlatform(t)
 	published := publish(t, released, platform)
 
-	unpacked := t.TempDir()
-	unpack := exec.Command("tar", "-xzf", filepath.Join(published, "hyper-"+released+"-"+platform+".tar.gz"), "-C", unpacked)
-	if out, err := unpack.CombinedOutput(); err != nil {
-		t.Fatalf("tar -xzf: %v\n%s", err, out)
-	}
-
-	stdout, _, exit := run(t, filepath.Join(unpacked, "hyper"), "version")
+	stdout, _, exit := run(t, unpack(t, archiveOf(published, released, platform)), "version")
 
 	if exit != 0 {
 		t.Fatalf("hyper version exit = %d, want 0", exit)
 	}
 	if want := "hyper " + released + "\n"; !strings.HasPrefix(stdout, want) {
 		t.Errorf("the released binary reports %q, want it to start %q — the release script stamped nothing", stdout, want)
+	}
+}
+
+// TestRelease_EveryArchiveOfOneReleaseIsStampedFromACleanTree holds the fact
+// the four archives of `v0.0.1-alpha` broke: `hyper version`'s second line
+// appends `-dirty` where Go stamped `vcs.modified`, so that a hash on the page
+// is never a claim about bytes edited after it — and three of the four
+// published archives made that claim about a tree nobody had edited (issue
+// #261, ADR-0133, ADR-0136).
+//
+// **It builds more than one platform, which is the whole of why it can see it.**
+// The release wrote its own dirt: the first build's archive landed in the
+// output directory, Go's stamping saw an untracked file in the checkout, and
+// every build after the first was stamped from a tree the first had modified.
+// One platform is always the first one, so every case above this one passes on
+// a release that publishes three false pages.
+//
+// **And it publishes into the working tree, which is the other half.** The
+// directory the release script is handed is where the dirt appears; handed a
+// `t.TempDir()` outside the checkout there is none to see. `dist` inside the
+// repository root is what `release.yml` hands it and what
+// docs/build/releasing.md tells a person to hand it, so a directory of the
+// case's own beside them is the honest place to reproduce from. An empty
+// directory is not a modification — `git status` reports nothing for one — so
+// the tree the builds are stamped against is the tree this case found.
+//
+// **A tree that already carries edits cannot show it**, because then every
+// build is stamped `vcs.modified=true` honestly and the ordering makes no
+// difference. That is a property of the checkout rather than of the machine, so
+// it goes through `unavailable`: a laptop mid-change skips and says why, and a
+// runner — where `actions/checkout` supplies exactly one tree and a release is
+// cut from it — fails, this being the case that stands in front of publishing.
+func TestRelease_EveryArchiveOfOneReleaseIsStampedFromACleanTree(t *testing.T) {
+	if edits := worktreeEdits(t); edits != "" {
+		unavailable(t, "this working tree carries edits, so every build in it is stamped vcs.modified=true whatever order the release builds in:\n%s", edits)
+	}
+
+	// The two the fault was reproduced on, and the cheapest pair: what the
+	// case is about is that a second build exists, not which one it is.
+	platforms := []string{"x86_64-linux", "aarch64-linux"}
+	into := publishInto(t, directoryInTheWorktree(t), released, platforms...)
+
+	for _, platform := range platforms {
+		flag := modifiedFlagOf(t, unpack(t, archiveOf(into, released, platform)))
+		if flag != "false" {
+			t.Errorf("the %s archive of a release cut from a clean tree is stamped vcs.modified=%s, want false — `hyper version` appends `-dirty` on this, and would tell every operator running the release that it was built from an edited tree", platform, flag)
+		}
 	}
 }
 
@@ -170,19 +212,111 @@ func hostPlatform(t *testing.T) string {
 	return ""
 }
 
-// publish runs the release script for one platform into a directory of its
-// own, and answers that directory.
+// publish runs the release script into a directory of its own, outside the
+// repository, and answers that directory. It is what a case that is about the
+// shape of a publication wants: nothing the script writes can reach the tree it
+// builds from.
 func publish(t *testing.T, version string, platforms ...string) string {
+	t.Helper()
+	return publishInto(t, t.TempDir(), version, platforms...)
+}
+
+// publishInto runs the release script into a directory the caller names, which
+// is the half of the invocation
+// `TestRelease_EveryArchiveOfOneReleaseIsStampedFromACleanTree` cares about — a
+// release publishes into the checkout it is cut from.
+func publishInto(t *testing.T, into, version string, platforms ...string) string {
 	t.Helper()
 	needTools(t, "go", "bash", "tar", "sha256sum")
 
-	into := t.TempDir()
 	command := exec.Command("bash", append([]string{"scripts/release.sh", version, into}, platforms...)...)
 	command.Dir = root(t)
 	if out, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("scripts/release.sh %s %s %v: %v\n%s", version, into, platforms, err, out)
 	}
 	return into
+}
+
+// directoryInTheWorktree makes a directory of the case's own inside the
+// repository, of the kind `dist` is: created empty, so that the tree a build is
+// stamped against is the tree the case found, and removed with the case.
+func directoryInTheWorktree(t *testing.T) string {
+	t.Helper()
+
+	into, err := os.MkdirTemp(root(t), "release-case-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(into) })
+	return into
+}
+
+// worktreeEdits is what Go's build stamping reads before it writes
+// `vcs.modified`: whatever this repository's working tree carries that the
+// commit does not account for, empty where it carries nothing. A case reads it
+// before it publishes, because what the release writes makes it non-empty.
+//
+// It answers the lines rather than a yes or no so that a case turned away by
+// them can say which they were. On a prepared machine that answer is a failure
+// (ADR-0123), and *this working tree carries edits* on a runner nobody edited
+// is a sentence that needs the list beside it.
+func worktreeEdits(t *testing.T) string {
+	t.Helper()
+	needTools(t, "git")
+
+	command := exec.Command("git", "status", "--porcelain")
+	command.Dir = root(t)
+	out, err := command.Output()
+	if err != nil {
+		unavailable(t, "git status --porcelain failed in %s (%v); what a build here is stamped with cannot be read", root(t), err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// archiveOf is the path the release script publishes one platform's archive at:
+// the name the tag's URL carries, without the `v` (§11).
+func archiveOf(published, version, platform string) string {
+	return filepath.Join(published, "hyper-"+version+"-"+platform+".tar.gz")
+}
+
+// unpack extracts an archive's `hyper` into a directory of its own and answers
+// the path to it — `tar -xzf`, which is what the install step in a generated
+// workflow runs against the same bytes (§10).
+func unpack(t *testing.T, archive string) string {
+	t.Helper()
+	needTools(t, "tar")
+
+	into := t.TempDir()
+	command := exec.Command("tar", "-xzf", archive, "-C", into)
+	if out, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("tar -xzf %s: %v\n%s", archive, err, out)
+	}
+	return filepath.Join(into, "hyper")
+}
+
+// modifiedFlagOf reads `vcs.modified` out of a built binary — the same setting
+// `version.Current` reads out of the running one, read here off a file so that
+// an archive built for another platform can be asked.
+//
+// A binary with no such setting fails the case rather than skipping it. Go
+// stamps `vcs.*` for a main package built inside a repository its tools can
+// read, and the caller has already had `git status` answer in that repository,
+// so an archive carrying no flag is a change in how Go stamps and not a
+// property of the machine.
+func modifiedFlagOf(t *testing.T, binary string) string {
+	t.Helper()
+
+	info, err := buildinfo.ReadFile(binary)
+	if err != nil {
+		t.Fatalf("no build information in %s: %v", binary, err)
+	}
+	for _, setting := range info.Settings {
+		if setting.Key == "vcs.modified" {
+			return setting.Value
+		}
+	}
+	t.Fatalf("%s carries no vcs.modified; this release was built in a checkout, and `hyper version` has no `-dirty` to withhold or append", binary)
+	return ""
 }
 
 // digestOf is the artefact's checksum computed here, in the spelling the

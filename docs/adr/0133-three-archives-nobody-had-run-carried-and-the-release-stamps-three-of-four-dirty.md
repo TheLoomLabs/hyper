@@ -197,5 +197,6 @@ an `xattr` line. Corrected in place, together with what the archives actually ar
 dropped from `release.sh`'s set — which was the alternative the ticket named and the one that would
 have been taken if any of the three had failed. What follows from that is a standing cost rather
 than a rule: a release publishes four archives and this session's evidence is about the release cut
-from `85244dd`. #261 is a defect in how they are built, and its repair is only visible in the
-release after next.
+from `85244dd`. #261 is a defect in how they are built; its repair is
+[ADR-0136](0136-the-release-builds-every-platform-before-it-publishes-one.md), and it is only
+visible in the release after next.

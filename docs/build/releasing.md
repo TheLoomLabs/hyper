@@ -112,6 +112,22 @@ The same script builds locally, which is what the cases in
 scripts/release.sh 0.0.1-alpha dist x86_64-linux
 ```
 
+**The script builds every platform before it archives any of them**, and that
+ordering is load-bearing rather than tidy. Go stamps `vcs.modified` from
+`git status` in the module root, and `dist` is inside it — both above and in the
+workflow — so a script that archived as it went put the first platform's tarball
+into the checkout and stamped every build after it from a modified tree. That is
+what `v0.0.1-alpha` published: three of its four archives report
+`commit 85244dd…-dirty` and the release was cut from a clean tree
+([#261](https://github.com/TheLoomLabs/hyper/issues/261),
+[ADR-0136](../adr/0136-the-release-builds-every-platform-before-it-publishes-one.md)).
+Those archives are left as they are; the repair is visible in the next release.
+What the ordering holds is that **no build sees another build's output** — not
+that the output directory is harmless wherever it points. `dist` in the checkout
+is still untracked, and a second release cut on top of the first one's files
+starts from a tree that is already modified and stamps all four archives
+`true` alike, honestly. Remove it when you are done with it.
+
 ## The first release, and what it unlocks
 
 Until a release exists, `hyper project` cannot bootstrap a pin in any

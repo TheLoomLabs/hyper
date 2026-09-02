@@ -23,6 +23,18 @@
 # a generated workflow untars and invokes — and one `checksums.txt` naming them
 # all, in `sha256sum`'s own output shape, which is what `hyper project` reads
 # one line of (§10, internal/release).
+#
+# **It writes none of them until every platform has been built**, and that
+# ordering is load-bearing rather than tidy. Go stamps `vcs.modified` from
+# `git status` in the module root, and the output directory is inside that root
+# wherever a release is actually cut — the workflow hands it `dist` and
+# docs/build/releasing.md hands a person the same. Archiving as it went put the
+# first platform's tarball in the checkout and stamped every build after it from
+# a tree nobody had edited, which is what `v0.0.1-alpha` published on three of
+# its four archives (issue #261, ADR-0136). What the ordering holds is that no
+# build sees another build's output; an output directory a previous run left
+# files in is a tree already modified when this script starts, and every build
+# is then stamped `true` alike.
 set -euo pipefail
 
 version=${1:?usage: release.sh <version> <output-directory> [platform...]}
@@ -54,6 +66,13 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 mkdir -p "$outdir"
 outdir=$(cd "$outdir" && pwd)
 
+# The builds, all of them, and nothing is written to `$outdir` here: no build in
+# this loop can see another build's output, which is the ordering the header
+# states and the reason for it. The staging directory is `mktemp`'s, outside the
+# tree Go stamps from.
+staging=$(mktemp -d)
+trap 'rm -rf "$staging"' EXIT
+
 for platform in "${platforms[@]}"; do
 	case $platform in
 	x86_64-linux) goos=linux goarch=amd64 ;;
@@ -61,6 +80,8 @@ for platform in "${platforms[@]}"; do
 	x86_64-darwin) goos=darwin goarch=amd64 ;;
 	aarch64-darwin) goos=darwin goarch=arm64 ;;
 	*)
+		# Named before the first archive is written, so a set with a typo
+		# in it publishes nothing rather than part of a release.
 		echo "release.sh: no build is defined for $platform" >&2
 		exit 2
 		;;
@@ -69,17 +90,20 @@ for platform in "${platforms[@]}"; do
 	# CGO off and -trimpath: the binary is fetched by a runner that shares no
 	# libc with the machine that built it, and a path from this filesystem is
 	# not a fact about the release.
-	staging=$(mktemp -d)
-	trap 'rm -rf "$staging"' EXIT
+	mkdir -p "$staging/$platform"
 	CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build \
 		-C "$root" \
 		-trimpath \
 		-ldflags "-X $stamp=$version" \
-		-o "$staging/hyper" \
+		-o "$staging/$platform/hyper" \
 		./cmd/hyper
-	tar -czf "$outdir/hyper-$version-$platform.tar.gz" -C "$staging" hyper
-	rm -rf "$staging"
-	trap - EXIT
+done
+
+# The publication, once every binary exists. Each archive holds the binary as
+# `hyper` at its root, which is what the install step in a generated workflow
+# untars and invokes.
+for platform in "${platforms[@]}"; do
+	tar -czf "$outdir/hyper-$version-$platform.tar.gz" -C "$staging/$platform" hyper
 done
 
 # `sha256sum` from inside the directory, so every line names a bare filename —
