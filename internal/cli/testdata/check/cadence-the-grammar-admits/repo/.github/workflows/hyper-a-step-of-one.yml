@@ -42,5 +42,12 @@ jobs:
         if: always()
         run: |
           printf '```\n' >> "$GITHUB_STEP_SUMMARY"
+          set +e
           ./hyper changes a-step-of-one | tee -a "$GITHUB_STEP_SUMMARY"
+          code=${PIPESTATUS[0]}
+          set -e
           printf '```\n' >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" -ne 0 ]; then
+            printf 'the Comparison did not render (exit %s)\n' "$code" \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi

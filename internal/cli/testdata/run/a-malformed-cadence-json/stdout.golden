@@ -1,4 +1,4 @@
 {"type":"refusal","error_code":"cadence-malformed","file":"procedures/nightly.yaml","line":4,"field":"cadence","message":"cadence: \"0 3 * * MON\" is not an expression the grammar admits — day of week \"MON\" is not one of the grammar's four item forms: *, a number, a range a-b, or a step over either"}
 {"type":"remediation","file":"procedures/nightly.yaml","line":4,"field":"cadence"}
-{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"59038a19793e42da6a871f0310fd5ef838096215","repo_revision":"8d65b1f9424e39c9db6c8bcc887414cf0ce122e5"}
+{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"59038a19793e42da6a871f0310fd5ef838096215","repo_revision":"08c9b57d606e2d12ba7fc4d6b54d49bcbae3941a"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"cadence-malformed","dry_run":false,"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7c3"}

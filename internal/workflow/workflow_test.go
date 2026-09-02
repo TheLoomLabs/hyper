@@ -350,6 +350,43 @@ func TestGenerate_TheJobSummaryIsShellAndTheBinaryIsToldNothing(t *testing.T) {
 	}
 }
 
+// TestGenerate_TheChangesStepNamesAComparisonThatDidNotRenderAndKeepsTheRunsStatus
+// holds the whole of #259. The Comparison is piped into `tee`, so a step that
+// stopped at the pipeline exits with `tee`'s `0` whatever `hyper` did — which
+// is how ADR-0132 Claim 6 found it, on a job already red whose `./hyper` the
+// install step never wrote. The case that costs is a Run that succeeded over a
+// Comparison that did not render, where the page carries an empty fence on a
+// green job and nothing says why (ADR-0135).
+//
+// The status stays the Run's, which is the second half: the rendering does not
+// get to redden the job it renders, so `${PIPESTATUS[0]}` is read to write a
+// sentence rather than to exit on.
+func TestGenerate_TheChangesStepNamesAComparisonThatDidNotRenderAndKeepsTheRunsStatus(t *testing.T) {
+	got := string(workflow.Generate(workedExample))
+	changes := got[strings.Index(got, "      - name: hyper changes "):]
+	for _, want := range []string{
+		"          set +e\n",
+		"          code=${PIPESTATUS[0]}\n",
+		"          set -e\n",
+		"          if [ \"$code\" -ne 0 ]; then\n",
+		"            printf 'the Comparison did not render (exit %s)\\n' \"$code\" \\\n",
+		"              >> \"$GITHUB_STEP_SUMMARY\"\n",
+		"          fi\n",
+	} {
+		if !strings.Contains(changes, want) {
+			t.Errorf("the changes step wrote\n%s\nwant it to carry %q", changes, want)
+		}
+	}
+	if strings.Contains(changes, "exit $code") {
+		t.Errorf("the changes step exits on the Comparison's status, reddening a Run that succeeded:\n%s", changes)
+	}
+	// The sentence is the page's rather than the binary's, so it lands
+	// outside the fence the rendering is written between.
+	if note, closing := strings.Index(changes, "printf 'the Comparison"), strings.LastIndex(changes, "printf '```"); note < closing {
+		t.Errorf("the note sits inside the fence, where it would read as part of the rendering:\n%s", changes)
+	}
+}
+
 // TestGenerate_TheDeepenStepIsGuardedAndCarriesNoOrTrue: `--unshallow` errors on
 // a repository that is already complete, and the guard is what keeps the step
 // total while leaving a real failure fatal.

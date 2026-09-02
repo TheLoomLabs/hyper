@@ -279,13 +279,45 @@ func writeRun(b *strings.Builder, facts Facts) {
 //
 // It carries no `env:`: the Comparison reads the repository and the Store, and
 // binds nothing that could need a credential.
+//
+// **`${PIPESTATUS[0]}` is read here and not exited on**, which is the one way
+// this step's status differs from `writeRun`'s (#259, ADR-0135). A pipeline's
+// status is its last command's, so a step that stopped at the pipeline exits
+// with `tee`'s `0` whatever `hyper` did — which is how ADR-0132 Claim 6 found
+// it, on a job already red for an install that had failed, its `./hyper` never
+// written and its empty fence carrying nothing that said so. The case that
+// costs is the other one: a Comparison that did not render on a job whose Run
+// succeeded, where the fence is empty between two backtick lines and the job
+// is green.
+//
+// Exiting on it was the losing alternative — it would let a rendering redden a
+// Run that reached the world and finished, which is the same tail-wagging-dog
+// the `tee` above already declines for a summary the executor dropped for
+// being too large. So the status stays the Run's and the page carries the
+// sentence instead.
+//
+// The `set +e` is `writeRun`'s reason rather than a copy of its shape: nothing
+// here exits on `$code`, so what it guards is the pipeline's own status — a
+// `tee` that could not write — which under `set -e` would take the step out
+// before the closing fence and the sentence beneath it.
+//
+// The sentence is written after the closing fence rather than inside it: the
+// fence holds what `hyper` rendered, and this line is the page's own note
+// about a rendering that did not arrive.
 func writeChanges(b *strings.Builder, facts Facts) {
 	fmt.Fprintf(b, "\n      - name: %s\n", scalar("hyper changes "+facts.Procedure))
 	b.WriteString("        if: always()\n")
 	b.WriteString("        run: |\n")
 	b.WriteString(fence)
+	b.WriteString("          set +e\n")
 	fmt.Fprintf(b, "          ./hyper changes %s | tee -a %s\n", facts.Procedure, summary)
+	b.WriteString("          code=${PIPESTATUS[0]}\n")
+	b.WriteString("          set -e\n")
 	b.WriteString(fence)
+	b.WriteString("          if [ \"$code\" -ne 0 ]; then\n")
+	b.WriteString("            printf 'the Comparison did not render (exit %s)\\n' \"$code\" \\\n")
+	fmt.Fprintf(b, "              >> %s\n", summary)
+	b.WriteString("          fi\n")
 }
 
 // writeEnv writes the credential slots the Procedure's bindings require, on

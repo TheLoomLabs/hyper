@@ -343,8 +343,15 @@ jobs:
         if: always()
         run: |
           printf '```\n' >> "$GITHUB_STEP_SUMMARY"
+          set +e
           ./hyper changes retire-preview-envs | tee -a "$GITHUB_STEP_SUMMARY"
+          code=${PIPESTATUS[0]}
+          set -e
           printf '```\n' >> "$GITHUB_STEP_SUMMARY"
+          if [ "$code" -ne 0 ]; then
+            printf 'the Comparison did not render (exit %s)\n' "$code" \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
 ```
 
 ### What the projection carries
@@ -451,6 +458,22 @@ invocation's rather than `tee`'s, which is what makes a Refusal, a failure, and 
 as a red job carrying the code §12 fixes. The `set +e` around it exists so the closing fence is written
 before the step exits.
 
+**The `changes` step reads that status and does not exit on it.** A pipeline's status is its last
+command's, so a step that stopped at the pipeline would exit with `tee`'s `0` whatever `hyper` did,
+and a Comparison that did not render would leave an empty fence between two backtick lines with
+nothing saying why — which is what a Store the clone cannot read costs on a job whose Run succeeded,
+and what a `./hyper` an install step never wrote costs on a job that is red already
+([ADR-0132](../adr/0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md),
+[ADR-0135](../adr/0135-the-comparison-names-its-own-failure-and-does-not-fail-the-job.md)). So the
+second invocation carries the same `${PIPESTATUS[0]}` as the first and spends it differently: **where
+the code is not `0`, one line naming the Comparison that did not render, and its code, is written
+after the closing fence**, and the step exits `0` regardless.
+
+The job's status stays the Run's. A rendering that failed does not redden a Run that reached the world
+and finished, which is the same judgement the `tee` above makes about a summary the executor dropped
+for being too large. The sentence sits outside the fence because the fence holds what `hyper`
+rendered, and this line is the page's own note about a rendering that never arrived.
+
 The runtime binary is told nothing about any of this. Only `project` knows the executor, which is what
 keeps `hyper run <procedure>` producing the same bytes on a laptop as on a runner (ADR-0021).
 
@@ -489,7 +512,7 @@ Kind, the count of Records it concluded about (§8, ADR-0030), and its **Disposi
 §12 defines. Where a guardrail declined, §8's Refusal rendering follows in full, remediation table
 included. Then the
 Comparison, under `if: always()`, so a Run that failed still renders what reached the world before it
-stopped.
+stopped — or, where the Comparison did not render, the line that says so beneath the empty fence.
 
 The Dispositions are why the page is worth writing. A green check means the Run finished, not that
 anything happened: a Run whose every Step was skipped as already recorded completes and exits `0` like
