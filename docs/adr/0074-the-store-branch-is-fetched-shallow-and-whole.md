@@ -86,12 +86,17 @@ the wire.
   `--depth=1` refspec configures nothing (#246,
   [ADR-0132](0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)).
   Naming the ref is right either way, which is why this consequence survives the fact under it being
-  wrong; what does not survive is ADR-0071's reason for the deepen step's spelling.
-- **On a runner the Store fetch does not re-create `.git/shallow`.** This consequence was written on the
-  same false premise: since the deepen step's `--unshallow` has already taken the Store branch whole,
-  `hyper`'s fetch finds nothing to bring and writes no boundary. Measured in a runner-shaped clone, no
-  `.git/shallow` exists after the Run. On a laptop that lacks the branch the depth-1 fetch is as
-  described.
+  wrong; what does not survive is ADR-0071's reason for the deepen step's spelling — the step now names
+  a ref of its own for this consequence's reason rather than for that one (ADR-0134).
+- **On a runner the Store fetch re-creates `.git/shallow`, and for a while it did not.** This
+  consequence was written on the same false premise and was false with it: a bare `--unshallow` had
+  already taken the Store branch whole, so `hyper`'s fetch found nothing to bring and wrote no boundary
+  (#246, [ADR-0132](0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)).
+  With the deepen step's refspec named it holds as written — measured in a runner-shaped clone, the
+  Store arrives at 1 commit of 13 and `.git/shallow` names its tip alone, the code branch beside it
+  whole (#258,
+  [ADR-0134](0134-the-deepen-step-names-one-ref-and-what-deepens-the-code-branch-is-the-clones-own-boundary.md)).
+  On a laptop that lacks the branch the depth-1 fetch is as described.
 - **A `--single-branch` laptop clone gains a shallow Store**, its owner having opted out of the branch
   already. This is the one clone where Compaction and shallowness can meet, and there `git log` is short
   by exactly the history that was never fetched. On every path `hyper` projects they cannot meet at all:

@@ -178,10 +178,13 @@ byte-exact (§10) — a template shown in an example and stated nowhere is a thi
 guess at identically for the check to mean anything.
 
 **A script the projection writes is not a fifth constant.** The install step's `curl`, `sha256sum` and
-`tar`, and the deepen step's guarded `git fetch --unshallow` (§10), are the file's shape rather than
-facts about the world outside it: they name no version, no host and no third party, and they change only
-when the binary's idea of what the job must do changes. What they do consume is the image's tools, which
-is the exemption two paragraphs up and not a new one.
+`tar`, and the deepen step's guarded `git fetch --unshallow origin "$GITHUB_REF"` (§10), are the file's
+shape rather than facts about the world outside it: they name no version, no host and no third party,
+and they change only when the binary's idea of what the job must do changes. The ref that step fetches
+is not a constant either — the executor supplies it, as it supplies `$GITHUB_STEP_SUMMARY` and every
+`${{ secrets.… }}` in the file — and no branch name is compiled in for it to be one
+([ADR-0134](../adr/0134-the-deepen-step-names-one-ref-and-what-deepens-the-code-branch-is-the-clones-own-boundary.md)).
+What they do consume is the image's tools, which is the exemption two paragraphs up and not a new one.
 
 **The binary's own `git` is a different claim and is not this exemption.** `hyper` reads and writes the
 Store by invoking `git` as a subprocess (§7, ADR-0075), and it does so on a laptop as much as on a

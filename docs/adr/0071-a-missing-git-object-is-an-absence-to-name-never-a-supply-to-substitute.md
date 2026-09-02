@@ -34,8 +34,11 @@ pay the cost this project has already measured.
 `checkout` does not clone, it runs `git init` and `git remote add`, and `git remote add` writes the
 wildcard `+refs/heads/*:refs/remotes/origin/*`. The `--unshallow` inherits *that* and fetches every
 branch with complete history. The decision below stands — a missing object is still an absence to name —
-but the line chosen to implement it pays the cost this paragraph declined, and what to do about it is
-open.
+and so does the line, with a refspec argument on it: `git fetch --unshallow origin "$GITHUB_REF"` names
+what it wants instead of asking what the checkout left, and the cost this paragraph declined is declined
+again (#258,
+[ADR-0134](0134-the-deepen-step-names-one-ref-and-what-deepens-the-code-branch-is-the-clones-own-boundary.md)).
+What was wrong was the ground, not the choice standing on it.
 
 ## Why this is not a corner
 

@@ -426,14 +426,18 @@ no command in the tool stops that.
 **`hyper`'s own sync pays for the live tree, and pays it once per environment that lacks the branch.**
 The sync is a depth-1 fetch (§7, ADR-0074), so it costs what the branch currently holds rather than
 what it has ever held — but on a runner the branch is always absent, `actions/checkout` taking one ref
-(§10), so **every scheduled occurrence of every Procedure fetches the whole live Store from scratch** —
-and on a runner it is worse than that. The deepen step's `--unshallow` inherits the wildcard refspec
-`checkout` leaves behind and takes the Store branch's **entire history** before `hyper` starts, so what
-recurs is the clause above rather than this one: the curve named there as the rarer act is paid on every
-Run (#246,
-[ADR-0132](../adr/0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)).
+(§10), so **every scheduled occurrence of every Procedure fetches the whole live Store from scratch**.
 This is the curve that recurs, and the clause above names the rarer act. Compaction does reclaim from
 this one, which is the only place in the tool where it buys anything on the wire.
+
+**Which of the two curves recurs was measured, and for a while it was the wrong one.** A bare
+`git fetch --unshallow` in the deepen step inherits the wildcard refspec `checkout` leaves behind, so
+until the refspec was named the runner took the Store branch's **entire history** before `hyper`
+started — the clause above, on every Run, at whatever Cadence was declared (#246,
+[ADR-0132](../adr/0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md),
+[ADR-0134](../adr/0134-the-deepen-step-names-one-ref-and-what-deepens-the-code-branch-is-the-clones-own-boundary.md)).
+The two curves are as stated because one line of the projection says so, and nothing about a runner
+enforces it.
 
 **What neither curve reclaims is the Journal**, and it is the term that grows with the Cadence rather
 than with the world. Compaction removes interior Observation versions only, and a version is minted

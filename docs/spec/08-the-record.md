@@ -70,6 +70,9 @@ offline* false wherever the network is.
 the reason as *a checkout leaves it pinned to the one ref it took*, which #246 measured and found false —
 `git remote add` writes the wildcard — so the practice is right and the reason for it was not (§10,
 [ADR-0132](../adr/0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)).
+The projection's deepen step names one too, and for the same reason rather than for ADR-0071's
+([ADR-0134](../adr/0134-the-deepen-step-names-one-ref-and-what-deepens-the-code-branch-is-the-clones-own-boundary.md)):
+every fetch either job makes says which ref it wants, and none of them asks what the checkout left.
 
 ### Where the Store sits locally
 

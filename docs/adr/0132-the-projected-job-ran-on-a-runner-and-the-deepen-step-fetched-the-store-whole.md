@@ -151,7 +151,11 @@ Two consequences follow, and both are the opposite of what is written down:
 
 **Nothing is repaired here.** The false sentence is corrected in place at the three sites, that being
 what a measured falsehood earns; what to *do* about a deepen step that fetches the Store is a
-decision with §11, §14, ADR-0071 and ADR-0074 in it, and it is filed rather than taken.
+decision with §11, §14, ADR-0071 and ADR-0074 in it, and it is filed rather than taken. *Taken in
+[ADR-0134](0134-the-deepen-step-names-one-ref-and-what-deepens-the-code-branch-is-the-clones-own-boundary.md)
+(#258): the step names `origin "$GITHUB_REF"` and the wildcard reaches nothing. Both consequences above
+are reversed by that one argument, and the second of them — ADR-0074's re-created `.git/shallow` — is
+true again.*
 
 ## Claim 6 — `hyper changes` cannot fail the step it is written into
 

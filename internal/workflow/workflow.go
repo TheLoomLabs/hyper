@@ -209,22 +209,31 @@ func Generate(facts Facts) []byte {
 // The guard is `.git/shallow` and there is no `|| true`: `--unshallow` errors
 // on a repository that is already complete, which a self-hosted or pre-warmed
 // runner may hand it, so the test is what keeps the step total while leaving a
-// real failure fatal. It was written to deepen the code branch and not the
-// Store — no `fetch-depth:` is written, that being *all history for all
-// branches and tags* and so a fetch of the Store branch on every scheduled Run
-// of every Procedure (§10, ADR-0074).
+// real failure fatal. It deepens the code branch and not the Store — no
+// `fetch-depth:` is written, that being *all history for all branches and tags*
+// and so a fetch of the Store branch on every scheduled Run of every Procedure
+// (§10, ADR-0074).
 //
-// **On a runner it deepens both**, and that is measured rather than argued
-// (#246, ADR-0132): `actions/checkout` runs `git init` and `git remote add`,
-// which write the wildcard refspec, and the explicit refspec on its own
-// `--depth=1` fetch configures nothing — so a bare `--unshallow` takes every
-// branch with complete history, the Store included. The cost the missing
-// `fetch-depth:` declines is paid by the line that replaced it. Nothing here
-// changes until that decision is taken: the bytes are what they were.
+// **The refspec is named because a bare `--unshallow` inherits the wildcard**
+// (#258, ADR-0134). `actions/checkout` runs `git init` and `git remote add`,
+// which write `+refs/heads/*:refs/remotes/origin/*`, and the explicit refspec on
+// its own `--depth=1` fetch configures nothing (#246, ADR-0132) — so the bare
+// form took every branch with complete history, the Store included, which is
+// the cost the missing `fetch-depth:` declines. A refspec argument configures
+// nothing either, which is why the repair is this line and not a second one.
+//
+// Naming a ref is not what deepens the code branch: `--unshallow` deepens
+// whatever the clone already holds shallowly, whatever refspec it is given, so
+// the argument's whole work is to stop the wildcard bringing anything else. It
+// is the executor's own `$GITHUB_REF` because the generator has no branch name
+// to write and needs none — the file's only trigger is a Cadence, and a
+// `schedule` event names the ref it dispatched. Where nothing names one the
+// fetch falls back to the remote's default branch rather than to the wildcard,
+// so the Store stays unfetched on that path too (ADR-0134).
 func writeDeepen(b *strings.Builder) {
 	b.WriteString("\n      - name: deepen the checkout\n")
 	b.WriteString("        run: |\n")
-	b.WriteString("          if [ -f .git/shallow ]; then git fetch --unshallow; fi\n")
+	b.WriteString("          if [ -f .git/shallow ]; then git fetch --unshallow origin \"$GITHUB_REF\"; fi\n")
 }
 
 // writeInstall writes the version, the URL and the digest literally, with

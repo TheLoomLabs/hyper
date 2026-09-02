@@ -317,7 +317,7 @@ jobs:
 
       - name: deepen the checkout
         run: |
-          if [ -f .git/shallow ]; then git fetch --unshallow; fi
+          if [ -f .git/shallow ]; then git fetch --unshallow origin "$GITHUB_REF"; fi
 
       - name: install hyper 0.4.1
         run: |
@@ -399,25 +399,33 @@ no Provenance member at all — would move without a single row saying so (§8,
 [ADR-0071](../adr/0071-a-missing-git-object-is-an-absence-to-name-never-a-supply-to-substitute.md),
 [ADR-0086](../adr/0086-a-code-fact-is-read-where-it-is-authored.md)).
 
-**It was written to deepen the code branch and not the Store, and on a runner it deepens both.**
+**It deepens the code branch and not the Store, and the refspec is what holds that line.**
 `fetch-depth: 0` is the obvious spelling and it is *all history for all branches and tags* by the
 action's own documentation, which fetches the Store branch — the one branch §13 names as growing
-without bound — on every scheduled Run of every Procedure. This step was written to avoid that cost by
-inheriting a narrow refspec, on the belief that `checkout` leaves `remote.origin.fetch` pinned to the
-single ref it took. **Measured on a runner, that belief is false** (#246,
+without bound — on every scheduled Run of every Procedure. A **bare** `--unshallow` does the same
+thing, and that is measured rather than argued (#246,
 [ADR-0132](../adr/0132-the-projected-job-ran-on-a-runner-and-the-deepen-step-fetched-the-store-whole.md)):
 `checkout` runs `git init` and `git remote add`, which write the wildcard
 `+refs/heads/*:refs/remotes/origin/*`, and the explicit refspec on its own `--depth=1` fetch configures
-nothing — so a bare `--unshallow` takes every branch with complete history, the Store branch included,
-and the cost declined above is paid anyway.
+nothing, so a bare fetch inherits the wildcard and takes every branch with complete history. **What the
+step writes is therefore a refspec argument** — `origin "$GITHUB_REF"` — which configures nothing
+either, and so costs one argument rather than a second line
+([ADR-0134](../adr/0134-the-deepen-step-names-one-ref-and-what-deepens-the-code-branch-is-the-clones-own-boundary.md)).
+
+**Naming a ref is not what deepens the code branch.** `--unshallow` deepens whatever the clone already
+holds shallowly, whatever refspec it is given; the argument's whole work is to stop the wildcard
+bringing anything else down beside it. **The ref is the executor's own**, because the generator has no
+branch name to write and this section has no place to put one: the file's only trigger is the Cadence,
+and a `schedule` event names the ref it dispatched. Where nothing names one the fetch falls back to the
+remote's default branch rather than to the wildcard, so the Store is unfetched on that path too.
 
 **What the Store gets is `hyper`'s own depth-1 fetch, naming the ref**, which is correct whatever the
-checkout left and is the reason the deepen step's behaviour is a cost rather than a fault (§7,
-[ADR-0074](../adr/0074-the-store-branch-is-fetched-shallow-and-whole.md)). It lands after this step and,
-on a runner, finds the branch already whole, so the `.git/shallow` this step cleared does not come back:
-the code branch stays whole, and nothing later in the file reads that path. The two depths are opposite
-because the two branches are read differently — the code branch is read *at revisions the Store names*,
-and the Store is read at its tip and nowhere else.
+checkout left (§7,
+[ADR-0074](../adr/0074-the-store-branch-is-fetched-shallow-and-whole.md)). It lands after this step and
+finds the branch absent, so it creates it at its tip and writes a `.git/shallow` whose boundary names
+the Store branch alone — the code branch, deepened above, is untruncated by it. The two depths are
+opposite because the two branches are read differently — the code branch is read *at revisions the
+Store names*, and the Store is read at its tip and nowhere else.
 
 **The guard is `.git/shallow` and there is no `|| true`.** `--unshallow` errors on a repository that is
 already complete, which a self-hosted or pre-warmed runner may hand it, so the test is what keeps the

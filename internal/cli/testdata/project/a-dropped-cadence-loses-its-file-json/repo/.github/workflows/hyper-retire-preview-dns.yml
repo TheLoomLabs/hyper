@@ -22,7 +22,7 @@ jobs:
 
       - name: deepen the checkout
         run: |
-          if [ -f .git/shallow ]; then git fetch --unshallow; fi
+          if [ -f .git/shallow ]; then git fetch --unshallow origin "$GITHUB_REF"; fi
 
       - name: install hyper 1.3.0
         run: |

@@ -355,7 +355,7 @@ func TestGenerate_TheJobSummaryIsShellAndTheBinaryIsToldNothing(t *testing.T) {
 // total while leaving a real failure fatal.
 func TestGenerate_TheDeepenStepIsGuardedAndCarriesNoOrTrue(t *testing.T) {
 	got := string(workflow.Generate(workedExample))
-	if !strings.Contains(got, "          if [ -f .git/shallow ]; then git fetch --unshallow; fi\n") {
+	if !strings.Contains(got, "          if [ -f .git/shallow ]; then git fetch --unshallow origin \"$GITHUB_REF\"; fi\n") {
 		t.Errorf("Generate() wrote\n%s\nwant the guarded deepen step", got)
 	}
 	if strings.Contains(got, "|| true") {
@@ -366,6 +366,36 @@ func TestGenerate_TheDeepenStepIsGuardedAndCarriesNoOrTrue(t *testing.T) {
 	}
 	if deepen, run := strings.Index(got, "deepen the checkout"), strings.Index(got, "./hyper run "); deepen > run {
 		t.Errorf("the deepen step sits after the run invocation:\n%s", got)
+	}
+}
+
+// TestGenerate_TheDeepenStepNamesARefspecAndNeverInheritsTheWildcard holds the
+// whole of #258. A bare `git fetch --unshallow` inherits `remote.origin.fetch`,
+// and on a runner `git remote add` has left that the wildcard, so the bare form
+// takes the Store branch with complete history on every Run — the cost the
+// absent `fetch-depth:` is there to decline (#246, ADR-0132, ADR-0134). What
+// stops it is a refspec argument, which configures nothing and so leaves the
+// step one line.
+func TestGenerate_TheDeepenStepNamesARefspecAndNeverInheritsTheWildcard(t *testing.T) {
+	got := string(workflow.Generate(workedExample))
+	if strings.Contains(got, "git fetch --unshallow; fi") {
+		t.Errorf("the deepen step inherits remote.origin.fetch, which is the wildcard on a runner:\n%s", got)
+	}
+	if !strings.Contains(got, "git fetch --unshallow origin \"$GITHUB_REF\"") {
+		t.Errorf("the deepen step names no ref:\n%s", got)
+	}
+	// The ref is the executor's, never a branch name the generator invented:
+	// it has none to write, and §11 has no place to put one.
+	for _, absent := range []string{"refs/heads/main", "origin main", "$GITHUB_REF_NAME", "remote.origin.fetch"} {
+		if strings.Contains(got, absent) {
+			t.Errorf("the deepen step carried %q — a branch name the generator does not know:\n%s", absent, got)
+		}
+	}
+	// The Store's name appears in the concurrency group and nowhere in the
+	// deepen step: nothing the file writes fetches that branch.
+	deepen := got[strings.Index(got, "deepen the checkout"):strings.Index(got, "install hyper")]
+	if strings.Contains(deepen, "hyper-store") {
+		t.Errorf("the deepen step named the Store branch:\n%s", deepen)
 	}
 }
 

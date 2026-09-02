@@ -234,8 +234,10 @@ func (g repository) hasRemote(name string) (bool, error) {
 }
 
 // remoteHoldsRef asks the remote whether it holds the named ref. The ref is
-// named explicitly rather than left to the remote's configured refspec, a
-// checkout having left that pinned to the one ref it took (§7, §10, ADR-0071).
+// named explicitly rather than left to the remote's configured refspec, which
+// on a runner is the wildcard `git remote add` wrote and on a laptop is
+// whatever the clone was made with — right either way, which is why it survived
+// the fact ADR-0071 gave for it being measured false (§7, §10, ADR-0132).
 //
 // An empty listing is *the remote does not hold it*; an error is the world
 // resisting, and the two are never folded together — a remote that could not be
@@ -275,9 +277,10 @@ func (g repository) fetchIncremental(remote, src, dst string) error {
 }
 
 // fetch is the call both are: one ref, named explicitly on both sides rather
-// than left to the remote's configured refspec — a checkout having left that
-// pinned to the one ref it took (ADR-0071) — and whatever depth the caller
-// named, which is the only thing that separates them.
+// than left to the remote's configured refspec — which nothing here knows the
+// shape of, a runner's being the wildcard `git remote add` wrote (ADR-0132) —
+// and whatever depth the caller named, which is the only thing that separates
+// them.
 //
 // No filter is written here and none may be: the two above are the whole of how
 // this package fetches, so *never a filtered fetch* is a fact about one line.
