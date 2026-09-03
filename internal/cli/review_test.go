@@ -536,18 +536,21 @@ func headerOf(t *testing.T, page string) []string {
 // differs by a byte is a different sentence, and a reader who checks a gloss
 // against §10 is checking exactly this.
 func TestRunReview_TheWorkedExpressionsRenderOnTheHeadersSecondLine(t *testing.T) {
-	for _, worked := range []struct{ cadence, gloss string }{
-		{"0 3 * * 1", "03:00 UTC every Monday · ≈4.3 runs/month"},
-		{"0 0 1 * *", "00:00 UTC on the 1st of the month · 1 run/month"},
-		{"0 0 * * *", "00:00 UTC every day · ≈30 runs/month"},
-		{"*/5 * * * *", "every 5 minutes · ≈8800 runs/month"},
-		{"*/7 * * * *", "at :00, :07, :14, :21, :28, :35, :42, :49 and :56 past every hour · ≈6600 runs/month"},
-		{"0-59 * * * *", "every minute from :00 to :59 past every hour · ≈44000 runs/month"},
-		{"0 9,17 * * 1-5", "09:00 and 17:00 UTC every day from Monday to Friday · ≈43 runs/month"},
-		{"0 9-17 * * *", "at :00 past every hour from 09:00 to 17:00 UTC, every day · ≈270 runs/month"},
-		{"0 0 1 * 1", "00:00 UTC on the 1st of the month or any Monday · ≈5.2 runs/month"},
-		{"0 0 1 */3 *", "00:00 UTC on the 1st in January, April, July and October · ≈0.33 runs/month"},
-		{"0 0 29 2 *", "00:00 UTC on the 29th of February · ≈0.020 runs/month"},
+	for _, worked := range []struct {
+		cadence, gloss string
+		repeats        bool
+	}{
+		{"0 3 * * 1", "03:00 UTC every Monday · ≈4.3 runs/month", false},
+		{"0 0 1 * *", "00:00 UTC on the 1st of the month · 1 run/month", false},
+		{"0 0 * * *", "00:00 UTC every day · ≈30 runs/month", false},
+		{"*/5 * * * *", "every 5 minutes · ≈8800 runs/month", true},
+		{"*/7 * * * *", "at :00, :07, :14, :21, :28, :35, :42, :49 and :56 past every hour · ≈6600 runs/month", true},
+		{"0-59 * * * *", "every minute from :00 to :59 past every hour · ≈44000 runs/month", true},
+		{"0 9,17 * * 1-5", "09:00 and 17:00 UTC every day from Monday to Friday · ≈43 runs/month", false},
+		{"0 9-17 * * *", "at :00 past every hour from 09:00 to 17:00 UTC, every day · ≈270 runs/month", false},
+		{"0 0 1 * 1", "00:00 UTC on the 1st of the month or any Monday · ≈5.2 runs/month", false},
+		{"0 0 1 */3 *", "00:00 UTC on the 1st in January, April, July and October · ≈0.33 runs/month", false},
+		{"0 0 29 2 *", "00:00 UTC on the 29th of February · ≈0.020 runs/month", false},
 	} {
 		root := newRepo(t)
 		writeFile(t, root+"/procedures/nightly.yaml", procedureDeclaring(worked.cadence))
@@ -562,10 +565,19 @@ func TestRunReview_TheWorkedExpressionsRenderOnTheHeadersSecondLine(t *testing.T
 		}
 		// Every one of the eleven opens its minute field on `0`, on
 		// `*` or on a step over the whole span, so all eleven carry
-		// both of §10's facts beside the gloss. What this case asserts
-		// is the gloss; the facts are held where they are derived and
-		// on each surface that renders them (review_facts_test.go).
-		want := worked.gloss + " · " + defaultBranchFact + " · " + hourBoundaryFact
+		// the default-branch fact and the hour-boundary one beside the
+		// gloss. Three of them — the ones whose minute field selects
+		// more than the one value `0` — also carry the within-the-hour
+		// fact between them (ADR-0139). What this case asserts is the
+		// gloss and which facts a worked expression carries; the facts
+		// themselves are held where they are derived and on each
+		// surface that renders them (review_facts_test.go).
+		facts := defaultBranchFact
+		if worked.repeats {
+			facts += " · " + withinTheHourFact
+		}
+		facts += " · " + hourBoundaryFact
+		want := worked.gloss + " · " + facts
 		if header[1] != want {
 			t.Errorf("%s glossed\n %q\nwant\n %q", worked.cadence, header[1], want)
 		}

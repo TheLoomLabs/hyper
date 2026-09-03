@@ -81,7 +81,10 @@ same walk, reading `secret:` off the Operation where the rule above reads `repea
 remedy is the same split — with one difference worth knowing: it never asks anything of a Manifest, so
 a consumer whose Provider is installed can always take it.
 
-The floor is the executor's — five minutes on Actions — and delivery is best-effort.
+The floor is the executor's — five minutes on Actions, the shortest interval the grammar can be
+written to select — and delivery is best-effort. Best-effort measures worse than delay at that floor:
+§10's within-the-hour fact is what a declaration selecting it, or anything faster, is measured actually
+getting (ADR-0139).
 
 A Cadence is also the declaration the last Journal entry is read against, which is what makes staleness
 readable at all. It is derived when something looks, and nothing watches for it.
@@ -268,14 +271,25 @@ the same filter, so §8 names it once, on the range's line, and the gloss line c
 rate — which need no Store and render offline as they always have. `review` reads the Journal where
 there is one and never requires one, which is what keeps the offline authoring loop intact (§9).
 
-### Two facts the gloss carries
+### Three facts the gloss carries
 
-Two facts about how the executor will treat the declaration render beside the three above, wherever the
-gloss renders. Neither is a problem with the artefact: neither carries an `error_code`, neither fails
-`check`, and neither is a claim `hyper` makes about what the world holds.
+Three facts about how the executor will treat the declaration render beside the three above, wherever
+the gloss renders. None is a problem with the artefact: none carries an `error_code`, none fails
+`check`, and none is a claim `hyper` makes about what the world holds.
 
 **Scheduled workflows run only on the default branch.** A Cadence on a feature branch is inert, and
 saying so where the Cadence renders is what keeps it from being discovered three weeks later.
+
+**More than one run an hour is more than the executor delivers.** A repository carrying four workflows
+at `*/5 * * * *` — twelve declared occurrences an hour — was watched for twenty hours: each workflow had
+2.5% of its declared occurrences delivered, and the gaps between the ones that arrived ran from under
+two to just over five hours, moving together across all four independently-scheduled files rather than
+tracking any one of their expressions (issue #260, ADR-0139). That is not delay: it is a repository
+receiving on the order of one tick every few hours regardless of how many a Cadence declares within it,
+which makes any expression selecting more than one minute value a promise the executor does not keep. An
+author writing `*/5` is not authoring a five-minute recurrence; they are authoring one the executor
+delivers on the order of once every few hours, and the rate beside it — computed from the declaration
+and not from what arrives — is what was written rather than a forecast.
 
 **An hour-boundary collision.** Actions names the start of every hour as its high-load window, so a
 Cadence landing there is the one most likely to be delayed or dropped. `project` never adjusts a

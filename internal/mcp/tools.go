@@ -526,7 +526,7 @@ const problemRow = `{
 // hold a second copy of — and two schemas spelling it apart would be that copy
 // arriving on the wire.
 //
-// **The three are the whole of what crosses.** §10's two facts about how the
+// **The three are the whole of what crosses.** §10's three facts about how the
 // executor treats the declaration are derived from `cadence` and `phrase`,
 // which are already here, so a consumer derives them exactly as a page does;
 // and how the parts are *arranged* is each surface's own, which is why nothing

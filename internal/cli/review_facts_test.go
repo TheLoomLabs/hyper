@@ -8,12 +8,15 @@ import (
 	"github.com/TheLoomLabs/hyper/internal/cli"
 )
 
-// §10's two facts, copied byte for byte from issue #175 — the specification
-// that writes the two sentences out, §10 itself stating them as prose. Every
-// surface that renders a gloss renders these beside it, so they are written
-// once here and every case in this file is held to the same two sentences.
+// §10's three facts. The first two are copied byte for byte from issue #175 —
+// the specification that writes the two sentences out, §10 itself stating them
+// as prose — and the third from issue #260, which added the measured one.
+// Every surface that renders a gloss renders these beside it, so they are
+// written once here and every case in this file is held to the same three
+// sentences.
 const (
 	defaultBranchFact = "scheduled runs happen on the default branch only"
+	withinTheHourFact = "more than one run an hour is more than the executor delivers — most occurrences will never fire"
 	hourBoundaryFact  = ":00 is the executor's busiest minute — delivery there is likeliest to be delayed or dropped"
 )
 
@@ -75,6 +78,40 @@ func TestRunReview_TheHourBoundaryFactRendersWhereTheMinuteSelectsZero(t *testin
 	}
 }
 
+// TestRunReview_TheWithinTheHourFactRendersWhereTheMinuteFieldRepeats is the
+// third fact's own case on the surface it renders first on: what decides is
+// whether the minute field selects more than one value, and never how many
+// hours, days or months sit below it (ADR-0139).
+func TestRunReview_TheWithinTheHourFactRendersWhereTheMinuteFieldRepeats(t *testing.T) {
+	for _, want := range []struct {
+		cadence string
+		repeats bool
+	}{
+		{"*/5 * * * *", true},
+		{"0,30 * * * *", true},
+		{"0-29 * * * *", true},
+		{"0 3 * * 1", false},
+		{"5 * * * *", false},
+		{"30 4 * * *", false},
+	} {
+		root := newRepo(t)
+		writeFile(t, root+"/procedures/nightly.yaml", procedureDeclaring(want.cadence))
+
+		stdout, _, exit := runReview(t, root, "nightly")
+		if exit != cli.ExitClean {
+			t.Fatalf("%s: exit = %d, want a clean review", want.cadence, exit)
+		}
+		header := headerOf(t, stdout)
+		if len(header) != 2 {
+			t.Fatalf("%s: the header is %q, want two lines", want.cadence, header)
+		}
+		if got := strings.Contains(header[1], withinTheHourFact); got != want.repeats {
+			t.Errorf("%s carried the within-the-hour fact %v, want %v — the line was\n %q",
+				want.cadence, got, want.repeats, header[1])
+		}
+	}
+}
+
 // TestRunReview_TheFactsShareTheGlossesOwnLine holds where they go: a header's
 // parts share one `·`-separated line, the expression already being on the
 // `cadence:` line below (§10). They are not a second line, not a flag and not a
@@ -97,35 +134,36 @@ func TestRunReview_TheFactsShareTheGlossesOwnLine(t *testing.T) {
 		t.Errorf("the gloss line is\n %q\nwant\n %q", header[1], want)
 	}
 
-	// An artefact declaring no Cadence renders neither fact anywhere on
-	// its page: the facts stand beside a gloss, and there is none.
+	// An artefact declaring no Cadence renders none of the three facts
+	// anywhere on its page: the facts stand beside a gloss, and there is
+	// none.
 	writeFile(t, root+"/procedures/by-hand.yaml", "kind: procedure\nprocedure: by-hand\ntargets: [local]\nsteps: []\n")
 	stdout, _, exit = runReview(t, root, "by-hand")
 	if exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want a clean review", exit)
 	}
-	if strings.Contains(stdout, defaultBranchFact) || strings.Contains(stdout, hourBoundaryFact) {
+	if strings.Contains(stdout, defaultBranchFact) || strings.Contains(stdout, withinTheHourFact) || strings.Contains(stdout, hourBoundaryFact) {
 		t.Errorf("an artefact with no Cadence carried a fact:\n%s", stdout)
 	}
 }
 
 // TestRunReview_TheFactsReachNoWireMember is the other half of *page-only*: §9
-// closes the `artefact` row at the gloss's three parts, and both facts are
+// closes the `artefact` row at the gloss's three parts, and all three facts are
 // derived from `cadence` and `phrase`, which the row already carries — so a
 // consumer derives them exactly as the page does and the row does not widen
 // (§8, §10).
 func TestRunReview_TheFactsReachNoWireMember(t *testing.T) {
 	root := newRepo(t)
-	writeFile(t, root+"/procedures/nightly.yaml", procedureDeclaring("0 3 * * 1"))
+	writeFile(t, root+"/procedures/nightly.yaml", procedureDeclaring("*/5 * * * *"))
 
 	stdout, _, exit := runReview(t, root, "--json", "nightly")
 	if exit != cli.ExitClean {
 		t.Fatalf("exit = %d, want a clean review", exit)
 	}
-	if strings.Contains(stdout, defaultBranchFact) || strings.Contains(stdout, hourBoundaryFact) {
+	if strings.Contains(stdout, defaultBranchFact) || strings.Contains(stdout, withinTheHourFact) || strings.Contains(stdout, hourBoundaryFact) {
 		t.Errorf("the wire carried a fact the page renders:\n%s", stdout)
 	}
-	for _, part := range []string{`"cadence":"0 3 * * 1"`, `"phrase":"03:00 UTC every Monday"`, `"rate":4.3`} {
+	for _, part := range []string{`"cadence":"*/5 * * * *"`, `"phrase":"every 5 minutes"`, `"rate":8800`} {
 		if !strings.Contains(strings.ReplaceAll(stdout, ", ", ","), part) {
 			t.Errorf("the row dropped %s:\n%s", part, stdout)
 		}
@@ -216,7 +254,7 @@ func TestReviewChanges_TheFlagRowReachesNoWireMember(t *testing.T) {
 	if exit != cli.ExitClean {
 		t.Fatalf("--json exited %d, want a clean review", exit)
 	}
-	if strings.Contains(stdout, defaultBranchFact) || strings.Contains(stdout, hourBoundaryFact) {
+	if strings.Contains(stdout, defaultBranchFact) || strings.Contains(stdout, withinTheHourFact) || strings.Contains(stdout, hourBoundaryFact) {
 		t.Errorf("the wire carried a fact the page renders:\n%s", stdout)
 	}
 }
