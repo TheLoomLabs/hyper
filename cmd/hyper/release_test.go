@@ -216,9 +216,10 @@ func TestRelease_EveryArchiveOfOneReleaseIsStampedFromACleanTree(t *testing.T) {
 	}
 }
 
-// TestRelease_TheMacOSArchivesCarrySignaturesNobodyIssued holds the fact the
-// README and docs/build/releasing.md state at the point a person downloads: the
-// two macOS archives are notarised by nobody, and they are not signed alike.
+// TestRelease_TheMacOSArchivesCarrySignaturesNobodyIssued holds the fact
+// docs/build/releasing.md states in full and docs/install.md states in one line
+// where a person downloads: the two macOS archives are notarised by nobody, and
+// they are not signed alike.
 // Go's linker ad-hoc signs `darwin/arm64`, because Apple Silicon will not exec
 // an unsigned binary at all, and leaves `darwin/amd64` alone because Intel will
 // (§11, ADR-0133, ADR-0137, issue #262).
@@ -253,7 +254,7 @@ func TestRelease_TheMacOSArchivesCarrySignaturesNobodyIssued(t *testing.T) {
 		flags, signed := codeDirectoryFlagsOf(t, unpacked)
 
 		if signed != want.signed {
-			t.Errorf("the %s archive's binary carries a code signature = %v, want %v — %s, and the README and docs/build/releasing.md say so where a person downloads it",
+			t.Errorf("the %s archive's binary carries a code signature = %v, want %v — %s, and docs/build/releasing.md says so, docs/install.md carrying the half a person downloading meets",
 				want.platform, signed, want.signed, want.because)
 			continue
 		}
