@@ -218,21 +218,48 @@ runner image's doing and not a stock Mac's.
 
 ### From source
 
-Go 1.25 or newer, which `go.mod` carries. `go install` is fine — it takes `-ldflags` like any
-other build:
+Go 1.25 or newer, which `go.mod` carries.
 
 ```bash
 go install -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" \
   github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.1-alpha
 ```
 
-From a clone, the same stamp against a path:
+**The flag is here because `v0.0.1-alpha` is older than the change that made it unnecessary.** A
+binary now reports the module version Go recorded where nothing stamped one
+([ADR-0138](docs/adr/0138-a-flagless-build-answers-with-the-version-the-toolchain-recorded.md)), so
+from the first release cut after it,
+
+```bash
+go install github.com/TheLoomLabs/hyper/cmd/hyper@v<that tag>
+```
+
+reports that tag's version, clears the version pin gate in a repository pinned to it, and can
+`project`. `v0.0.1-alpha`'s published source reads only the linker, so a flagless install of *that*
+tag reports `unknown` and Refuses everything — pass the flag until there is a later release to name.
+
+From a clone the same holds, and only **at such a tag, with a clean tree**:
 
 ```bash
 mkdir -p ~/bin   # anywhere on your PATH
+git checkout v<that tag>
+go build -o ~/bin/hyper ./cmd/hyper
+```
+
+Anywhere else that build reports what it honestly is — `0.0.1-alpha+dirty` from an edited tree,
+`0.0.1-alpha.0.20260902184134-c9cf477bd361` from a later commit — and Refuses every repository,
+neither being a version a release published. To make a binary from such a tree act on one, stamp it,
+which is the release's own invocation and what
+[`docs/build/releasing.md`](docs/build/releasing.md) owns:
+
+```bash
 go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" \
   -o ~/bin/hyper ./cmd/hyper
 ```
+
+**The flag wins wherever it is given**, so nothing about a release changes: `release.sh` passes it
+and the archives report what the tag says. What it no longer decides is whether a build has a
+version at all.
 
 **A `go install` at a version reports no commit**, and that is not a missing flag. Go stamps
 `vcs.revision` and `vcs.time` from the repository a build's source sits in, and module mode
@@ -241,16 +268,10 @@ answers `commit unknown` and `built unknown` under a version that is right. The 
 the first line and nothing else, so the binary installs, checks and projects. Building from a
 clone stamps all three.
 
-**It is the flag that matters, not the command.** `hyper` learns its own version from the
-linker, so a bare `go install` or `go build` stamps nothing, reports `unknown`, and Refuses the
-version-pin gate on every repository it touches — the first of [three things that will catch
-you](#three-things-that-will-catch-you-and-why-each-is-a-rule).
-[`docs/build/releasing.md`](docs/build/releasing.md) owns the invocation.
-
 ## Quickstart
 
-With a stamped `hyper` on your `PATH`, the sequence below runs against the built-in `shell`
-Provider on your own machine.
+With a `hyper` on your `PATH` reporting a released version — [install one](#install) — the
+sequence below runs against the built-in `shell` Provider on your own machine.
 
 **You are about to write three small files by hand, and `hyper` writes the fourth.**
 `hyper.yaml` is `hyper project`'s — [step 1 below](#step-1-is-the-only-one-that-reaches-the-network).
@@ -397,14 +418,18 @@ it, and `git push` sends it wherever the code goes
 
 ### Three things that will catch you, and why each is a rule
 
-- **A bare `go build` reports `unknown`, and fifteen of the sixteen commands Refuse.**
-  `version-pin-mismatch`, exit `77`. The repository pins a version and the gate compares it for
-  exact equality against what the binary was stamped with — `hyper` never hashes itself
+- **A `go build` from a tree that is not a release reports so, and fifteen of the sixteen commands
+  Refuse.** `version-pin-mismatch`, exit `77`. The repository pins a version and the gate compares
+  it for exact equality against what the binary reports — `hyper` never hashes itself
   ([§11](docs/spec/12-distribution-and-version-pinning.md),
-  [ADR-0020](docs/adr/0020-the-hyper-version-is-pinned-by-the-repository.md)). `project` is the
+  [ADR-0020](docs/adr/0020-the-hyper-version-is-pinned-by-the-repository.md)). What a build reports
+  is the linker's `-X` where one was given and otherwise the module version Go recorded, which is
+  the tag from a clean checkout of one, that tag marked `+dirty` from an edited checkout, and a
+  pseudo-version from any other commit
+  ([ADR-0138](docs/adr/0138-a-flagless-build-answers-with-the-version-the-toolchain-recorded.md)).
+  The last two are versions no release published, which is why they Refuse. `project` is the
   sixteenth and stands outside the gate, for being the pin's only writer — it Refuses
-  `release-artefact-absent` instead, which is the next section. a flagless `go install` and a flagless
-  `go build` are both unstamped builds, and either stamps when given `-ldflags`.
+  `release-artefact-absent` instead, which is the next section.
 - **A Run needs a commit.** Provenance is the record of which code produced something, and
   `repo_revision` is one of its members; a `HEAD` resolving to no commit leaves it nothing to
   write, and the Run fails rather than inventing one.
@@ -436,8 +461,9 @@ line a runner checks fetched bytes against before it executes them. That is the 
 hand-write one.
 
 If `project` refuses `release-artefact-absent` at exit `77`, the binary you are running is not one
-any readable release names — an unstamped `go build` reports `unknown` and there is no
-`v-unknown` tag. [Install from a release](#from-a-release), or stamp the build.
+any readable release names — a `go build` from a commit no tag points at reports that commit's
+pseudo-version, and there is no release under it. [Install from a release](#from-a-release), build
+from the tag, or stamp the build.
 
 ## Your first repository
 

@@ -25,32 +25,48 @@ without complaint, which is the failure mode that hid behind the declaration
 until [#191](https://github.com/TheLoomLabs/hyper/issues/191) — every binary this
 repository had ever produced reported the same placeholder however it was built.
 
-**A build that omits the flag reports `unknown`**, which is the word every fact
-the build did not stamp renders as ([#103](https://github.com/TheLoomLabs/hyper/issues/103)).
-`hyper version` prints `hyper unknown`, and the pin gate's Refusal reads *this
-binary is unknown*. That is the honest answer and it is also a dead end:
-`hyper project` on such a binary asks the release host for a tag named for it,
-is answered `404`, and Refuses `release-artefact-absent` — so an unstamped
-binary runs and checks and cannot project, which §11 states as the consequence
-it is. A flagless `go install`, a `go build` with no flags, and a `go test` binary
-are all unstamped builds; `go install` stamps like any other build when it is
-given `-ldflags`.
+**A build that omits the flag answers from the module version instead**, which
+Go derives from the repository the source sat in and records in the build
+information ([#263](https://github.com/TheLoomLabs/hyper/issues/263),
+[ADR-0138](../adr/0138-a-flagless-build-answers-with-the-version-the-toolchain-recorded.md)).
+The flag decides wherever it wrote — a release always writes it, so nothing here
+changes what an archive reports — and where it wrote nothing the binary reports
+the tag its source sits at, that tag marked `+dirty` where the tree carried
+edits, or the commit's pseudo-version where no tag points at it. Only the first
+is a version a release published; the other two Refuse the pin gate in every
+repository, which is the honest answer for a build that is not a release.
+
+**`unknown` is what is left when neither stamper named one**, which is the word
+every fact the build did not stamp renders as
+([#103](https://github.com/TheLoomLabs/hyper/issues/103)). A `go test` binary is
+the build that gets there — its module version is `(devel)` — and it prints
+`hyper unknown`, over a pin gate Refusal reading *this binary is unknown*. It is
+also a dead end: `hyper project` on such a binary asks the release host for a tag
+named for it, is answered `404`, and Refuses `release-artefact-absent` — so an
+unreleased binary runs and checks and cannot project, which §11 states as the
+consequence it is.
 
 **What `go install pkg@version` cannot stamp is the commit**, and no flag
 changes it. Go writes `vcs.revision`, `vcs.time` and `vcs.modified` from the
 repository a build's source sits in; module mode builds from the module cache,
 which holds a zip the proxy served and no `.git` at all, so there is nothing for
-`-buildvcs` to read. The version is the linker's and arrives; the two facts
-below it do not:
+`-buildvcs` to read. The version arrives all the same — from the flag where one
+was given, and otherwise from the version `go install` resolved, which is the
+same string — and the two facts below it do not:
 
 ```
-$ go install -ldflags "-X …/internal/version.Version=0.0.1-alpha" \
-    github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.1-alpha
+$ go install github.com/TheLoomLabs/hyper/cmd/hyper@v<tag>
 $ hyper version
-hyper 0.0.1-alpha
+hyper <tag without the v>
 commit  unknown
 built   unknown
 ```
+
+The flagless form above is what a release cut **after**
+[#263](https://github.com/TheLoomLabs/hyper/issues/263) gives. `v0.0.1-alpha`
+predates it — its published bytes read only the linker — so a flagless install
+of that tag reports `unknown`, and the README passes the flag until there is a
+later release to name.
 
 The pin gate reads the first line and nothing else, so such a binary installs,
 checks and projects (#262,

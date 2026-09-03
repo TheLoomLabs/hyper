@@ -140,8 +140,17 @@ func TestRelease_TheTagRunsTheScriptTheseCasesRun(t *testing.T) {
 // the one flag, beside the declaration, this package's own cases and
 // docs/build/releasing.md — and a symbol the linker does not recognise is
 // ignored without complaint, so a typo there publishes a release whose binary
-// reports `unknown` and Refuses in every repository that installs it (§11,
-// ADR-0020, issue #191).
+// names a version nobody chose (§11, ADR-0020, issue #191).
+//
+// **What it would name is the checkout's, which is why this case runs where it
+// does.** Since issue #263 a build the flag did not reach reports the module
+// version Go recorded instead of `unknown`
+// ([ADR-0138](../../docs/adr/0138-a-flagless-build-answers-with-the-version-the-toolchain-recorded.md)),
+// and in a clean checkout standing exactly on the release tag that is the same
+// string the flag would have written — so a dead flag is invisible there and
+// costs nothing, both answers being the tag. Anywhere else, which is every
+// checkout a contributor or this case runs in, it is a pseudo-version or a
+// `+dirty` one and this comparison fails as it always did.
 //
 // It builds for the platform it is running on, which is the only one it can
 // run, and skips where that is not a platform the release publishes — what the

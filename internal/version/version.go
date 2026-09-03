@@ -43,20 +43,23 @@ const unknown = "unknown"
 //
 //	go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=1.4.0" ./cmd/hyper
 //
-// Nothing else may. There is no file, flag or environment variable this is read
-// from at run time — a version resolved after the build is a fact about the
-// machine rather than about the bytes, and the pin gate compares it as though
-// it were the second (§11, ADR-0014, ADR-0020).
+// Nothing else writes this variable, and nothing reads it from a file, a flag or
+// an environment variable at run time — a version resolved after the build is a
+// fact about the machine rather than about the bytes, and the pin gate compares
+// it as though it were the second (§11, ADR-0014, ADR-0020).
 //
-// **An unstamped build says so rather than claiming a version.** The default is
-// the same word every fact the build did not supply renders as, because *what
-// version is this* has no better answer from a build nobody told: `hyper
-// version` prints `hyper unknown`, and the Refusal quoting it reads *this
-// binary is unknown*, which is the honest sentence. It is nobody's release —
-// `hyper project` on such a binary asks for a tag named for it and is answered
-// `404`, which Refuses `release-artefact-absent`, so §11's *an unreleased
-// binary runs and checks and cannot project* arrives as a consequence rather
-// than as a special case.
+// **A build the flag did not reach falls back to the module version, and the
+// default below survives only where that answered nothing either.** Go stamps
+// `Main.Version` from the repository a build's source sat in, Current reads it
+// through stampedVersion, and what is left holding this default is a build with
+// no version from either stamper — a `go test` binary, whose module version is
+// `(devel)` (issue #263). Such a binary reports the same word every fact the
+// build did not supply renders as: `hyper version` prints `hyper unknown`, and
+// the Refusal quoting it reads *this binary is unknown*, which is the honest
+// sentence. It is nobody's release — `hyper project` on such a binary asks for
+// a tag named for it and is answered `404`, which Refuses
+// `release-artefact-absent`, so §11's *an unreleased binary runs and checks and
+// cannot project* arrives as a consequence rather than as a special case.
 var Version = unknown
 
 // Facts is everything `hyper version` states: the binary's own version, the
@@ -104,6 +107,7 @@ func Current() Facts {
 	if !ok {
 		return facts
 	}
+	facts.Version = stampedVersion(Version, info.Main.Version)
 	for _, setting := range info.Settings {
 		switch setting.Key {
 		case "vcs.revision":
@@ -115,6 +119,36 @@ func Current() Facts {
 		}
 	}
 	return facts
+}
+
+// stampedVersion is which of the two stampers the binary answers from. Two can
+// name a version and only one of them was ever read: the linker's `-X`, and the
+// module version Go derives from the repository a build's source sat in and
+// carries in `debug.ReadBuildInfo` (issue #263).
+//
+// **The flag wins wherever it wrote**, and a release always writes it
+// (scripts/release.sh, docs/build/releasing.md), so nothing a release publishes
+// is decided here. What the module version answers is the build nobody stamped,
+// which used to have no answer at all: the tag where the source is the tag,
+// that tag marked `+dirty` where the tree carried edits, and a pseudo-version
+// where the commit is not a release. Each is a fact about the bytes rather than
+// about the machine, which is the line ADR-0020 draws and the reason this is a
+// second stamper rather than a resolution at run time.
+//
+// **`(devel)` is not a version and neither is nothing.** A `go test` binary
+// carries the first, and both leave the default standing — which is why every
+// case that reads Current inside this package's own tests reads `unknown`.
+//
+// The `v` belongs to the tag and no filename under it carries one (§11), so it
+// is stripped here for the same reason releasing.md strips it.
+func stampedVersion(linked, module string) string {
+	if linked != unknown {
+		return linked
+	}
+	if module == "" || module == "(devel)" {
+		return unknown
+	}
+	return strings.TrimPrefix(module, "v")
 }
 
 // Page renders the five lines `hyper version` writes to stdout, newline

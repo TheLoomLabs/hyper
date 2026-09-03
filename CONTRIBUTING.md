@@ -16,10 +16,14 @@ go test ./...
 
 Go 1.25 or newer (`go.mod` carries the directive).
 
-A binary built this way is unstamped, which is correct and is not a bug — the
-suite runs against unstamped builds throughout. When you want to *use* `hyper`
-rather than test it, stamp it:
-[`docs/build/releasing.md`](docs/build/releasing.md) owns the invocation.
+A binary built this way names no version at the link step, which is correct and
+is not a bug — the suite builds without the flag throughout. What such a binary
+*reports* is the version Go recorded for the commit it was built from, marked
+`+dirty` while you are mid-change and a pseudo-version between releases
+([ADR-0138](docs/adr/0138-a-flagless-build-answers-with-the-version-the-toolchain-recorded.md)),
+and no repository's pin names either. So when you want to *use* `hyper` rather
+than test it, stamp it: [`docs/build/releasing.md`](docs/build/releasing.md)
+owns the invocation.
 
 **`internal/cli` is ~110s on its own; every other package is seconds.** It is
 the golden corpus, and it drives every case under `testdata/` through

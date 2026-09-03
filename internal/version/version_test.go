@@ -184,6 +184,12 @@ func TestPackage_ReachesNoNetwork(t *testing.T) {
 // page renders as, because *what version is this* has no better answer from a
 // build that was never told (issue #191).
 //
+// **Since issue #263 that is true of a `go test` binary and not of every
+// flagless build.** Current falls back to the module version where the linker
+// wrote nothing, and a test binary's is `(devel)`, which is not a version and
+// leaves the declaration standing — so this case reads what it always did, over
+// a rule that is now narrower than its name (ADR-0138).
+//
 // The word is spelled here rather than read from the package, which an
 // external test package could not do anyway: a case that checked one of the
 // two declarations against the other would pass whatever they were changed to

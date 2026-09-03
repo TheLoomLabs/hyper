@@ -114,6 +114,21 @@ Unconstrained, and deliberately: a package manager, a release download, `go inst
 source. The laptop was never a reviewed artefact. Under the gate above its *version* is governed
 however it got there, which is the fact that mattered.
 
+**What a binary's version is depends on how it was built, and two things can name one.** The
+release stamps it with the linker, which decides wherever it wrote; where nothing stamped, the
+version is the one Go derived from the repository the source sat in and recorded in the build
+information — the tag where the source is that tag, that tag marked `+dirty` where the tree carried
+edits, and a pseudo-version where the commit is no release (ADR-0138). So a `go install` at a tag
+names the tag whether or not the flag was given, and a build from an edited tree or an unreleased
+commit names something no release published and is Refused by every repository, exactly as the pin
+gate above states. A binary with neither — a `go test` binary is the one that exists — is `unknown`,
+which is nobody's release.
+
+Both are facts about the bytes rather than about the machine, which is the line this chapter draws:
+nothing is read from a file, a flag or an environment variable at run time, and no version is
+resolved after the build. What the fallback replaced was not a stricter check but a build with no
+answer at all.
+
 ### The runner
 
 One shell step in the workflow `project` generates: fetch the release artefact from the URL, check the

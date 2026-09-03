@@ -58,8 +58,15 @@ fi
 
 # The one flag that stamps. It writes internal/version's `Version`, which is a
 # `var` for exactly this reason: the linker cannot write a `const`, and a build
-# that stamped nothing would publish a binary reporting `unknown` under a tag
-# that names a version.
+# that stamped nothing would publish a binary naming a version nobody chose.
+#
+# `-X` names the symbol by import path and the linker checks it against nothing,
+# so a typo here is ignored in silence. Since #263 it is also invisible in the
+# published bytes — a release is cut from a clean checkout at the tag, and the
+# module version the binary would fall back to is the same string this flag
+# writes. What holds the spelling is
+# `TestStamp_TheReleaseScriptNamesTheSymbolThatWorks`, which compares it against
+# a symbol the suite builds with and reads back out of a running binary.
 stamp="github.com/TheLoomLabs/hyper/internal/version.Version"
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
