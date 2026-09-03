@@ -78,12 +78,24 @@ jobs:
             exit 1
           fi
 
+      # The body is a file in the tree the tag names, not GitHub's commit dump.
+      # `--generate-notes` lists the commits since the last tag, which for this
+      # repository is twenty-odd subject lines written for a reviewer reading a
+      # diff — accurate, and not what somebody deciding whether to install this
+      # needs. A file is reviewed in the same pull request as the change it
+      # describes, and the absence of one stops the release rather than
+      # publishing a placeholder nobody would go back and fix (ADR-0141).
       - name: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          notes="docs/build/release-notes/$GITHUB_REF_NAME.md"
+          if [ ! -s "$notes" ]; then
+            echo "no release notes at $notes; write them before tagging" >&2
+            exit 1
+          fi
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
-            --generate-notes \
+            --notes-file "$notes" \
             "dist/hyper-$VERSION"-*.tar.gz \
             dist/checksums.txt

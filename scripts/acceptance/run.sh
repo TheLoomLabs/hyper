@@ -116,7 +116,7 @@ done
 # what an agent sees in `hyper.yaml` is the version a reader would have
 # installed; falling back costs nothing but the resemblance.
 version=$(sed -n '0,/^VERSION=/s/^VERSION=//p' "$root/README.md")
-version=${version:-0.0.1-alpha}
+version=${version:-0.0.2-alpha}
 
 repo=$outdir/repo
 # The two files a setup script may leave for this one to read go with the

@@ -270,3 +270,119 @@ func ordinal(n int) string {
 		return "th"
 	}
 }
+
+// The second document this repository publishes rather than keeps: a release's
+// body.
+//
+// `release.yml` used to publish with `--generate-notes`, which lists the commit
+// subjects since the last tag. For this repository that is twenty-odd lines
+// written for a reviewer reading a diff — every one of them accurate, and none
+// of them what a person deciding whether to install this needs to read. The body
+// is now a file in the tree the tag names, so it is reviewed in the same diff as
+// the change it describes (ADR-0141).
+//
+// **What that trades is one failure for another.** A generated body cannot be
+// missing; a written one can, and a tag pushed without one would have published
+// a release with an empty description. So the workflow refuses, and these cases
+// hold that it still does — a guard nobody exercises until the day it matters is
+// a guard worth a case.
+
+// releaseNotesDir is where a release's body lives, relative to the repository
+// root, and `notesPath` is how the workflow spells the same thing. They are
+// compared rather than assumed: the workflow interpolates the tag, and a
+// directory renamed on one side alone is a release that fails at the last step.
+const (
+	releaseNotesDir = "docs/build/release-notes"
+	notesPath       = releaseNotesDir + "/$GITHUB_REF_NAME.md"
+)
+
+// publishStep is the one step of `release.yml` that creates the release. It is
+// found by what it runs rather than by its name, for the reason every case in
+// this package reads steps that way: a name is a label and `run` is the act.
+func publishStep(t *testing.T) string {
+	t.Helper()
+
+	var found []string
+	for _, run := range runsOf(workflowOf(t, "release.yml")) {
+		if strings.Contains(run, "gh release create") {
+			found = append(found, run)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("release.yml runs `gh release create` in %d steps, want exactly 1 — two of them is two answers to what a release publishes", len(found))
+	}
+	return found[0]
+}
+
+// TestDocs_AReleasePublishesNotesFromTheTree holds the mechanism: the body comes
+// from a file this repository carries, at the path the notes actually live at,
+// and GitHub's commit dump is not a fallback anywhere in the step. A release
+// that quietly went back to `--generate-notes` would publish something plausible
+// and wrong, which is the shape of defect nobody reports.
+func TestDocs_AReleasePublishesNotesFromTheTree(t *testing.T) {
+	step := publishStep(t)
+
+	if !strings.Contains(step, "--notes-file") {
+		t.Errorf("the publish step does not pass --notes-file; it runs:\n%s", step)
+	}
+	if strings.Contains(step, "--generate-notes") {
+		t.Errorf("the publish step still passes --generate-notes, which publishes the commit subjects since the last tag; it runs:\n%s", step)
+	}
+	if !strings.Contains(step, notesPath) {
+		t.Errorf("the publish step does not name %s, which is where this repository keeps a release's body; it runs:\n%s", notesPath, step)
+	}
+	if !strings.Contains(step, "exit 1") {
+		t.Errorf("the publish step does not refuse a tag with no notes file — without that a tag pushed before the notes were written publishes a release with an empty body; it runs:\n%s", step)
+	}
+
+	if _, err := os.Stat(filepath.Join(root(t), releaseNotesDir)); err != nil {
+		t.Fatalf("%s does not stand, and the publish step reads a file under it: %v", releaseNotesDir, err)
+	}
+}
+
+// TestDocs_EveryReleaseNotesFileNamesItsOwnVersion is the copy-paste fence. The
+// notes for one release are the obvious starting point for the next, and a file
+// renamed without its contents following it is a release describing the one
+// before it — accurate prose about the wrong bytes, which nothing else here
+// could catch.
+func TestDocs_EveryReleaseNotesFileNamesItsOwnVersion(t *testing.T) {
+	directory := filepath.Join(root(t), releaseNotesDir)
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found int
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() {
+			t.Errorf("%s/%s is a directory, and the publish step reads this one as a flat set of files", releaseNotesDir, name)
+			continue
+		}
+		if !strings.HasPrefix(name, "v") || !strings.HasSuffix(name, ".md") {
+			t.Errorf("%s/%s is not named for a tag — the publish step reads `$GITHUB_REF_NAME.md`, and a tag here carries the `v`", releaseNotesDir, name)
+			continue
+		}
+		found++
+
+		body, err := os.ReadFile(filepath.Join(directory, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(strings.TrimSpace(string(body))) == 0 {
+			t.Errorf("%s/%s is empty, and the publish step refuses an empty file rather than publishing one", releaseNotesDir, name)
+			continue
+		}
+
+		// The version without the `v`, which is what every filename under
+		// the tag carries and what the prose refers to the release as.
+		version := strings.TrimSuffix(strings.TrimPrefix(name, "v"), ".md")
+		if !strings.Contains(string(body), version) {
+			t.Errorf("%s/%s never names %s — notes copied from an earlier release describe the wrong bytes", releaseNotesDir, name, version)
+		}
+	}
+
+	if found == 0 {
+		t.Errorf("%s holds no release notes, and the publish step reads one out of it for every tag", releaseNotesDir)
+	}
+}

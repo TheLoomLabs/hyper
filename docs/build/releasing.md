@@ -16,7 +16,7 @@ the spec is right and this file is stale.
 One symbol, written by the linker:
 
 ```
-go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" ./cmd/hyper
+go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.2-alpha" ./cmd/hyper
 ```
 
 `internal/version.Version` is a `var` for exactly this reason. `-X` writes a
@@ -63,10 +63,10 @@ built   unknown
 ```
 
 The flagless form above is what a release cut **after**
-[#263](https://github.com/TheLoomLabs/hyper/issues/263) gives. `v0.0.1-alpha`
-predates it — its published bytes read only the linker — so a flagless install
-of that tag reports `unknown`, and the README passes the flag until there is a
-later release to name.
+[#263](https://github.com/TheLoomLabs/hyper/issues/263) gives, and `v0.0.2-alpha`
+is the first of them. `v0.0.1-alpha` predates it — its published bytes read only
+the linker — so a flagless install of *that* tag reports `unknown`, which is why
+`docs/install.md` still carries the flag beside it and nowhere else.
 
 The pin gate reads the first line and nothing else, so such a binary installs,
 checks and projects (#262,
@@ -80,8 +80,8 @@ Two kinds of file under one tag, and the binary names both by a template it
 holds and cannot be argued out of (§11's four compiled-in constants):
 
 ```
-https://github.com/TheLoomLabs/hyper/releases/download/v0.0.1-alpha/hyper-0.0.1-alpha-x86_64-linux.tar.gz
-https://github.com/TheLoomLabs/hyper/releases/download/v0.0.1-alpha/checksums.txt
+https://github.com/TheLoomLabs/hyper/releases/download/v0.0.2-alpha/hyper-0.0.2-alpha-x86_64-linux.tar.gz
+https://github.com/TheLoomLabs/hyper/releases/download/v0.0.2-alpha/checksums.txt
 ```
 
 The **tag carries the `v` and no filename under it does.** Each archive holds
@@ -148,8 +148,11 @@ decides is whether the launch goes through LaunchServices.
 ## Cutting one
 
 1. Land everything, on `main`, with the tests green.
-2. Push the tag: `git tag v0.0.1-alpha && git push origin v0.0.1-alpha`.
-3. [`.github/workflows/release.yml`](../../.github/workflows/release.yml) does
+2. Write `docs/build/release-notes/v<version>.md` — the release's body, which
+   the publish step reads and refuses to publish without
+   ([ADR-0141](../adr/0141-a-releases-body-is-a-file-in-the-tree-the-tag-names.md)).
+3. Push the tag: `git tag v0.0.2-alpha && git push origin v0.0.2-alpha`.
+4. [`.github/workflows/release.yml`](../../.github/workflows/release.yml) does
    the rest — it runs the suite on the tree the tag names, pins the toolchain to
    go.mod's directive, builds through
    [`scripts/release.sh`](../../scripts/release.sh), checks that the binary
@@ -173,7 +176,7 @@ The same script builds locally, which is what the cases in
 [`cmd/hyper/release_test.go`](../../cmd/hyper/release_test.go) run:
 
 ```
-scripts/release.sh 0.0.1-alpha dist x86_64-linux
+scripts/release.sh 0.0.2-alpha dist x86_64-linux
 ```
 
 **The script builds every platform before it archives any of them**, and that

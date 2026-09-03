@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 140 records**, numbered `0001`–`0140` with no gaps. They are chronological:
+**This corpus holds 141 records**, numbered `0001`–`0141` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -214,7 +214,8 @@ none. The list below is the whole corpus and the only complete thing on this pag
 [0114](0114-the-rehearsal-marker-is-the-entrys-and-records-joins-for-it.md) ·
 [0115](0115-a-rehearsal-is-the-comparisons-subject-where-a-caller-names-it-as-one.md) ·
 [0123](0123-the-suite-is-run-by-a-machine-and-a-prepared-machine-may-not-skip.md) ·
-[0140](0140-the-readme-holds-the-first-read-and-a-corpus-it-points-at-carries-an-index.md)
+[0140](0140-the-readme-holds-the-first-read-and-a-corpus-it-points-at-carries-an-index.md) ·
+[0141](0141-a-releases-body-is-a-file-in-the-tree-the-tag-names.md)
 
 ## Every record
 
@@ -362,3 +363,4 @@ here fails the suite.
 - **0138** · [A flagless build answers with the version the toolchain recorded](0138-a-flagless-build-answers-with-the-version-the-toolchain-recorded.md)
 - **0139** · [The fixture delivered one tick in forty, and the gaps moved together across four files](0139-the-fixture-delivered-one-tick-in-forty-and-the-gaps-moved-together-across-four-files.md)
 - **0140** · [The README holds the first read, and a corpus it points at carries an index](0140-the-readme-holds-the-first-read-and-a-corpus-it-points-at-carries-an-index.md)
+- **0141** · [A release's body is a file in the tree the tag names](0141-a-releases-body-is-a-file-in-the-tree-the-tag-names.md)

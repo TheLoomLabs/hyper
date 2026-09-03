@@ -13,7 +13,8 @@
 the artefact; you verify it offline before anything runs, and read exactly what changed after —
 including what the agent changed about the artefact.
 
-**Status: alpha.** One release, `0.0.1-alpha`, and one built-in Provider, `shell`. The format,
+**Status: alpha.** The current release is `0.0.2-alpha`, and there is one built-in Provider,
+`shell`. The format,
 the CLI, the record and the review surface are specified in full in
 [`docs/spec/`](docs/spec/); the spec is the authority, and where the code disagrees with it the
 spec is right.
@@ -92,7 +93,7 @@ One binary, on your `PATH`. No installer, no daemon, no post-install step, and i
 itself ([ADR-0019](docs/adr/0019-hyper-never-updates-itself.md)).
 
 ```bash
-VERSION=0.0.1-alpha
+VERSION=0.0.2-alpha
 PLATFORM=x86_64-linux   # or aarch64-linux, x86_64-darwin, aarch64-darwin
 BASE=https://github.com/TheLoomLabs/hyper/releases/download/v$VERSION
 
@@ -105,14 +106,13 @@ hyper version
 Or from source, with Go 1.25 or newer:
 
 ```bash
-go install -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" \
-  github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.1-alpha
+go install github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.2-alpha
 ```
 
 **[`docs/install.md`](docs/install.md) has the rest**, and you want it if any of these apply:
-verifying the download against `checksums.txt`; the `-ldflags` above, which is needed only until
-there is a release later than `v0.0.1-alpha` to name; a build from a clone; or a command that
-Refuses at exit `77` over the version it read.
+verifying the download against `checksums.txt`; installing `v0.0.1-alpha`, which needs a linker
+flag this release made unnecessary; a build from a clone; or a command that Refuses at exit `77`
+over the version it read.
 
 ## Quickstart
 
@@ -139,9 +139,14 @@ no Procedure declares a Cadence, and no generated workflow stands
 
 $ cat hyper.yaml
 kind: repository-declaration
-version: 0.0.1-alpha
-digest: sha256:d9a64425368560358e5931b8de389a36f207d275e935c54a4bd5eb59c3db4096
+version: 0.0.2-alpha
+digest: sha256:…
 ```
+
+<sub>The digest is elided here and is 64 hex characters in your file: the one `checksums.txt`
+publishes for this platform's archive under the tag matching your binary's version. Printing a
+real one on this page would be a value that has to be chased at every release and is wrong in
+between.</sub>
 
 That sentence is the honest answer rather than a failure: nothing here declares a `cadence:`, so
 there is no workflow to project. There is no `retention:` either, and that is deliberate — a
@@ -252,13 +257,13 @@ $ hyper runs
 the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
 
 RUN             STARTED                   TRIGGER      OUTCOME    CONTESTED  PROCEDURE  TARGETS  HYPER
-01a043df-521e…  2026-08-27T15:38:24.158Z  you@machine  completed             say-hello  local    0.0.1-alpha
+01a043df-521e…  2026-08-27T15:38:24.158Z  you@machine  completed             say-hello  local    0.0.2-alpha
 
 $ hyper records
 the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
 
 TARGET  DEFINITION  RECORD                       ORDINAL  RUN             STEP  REHEARSAL  KIND         TOMBSTONE  ORPHANED  SECRETS  HYPER
-local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1                observation                                0.0.1-alpha
+local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1                observation                                0.0.2-alpha
 ```
 
 Neither listing is reading a directory. The record is an orphan branch, `hyper-store`, written

@@ -52,7 +52,7 @@ hand-write one.
 Go 1.25 or newer, which `go.mod` carries.
 
 ```bash
-go install github.com/TheLoomLabs/hyper/cmd/hyper@v<tag>
+go install github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.2-alpha
 ```
 
 A binary reports the module version Go recorded wherever nothing stamped one
@@ -60,9 +60,9 @@ A binary reports the module version Go recorded wherever nothing stamped one
 that install reports the tag's version, clears the version pin gate in a repository pinned to
 it, and can `project`.
 
-**`v0.0.1-alpha` is the exception, and it is older than the change that made the flag
-unnecessary.** Its published source reads only the linker, so a flagless install of *that* tag
-reports `unknown` and Refuses everything. Until there is a later release to name, pass the flag:
+**`v0.0.1-alpha` is the exception**, being older than the change that made the flag unnecessary.
+Its published source reads only the linker, so a flagless install of *that* tag reports `unknown`
+and Refuses everything. Installing it, rather than anything later, still needs the flag:
 
 ```bash
 go install -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" \
@@ -79,14 +79,15 @@ git checkout v<tag>
 go build -o ~/bin/hyper ./cmd/hyper
 ```
 
-Anywhere else that build reports what it honestly is — `0.0.1-alpha+dirty` from an edited tree,
-`0.0.1-alpha.0.20260902184134-c9cf477bd361` from a later commit — and Refuses every repository,
+Anywhere else that build reports what it honestly is — `0.0.2-alpha+dirty` from an edited tree,
+or a pseudo-version from a later commit, of which
+`0.0.1-alpha.0.20260902184134-c9cf477bd361` is one Go actually produced — and Refuses every repository,
 neither being a version a release published. To make a binary from such a tree act on one, stamp
 it, which is the release's own invocation and what
 [`docs/build/releasing.md`](build/releasing.md) owns:
 
 ```bash
-go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.1-alpha" \
+go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.2-alpha" \
   -o ~/bin/hyper ./cmd/hyper
 ```
 
