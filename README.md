@@ -123,8 +123,8 @@ built-in `shell` Provider on your own machine.
 tutorial's padding — a Run needs a Target to act on, a Definition to act through, and a
 Procedure to sequence. There is no `init`, no template and no generator, because a Definition is
 what an **agent** writes and you review. Write them once to see how small the format is and what
-`review` does with it, then [wire up the MCP server](#the-two-surfaces) and stop writing them by
-hand.
+`review` does with it, then [wire up the MCP server](#adding-the-server-to-a-project) and stop writing
+them by hand.
 
 **1. Make a repository, and pin it.** The Store is a branch of it, so there has to be one.
 `hyper project` writes the version pin — the version this binary was stamped with, and the digest
@@ -274,7 +274,8 @@ hyper-store` reads it, and `git push` sends it wherever the code goes
 
 **Steps 1 and 2 happen once**; in a repository you mean to keep, an agent writes the artefacts
 and you stay in *author → `check` → `review` → merge → `run` → `changes`*. `hyper` on its own
-prints the whole command tree, so what is available is never more than one invocation away. And
+prints the whole command tree, and [the reference below](#the-sixteen-commands) has every command
+with its flags. And
 **the order above is not a suggestion**: until `hyper.yaml` carries a pin, every command that
 reads the repository Refuses `version-pin-absent` and tells you to run `hyper project`.
 
@@ -392,22 +393,78 @@ difference between them*: an MCP tool builds the command line its command would 
 and hands it to the same dispatch, so there is no second place for a guardrail to be skipped or
 a Refusal to be reworded.
 
-**Sixteen commands**, flat, one noun group, no aliases and no hidden commands:
+### The sixteen commands
+
+Flat, one noun group, no aliases and no hidden commands. Every name is a word
+[`CONTEXT.md`](CONTEXT.md) already defines.
+
+| Command | What it does | Its own flags |
+| --- | --- | --- |
+| **Discovery** | | |
+| `providers` | Every Provider this repository can use: the built-in `shell` plus whatever `providers/` holds. | `--limit` |
+| `provider <name>` | One Provider's Manifest in full — its Operations, the Kind each declares, the Capabilities it requires, its auth scheme. | — |
+| `operation <provider> <operation>` | One Operation: its inputs, the request it builds, and the Record it projects. | — |
+| **The repository** | | |
+| `targets` | The Target declarations and what each accepts and grants. | `--limit` |
+| **Authoring** | | |
+| `check [path...]` | Every static rule, offline, against no credential. The whole repository, or only the paths named. | — |
+| `review <artefact>` | The artefact in a gutter, with `AUTHORITY` and `FLAGS`, ranged against the last Run that read it. | — |
+| **Execution** | | |
+| `run <procedure>` | A Run of one Procedure — the command that reaches the world. | `--dry-run` · `--secret-out <path>` |
+| `probe <provider> <operation>` | One `read` Operation against `local`, through no Definition, writing no Record and no Journal entry. | `--input` · `--response` |
+| **Inspection** | | |
+| `runs` | The Journal, newest first. | `--limit` · `--since` · `--procedure` · `--target` · `--outcome` |
+| `show <run-id>` | One Run's entry in full: its Provenance, and every Step's Disposition. | `--expansion` |
+| `changes [procedure]` | The Comparison — one Run read against the previous Run of the same Procedure. | `--limit` · `--since` · `--between <run-id> <run-id>` · `--subject <run-id>` · `--target` · `--kind` |
+| `records` | Records: the Heads by default, the versions with `--history`. | `--limit` · `--since` · `--target` · `--definition` · `--name` · `--history` |
+| **Lifecycle** | | |
+| `install <ref>` | Fetch a Manifest from an `https` ref into `providers/`, against the digest and nothing else. | — |
+| `project` | Write the version pin and the release digest into `hyper.yaml`, generate the workflow any Cadence declares, and leave an `AGENTS.md` where there is none. | — |
+| `store init` | Create the `hyper-store` branch. The tree's one noun group, and its one sub-verb. | — |
+| `compact` | Prune the record to the retention the Repository declaration states. | — |
+
+**Three more stand outside the tree**, because none of them reads a repository and none says
+anything about `hyper`'s domain — which is also why the first two are exempt from the version pin
+gate, and why `mcp` needs no exemption: the invocation is not the act, and every tool the server
+goes on to serve passes the gate exactly as its command does.
 
 | | |
 | --- | --- |
-| Discovery | `providers` · `provider` · `operation` |
-| The repository | `targets` |
-| Authoring | `check` · `review` |
-| Execution | `run` · `probe` |
-| Inspection | `runs` · `show` · `changes` · `records` |
-| Lifecycle | `install` · `project` · `store` · `compact` |
+| `version` | The version of the binary that would act, its commit, and its build. |
+| `completions <shell>` | A completion script for `bash`, `fish` or `zsh`. |
+| `mcp` | Start the MCP server. Takes no arguments at all. |
 
-Three more stand outside the tree, because none of them reads a repository: `version`,
-`completions <shell>`, and `mcp`.
+**Three configuration flags, on the sixteen alone** — never on the three above:
 
-**Thirteen MCP tools**, over stdio, each named for the command it carries — the sixteen less
-`install`, `store` and `compact`:
+| | |
+| --- | --- |
+| `--json` | NDJSON, one row per table row, from the same renderer. |
+| `--repo-dir <dir>` | Which repository to act on. `HYPER_REPO_DIR` is the same fact; without either, `hyper` walks up from the working directory to the git root. |
+| `--no-color` | No ANSI. `NO_COLOR` in the environment does the same. |
+
+`hyper` with no arguments writes that whole tree on stderr and exits `2`. There is no `help`
+command and no `--help`: neither is among the sixteen, and the list is printed rather than hidden
+behind one. A word that names no command says where the list is, and a flag a command does not
+take names the flags that command *does* take
+([ADR-0094](docs/adr/0094-the-argument-less-invocation-writes-the-tree-and-there-is-no-help.md),
+[ADR-0098](docs/adr/0098-an-unknown-flag-names-the-flags-that-command-takes.md)).
+
+**Exit codes** are what a caller must do to clear the state, never how severe it was
+([ADR-0061](docs/adr/0061-a-refusal-belongs-to-the-run-not-to-the-step.md)):
+
+| | |
+| --- | --- |
+| `0` | The command did what it was asked — including a Run whose every Step skipped. |
+| `1` | A Run the world resisted, or a command reporting problems it found. `check` lands here with one problem row or a thousand. |
+| `2` | A usage error. No Run began: an unknown flag, an unresolvable repository root, a positional matching nothing. |
+| `75` | A Run that lost the Store — to the lock, to the sync at Run start, or to a push it could not rebase through. Retryable. |
+| `77` | A guardrail declined **before any effect reached the world**. A verbatim retry refuses identically. |
+| `130` · `143` | A Run stopped by an interrupt or a termination, having drained: the Step in flight finished, no further Step started, and the Run closed its own entry `failed`. |
+
+### The thirteen MCP tools
+
+Over stdio, each named for the command it carries — the sixteen less `install`, `store` and
+`compact`:
 
 `providers` · `provider` · `operation` · `targets` · `check` · `review` · `run` · `probe` ·
 `runs` · `run_show` · `changes` · `records` · `project`
@@ -419,23 +476,54 @@ the single point at which third-party data enters the repository; `store` create
 `run_show` is the one name that differs from its command — a client holds every server's tools in
 one flat namespace, where a bare `show` names nothing.
 
+### Adding the server to a project
+
+`hyper mcp` takes no arguments — no `--repo-dir`, no transport flag, no port. The server dies with
+its client and offers no asynchronous handle, so it owns the author→validate→observe loop and
+short effectful Runs; long unattended work is a Cadence on an executor.
+
+**In Claude Code**, register it per project rather than writing a config file by hand:
+
+```bash
+cd /path/to/your/repo
+claude mcp add --scope local hyper -- "$(command -v hyper)" mcp
+claude mcp list        # hyper: … - ✔ Connected
+```
+
+**In any other MCP client**, the same server as configuration:
+
 ```json
 {
   "mcpServers": {
     "hyper": {
-      "command": "hyper",
-      "args": ["mcp"],
-      "env": { "HYPER_REPO_DIR": "/path/to/your/repo" }
+      "command": "/absolute/path/to/hyper",
+      "args": ["mcp"]
     }
   }
 }
 ```
 
-`hyper mcp` takes no arguments — no `--repo-dir`, no transport flag, no port. The server dies
-with its client and offers no asynchronous handle, so it owns the author→validate→observe loop
-and short effectful Runs; long unattended work is a Cadence on an executor.
+Four things worth knowing before you wire it:
 
-**That config block is the whole of the setup.** MCP's `initialize` result carries an
+- **Name the binary by absolute path.** A server inherits whatever environment launched the
+  client, and a desktop launcher or IDE that never sourced your shell profile gives you
+  `Executable not found in $PATH` with no obvious cause. `command -v hyper` above resolves it once,
+  at the moment you know it is right.
+- **`HYPER_REPO_DIR` is optional.** Without it `hyper` walks up from the server's working directory
+  to the git root, which is the repository you opened the client in. Set it — `-e
+  HYPER_REPO_DIR=/path/to/your/repo`, or the `env` block — only where the client starts the server
+  somewhere else.
+- **Put no credential in that file.** A Target declaration names the *environment variable* a
+  credential resolves from, and never the credential
+  ([ADR-0007](docs/adr/0007-hyper-never-stores-a-secret.md)). The process that performs a Run is
+  the server, so export the variable in the shell you launch the client from and let the server
+  inherit it — writing it into a config file is the one thing this design is arranged to avoid.
+- **A committed `.mcp.json` is documentation, not configuration.** Most clients treat a file in the
+  repository as project scope and will not load it until each user approves it — and an unapproved
+  one loads silently and says nothing. Commit one so a stranger can see how the repository is
+  wired; register your own at local scope so it actually runs.
+
+**That is the whole of the setup, and the agent arrives oriented.** MCP's `initialize` result carries an
 `instructions` field, and `hyper` fills it: what `hyper` is, the five artefacts and where each
 lives, the loop, the three commands that are the human's and why, that a Refusal retried
 unchanged refuses identically, and one worked example of all five artefacts that checks clean.
