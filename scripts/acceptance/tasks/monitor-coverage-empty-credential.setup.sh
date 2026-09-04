@@ -126,6 +126,31 @@
 # third state is what an agent meets on both surfaces rather than something
 # about a fixture that was mis-wired.
 #
+# # The sealed run was bought on 2026-09-04 and it is ADR-0147
+#
+# Thirty-two tool calls, none of them at the world, one Run, exit `0`, four
+# minutes forty. **The repair landed and the cheap moment carried it**: the
+# session read `presence: "empty"` off `targets` at its fourth `hyper` call and
+# said so — *lookout is live over HTTPS but the credential slot is empty* —
+# eight calls before it had a Manifest to run.
+#
+# What it did between the two moments is the part the run was worth buying for.
+# It asked its own environment and found the variable is not the session's,
+# `curl`ed the endpoint by hand and got `401`, read `mcp.json` and found
+# `"LOOKOUT_API_TOKEN": ""` written into the MCP server's environment, and
+# reported the file by name with *I can't change it from in here*. That is §8's
+# *check what left it empty* performed rather than recited.
+#
+# **None of the three wrong turns above was taken.** It did not export the
+# variable, it never called the state *not set*, and the `header:` scheme stands
+# in the Manifest it committed. It also declined to answer the task's three
+# questions off the `curl` it already had, on the ground the task states — *you
+# asked for it off the repository, and off the repository it is empty*.
+#
+# What the run cannot say is how the Refusal reads to a session that meets it
+# **cold**, without the column eight calls earlier. Arranging that means a task
+# whose prompt names the Target so `targets` is skippable, and nothing owes one.
+#
 # **The two guards below are the fence.** A task that emptied a slot the base
 # script had stopped filling, or that emptied a variable no declaration named any
 # more, would run green and measure nothing — the silent version of the rot #222
