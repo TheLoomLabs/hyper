@@ -363,9 +363,24 @@ the same absence, read the same way.
 `kind: target-declaration`, in `targets/`. The reviewed half of a Target, holding no credentials: the
 `kinds:` it accepts, the `capabilities:` it grants, the `hosts:` it grants — one member where the Target
 is a single endpoint, and never a grant without an enumeration (ADR-0024) — its `class:`, whether it
-opts into `opaque-destroy:`, and an `auth:` mapping naming the environment variable each credential slot
-resolves from. Every static check over a Target runs from this artefact alone, with no credential
-resolved and no network reached.
+opts into `opaque-destroy:`, an `auth:` mapping naming the environment variable each credential slot
+resolves from, and a `withhold:` list naming variables a `shell` Operation's child does not inherit.
+Every static check over a Target runs from this artefact alone, with no credential resolved and no
+network reached.
+
+`withhold:` is a list of plain variable names and never a mapping. `auth:` names where a credential is
+*resolved from*, and its `env:` is reserved to that position because a general ambient-input channel is
+authority arriving after review (ADR-0008); `withhold:` names a variable to *remove*, grants nothing and
+resolves nothing, so there is no authority for a hole to arrive through and nothing for `env:` to stand
+in (ADR-0144). What it is for is the secret `hyper` has no position for: an invocation wrapped in `op
+run --` or `aws-vault exec --` leaves that tool's own credential in the environment, and it is a name
+the author knows and `hyper` cannot. A declaration named `local` may carry one, and is the likeliest to
+need one (§13, ADR-0041).
+
+The set a child is denied is the **union over every Target declaration in the repository** — credential
+slots and `withhold:` entries alike — rather than the ones a Run's Steps bound (§11). A name in both
+contributes once, and a name no variable in the environment matches removes nothing and is no fault: a
+`withhold:` is a subtraction, and subtracting what is not there is the same environment.
 
 `hosts:` is one list rather than a mapping keyed by Capability. The Capability set has two members and
 one of them reaches no host at all (§12), so a per-Capability mapping would be a key over the only list

@@ -282,28 +282,40 @@ func resolveCredentials(loaded repository.Loaded, steps []sequenced, lookupEnv f
 	return resolved, declined
 }
 
-// credentialVariables is every environment variable the repository names as a
-// credential slot, in no order anything reads: the set a `shell` Operation's
-// child inherits the invoking environment **less** (§3, §11, issue #142).
+// withheldVariables is every environment variable the repository names — as a
+// credential slot, or in a `withhold:` list — in no order anything reads: the set
+// a `shell` Operation's child inherits the invoking environment **less** (§3,
+// §11, issue #142, ADR-0144).
 //
 // It is every Target declaration in the repository rather than the ones this
 // Run's Steps bind, which is the rule §11 states and not a widening for safety:
 // decided that way the set is a fact about the tree a reviewer can read off it,
 // where a set derived from the Steps a Run walked would differ between two Runs
 // of one repository and would grow a hole the day a Procedure stopped binding a
-// Target whose variable was still set.
+// Target whose variable was still set. `withhold:` is unioned in on the same
+// rule and for the same reason, and the two halves are one set here because the
+// child inherits one environment: a name in both contributes once, and a
+// declaration is not obliged to know which of the two a variable was.
 //
 // A slot naming no variable contributes nothing — that is
 // `credential-slot-malformed`, which is `check`'s to report rather than a
 // reader's to repeat (ADR-0064). Nothing here reads a value: `hyper` knows those
 // names by position, which is the same knowledge that lets it suppress a
-// credential rather than scan for one (ADR-0007).
-func credentialVariables(loaded repository.Loaded) []string {
+// credential rather than scan for one (ADR-0007) — and a withheld variable it
+// never had a position for, which is why the key names one rather than
+// describing it.
+func withheldVariables(loaded repository.Loaded) []string {
 	var named []string
 	for _, declaration := range loaded.TargetDeclarations {
-		for _, slot := range artefact.ReadTargetFacts(declaration).Credentials {
+		facts := artefact.ReadTargetFacts(declaration)
+		for _, slot := range facts.Credentials {
 			if slot.Env != "" {
 				named = append(named, slot.Env)
+			}
+		}
+		for _, name := range facts.Withheld {
+			if name != "" {
+				named = append(named, name)
 			}
 		}
 	}

@@ -316,11 +316,13 @@ fails one is a defect in the binary rather than a Refusal an author can do anyth
 unable to shadow a built-in name, and once renamed it may not declare `shell`.
 
 A `shell` Operation runs its command as a child of the process `hyper` runs in, and what that child
-inherits is the invoking environment with **every variable any Target declaration names as a credential
-slot removed** — every one in the repository, not only those this Run resolved, so the set is decided
-offline and does not turn on which Steps a Run reached. `hyper` knows those names by position (§3),
-which is the same knowledge that lets it suppress a credential rather than scan for one (ADR-0007), used
-here to keep the credentials it resolved out of a process it cannot describe. Everything else in the
+inherits is the invoking environment with **every variable any Target declaration names removed** — as a
+credential slot, or in a `withhold:` list (§3, ADR-0144) — every one in the repository, not only those
+this Run resolved, so the set is decided offline and does not turn on which Steps a Run reached. `hyper`
+knows a credential's name by position (§3), which is the same knowledge that lets it suppress one rather
+than scan for one (ADR-0007), used here to keep the credentials it resolved out of a process it cannot
+describe. A `withhold:` entry is that removal for a variable `hyper` has no position for and never
+resolves, which is why the key names one rather than describing it. Everything else in the
 environment is the command's, and `hyper` neither reads it nor records it; §13 states what that costs.
 
 ### `install`
