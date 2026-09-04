@@ -1286,20 +1286,22 @@ $ hyper run retire-preview-envs
 
   nothing ran. no step was reached.
 
-  refused: credential absent — 2 targets
-
-    targets/staging.yaml:12
-     11 │ auth:
-     12 │   token: {env: STAGING_TOKEN}
-        │          ^ the environment does not hold STAGING_TOKEN
-        │
-        = checked at run start, before the first step
-        = set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --
+  refused: credential-absent
 
     targets/cloudflare-prod.yaml:9
       8 │ auth:
       9 │   token: {env: CLOUDFLARE_API_TOKEN}
         │          ^ the environment does not hold CLOUDFLARE_API_TOKEN
+        │
+        = checked at run start, before the first step
+        = set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --
+
+  refused: credential-absent
+
+    targets/staging.yaml:12
+     11 │ auth:
+     12 │   token: {env: STAGING_TOKEN}
+        │          ^ the environment does not hold STAGING_TOKEN
         │
         = checked at run start, before the first step
         = set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --
@@ -1551,8 +1553,8 @@ on the `provenance` row beside them.
 
 ```
 $ hyper run retire-preview-envs --json
-{"type":"refusal","error_code":"credential-absent","file":"targets/staging.yaml","line":12,"field":"auth.token","message":"the environment does not hold STAGING_TOKEN"}
 {"type":"refusal","error_code":"credential-absent","file":"targets/cloudflare-prod.yaml","line":9,"field":"auth.token","message":"the environment does not hold CLOUDFLARE_API_TOKEN"}
+{"type":"refusal","error_code":"credential-absent","file":"targets/staging.yaml","line":12,"field":"auth.token","message":"the environment does not hold STAGING_TOKEN"}
 {"type":"provenance","procedure_revision":"b0c94f1e73a852d6b4f09c318e2a70d5c86b41fe","repo_revision":"88bc402f71d3e6a95c0428be1f7d3a09c5e64b12","hyper_version":"1.4.0"}
 {"type":"outcome","outcome":"refused","code":77,"error_code":"credential-absent","dry_run":false,"run_id":"0199206d-4e15-7c30-9b8a-52d9ea01f7b4"}
 ```
