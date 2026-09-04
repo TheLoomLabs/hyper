@@ -178,16 +178,23 @@ only human a headless session has.
 directory beside the repository, and reads two files back out of it afterwards:
 `endpoint.pid`, whose process it kills in a trap on the way out, and
 `endpoint.env`, whose `NAME=value` lines it folds into the environment the MCP
-server runs with. That is how `monitor-coverage` and `monitor-retirement` reach
-an HTTPS endpoint from inside the seal — a local TLS server built from
+server runs with. That is how the three lookout tasks reach an HTTPS endpoint
+from inside the seal — a local TLS server built from
 `scripts/acceptance/lookout`, trusted through `SSL_CERT_FILE` in the `hyper`
 process's environment and through nothing any artefact could name
 ([ADR-0105](docs/adr/0105-the-acceptance-endpoint-is-a-local-tls-server-and-no-artefact-trusts-it.md)).
-That service takes its initial state by `-fixture <name>`, so two tasks share
-one API and neither observes the other's world; the states and the argument for
-each are in `scripts/acceptance/lookout/api.go`, and the documentation both
-tasks install into the repository is the one file
+That service takes its initial state by `-fixture <name>`, so a task that needs
+its own fiction gets one and observes no other task's world; the states and the
+argument for each are in `scripts/acceptance/lookout/api.go`, and the
+documentation every one of them installs into the repository is the one file
 `scripts/acceptance/lookout/api.md`.
+`endpoint.env` is a fixture's other half, and one task empties a line of it
+rather than filling it: `monitor-coverage-empty-credential` is
+`monitor-coverage`'s setup run as it stands with `LOOKOUT_API_TOKEN` exported to
+nothing, which is the one arrangement that puts an agent in front of the third
+member of credential presence
+([ADR-0145](docs/adr/0145-an-empty-credential-is-its-own-refusal-on-both-surfaces.md),
+[#268](https://github.com/TheLoomLabs/hyper/issues/268)).
 The lifetime is `run.sh`'s rather than the setup script's because the fence runs
 the setup half on every `go test ./cmd/hyper`. A **path** `endpoint.env` names
 inside the output directory is bound back through the seal, since the process

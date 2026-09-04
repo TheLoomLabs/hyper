@@ -74,6 +74,15 @@ func fixtures() map[string]fixture {
 		// reordered is a comparison quietly measuring the fixture. It has no
 		// unreachable service: nothing in that task's fiction is switched off,
 		// and a create there is kept.
+		//
+		// **A second task runs in this world and cannot touch it** (issue #268).
+		// `monitor-coverage-empty-credential` is that task's setup run as it
+		// stands with `LOOKOUT_API_TOKEN` exported to nothing, so its Run Refuses
+		// `credential-empty` before Step 1 and the one turn that would reach the
+		// wire unauthenticated is rejected here before the route is read. It
+		// needs a world of its own for nothing, and sharing this one is what
+		// makes the two transcripts differ by the single variable they are
+		// there to differ by.
 		"coverage": {
 			monitors: []monitor{
 				{Ref: "mon_4a91c7", Service: "legacy-import", Window: 300, Muted: true, State: "active", Created: "2025-11-02T08:41:19Z"},

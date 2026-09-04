@@ -2,8 +2,9 @@
 # The lookout the coverage task points at, the five services it is supposed to be
 # watching, the documentation for its API, and the one artefact this script ships
 # — plus the service itself, which is what makes this one of the two setup scripts
-# with a process in it (`monitor-retirement` is the other, and starts the same
-# binary in a world of its own).
+# that start a process of their own (`monitor-retirement` is the other, and starts
+# the same binary in a world of its own; `monitor-coverage-empty-credential` gets
+# one by running this script).
 #
 # **The point of this task is the Manifest** (issue #227). `providers/` is absent
 # from the fixture on purpose — `run.sh` says so of itself, *that absence is the
@@ -136,6 +137,16 @@
 # looked at* is those same Observations, still standing after the Run that wrote
 # them. A Manifest whose projection merely parses answers none of them, which is
 # the difference this task exists to put in front of an agent.
+#
+# **A second task runs this script and empties one value it writes** (issue
+# #268). `monitor-coverage-empty-credential.setup.sh` calls this one, asserts
+# that the `LOOKOUT_API_TOKEN` line below was written filled and that the
+# declaration still names it, and then rewrites that line to nothing — which is
+# the one arrangement in the set that puts an agent in front of the third member
+# of credential presence (ADR-0145). Nothing here is arranged for it and nothing
+# here may be: what that task claims is *this fixture with one variable emptied*,
+# so a change made here reaches both, which is the point of it running this
+# script rather than a copy.
 #
 # **Completed by hand once before it landed** — a Manifest nobody has written is a
 # transcript about the task. What that established, in order: `check` clean over
