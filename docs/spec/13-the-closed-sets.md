@@ -446,8 +446,8 @@ artefact coordinate rather than an execution fact (§7, ADR-0061). Only `bound-e
 `run-once-recorded`, `record-identity-collision`, §6's `predicate-type-mismatch` and §6's
 `schema-mismatch` require a Step to
 have been reached at all — `record-identity-collision` at its Expansion site, its two authored sites
-reaching a Run the way §4's thirty-two do. `secret-sink-absent` is not among them and could have been:
-both its operands are in hand at Run start, so it is stated as the Run's gate rather than the Step's,
+reaching a Run the way §4's thirty-two do. `secret-sink-unwritten` is not among them and could have
+been: its operand is in hand at Run start, so it is stated as the Run's gate rather than the Step's,
 and the reason is not tidiness — declining at the Step under a Cadence would run the Steps before it
 at every occurrence and never reach the tail (§6, ADR-0077).
 
@@ -525,14 +525,26 @@ and `store-schema-unsupported`, a Store file whose schema version is above the r
 tested at Run start over the files the Run will read (§6). A Run that could not sync the Store
 contributes no member: it is `failed` at `75` rather than a Refusal, the network coming back being no
 act of anyone's, and `77` promising above that a verbatim retry refuses identically (§7, ADR-0061). §9
-contributes three, alike in being the occasion's supply rather than the environment's or the artefacts',
+contributes three, alike in being neither the environment's nor the artefacts',
 all three checked before a Run's first Step and all three reported exhaustively rather than at the first:
 `credential-absent`, a credential a Target declaration names and the environment does not
 hold, reported for every absent slot at once; `credential-empty`, a credential the environment does hold
 and sets to the empty string, reported the same way and out of the same pass; and
-`secret-sink-absent`, an invocation supplying no Secret sink where the Procedure reaches a Step whose
-Operation declares secret output, reported for every such Step at once (§6, ADR-0007). It carries no Kind axis and no `--dry-run` exemption, a `read`
+`secret-sink-unwritten`, a Run reaching a Step whose Operation declares secret output, this hyper
+having no Secret sink to put the value in, reported for every such Step at once (§6, ADR-0007,
+ADR-0146). It carries no Kind axis and no `--dry-run` exemption, a `read`
 declaring secret output being reached by a rehearsal and producing one.
+
+The third stands where a different code stood. `secret-sink-absent` — an invocation supplying no sink
+where the Procedure reaches such a Step — was this set's member until the sink's format was found to be
+undecided and the file written by nothing (issue #266). While nothing writes it, a sink named and a
+sink withheld are the same Run: a set holding both would hold one code no binary can produce and one
+remedy that ends on another `77`, where `77`'s promise is that a verbatim retry refuses identically.
+`secret-sink-absent` returns **in its place** when the sink is written, the count above holding either
+way and the two never standing in this set together. It is also the one of the three whose subject is
+not the occasion but the **binary** — the other two are what this invocation did or did not supply, and
+this one is what no build of `hyper` can yet do — which is why §8 renders it a different binary and not
+a different invocation.
 
 The first two are one gate reading one variable and they are **two codes rather than one code with two
 messages**, on the same test that split the two Cadence codes above: a reader handed `credential-absent`

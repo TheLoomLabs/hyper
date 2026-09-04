@@ -415,18 +415,20 @@ key beside it.
 case carries its own `bin/`, so the argv a Step runs resolves against the
 fixture and not against the machine, and what the tool reaches is a real child
 process. Two cases here carry a `-json` twin that was written for them —
-this one and `a-secret-field-is-the-marker` — because the row-pairing fence
+this one and `a-sink-supplied-refuses-like-one-withheld` — because the row-pairing fence
 holds an envelope's row against the streams the corpus writes, and a fixture
 only this surface drives has none.
 
-`a-secret-sink-names-every-step` is the guardrail the sink exists for: the
-invocation supplied none, so the Run Refuses before Step 1 naming **every** Step
-that would have needed one. `a-secret-field-is-the-marker` is the other side —
-a `secret_sink` supplied, the Run completing — and what it is really for is what
-is *not* in its envelope: no secret, under any key, the output schema being
-closed over the members §9 names. Its sink is a relative path because a golden
-cannot hold an absolute one; §9 describes the argument as absolute, and what the
-command does with either is resolve it against the process's working directory.
+`a-secret-sink-names-every-step` is the guardrail the sink exists for: the Run
+Refuses before Step 1 naming **every** Step that declares secret output.
+`a-sink-supplied-refuses-like-one-withheld` is the other side — a `secret_sink`
+supplied, and the same Refusal, no hyper writing the file the argument names
+(`secret-sink-unwritten`, issue #266). It completed until that was stated, and
+what it was really for is still true of it: what is *not* in its envelope is a
+secret, under any key, the output schema being closed over the members §9 names.
+Its sink is a relative path because a golden cannot hold an absolute one; §9
+describes the argument as absolute, and what the command does with either is
+resolve it against the process's working directory.
 
 The ten `usage-` cases are §9's malformed set for this tool, and they split in
 two. `usage-a-definition-is-not-an-argument`, `usage-inputs-is-not-an-argument`
@@ -436,8 +438,9 @@ is what refuses the bypass nobody has thought of yet, which no list of forbidden
 words could. `usage-an-empty-procedure-names-nothing` and
 `usage-an-empty-sink-names-no-path` are well-typed arguments that name nothing,
 the schema's `minLength` made true where it is enforceable; the second is
-load-bearing rather than tidy, an empty sink read as *no sink* being the very
-Refusal above arriving from a typo. The other five are the command's own
+load-bearing rather than tidy, an empty sink read as *no sink* being a malformed
+call answered as though it had named nothing — a distinction that outlives the
+sink's own state (§9, tools.go). The other five are the command's own
 sentences, forwarded: a positional that is not a Procedure, one that is a
 Definition, one written as a path — this tool takes a Procedure's **name** and
 `review`'s two forms are `review`'s (ADR-0090) — a sink named `-`, and a sink

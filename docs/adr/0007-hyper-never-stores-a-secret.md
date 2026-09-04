@@ -39,7 +39,12 @@ model) true rather than aspirational.
   made to supply one — a path under the runner's temp loses the secret with the runner, and any route
   that forwards it either publishes it or has `hyper` acquiring it — so a Procedure that declares a
   Cadence and reaches such a Step Refuses at every occurrence and is refused at `check` instead
-  (`cadence-secret-output`, §4).
+  (`cadence-secret-output`, §4). _ADR-0146 amends this:_ nothing writes the sink, and until something
+  does, the Refusal is not the absence of one — a Run reaching such a Step declines whether a path was
+  named or not (`secret-sink-unwritten`, §12). *The sink is written `0600`* states what will happen and
+  not what does; `secret-sink-absent` returns to the closed set with the format. The invocation-not-
+  environment rule above is untouched: it is the rule the sink's own Refusal goes back to being an
+  instance of.
 - **Some Assets are not re-readable.** An Asset whose only handle is the secret it contains — an API
   key returned once at creation — cannot be recovered from the record. You rotate rather than
   recover. `skip-if-recorded` is unaffected, because the Record exists; only the value is gone.

@@ -1,0 +1,3 @@
+{"type":"refusal","error_code":"secret-sink-unwritten","step":1,"step_id":"session","operation":"read_session","target":"local","file":"procedures/read-session.yaml","line":5,"field":"steps[0]","message":"session read_session declares secret: output and this hyper does not write a Secret sink — the value would be produced and discarded"}
+{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"e66ef493cfe8dcf040702318953c8a060919ecbe","repo_revision":"90bef0d7d755d7a171af8cddce589b3b1d9acce6"}
+{"type":"outcome","outcome":"refused","code":77,"error_code":"secret-sink-unwritten","dry_run":false,"run_id":"01991ed9-e44b-7f74-b064-9bac5dc38f4d"}

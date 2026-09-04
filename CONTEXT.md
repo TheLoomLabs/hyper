@@ -218,9 +218,11 @@ something `hyper` had no record of, and then it carries no last known state at a
 _Avoid_: Deletion marker, Soft delete
 
 **Secret sink**:
-The destination an invocation supplies for output an Operation declares secret. A Run reaching a Step
-that produces such output Refuses when none is supplied, which is a fact about the invocation rather
-than about the environment it runs in.
+The destination an invocation supplies for output an Operation declares secret. No hyper writes one
+yet, and a Run reaching a Step that produces such output Refuses on that fact alone, a sink named and
+a sink withheld being the same Run (`secret-sink-unwritten`, ADR-0146). Once the file has a format,
+an absent sink is a Refusal of its own again — a fact about the invocation rather than about the
+environment it runs in.
 _Avoid_: Secret output, Vault write, Capture file
 
 **Run**:

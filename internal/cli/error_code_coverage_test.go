@@ -211,6 +211,13 @@ const runCorpus = "testdata/run"
 // the same way and through the same rendering: the Store schema test's, the
 // credential pass's two and the sink gate's (§6, §9, §12).
 //
+// The sink gate's is `secret-sink-unwritten` and was `secret-sink-absent` until
+// issue #266. The two are one gate at two moments in its life: while no hyper
+// writes a Secret sink, a Run reaching a Step that declares secret output
+// Refuses whether a sink was named or not — so the absent one is a state this
+// binary cannot produce, and a member here with no fixture is exactly what this
+// list exists to catch (§9, §12, ADR-0146).
+//
 // The credential pass contributes two because it reads one variable three ways,
 // and the two halves are the two that decline: `credential-absent` where the
 // environment does not hold the variable, `credential-empty` where it holds it
@@ -286,7 +293,7 @@ var codesReachingARun = []string{
 	"store-schema-unsupported",
 	"credential-absent",
 	"credential-empty",
-	"secret-sink-absent",
+	"secret-sink-unwritten",
 	"bound-exceeded",
 	"run-once-recorded",
 	"cadence-malformed",

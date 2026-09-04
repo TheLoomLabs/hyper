@@ -187,7 +187,7 @@ func TestRefusalRemedies_AreTheSetWithNoRemediationTable(t *testing.T) {
 //
 // The corpus drives each arm — a Bound at an Expansion, a `check` re-run before
 // Step 1 — and what is here is the pair beside each other, plus the exception
-// no golden isolates: `secret-sink-absent` names every reachable Step whose
+// no golden isolates: `secret-sink-unwritten` names every reachable Step whose
 // Operation declares secret output, and names them **before Step 1**.
 func TestRefusalPhase_IsTheStepTheMemberCites(t *testing.T) {
 	step := 3
@@ -201,7 +201,7 @@ func TestRefusalPhase_IsTheStepTheMemberCites(t *testing.T) {
 		{"a check that cites no Step declined before Step 1",
 			refusalRow{ErrorCode: "credential-absent"}, phaseAtRunStart},
 		{"the sink gate cites Steps it never reached",
-			refusalRow{ErrorCode: "secret-sink-absent", Step: &step}, phaseAtRunStart},
+			refusalRow{ErrorCode: "secret-sink-unwritten", Step: &step}, phaseAtRunStart},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if got := refusalPhase(c.member); got != c.want {

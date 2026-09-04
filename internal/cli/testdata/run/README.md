@@ -341,7 +341,7 @@ drives.
 | `a-working-tree-that-moved` | an artefact the Run read differs from `HEAD`, so the entry carries `repo_dirty: true` and the Provenance names the working tree's blob — and its `stderr.golden` carries §9's one conditional narration line, beneath the id and above the first `step` (ADR-0119) |
 | `an-untracked-artefact-is-dirty` | the other half of the same sentence: the Definition the Step binds is not committed at all, and the entry says so — with the same warning above the first Step |
 | `a-run-on-a-runner` | the Trigger's other executor: `cause: cron`, the occasion, and no `host` |
-| `a-secret-field-is-the-marker`, `-json` | a Manifest declaring `secret:` — the version carries the constant marker and the value reaches no file. It supplies `--secret-out`, without which the sink gate below would decline it before Step 1. The `-json` half carries the same Run's rows and exists so that the second surface's twin has one to be paired against (`mcp/run/`, issue #200) |
+| `a-sink-supplied-refuses-like-one-withheld`, `-json` | a Manifest declaring `secret:`, with `--secret-out` supplied — and the Run Refuses all the same: no hyper writes the file, so the sink gate reads the Steps and not the flag (`secret-sink-unwritten`, `77`, issue #266, ADR-0146). It completed here until the sink's format was found to be undecided, and the marker it wrote to the Store was the loss the Refusal now states. The `-json` half carries the same Run's rows and exists so that the second surface's twin has one to be paired against (`mcp/run/`, issue #200) |
 | `a-host-that-answered-nothing` | the `read` that never halts on what came back: the host is granted and the case serves it nothing, so the Observation records the silence and the Run completes at `0` |
 | `a-run-halted-by-its-step` | a Run the world resisted: `failed`, exit `1`, the Step *ran* with the set it concluded about, and the entry left where it stopped |
 | `what-the-run-wrote-reaches-the-remote` | the Run's own commits go out and `remote.golden` shows what arrived |
@@ -442,7 +442,7 @@ drives.
 | `one-slot-two-definitions` | two Definitions binding one Target under one scheme require **one** slot between them, so an absent variable earns one member of the array and not one per binding |
 | `a-header-scheme-reaches-the-wire` | the `header:` scheme end to end: the Manifest's `name:` and `prefix:`, the variable the Target declaration names, and what arrived at the far end |
 | `a-basic-scheme-reaches-the-wire` | the same for `basic:`, whose position and base64 composition are the scheme's and never a Manifest's |
-| `a-secret-sink-names-every-step`, `-json` | the sink gate: two Steps declaring secret output, both named at once, neither of them run |
+| `a-secret-sink-names-every-step`, `-json` | the sink gate: two Steps declaring secret output, both named at once, neither of them run — the same Refusal its sibling above earns with a sink supplied |
 | `usage-secret-out-to-stdout`, `-inside-the-repository`, `-with-no-path` | the three things `--secret-out` will not take, all `2` and all carrying no `error_code` |
 | `a-member-that-reaches-the-deadline`, `-json` | the drain (issue #140): three members, the middle one reaching the Operation's `deadline:`, **every** member attempted, the two Observations that succeeded committed, the Step *ran* with the set it concluded about, `RECORDS` reading `2 of 3` and naming no member, and the `step` row carrying `expanded` beside `records` |
 | `a-field-that-went-quiet` | a recorded field's path resolving to nothing is an **absence** and not a fault: the seeded head carries `note`, the answer does not, and the Run mints a second version **without** it and completes at `0` — the bytes moved, so the field going quiet renders as a change like any other |
@@ -482,7 +482,7 @@ drives.
 | `a-deadline-is-not-retried` | the other exclusion: a host that hangs, under the same Operation. The deadline halts the Step at `1` and no second attempt is made — a connect timeout is outside ADR-0018's class, and the Operation's own deadline is `hyper` stopping |
 | `four-paginated-members-under-a-limit-of-four` | an Expansion of four under `concurrency: 4`, each member walking three pages: twelve Observations and `pages: 12`. What the limit reached and what it did not is [`../../run_pattern_test.go`](../../run_pattern_test.go)'s |
 | `a-rehearsal-performs-the-reads-it-reaches`, `-json` | `--dry-run` over a Procedure of two `read` Steps: every read it reaches is performed, both Observations are recorded as ordinary versions carrying **no** marker of their own, the entry carries `dry_run: true`, the terminal line reads `completed · dry-run · exit 0`, and the `outcome` row carries the marker on the wire |
-| `a-rehearsal-refuses-the-sink-it-was-not-given` | the sink gate carries no `--dry-run` exemption: a rehearsal reaching two Steps declaring `secret:` output with no `--secret-out` Refuses `secret-sink-absent` at `77` — the marker is on the line and on the entry, and a rehearsal that Refuses is not a rehearsal that completes (§9, issue #137) |
+| `a-rehearsal-earns-no-sink-exemption` | the sink gate carries no `--dry-run` exemption: a rehearsal reaching two Steps declaring `secret:` output Refuses `secret-sink-unwritten` at `77` — the marker is on the line and on the entry, and a rehearsal that Refuses is not a rehearsal that completes (§9, issues #137, #266) |
 | `a-rehearsal-stops-at-the-first-effect`, `-json` | `--dry-run` over `read`, `mutate`, `read` (issue #155): the `read` in front of the effect **ran** and its Observation is on the branch, the `mutate` is *never reached* and so is the `read` behind it, neither writes a Step file, the page names the withheld Step and says the Run stopped, and the outcome is `completed` at `0`. The `-json` half is the same Run's rows: three `step` rows, the Run-wide `provenance` and the one Step's, and the `outcome` row carrying `dry_run: true` — and the withheld `mutate`'s row is the one carrying `withheld: true`, which is where the page's sentence is on the wire (§8, ADR-0091, issue #206) |
 | `a-rehearsal-withholds-a-destroy` | the same stop on the other effectful Kind, against a branch seeded with the Asset the selector would have reached: the `destroy` is withheld before its Expansion resolves, and the branch holds that Asset's one version and **no Tombstone** |
 | `a-rehearsal-stops-before-the-condition`, `a-guarded-effect-a-real-run-skips` | **the Kind is the whole of the test**, driven from both sides over one Procedure whose `mutate` carries a `when:` that does not hold. The rehearsal stops at that `mutate` all the same, so the `read` behind it is *never reached*; the same Procedure without the flag skips the `mutate` **by condition** and reaches that `read`. Deciding the `when:` here would be `hyper` reporting that a `mutate` *would* have been skipped, which is the prospective rendering ADR-0010 declines |
@@ -620,9 +620,11 @@ its own account: `capability.Credential` has no exported member, no accessor,
 no `String` and no `MarshalJSON`, and its only path is the environment, through
 the composed header, onto the wire.
 
-A real Manifest would name that projected field in `secret:` and the Store
-would hold the constant marker — [`a-secret-field-is-the-marker`](a-secret-field-is-the-marker)
-is that case. These two deliberately do not, because a marker proves nothing
+A real Manifest would name that projected field in `secret:`, and a Run that
+reached it would Refuse before Step 1 —
+[`a-sink-supplied-refuses-like-one-withheld`](a-sink-supplied-refuses-like-one-withheld)
+is that case, and the Store's constant marker is what it wrote until nothing
+turned out to write the sink (issue #266). These two deliberately do not, because a marker proves nothing
 about what left, and what left is the only thing they are for. Their values are
 each case's own `env` file and are spelled to be unmistakable in both
 directions: nothing under `repo-credentialled/` is a credential and neither is

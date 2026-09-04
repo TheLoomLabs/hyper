@@ -181,16 +181,19 @@ func RunRun(args []string, to destination, process Process, wd, binaryVersion st
 		// written always, `false` included, precisely because a reader
 		// that takes its absence for `false` cannot recover (§7, §8,
 		// ADR-0001).
-		DryRun:     dryRun,
-		SecretSink: sink,
-		Trigger:    readTrigger(process.LookupEnv, process.User, process.Hostname),
-		Version:    binaryVersion,
-		Now:        process.Now,
-		Mint:       process.Mint,
-		LookupEnv:  process.LookupEnv,
-		Environ:    process.Environ,
-		Dial:       process.Dial,
-		Exec:       process.Exec,
+		DryRun: dryRun,
+		// No sink reaches the engine. The path was taken off the
+		// argument list and its faults refused above, and what a Run
+		// reaching a secret-producing Step does about it is decided
+		// from the artefacts alone (run.Request, ADR-0146).
+		Trigger:   readTrigger(process.LookupEnv, process.User, process.Hostname),
+		Version:   binaryVersion,
+		Now:       process.Now,
+		Mint:      process.Mint,
+		LookupEnv: process.LookupEnv,
+		Environ:   process.Environ,
+		Dial:      process.Dial,
+		Exec:      process.Exec,
 		// The drain, as the engine asks it: *has this Run been stopped
 		// by now*. Which signals are watched, what each exits with, when
 		// a second one kills the process and what a cancelled call is
@@ -370,15 +373,20 @@ func splitDryRun(args []string) (dryRun bool, rest []string) {
 // it is spelled here rather than in parseArgs so that `hyper check
 // --secret-out x` stays the unknown flag it is.
 //
-// **What the path is accepted for is not yet written to.** §9 says the sink
-// "is written `0600`", and nothing here or in the engine creates it: what a
-// Run puts in a Secret sink has no stated format, and #133 flags an ADR as the
-// prerequisite for one. Issue #137 carries that deferral in as many words —
-// *the file's contents are out of scope* — so what this milestone owes the
-// flag is that it is accepted, that its two faults are refused, and that its
-// presence is what the sink gate reads (internal/run/gates.go). The `0600`
-// creation lands with the format, and neither before the other: a file created
-// empty at Run start would be a sink an operator could read as filled.
+// **What the path is accepted for is not yet written to, and no Run pretends
+// otherwise.** Nothing here or in the engine creates the file: what a Run puts
+// in a Secret sink has no stated format, that decision is ADR-shaped, and it is
+// deferred rather than taken in passing (issue #266). So the path is taken off
+// the argument list, its faults are refused — and it goes no further. It does
+// not reach `run.Request`, and the sink gate is handed no sink: a Run reaching
+// a Step whose Operation declares secret output Refuses whether one was named
+// or not (`secret-sink-unwritten`, internal/run/gates.go, ADR-0146).
+//
+// **Refusing the path here is still worth doing**, though nothing reads it: `-`
+// and a path inside the working tree are faults whoever eventually writes the
+// file, and a caller who typed one has said what they meant to do with a secret.
+// What is not done is completing the Run and destroying the value — which is
+// what this flag bought until the deferral was stated rather than assumed.
 func splitSecretOut(args []string) (path string, rest []string, fault string) {
 	return splitValueFlag("--secret-out", args, func(value string) string {
 		if value == "-" {

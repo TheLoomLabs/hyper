@@ -34,10 +34,11 @@ const CodeCadenceRunOnce = "cadence-run-once"
 
 // CodeCadenceSecretOutput is the code a Procedure declaring a Cadence earns
 // for reaching a Step whose Operation declares secret: output at any
-// depth: such a Step Refuses where the invocation supplied no Secret sink,
-// and the workflow project generates supplies none, so where a Cadence
-// carries it the Refusal lands at every occurrence and the Procedure works
-// never (§4, §5, ADR-0077, issue #96). It is its own code rather than a
+// depth: such a Step Refuses on any Run at all while no hyper writes a
+// Secret sink, and once one does the workflow project generates will still
+// supply none, so where a Cadence carries it the Refusal lands at every
+// occurrence and the Procedure works never (§4, §5, ADR-0077, ADR-0146,
+// issues #96, #266). It is its own code rather than a
 // second cause folded into cadence-run-once: a reader handed
 // cadence-run-once on a secret: clash edits a repeatability: that is
 // correct.

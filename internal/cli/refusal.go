@@ -87,12 +87,11 @@ const (
 // §6's, where an `args:` value arriving from a reference will not read as its
 // input's type.
 //
-// **`secret-sink-absent` is the exception and is the only one.** It is the
-// **invocation's** gate, stated at Run start because both its operands are
-// already in hand, and it names every reachable Step whose Operation declares
-// secret output — as an artefact coordinate, before Step 1, writing no Step
-// file (§6, §9, internal/run/gates.go). It is the one code that cites a Step it
-// did not reach.
+// **`secret-sink-unwritten` is the exception and is the only one.** It is the
+// Secret sink gate, stated at Run start because its operand is already in hand,
+// and it names every reachable Step whose Operation declares secret output — as
+// an artefact coordinate, before Step 1, writing no Step file (§6, §9,
+// internal/run/gates.go). It is the one code that cites a Step it did not reach.
 //
 // **A Requirement is the third phase**, and it is told apart by the one shape
 // only a Requirement produces: an `id:` and no position. A Requirement takes no
@@ -104,7 +103,7 @@ func refusalPhase(member refusalRow) string {
 	switch {
 	case member.Step == nil && member.StepID != "":
 		return phaseAtRequirement
-	case member.Step != nil && member.ErrorCode != run.CodeSecretSinkAbsent:
+	case member.Step != nil && member.ErrorCode != run.CodeSecretSinkUnwritten:
 		return phaseAtExpansion
 	default:
 		return phaseAtRunStart
@@ -125,14 +124,21 @@ func refusalPhase(member refusalRow) string {
 // which this does not do. Prose that describes a command without naming it is
 // the same fact rendered worse.
 //
-// The four classes §8 states are all here. A **command** — `hyper project`,
-// `hyper store init`. A **different binary**, which is the one class with no
-// command to name, its remedy being an install rather than an invocation. An
-// **act on the environment**, whose note names the wrappers an operator
-// actually reaches for rather than telling them to export something. And a
-// **different invocation**, which is the only remedy on the list the Run's own
-// operator can take without leaving the shell — and the only one no generated
-// workflow can take at all (§4, ADR-0077).
+// Three of §8's four classes have members and all three are here. A
+// **command** — `hyper project`, `hyper store init`. A **different binary**,
+// which is the one class with no command to name, its remedy being an install
+// rather than an invocation. And an **act on the environment**, whose note
+// names the wrappers an operator actually reaches for rather than telling them
+// to export something.
+//
+// **§8's fourth class, a different invocation, has no member today.**
+// `secret-sink-absent` was the one, and while no hyper writes a Secret sink
+// there is no invocation to send an operator back to: what stands in its place
+// is `secret-sink-unwritten`, whose remedy is a binary and not a flag
+// (internal/run/gates.go, ADR-0146). Naming the flag anyway would end the
+// operator's round trip on another `77`, which is the one thing this map exists
+// to prevent (§8, §12, ADR-0145). The class returns with the format the sink
+// has yet to be given (issue #266).
 //
 // The act-on-the-environment class holds **two** members, and their notes are
 // what makes the split worth a code each: `credential-absent` names the
@@ -143,7 +149,7 @@ func refusalPhase(member refusalRow) string {
 var refusalRemedies = map[string]string{
 	run.CodeCredentialAbsent:               "set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --",
 	run.CodeCredentialEmpty:                "give it a value, and check what left it empty — op read, a CI secret on a fork, vault kv get",
-	run.CodeSecretSinkAbsent:               "the same invocation again with --secret-out <path>",
+	run.CodeSecretSinkUnwritten:            "a hyper that writes a Secret sink — nothing in the repository is the fault",
 	verify.CodeProjectionStale:             "hyper project",
 	storeAbsentCode:                        "hyper store init",
 	store.SchemaUnsupportedCode:            "a hyper that reads this schema version — nothing in the repository is the fault",

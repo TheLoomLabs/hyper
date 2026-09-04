@@ -1,0 +1,13 @@
+nothing ran. no step was reached.
+
+refused: secret-sink-unwritten
+
+  procedures/read-session.yaml:5
+    4 │ steps:
+    5 │   - id: session
+      │         ^ session read_session declares secret: output and this hyper does not write a Secret sink — the value would be produced and discarded
+      │
+      = checked at run start, before the first step
+      = a hyper that writes a Secret sink — nothing in the repository is the fault
+
+refused · exit 77 · run 01991ed9-e44b-7f74-b064-9bac5dc38f4c

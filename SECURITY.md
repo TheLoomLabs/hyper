@@ -59,11 +59,15 @@ Manifest declares which output fields are secret, and the Record carries a
 redaction marker with *presence only* — no digest, no length, because a digest of
 a human-chosen secret is an offline-crackable oracle. Secret-valued output
 requires a sink the invocation supplies, and a sink path inside the repository
-working tree is refused — though what a sink is *written* is not yet
-implemented: the flag is accepted and its two faults refused, its presence is
-what the §6 gate reads, and the `0600` creation lands with the format the sink
-has yet to be given. A Run reaching a Step that declares secret output without a
-sink Refuses; a Run given one writes nothing to it.
+working tree is refused — though **nothing writes the file yet**, and a Run that
+would need one Refuses rather than completing. `--secret-out` is accepted and its
+faults are refused, and the §6 gate reads the Steps rather than the flag: a Run
+reaching a Step that declares secret output declines whether a sink was named or
+not (`secret-sink-unwritten`,
+[ADR-0146](docs/adr/0146-a-sink-nothing-writes-is-a-refusal-and-not-a-completed-run.md)).
+It is a loss the tool states rather than one it performs; the `0600` creation and
+the Refusal an *absent* sink earns both land with the format the sink has yet to
+be given.
 
 What `hyper` does write is a *reference*, never a value: `project` generates a
 workflow whose `env:` block names each variable as `${{ secrets.NAME }}`,

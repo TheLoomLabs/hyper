@@ -1437,17 +1437,24 @@ var runShowTool = tool{
 // **`secret_sink` is the CLI's `--secret-out` under the name of the thing it
 // supplies**, a flag named for a direction having no direction to name in an
 // argument object. It is chosen by the caller and **never defaulted by
-// `hyper`**: a sink supplied automatically deletes the guardrail that makes its
-// absence a Refusal, and makes `hyper` a place a secret lives (ADR-0007).
-// Everything the CLI states about the path holds whoever named it, and both
-// faults it can have — `-`, and a path inside the repository working tree — are
-// the usage errors the command already makes them, arriving here as protocol
-// errors (§9, run.go, ADR-0060).
+// `hyper`**: a sink supplied automatically would make `hyper` a place a secret
+// lives, and would delete the guardrail an absent one earns once the file is
+// written at all (ADR-0007). Everything the CLI states about the path holds
+// whoever named it, and both faults it can have — `-`, and a path inside the
+// repository working tree — are the usage errors the command already makes
+// them, arriving here as protocol errors (§9, run.go, ADR-0060).
+//
+// **No sink is written by this hyper, and this surface says so by Refusing.** A
+// Run reaching a Step whose Operation declares secret output declines whether a
+// path was named or not, and the Refusal arrives here as any other does
+// (`secret-sink-unwritten`, §12, ADR-0146). An argument accepted, described and
+// silently inert is the one thing an agent has no way to discover (issue #266).
 //
 // **Returning the secret in the tool result is not one of the sink's forms**,
 // and nothing here could make it one: what the sink names is a path, and a Run
-// writes the file. A generated credential in a tool result is a credential in
-// an agent's context and from there in whatever transcript that agent writes.
+// will write the file. A generated credential in a tool result is a credential
+// in an agent's context and from there in whatever transcript that agent
+// writes.
 //
 // **The call is synchronous and there is no handle in this schema to poll.**
 // `run` returning an id the caller comes back for would invent a Run that
@@ -1494,7 +1501,7 @@ var runTool = tool{
 		"secret_sink": {
 			"type": "string",
 			"minLength": 1,
-			"description": "Where a Step declaring secret output would write it: an absolute path outside the repository working tree. It is never defaulted — a Run reaching such a Step with none supplied Refuses — and the secret is never returned in this result. Nothing writes the file yet: this version accepts the path, refuses its faults, and reads only its presence, so a Run given one completes and the secret it produced is suppressed rather than delivered."
+			"description": "Where a Step declaring secret output would write it: an absolute path outside the repository working tree. It is never defaulted, and the secret is never returned in this result. Nothing writes the file yet, so supplying a path rescues no Run: this version accepts it and refuses its faults, and a Run reaching such a Step Refuses under secret-sink-unwritten whether one was named or not."
 		}
 	}`, "procedure"),
 	output: closedObject(`{
@@ -1594,12 +1601,16 @@ var runTool = tool{
 
 // runCall is one `run` call's arguments, read.
 //
-// `secret_sink` is a pointer for namedValue's reason and it is the reason the
-// whole guardrail rests on: **absent and empty are two different calls**. A
-// Run reaching a Step that declares secret output with no sink supplied Refuses
-// (`secret-sink-absent`, §12), so a caller who sent `""` asked for a sink and
-// named none — and reading that as *no sink* would turn a malformed call into
-// the very Refusal the absence exists to produce (§9, ADR-0007).
+// `secret_sink` is a pointer for namedValue's reason: **absent and empty are
+// two different calls**. A caller who sent `""` asked for a sink and named
+// none, and reading that as *no sink* would answer a malformed call with
+// whatever a call that named nothing gets (§9, ADR-0007).
+//
+// The distinction is held here rather than derived from what the sink then
+// does, and it outlives the sink's own state: no hyper writes the file, so a
+// Run reaching a Step that declares secret output Refuses whether one was
+// named or not (`secret-sink-unwritten`, §12, ADR-0146), and the day the
+// format lands an absent sink is a Refusal of its own again (issue #266).
 type runCall struct {
 	Procedure  string  `json:"procedure"`
 	DryRun     bool    `json:"dry_run"`

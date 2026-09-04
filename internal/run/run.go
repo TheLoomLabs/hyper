@@ -131,15 +131,19 @@ type Request struct {
 	// environment is a subtraction, and a set of names nothing enumerates is
 	// not a set anything can subtract from.
 	Environ func() []string
-	// SecretSink is the path `--secret-out` named, and "" where the
-	// invocation supplied none. It is the **occasion's** supply rather than
-	// the environment's or the artefacts', which is why it arrives here
-	// beside DryRun rather than being read off anything (§6, §9, ADR-0008).
+	// There is no SecretSink here, and its absence is the state of the
+	// feature rather than an oversight. `--secret-out` is accepted at the
+	// command line and its three faults are refused there (§9,
+	// internal/cli/run.go), and no hyper writes the file: a Run reaching a
+	// Step whose Operation declares secret output Refuses on that fact alone
+	// (`secret-sink-unwritten`, gates.go, ADR-0146).
 	//
-	// The engine reads its presence and never its value: what a Run does
-	// with a sink is the milestone that writes one's, and #133 flags the ADR
-	// that has to state the file's format first.
-	SecretSink string
+	// So the engine is handed no path — a field the sink gate no longer
+	// reads would be the occasion's supply arriving here to be dropped, and
+	// this package holding one is what let a Run complete and destroy the
+	// value it was given a sink for (issue #266). It comes back with the
+	// format the file has yet to be given, and not before it.
+
 	// Dial and Exec are the two Capabilities' performers. Neither is reached
 	// for: internal/capability is handed one, so a case exercises a real
 	// handshake against a server standing in the test process and a real

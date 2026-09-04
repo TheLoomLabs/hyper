@@ -14,14 +14,14 @@ is pushed before the gates at all. Then the Store files the Run must read are ch
 pairs the Procedure makes. Then `check` is re-run in full with nothing skipped (§4). Then the
 credentials of every Target the Run may bind are resolved once (ADR-0007), each read under §12's
 credential presence — two of whose three members decline, `absent` as `credential-absent` and `empty`
-as `credential-empty`. Then the invocation is
-tested for a Secret sink, where the Procedure reaches a Step whose Operation declares secret output
-(`secret-sink-absent`, §12). Then Step 1.
+as `credential-empty`. Then the Procedure is
+tested for a Step whose Operation declares secret output, which no hyper yet has a Secret sink to put
+the value in (`secret-sink-unwritten`, §9, §12, ADR-0146). Then Step 1.
 
-That last gate is the invocation's rather than the environment's or the artefacts', and it is stated
-here rather than at the Step it is about because both its operands are already in hand: the invocation
-carries a sink or it does not, and which reachable Steps declare secret output is a walk over reviewed
-text. Every such Step is reported at once, as the credential gate reports every absent slot. Declining
+That last gate is neither the environment's nor the artefacts', and its subject is this binary rather
+than the occasion: no hyper writes a Secret sink, so nothing the invocation carries changes the answer
+(§9, ADR-0146). It is stated here rather than at the Step it is about because its operand is already in
+hand: which reachable Steps declare secret output is a walk over reviewed text. Every such Step is reported at once, as the credential gate reports every absent slot. Declining
 at the Step instead would run the Steps before it and never reach the tail — which under a Cadence is
 an effectful prefix repeated for as long as the clock fires, and is the second reason the combination
 is refused at `check` before it can arise (§4, ADR-0077). The gate does not read `--dry-run`: §9's

@@ -356,28 +356,29 @@ correct operation rather than a failure; the answer is partial, and it says so o
 in the code. The flag is not global: a `records --dry-run` or a `check --dry-run` would have to mean
 something, and neither does.
 
-**`--secret-out <path>`** names the Secret sink. A Run reaching a Step whose Operation declares a
-secret output Refuses when none was supplied (`secret-sink-absent`, §12), which is a fact about the
-invocation and never about the environment it runs in (ADR-0007). The path is refused where it
-resolves inside the repository working tree; `-` is not accepted, stdout being exclusively the answer
-and a secret written there landing in the same pipe a CI job logs. It is not a bypass and must not
-read like one: supplying it weakens no check, and withholding it produces a Refusal that renders like
-any other (§8).
+**`--secret-out <path>`** names the Secret sink. The path is refused where it resolves inside the
+repository working tree; `-` is not accepted, stdout being exclusively the answer and a secret written
+there landing in the same pipe a CI job logs. It is not a bypass and must not read like one: supplying
+it weakens no check.
 
-**Nothing writes the file yet**, and what the flag is today is the gate's operand: the path is
-accepted, its faults are refused, and its presence is the whole of what a Run reads of it. A Run given
-a sink therefore completes, and the secret it produced reaches the Store as the marker rather than the
-sink as a value — a loss and never a leak, suppression being positional and holding either way
-(ADR-0007). A sink is to be written `0600`, and that lands with the format it has yet to be given
-(issue #266).
+**Nothing writes the file yet, and a Run that would need one Refuses rather than completing.** A Run
+reaching a Step whose Operation declares a secret output Refuses on that fact alone
+(`secret-sink-unwritten`, §12) — a sink named and a sink withheld are the same Run, what is missing
+being the writer rather than the path. The sink is the only route by which a secret value ever leaves
+`hyper` (ADR-0007), so a Run allowed past this point would produce the value, write the marker to the
+Store in its place and discard it: a clean Run, a Record that reads correctly, and no secret. That is a
+loss and never a leak — suppression is positional and holds either way — and what §9 states in the
+meantime is the limit rather than the loss (ADR-0146). The remedy §8 renders is accordingly a
+different binary and not a different invocation, there being no invocation to send an operator back
+to. A sink is to be written `0600`; that, and the Refusal an *absent* sink earns
+(`secret-sink-absent`), both land with the format the file has yet to be given (issue #266).
 
 The Refusal declines before Step 1 rather than at the Step, beside the credential gate and on the same
-ground — both operands are the occasion's and both are in hand — and it names every Step that would
+ground — the operands are the occasion's and are in hand — and it names every Step that would
 have needed a sink rather than the first (§6). It carries no Kind axis: a `read` declaring secret
-output is as refused as a `create`, because the sink is the only route by which a secret value ever
-leaves `hyper`, and a Run that suppresses one into the Store with nowhere to hand it is useless
-without saying so. For the same reason `--dry-run` earns no exemption — the rehearsal performs the
-reads it reaches, and one of them may be the Step in question.
+output is as refused as a `create`, a Run that suppresses a secret into the Store with nowhere to hand
+it being useless without saying so. For the same reason `--dry-run` earns no exemption — the rehearsal
+performs the reads it reaches, and one of them may be the Step in question.
 
 Because the projected workflow supplies no sink and cannot sensibly be made to (ADR-0007, ADR-0077),
 a Procedure that declares a Cadence and reaches such a Step is refused at `check` (`cadence-secret-output`,
@@ -862,8 +863,8 @@ Review happens at review time, on the artefact, through `hyper review` — befor
 the process.
 
 There is no `--force`, no `--yes`, and no `--skip-checks`, on `run` or anywhere else (ADR-0001).
-`--secret-out` is not one of them wearing a different name: withholding it produces a Refusal and
-supplying it weakens no check, which is the opposite direction of travel.
+`--secret-out` is not one of them wearing a different name: supplying it weakens no check and rescues
+no Run, which is the opposite direction of travel.
 
 Ctrl-C is the only interactive control there is, and it is handled as a signal rather than as a
 question.
@@ -1419,9 +1420,11 @@ partial answer rather than inferring it from an outcome and a marker — an infe
 
 `secret_sink` is the CLI's `--secret-out` under the name of the thing it supplies, a flag named for a
 direction having no direction to name in an argument object. It is chosen by the caller and never
-defaulted by `hyper`: a sink supplied automatically deletes the guardrail that makes its absence a
-Refusal, and makes `hyper` a place a secret lives (ADR-0007). Everything the CLI half states about the
-path holds whoever named it. Returning the secret in the tool result is not one of the sink's forms —
+defaulted by `hyper`: a sink supplied automatically would make `hyper` a place a secret lives, and
+would delete the guardrail that will make an absent one a Refusal once the file is written at all
+(ADR-0007). Everything the CLI half states about the path holds whoever named it — the Refusal a
+secret-producing Step earns today included, which this surface reports as any other Refusal
+(`secret-sink-unwritten`, §12). Returning the secret in the tool result is not one of the sink's forms —
 it would put a generated credential into an agent's context and from there into whatever transcript
 that agent writes to, which is the failure the sink exists to prevent.
 

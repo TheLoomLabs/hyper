@@ -21,4 +21,4 @@ refused: secret-sink-unwritten
       = checked at run start, before the first step
       = a hyper that writes a Secret sink — nothing in the repository is the fault
 
-refused · exit 77 · run 01991f68-8299-74c8-9fa4-b2d3f948559c
+refused · dry-run · exit 77 · run 01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e03

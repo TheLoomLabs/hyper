@@ -1441,7 +1441,7 @@ Run one Procedure through every guardrail §5 states, writing the Records, the J
     "secret_sink": {
       "type": "string",
       "minLength": 1,
-      "description": "Where a Step declaring secret output would write it: an absolute path outside the repository working tree. It is never defaulted — a Run reaching such a Step with none supplied Refuses — and the secret is never returned in this result. Nothing writes the file yet: this version accepts the path, refuses its faults, and reads only its presence, so a Run given one completes and the secret it produced is suppressed rather than delivered."
+      "description": "Where a Step declaring secret output would write it: an absolute path outside the repository working tree. It is never defaulted, and the secret is never returned in this result. Nothing writes the file yet, so supplying a path rescues no Run: this version accepts it and refuses its faults, and a Run reaching such a Step Refuses under secret-sink-unwritten whether one was named or not."
     }
   }
 }

@@ -17,8 +17,8 @@ import (
 // §6 fixes the order and no Step starts until all of it has happened: the Store
 // files the Run must read are held to this binary's schema versions, `check` is
 // re-run in full with nothing skipped, the credentials of every Target the Run
-// may bind are resolved once, and the invocation is tested for a Secret sink.
-// Then Step 1.
+// may bind are resolved once, and the Procedure is tested for a Step whose
+// Operation declares secret output. Then Step 1.
 //
 // Each of them declines into the entry that already exists, which is why they
 // sit here rather than beside the gates the CLI runs before a Run is identified
@@ -32,10 +32,14 @@ import (
 // serving two Providers does not oblige a Run to read a series or hold a
 // credential no Step of it could reach (§6).
 
-// The three codes §9 contributes, alike in being the **occasion's** supply
-// rather than the environment's or the artefacts', all three checked before a
-// Run's first Step and all three reported exhaustively rather than at the first
-// (§12, ADR-0007).
+// The three codes §9 contributes, alike in being neither the environment's nor
+// the artefacts', all three checked before a Run's first Step and all three
+// reported exhaustively rather than at the first (§12, ADR-0007).
+//
+// The first two are the **occasion's** supply. The third is this **binary's**,
+// and that is not a widening of the group: it is checked here, at this moment,
+// with the other two, and it is what §9 says about a sink today rather than a
+// standing fact about invocations (ADR-0146).
 //
 // They are spelled here because this is where the checks that carry them are.
 // internal/store reports the schema condition and does not name a code, and
@@ -55,9 +59,15 @@ const (
 	// the environment holds and sets to the empty string — a variable an
 	// upstream produced rather than one nobody exported.
 	CodeCredentialEmpty = "credential-empty"
-	// CodeSecretSinkAbsent is an invocation supplying no Secret sink where
-	// the Procedure reaches a Step whose Operation declares secret output.
-	CodeSecretSinkAbsent = "secret-sink-absent"
+	// CodeSecretSinkUnwritten is a Run reaching a Step whose Operation
+	// declares secret output, this hyper having no Secret sink to put the
+	// value in.
+	//
+	// It is one code rather than two because the supply that is missing is
+	// the binary's rather than the invocation's: a sink named and a sink
+	// withheld are the same Run here, and §8 holds one remedy per code
+	// (refusal.go, issue #266).
+	CodeSecretSinkUnwritten = "secret-sink-unwritten"
 )
 
 // Refusal is one check that declined a Run: everything its Store counterpart
@@ -131,7 +141,7 @@ func (r run) gates(steps []sequenced) (credentials, []Refusal, error) {
 		return nil, declined, nil
 	}
 
-	return resolved, sinkRefusals(loaded, steps, r.request.SecretSink), nil
+	return resolved, sinkRefusals(loaded, steps), nil
 }
 
 // pairsOf is the (Definition, Target) pairs the Procedure makes, each once and
@@ -399,14 +409,26 @@ func (r Refusal) coordinate() problem.Problem {
 }
 
 // sinkRefusals is the Secret sink gate: where the Procedure reaches a Step
-// whose Operation declares secret output and the invocation supplied no sink,
-// the Run Refuses, naming **every such Step at once** rather than the first
-// (§6, §9, §12).
+// whose Operation declares secret output, the Run Refuses, naming **every such
+// Step at once** rather than the first (§6, §9, §12).
 //
-// It is the **invocation's** gate rather than the environment's or the
-// artefacts', and it is stated at Run start rather than at the Step because
-// both its operands are already in hand: the invocation carries a sink or it
-// does not, and which reachable Steps declare secret output is a walk over
+// **No sink is written by this hyper**, and that is what the gate reads. The
+// sink is the only route by which a secret value ever leaves `hyper` (§9,
+// ADR-0007), and a Run that reached such a Step would produce the value,
+// suppress it into the Store as the constant marker, and discard it — a clean
+// Run, a Record that reads correctly, and no secret. The format the file holds
+// has yet to be decided and is ADR-shaped, so what this states in the meantime
+// is the limit rather than the loss (issue #266, ADR-0146).
+//
+// So it is handed **no sink at all**: a path named and a path withheld are the
+// same Run here, and reading the flag would be this gate offering a remedy that
+// leads to another `77` — the loop the credential codes were split to prevent
+// (§8, ADR-0145). The remedy is a different binary and §8 names it as one
+// (refusal.go). When the format lands, the sink's presence becomes the gate's
+// second operand again and `secret-sink-absent` returns to the closed set.
+//
+// It is stated at Run start rather than at the Step because its operand is
+// already in hand: which reachable Steps declare secret output is a walk over
 // reviewed text. Declining at the Step instead would run the Steps before it
 // and never reach the tail — which under a Cadence is an effectful prefix
 // repeated for as long as the clock fires, and is the second reason the
@@ -415,8 +437,7 @@ func (r Refusal) coordinate() problem.Problem {
 // **It carries no Kind axis and no `--dry-run` exemption**, and the second is
 // held by this function's own signature: it is handed no rehearsal marker, so
 // there is nothing here to exempt on. A `read` declaring secret output is
-// reached by a rehearsal and produces a secret with nowhere to go, the sink
-// being the only route by which a secret value ever leaves `hyper` (§9).
+// reached by a rehearsal and produces a secret with nowhere to go (§9).
 //
 // The `step` it carries is an **artefact coordinate and never an execution
 // fact**: a Refusal before Step 1 writes no Step file, so the Step it names has
@@ -428,11 +449,7 @@ func (r Refusal) coordinate() problem.Problem {
 // #141). What each one cites is the file it was **authored** in and its
 // position in that file's own `steps:`, a coordinate being an artefact's and
 // never the Run's flattened order.
-func sinkRefusals(loaded repository.Loaded, steps []sequenced, sink string) []Refusal {
-	if sink != "" {
-		return nil
-	}
-
+func sinkRefusals(loaded repository.Loaded, steps []sequenced) []Refusal {
 	var declined []Refusal
 	for position, step := range steps {
 		operation, secret := secretOutputOf(loaded, step)
@@ -441,11 +458,11 @@ func sinkRefusals(loaded repository.Loaded, steps []sequenced, sink string) []Re
 		}
 		declined = append(declined, Refusal{
 			RefusalMember: store.RefusalMember{
-				ErrorCode: CodeSecretSinkAbsent,
+				ErrorCode: CodeSecretSinkUnwritten,
 				File:      step.Declared.Path,
 				Line:      step.Line,
 				Field:     fmt.Sprintf("steps[%d]", step.Index),
-				Message: fmt.Sprintf("%s %s declares secret: output and this invocation supplied no sink — run it again with --secret-out <path>",
+				Message: fmt.Sprintf("%s %s declares secret: output and this hyper does not write a Secret sink — the value would be produced and discarded",
 					loaded.Definitions[step.Definition].ProviderName, step.Operation),
 				Step:   position + 1,
 				StepID: step.ID,

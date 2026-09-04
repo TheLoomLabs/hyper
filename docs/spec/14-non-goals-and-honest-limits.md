@@ -210,7 +210,8 @@ sits. A Cadence is refused over a Step whose Operation declares **secret output*
 for a stricter reason — that Procedure works never rather than once (§4, ADR-0077) — and yet no limit
 follows, because that remedy runs around the Manifest rather than through it: moving the Step into a
 Procedure a person invokes with `--secret-out` is an edit to the consumer's own artefacts, available
-whoever wrote the Provider. What is unfixable above is therefore not *a Manifest fact a Cadence
+whoever wrote the Provider — and it is the *Cadence* fault that edit clears, the Run itself waiting on
+a sink no hyper writes yet (§9, issue #266). What is unfixable above is therefore not *a Manifest fact a Cadence
 forbids*; it is specifically that run-once's only remedy is the Manifest's own `repeatability:`.
 
 The closed grammars charge in the same currency without extending that list. A Cadence is UTC-only

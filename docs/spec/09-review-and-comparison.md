@@ -1228,8 +1228,8 @@ was reached is the most important thing on the page — an absence cannot carry 
 **The caret excerpt survives**, and every code that reaches a Run this way cites a line: a static code
 its own artefact and line, `cadence-run-once` and `cadence-secret-output` the `cadence:` line,
 `credential-absent` and `credential-empty` the `env:` line of the Target declaration whose slot the
-environment did not fill, and `secret-sink-absent` one Step line per Step that would have needed a
-sink. The two Cadence codes
+environment did not fill, and `secret-sink-unwritten` one Step line per Step whose Operation declares
+secret output. The two Cadence codes
 cite the `cadence:` line although the fault is a Manifest's — an undeclared `repeatability:`, a
 declared `secret:` — because the walk goes to the Manifest and the citation comes back to the artefact
 whose author can act. That is also what keeps a caret off a Manifest verified by digest, which would be
@@ -1251,23 +1251,29 @@ change*, a file the reader must not touch. Its file and field go in the `=` note
 
 **The remediation table is rendered only where an artefact edit is the way past**, and its header stays
 `EDIT ONE OF` on every path where it appears. The set it leaves behind is larger than one code and has
-three remedies, none of them an edit and all of them keeping `77`'s promise that a verbatim retry
-refuses identically: a **command** (`projection-stale` → `hyper project`, `store-absent` → `hyper store
+three remedies **with members today**, none of them an edit and all of them keeping `77`'s promise that
+a verbatim retry refuses identically: a **command** (`projection-stale` → `hyper project`, `store-absent` → `hyper store
 init`), a **different binary** (`store-schema-unsupported`, `manifest-schema-unsupported`,
-`version-pin-mismatch`), an **act on the environment** (`credential-absent`, `credential-empty`), and
-a **different invocation** (`secret-sink-absent` → the same command with `--secret-out <path>`). The
+`version-pin-mismatch`, `secret-sink-unwritten`), and an **act on the environment**
+(`credential-absent`, `credential-empty`). The
 environment class carries two codes and two notes, and that is the whole reason it is two codes: one
 names the wrappers that export a variable — `op run --`, `direnv`, `aws-vault exec --` — and the other
 the readers that export an empty one, so a reader whose variable is already exported is not sent to
-check the one thing that is not wrong (§12, ADR-0145). The last is the
-only remedy on this list that the Run's own operator can take without leaving the shell, and it is
-also the only one no generated workflow can take at all, the projection being byte-exact with a
-compiled-in executor — which is why a Cadence over such a Step is refused at `check` rather than
-allowed to reach this rendering unattended (§4, ADR-0077). On all of them the
+check the one thing that is not wrong (§12, ADR-0145). On all of them the
 `=` notes carry the remedy, and they **name the remedying command verbatim**. A check knows its own
 remedy, so naming it states a fact rather than editorialising: `FLAGS` is the one surface ADR-0026
 restricts, and it is restricted for summarising other lines, which this does not do. Prose that
 describes a command without naming it is the same fact rendered worse.
+
+There is a **fourth class, *a different invocation*, and it stands empty**. `secret-sink-absent` was
+the one — the same command again with `--secret-out <path>` — and while no hyper writes a Secret sink
+there is no invocation to send an operator back to: what a secret-producing Step earns instead is
+`secret-sink-unwritten`, whose remedy is a binary (§9, ADR-0146). Naming the flag anyway would end the
+round trip on another `77`, which is the one thing this rendering exists to prevent. The class was also
+the only remedy the Run's own operator could take without leaving the shell, and the only one no
+generated workflow can take at all, the projection being byte-exact with a compiled-in executor — which
+is why a Cadence over such a Step is refused at `check` rather than allowed to reach this rendering
+unattended (§4, ADR-0077). It returns with the sink's format (issue #266).
 
 Where a Refusal carries more than one member — the two phases that evaluate many checks together (§7) —
 **every one of them renders**, each with its own caret excerpt and its own remediation table where it
