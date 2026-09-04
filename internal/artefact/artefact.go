@@ -221,6 +221,10 @@ const KindTargetDeclaration = "target-declaration"
 // resolves from. auth: is Open: its members are credential slots the
 // repository names itself, and checkCredentialSlots reads their insides —
 // there is no fixed Properties list for a mapping keyed by name to enumerate.
+// withhold: is a list of variable names a shell Operation's child does not
+// inherit, plain strings and never a mapping: it names a variable to remove
+// rather than a value to resolve, so it carries no authority and there is
+// nothing for env: to stand in (§3, ADR-0144).
 var TargetDeclaration = schema.Schema{
 	Type: schema.Object,
 	Properties: []schema.Property{
@@ -241,6 +245,10 @@ var TargetDeclaration = schema.Schema{
 		}},
 		{Name: "opaque-destroy", Required: false, Schema: schema.Schema{Type: schema.Boolean}},
 		{Name: "auth", Required: false, Schema: schema.Schema{Type: schema.Object, Open: true}},
+		{Name: "withhold", Required: false, Schema: schema.Schema{
+			Type:  schema.Array,
+			Items: &schema.Schema{Type: schema.String},
+		}},
 	},
 }
 

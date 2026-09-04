@@ -1,0 +1,3 @@
+OP_SERVICE_ACCOUNT_TOKEN=this-value-must-not-reach-a-command-either
+PAID_API_TOKEN=this-value-must-not-reach-a-command
+TZ=UTC

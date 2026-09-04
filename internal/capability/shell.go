@@ -45,8 +45,9 @@ const (
 type Exec func(ctx context.Context, argv []string) *exec.Cmd
 
 // Environment is what a `shell` Operation's child inherits: the invoking
-// environment with every credential-slot variable in the repository removed
-// (§3, §11).
+// environment with every variable the repository names removed — every
+// credential slot, and every name in a Target declaration's `withhold:` list
+// (§3, §11, ADR-0144).
 //
 // It is a type of its own rather than a []string so that the removal cannot be
 // skipped by a caller holding the process's own environment: what it carries is
@@ -68,12 +69,15 @@ func (e Environment) Composed() bool { return e.composed != nil }
 // Inherited composes that environment: environ as the process holds it, less
 // every variable in withheld.
 //
-// The withheld set is **every** credential-slot variable any Target declaration
-// in the repository names, not only those a Run resolved, so it is decided
-// offline and does not turn on which Steps a Run reached (§11). `hyper` knows
-// those names by position (§3), which is the same knowledge that lets it
-// suppress a credential rather than scan for one, used here to keep the
-// credentials it resolved out of a process it cannot describe.
+// The withheld set is **every** name any Target declaration in the repository
+// carries — credential slot or `withhold:` entry — and not only those a Run
+// resolved, so it is decided offline and does not turn on which Steps a Run
+// reached (§11). `hyper` knows a credential's name by position (§3), which is
+// the same knowledge that lets it suppress one rather than scan for one, used
+// here to keep the credentials it resolved out of a process it cannot describe.
+// A `withhold:` entry is the same removal for a variable `hyper` has no position
+// for and never resolves — a secret the invocation's own wrapper left behind,
+// which is a name an author knows and `hyper` cannot (ADR-0144).
 //
 // Everything else is the command's, and `hyper` neither reads it nor records
 // it; §13 states what that costs. What is *not* here is an authored `env:`,

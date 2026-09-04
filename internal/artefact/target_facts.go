@@ -42,6 +42,11 @@ type TargetFacts struct {
 	Kinds        []string
 	Capabilities []string
 	Credentials  []CredentialSlot
+	// Withheld is the variable names this declaration's withhold: list
+	// carries, in the declaration's own order and nil where the key is
+	// absent. Names only, like Credentials: the point of the key is that
+	// `hyper` never reads what it removes (§3, ADR-0007, ADR-0144).
+	Withheld []string
 }
 
 // ReadTargetFacts reads those four facts off a Target declaration's own root.
@@ -50,12 +55,13 @@ type TargetFacts struct {
 // its problem from check (ADR-0064). What it does drop is what it cannot read —
 // a list member that is not a plain scalar has no value to report.
 func ReadTargetFacts(root *yaml.Node) TargetFacts {
-	fields := topLevelFields(root, "hosts", "kinds", "capabilities", "auth")
+	fields := topLevelFields(root, "hosts", "kinds", "capabilities", "auth", "withhold")
 	return TargetFacts{
 		Hosts:        scalarSequence(fields["hosts"]),
 		Kinds:        scalarSequence(fields["kinds"]),
 		Capabilities: scalarSequence(fields["capabilities"]),
 		Credentials:  credentialSlots(fields["auth"]),
+		Withheld:     scalarSequence(fields["withhold"]),
 	}
 }
 

@@ -1,0 +1,84 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d09/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d09/run.json (480 bytes)
+{
+  "dry_run": false,
+  "procedure": "read-the-environment",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "5116f5800a7131bcff4cdbeb043049d164cbc079",
+    "repo_revision": "ddaa0369324d8ef431198028176e8b82aae29fd6"
+  },
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05d09",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991ea6-b118-7c93-8d41-6b2f7ae05d09/steps/0001.json (693 bytes)
+{
+  "definition": "host-checks",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "environment",
+  "identities": {
+    "digest": "sha256:101194113015db3296f2d15825d6d2cd33c6bbeeddd948309accdf63775da0c9",
+    "members": [
+      "[\"variables\",\"PAID_API_TOKEN\",\"OP_SERVICE_ACCOUNT_TOKEN\",\"TZ\"]"
+    ]
+  },
+  "kind": "read",
+  "operation": "read",
+  "provenance": {
+    "definition_revision": "95dbd9c10a4d8218b9f5f27c0b8ff36586b7ad6d",
+    "manifest_digest": "sha256:e49e840cd47031a55883798ad436d8269b95a1f49f01165f91047fc456907222"
+  },
+  "provider": "shell",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/host-checks/%5B%22variables%22%2C%22PAID_API_TOKEN%22%2C%22OP_SERVICE_ACCOUNT_TOKEN%22%2C%22TZ%22%5D/01991ea6-b118-7c93-8d41-6b2f7ae05d09-0001.json (822 bytes)
+{
+  "definition": "host-checks",
+  "fields": {
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "PAID_API_TOKEN=<unset>\nOP_SERVICE_ACCOUNT_TOKEN=<unset>\nTZ=UTC\n"
+  },
+  "name": "[\"variables\",\"PAID_API_TOKEN\",\"OP_SERVICE_ACCOUNT_TOKEN\",\"TZ\"]",
+  "operation": "read",
+  "provenance": {
+    "definition_revision": "95dbd9c10a4d8218b9f5f27c0b8ff36586b7ad6d",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:e49e840cd47031a55883798ad436d8269b95a1f49f01165f91047fc456907222",
+    "procedure_revision": "5116f5800a7131bcff4cdbeb043049d164cbc079",
+    "repo_revision": "ddaa0369324d8ef431198028176e8b82aae29fd6"
+  },
+  "record_type": "observation",
+  "run_id": "01991ea6-b118-7c93-8d41-6b2f7ae05d09",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

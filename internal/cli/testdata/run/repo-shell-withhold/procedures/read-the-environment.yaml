@@ -1,0 +1,10 @@
+kind: procedure
+procedure: read-the-environment
+targets: [local]
+steps:
+  - id: environment
+    definition: host-checks
+    operation: read
+    target: local
+    args:
+      command: [variables, PAID_API_TOKEN, OP_SERVICE_ACCOUNT_TOKEN, TZ]

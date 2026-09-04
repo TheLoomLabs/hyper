@@ -389,20 +389,25 @@ not there to kill the group. `hyper` never claims to have stopped a command it s
 entry it leaves open says only that the Run's outcome is unknown — which is accurate about the Run and
 says nothing about the process.
 
-**A command sees the environment `hyper` was invoked with.** What `hyper` removes from the child is
-exactly the variables a Target declaration names as a credential slot, which it knows positionally
-(§11). Everything else passes through, `hyper` neither reading nor recording it, so a credential the
-repository does not name is reachable by any command and appears on no surface. The rule cuts the other
+**A command sees the environment `hyper` was invoked with, less what a declaration names.** What `hyper`
+removes from the child is exactly the variables a Target declaration names — as a credential slot, which
+it knows positionally, or in a `withhold:` list, which an author writes (§11, §3, ADR-0144). Everything
+else passes through, `hyper` neither reading nor recording it, so **a variable no declaration names is
+reachable by any command and appears on no surface**. That is the residue, and `withhold:` is what makes
+it a line an author did not write rather than a thing that could not be written: the common case is a
+wrapper's own credential — `OP_SERVICE_ACCOUNT_TOKEN` under `op run --` — which is strictly more
+powerful than the token it was fetching and which `hyper` has no position for. The rule cuts the other
 way too: a command needing a credential that *is* named cannot have it, and what is authored instead is
 a second variable holding a second secret, which is one more thing outside the record.
 
-**Bound to `local` itself, that removal is empty.** A declaration named `local` carries no `auth:` block
-at all (§3, ADR-0041), so it names no credential slot and there is nothing positional for `hyper` to
-take out of the child — the whole environment passes to a command run against the one Target a
-repository is likeliest to bind. What buys the removal back is a second class-local declaration naming
-the slots, which is the same plurality the `opaque-destroy:` opt-in uses to stop being one switch over
-every command in the repository. Both are reviewed artefacts an author writes or does not, and neither
-is a default.
+**Bound to `local` itself, the positional half of that removal is empty.** A declaration named `local`
+carries no `auth:` block at all (§3, ADR-0041), so it names no credential slot and there is nothing
+positional for `hyper` to take out of the child — the whole environment would otherwise pass to a
+command run against the one Target a repository is likeliest to bind. A `withhold:` on that same
+declaration is what answers it directly, `local` being allowed one precisely here; the older answer, a
+second class-local declaration naming the slots, is the same plurality the `opaque-destroy:` opt-in uses
+to stop being one switch over every command in the repository, and it remains available. All are
+reviewed artefacts an author writes or does not, and none is a default.
 
 **The Comparison prevents nothing.** It is an accountability instrument, never a guardrail, and it
 reports what changed rather than what is wrong (§8, ADR-0010). It says *this differs from when we

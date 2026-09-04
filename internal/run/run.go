@@ -417,7 +417,7 @@ func Perform(request Request) Answer {
 	// this Run's — every credential-slot variable any Target declaration
 	// names, whether or not a Step reached it — so it is decided offline and
 	// does not turn on which Steps a Run walked (§3, §11, gates.go).
-	inFlight.environment = capability.Inherited(request.Environ(), credentialVariables(loaded))
+	inFlight.environment = capability.Inherited(request.Environ(), withheldVariables(loaded))
 	answer := Answer{Started: started, Run: inFlight.id, Identified: true, Outcome: store.OutcomeCompleted, Provenance: provenance}
 
 	narrator := watching(request.Narrator)
