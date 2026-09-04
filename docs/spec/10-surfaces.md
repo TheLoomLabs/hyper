@@ -379,7 +379,9 @@ states. A Probe writes no Record and no Journal entry, has no Trigger, no
 Provenance and no Disposition, and can never be scheduled, sequenced into a Procedure, or used as a
 Comparison baseline (ADR-0009). Having no outcome triple, it terminates its row stream with `result`
 and never with `outcome` (§8). It may surface the raw response beside the projection `hyper` derived
-from it, which no credentialled surface does (ADR-0017).
+from it, which no credentialled surface does — and does not where the Operation declares secret
+output, the projection carrying the marker in each declared position and the response object being
+withheld whole with the marker in its place (ADR-0017).
 
 What it renders of that projection is **every position the Operation's `record:` block authored**: one
 FIELD/VALUE table per Record the response would have produced, the `identity:` at the head of each,
@@ -406,7 +408,9 @@ its members are read against that closed set and in its order, an unknown member
 naming the members that object carries, and `host` — `command` on a `shell` Operation — is required,
 being the member that survives where nothing came back at all (§12, ADR-0050). Header names are
 lowered as they are off the wire. What comes back is the projection above, with the supplied object
-under the RESPONSE heading marked as supplied.
+under the RESPONSE heading marked as supplied — or, where the Operation declares secret output, the
+heading marked as withheld and the marker beneath it, a caller who supplied the object already
+holding it and `hyper` having no business writing it back to a terminal or a tool result (ADR-0017).
 
 **Every rule the supplied form lifts bounded a request leaving this machine.** There is no request, so
 the Kind rule, the opaque rule and the host grant below are vacuous rather than skipped, and an
@@ -1404,7 +1408,8 @@ probe(provider, operation, inputs?, response?)
 //            supplied: false,     // whether the response was handed over rather than fetched
 //            projection: [ … ],   // what hyper derived, in the shape the Records would have held
 //            unresolved: [ … ],   // every authored path that resolved to nothing
-//            response: { … } }]   // the raw response beside it (ADR-0017)
+//            response: { … } }]   // the raw response beside it, and the string "<secret>"
+//                                  // where the Operation declares secret output (ADR-0017)
 ```
 
 A Probe is available here, `read` Kind against `local` only — or, where `response` supplies the object,

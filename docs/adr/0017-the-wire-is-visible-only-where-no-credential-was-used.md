@@ -13,6 +13,19 @@ and writing no Record and no Journal entry, so there is no secret in the request
 response to leak into. That is a door rather than a loophole, on the same reasoning ADR-0009 already
 used.
 
+**Amended by ADR-0142:** this said a Probe may surface the raw response, full stop, and it was written with the
+*request* in view — a Probe holds no credential, so the one thing `hyper` must not render was absent
+by construction. A `secret:` field is a second position and it arrives in the **response**. An
+Operation declaring one, probed against a supplied object (ADR-0108) or against an unauthenticated
+host that answers with one, rendered that value in the FIELD/VALUE table and in
+`probe_result.response` — a terminal, an Actions log, and the tool result an agent reads back. So the
+projection now carries the constant marker in the position, as a Record's does (§7), and **where the
+Operation declares any secret output the response object is withheld whole**, the marker standing in
+its place. Withheld rather than blanked at the positions `secret:` names: that is the second option
+below, rejected there on the guarantee and rejected still, and the path grammar has a reader and no
+writer besides — blanking would need a second traversal of it, which is the second spelling this tool
+declines everywhere else.
+
 ## Considered options
 
 - **A global verbose or debug flag that prints requests and responses.** The obvious answer, and the
@@ -22,7 +35,9 @@ used.
 - **Dumping only fields the Manifest did not declare secret.** Rejected: it inverts the guarantee.
   Declared-only redaction is safe precisely because the projection is a closed allowlist; applying it
   to the whole response body makes it a denylist, and a denylist over hostile input is the advisory
-  scan this project refuses to perform anywhere else.
+  scan this project refuses to perform anywhere else. *Revisited by ADR-0142*, which closed the
+  same hole from the other side, and it stands: what changed is that the object is withheld whole
+  rather than rendered minus something, which needs no denylist and reads no position.
 - **A scrubber over the response body.** Rejected for the same reason ADR-0007 rejected scrubbing
   credentials out of requests: suppression works positionally, and there are no positions here.
 
@@ -39,5 +54,10 @@ used.
 - **Authoring against a public unauthenticated API is now the tightest loop on the map**, joining the
   static Manifest checks and `check`/`review`. Authoring against a credentialled API is exactly as
   hard as it was.
+- **An Operation that declares secret output is still probeable, and its projection still legible.**
+  That is what the amendment above buys over refusing such a Probe outright: one `secret:` field
+  beside twenty ordinary ones is the common shape, and an author who cannot rehearse the twenty is an
+  author who comments out the `secret:` line to debug. What they give up is the response block, and
+  what stands in for it is `unresolved`, which names every authored path that resolved to nothing.
 - **This does not close the standing question of whether a Manifest correctly describes its API.** It
   makes the cheap half cheap and leaves the rest where it was.

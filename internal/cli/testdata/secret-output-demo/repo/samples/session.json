@@ -1,0 +1,9 @@
+{
+  "host": "status.hyper.dev",
+  "status": 200,
+  "headers": {"content-type": "application/json"},
+  "body": {
+    "token": "hcloud-live-9f3a2b7c4d1e5a8b",
+    "expires_at": "2026-09-11T00:00:00.000Z"
+  }
+}

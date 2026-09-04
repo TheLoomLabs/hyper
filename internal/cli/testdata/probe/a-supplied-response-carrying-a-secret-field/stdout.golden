@@ -1,0 +1,8 @@
+FIELD       VALUE
+identity:   status.hyper.dev
+host        status.hyper.dev
+token       <secret>
+expires_at  2026-09-11T00:00:00.000Z
+
+RESPONSE  (withheld; session read_session declares secret output)
+<secret>

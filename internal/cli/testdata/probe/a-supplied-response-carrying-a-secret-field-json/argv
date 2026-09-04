@@ -1,0 +1,1 @@
+hyper probe session read_session --input host=status.hyper.dev --response=samples/session.json --repo-dir ../../secret-output-demo/repo --json
