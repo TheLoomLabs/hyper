@@ -215,7 +215,7 @@ func RunProbe(args []string, to destination, process Process, wd, binaryVersion 
 		}
 	}
 
-	rows := []render.Row{probeRow(providerName, operationName, false, reading.Over, reading.Against(inputs, response), response)}
+	rows := []render.Row{probeRow(providerName, operationName, false, reading.Over, reading.Against(inputs, response), response, operation.SecretFields)}
 
 	// The terminal row is `result` and never `outcome`: a Probe has no
 	// outcome triple to report (§8, §9, ADR-0009). It carries no truncation
@@ -599,7 +599,7 @@ func probeSupplied(supply probeSupply) int {
 		return ExitUsage
 	}
 
-	rows := []render.Row{probeRow(supply.provider, supply.operation, true, supply.reading.Over, supply.reading.Against(inputs, response), response)}
+	rows := []render.Row{probeRow(supply.provider, supply.operation, true, supply.reading.Over, supply.reading.Against(inputs, response), response, supply.info.SecretFields)}
 	if code := writeAnswer("probe", supply.to, rows, render.NewResultRow(false), writeProbePage); code != 0 {
 		return code
 	}
@@ -700,7 +700,17 @@ type probeResultRow struct {
 	Supplied   bool                  `json:"supplied"`
 	Projection []projection.Record   `json:"projection"`
 	Unresolved []projection.Position `json:"unresolved"`
-	Response   capability.Object     `json:"response"`
+	// Response is the raw response beside the projection, and the marker
+	// string in its place where the Operation declares secret output.
+	//
+	// It is withheld **whole** rather than blanked in the positions
+	// `secret:` names. The path grammar has a reader and no writer: blanking
+	// a position means a second traversal that resolves paths in order to
+	// mutate them, and two spellings of one grammar is the shape this tool
+	// declines everywhere else (§12). Withholding is also the stronger
+	// answer — an author who needs to know which path failed reads
+	// `unresolved`, which names every one of them (§9, ADR-0007, ADR-0017).
+	Response any `json:"response"`
 	// over is the collection path an Operation of `series` cardinality
 	// projected over, and "" under `one`. It is the page's and not the
 	// wire's: what the row states is what resolved, and the path that named
@@ -716,18 +726,52 @@ type probeResultRow struct {
 // probeRow is one Probe's answer, built the same way whether the response was
 // fetched or supplied. The two forms differ in how the object was come by and
 // in nothing about how it is read: one Manifest, one grammar, one page.
-func probeRow(provider, operation string, supplied bool, over string, reading projection.Reading, response capability.Object) probeResultRow {
-	return probeResultRow{
+func probeRow(provider, operation string, supplied bool, over string, reading projection.Reading, response capability.Object, secret map[string]bool) probeResultRow {
+	row := probeResultRow{
 		Type:       "probe_result",
 		Provider:   provider,
 		Operation:  operation,
 		Supplied:   supplied,
-		Projection: reading.Records,
+		Projection: suppressed(reading.Records, secret),
 		Unresolved: reading.Unresolved,
 		Response:   response,
 		over:       over,
 		overIsList: reading.OverIsList,
 	}
+	if len(secret) > 0 {
+		row.Response = artefact.SecretMarker
+	}
+	return row
+}
+
+// suppressed is the projection with every field the Manifest declares `secret:`
+// written as the constant marker in the position the value would occupy — the
+// same suppression a Run makes on the way to the Store, at the one other
+// surface that renders a projection (§7, §9, ADR-0007).
+//
+// A Probe writes no Record, so nothing here is about the Store: what it keeps
+// out is a terminal, an Actions log, and the tool result an agent reads back.
+// The marker is `artefact`'s constant and not a second spelling of it, on the
+// rule §7 states for the Store's — one marker, so a reader who has met it once
+// has met it everywhere.
+func suppressed(records []projection.Record, secret map[string]bool) []projection.Record {
+	if len(secret) == 0 || len(records) == 0 {
+		return records
+	}
+
+	written := make([]projection.Record, 0, len(records))
+	for _, record := range records {
+		fields := make(projection.Fields, 0, len(record.Fields))
+		for _, field := range record.Fields {
+			if secret[field.Name] {
+				field.Value = artefact.SecretMarker
+			}
+			fields = append(fields, field)
+		}
+		record.Fields = fields
+		written = append(written, record)
+	}
+	return written
 }
 
 // Cells is empty: the row is a page of blocks rather than a line in a table of
@@ -856,7 +900,20 @@ func collectionCount(result probeResultRow) string {
 // different claims about the world, and a page that rendered them identically
 // would let one be read as the other (ADR-0108).
 func writeProbeResponse(w io.Writer, result probeResultRow) error {
-	response, err := result.Response.MarshalJSON()
+	// The marker in the object's place is the Operation declaring secret
+	// output, and the heading says so rather than leaving a reader to read a
+	// withheld response as an empty one.
+	if withheld, isMarker := result.Response.(string); isMarker {
+		_, err := fmt.Fprintf(w, "RESPONSE  (withheld; %s %s declares secret output)\n%s\n",
+			result.Provider, result.Operation, withheld)
+		return err
+	}
+
+	object, isObject := result.Response.(capability.Object)
+	if !isObject {
+		return nil
+	}
+	response, err := object.MarshalJSON()
 	if err != nil {
 		return err
 	}

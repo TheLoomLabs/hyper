@@ -1,0 +1,2 @@
+{"type":"probe_result","provider":"session","operation":"read_session","supplied":true,"projection":[{"identity":"status.hyper.dev","fields":{"host":"status.hyper.dev","token":"\u003csecret\u003e","expires_at":"2026-09-11T00:00:00.000Z"}}],"unresolved":[],"response":"\u003csecret\u003e"}
+{"type":"result","truncated":false}
