@@ -415,17 +415,23 @@ key beside it.
 case carries its own `bin/`, so the argv a Step runs resolves against the
 fixture and not against the machine, and what the tool reaches is a real child
 process. Two cases here carry a `-json` twin that was written for them —
-this one and `a-sink-supplied-refuses-like-one-withheld` — because the row-pairing fence
+this one and `a-secret-reaches-the-sink` — because the row-pairing fence
 holds an envelope's row against the streams the corpus writes, and a fixture
 only this surface drives has none.
 
-`a-secret-sink-names-every-step` is the guardrail the sink exists for: the Run
-Refuses before Step 1 naming **every** Step that declares secret output.
-`a-sink-supplied-refuses-like-one-withheld` is the other side — a `secret_sink`
-supplied, and the same Refusal, no hyper writing the file the argument names
-(`secret-sink-unwritten`, issue #266). It completed until that was stated, and
-what it was really for is still true of it: what is *not* in its envelope is a
-secret, under any key, the output schema being closed over the members §9 names.
+`a-secret-sink-names-every-step` is the guardrail the sink exists for: no
+`secret_sink`, and the Run Refuses before Step 1 naming **every** Step that
+declares secret output (`secret-sink-absent`). `a-secret-reaches-the-sink` is
+the other side — the same repository with a `secret_sink` supplied, the Run
+completing, and the value landing in the directory the argument named
+(ADR-0148). What it is really for is what is *not* in its envelope: a secret,
+under any key, the output schema being closed over the members §9 names. That
+claim was worth making while the Run Refused and is worth more now that it
+completes, the value having somewhere to be and that somewhere not being here
+(issue #266, issue #270). Its `sink.golden` is where the value is asserted to
+have arrived, on the same footing as the argv corpus's — this surface writes the
+sink through the same command, so one golden shape serves both (§10).
+
 Its sink is a relative path because a golden cannot hold an absolute one; §9
 describes the argument as absolute, and what the command does with either is
 resolve it against the process's working directory.
@@ -444,7 +450,11 @@ sink's own state (§9, tools.go). The other five are the command's own
 sentences, forwarded: a positional that is not a Procedure, one that is a
 Definition, one written as a path — this tool takes a Procedure's **name** and
 `review`'s two forms are `review`'s (ADR-0090) — a sink named `-`, and a sink
-inside the repository working tree. Each of the last two names `--secret-out`
+inside the repository working tree. The third of the flag's faults — a path
+something is already standing at — is driven on the argv side alone, its case
+needing a path the corpus itself checked in (`run/usage-secret-out-at-a-path-
+already-there`); the message it forwards is the same sentence composed by the
+same function. Each of the last two names `--secret-out`
 where the argument is `secret_sink`, which is the rule rather than a rough edge
 — a usage error's message is the sentence a person would have read, and the
 truncation marker's hint is the only wording §9 spells differently between the

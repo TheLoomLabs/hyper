@@ -334,6 +334,27 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 				names = append(names, concluded.name)
 				records = append(records, concluded.fields)
 
+				// **The sink, before the version.** The value
+				// is in hand here and nowhere later — the
+				// mapping beside it already holds the marker —
+				// and a Run that wrote the Record and then
+				// could not write the secret would be the loss
+				// this whole mechanism exists to end (§9,
+				// ADR-0007, ADR-0148, sink.go).
+				//
+				// It is written for every Record the Step
+				// **concluded about** and past the collision
+				// check, so the sink and the identity set name
+				// one set of Records: a member whose identity
+				// collided is written to neither, having no
+				// name of its own to be written under.
+				//
+				// A failure halts the Run like any other: a
+				// secret produced and not delivered is not a
+				// Run that completed.
+				if err := r.sink().write(position, concluded.name, concluded.secrets); err != nil {
+					return Step{}, nil, err
+				}
 				if err := r.minted(bound, authored, position, provenance, identity, concluded); err != nil {
 					return Step{}, nil, err
 				}
@@ -658,6 +679,17 @@ func resolve(loaded repository.Loaded, authored sequenced) (binding, error) {
 type conclusion struct {
 	name   string
 	fields store.Mapping
+	// secrets is what the Operation's `secret:` fields projected to, by
+	// field name, and nil where it declared none — the one thing about a
+	// Record that the Store deliberately does not hold and the Secret sink
+	// does (§7, §9, ADR-0007, ADR-0148).
+	//
+	// It travels the same path the response object already travelled, so it
+	// widens no window: what came off the wire held the value, and this is
+	// that value carried the last few lines to the sink rather than a second
+	// copy taken somewhere it was not. It is read once, at the Step, and
+	// reaches nothing else — no Step file, no version, no Answer (step.go).
+	secrets map[string]string
 	// at is where this Record was read out of the response: its position in
 	// the collection an Operation of `series` cardinality named, counted
 	// from 1 across the member's whole walk, and 0 on an Operation of `one`
@@ -843,7 +875,8 @@ func (r run) concluded(bound binding, authored sequenced, reading projection.Pro
 				"step %s: the identity path %s did not resolve against what came back, so hyper cannot say which Record it is holding",
 				named(authored), bound.operation.Identity)
 		}
-		return []conclusion{{name: name, fields: projected(bound.operation, reading.Project(response))}}, nil
+		fields, secrets := projected(bound.operation, reading.Project(response))
+		return []conclusion{{name: name, fields: fields, secrets: secrets}}, nil
 	}
 
 	members, resolved := projection.Collection(reading.Over, response)
@@ -861,10 +894,12 @@ func (r run) concluded(bound binding, authored sequenced, reading projection.Pro
 				"step %s: the identity path %s did not resolve against record %d of %s, so hyper cannot say which Record it is holding",
 				named(authored), bound.operation.Identity, already+at+1, reading.Over)
 		}
+		fields, secrets := projected(bound.operation, reading.Project(item))
 		held = append(held, conclusion{
-			name:   name,
-			fields: projected(bound.operation, reading.Project(item)),
-			at:     already + at + 1,
+			name:    name,
+			fields:  fields,
+			secrets: secrets,
+			at:      already + at + 1,
 		})
 	}
 	return held, nil
@@ -1049,19 +1084,43 @@ func (r run) credential(bound binding, target string) capability.Credential {
 //
 // A field whose path resolved to nothing is not here at all — absence is the
 // answer, and the field not being written is what carries it (§6, §12).
-func projected(operation artefact.OperationInfo, fields projection.Fields) store.Mapping {
+//
+// **It answers the suppressed values beside the mapping, and this is the one
+// place in the tool where a declared secret is in hand.** The marker replaces
+// the value here; a caller that wanted the value and asked afterwards would be
+// asking a mapping that no longer holds one, and a Run that never asked is the
+// Run that destroyed what it was invoked for (issue #266, ADR-0146). What the
+// caller does with them is write them to the Secret sink and nothing else, that
+// being the only route out of `hyper` a secret has (§9, ADR-0007, sink.go).
+//
+// They are answered as **text** — a string as itself and anything else as the
+// JSON it is — which is what a projected value reads as on every surface that
+// renders one, and what the sink's own file therefore holds (projection.Text,
+// §9). The suppression is unchanged: what crosses into the Store is the marker
+// whether or not a sink was named.
+//
+// A field the Store cannot hold is in neither answer. The sink carries what the
+// Record carries, so *a value hyper wrote down* and *a value hyper handed over*
+// are one set, and a reader finding no file under a name knows the Record
+// carries no field there either (§7, value.go).
+func projected(operation artefact.OperationInfo, fields projection.Fields) (store.Mapping, map[string]string) {
 	mapping := store.Mapping{}
+	var secrets map[string]string
 	for _, field := range fields {
 		value, holdable := stored(field.Value)
 		if !holdable {
 			continue
 		}
 		if operation.SecretFields[field.Name] {
+			if secrets == nil {
+				secrets = map[string]string{}
+			}
+			secrets[field.Name] = projection.Text(field.Value)
 			value = store.Secret(value)
 		}
 		mapping[field.Name] = value
 	}
-	return mapping
+	return mapping, secrets
 }
 
 // mints says whether this version's content differs from what the series' head

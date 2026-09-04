@@ -1,0 +1,5 @@
+STEP  ID      KIND  DISPOSITION  RECORDS
+1     status  read  ran          1
+2     cert    read  ran          1
+
+completed · exit 0 · run 01991fa0-1111-7222-8333-444455556666

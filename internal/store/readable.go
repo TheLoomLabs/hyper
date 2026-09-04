@@ -95,7 +95,7 @@ func (u Unreadable) Error() string { return u.File + ": " + u.SchemaUnsupported.
 func (s *Store) Readable(pairs []Pair) (Unreadable, bool, error) {
 	prefixes := []string{journalPrefix}
 	for _, pair := range sortedPairs(pairs) {
-		prefixes = append(prefixes, recordsPrefix+encodeSegment(pair.Target)+"/"+encodeSegment(pair.Definition)+"/")
+		prefixes = append(prefixes, recordsPrefix+EncodeSegment(pair.Target)+"/"+EncodeSegment(pair.Definition)+"/")
 	}
 
 	for _, prefix := range prefixes {

@@ -166,9 +166,18 @@ names one in a **`repo-from`** file instead, and the ones here are:
   static fault in each of §3's five artefacts, plus a clean one-Step Procedure
   to run. `check` re-runs in full at Run start, so a Run of the clean
   Procedure Refuses with all five.
+- [`repo-secret/`](repo-secret) — the Secret sink's repository: a `session`
+  Manifest whose one `read` Operation declares `secret: [token]`, and two
+  Procedures — one Step against one host, and one Step expanding over two. The
+  second is what makes *a Step that expands produces one secret per member* a
+  case rather than a sentence, and it is a Procedure here rather than a
+  repository of its own because both halves are the same Operation's (ADR-0148).
 - [`repo-two-secrets/`](repo-two-secrets) — `repo-secret` with a second Step
   whose Operation also declares `secret:` output, for the gate that names
-  **every** such Step rather than the first.
+  **every** such Step rather than the first — and, with a sink supplied, for the
+  two directories one Run fills (ADR-0148). Its Operation declares `deadline: 1s`
+  for `repo-drain`'s reason: a number an artefact declared is a number a case can
+  drive to, and the halt that leaves a partly filled sink is one of them.
 - [`repo-two-reads/`](repo-two-reads) — `repo-watch-status` with its one-Step
   Procedure replaced by a two-Step one, both `read`, one host each. Two is the
   smallest number of Steps that can tell one push at the end from a push per
@@ -341,7 +350,11 @@ drives.
 | `a-working-tree-that-moved` | an artefact the Run read differs from `HEAD`, so the entry carries `repo_dirty: true` and the Provenance names the working tree's blob — and its `stderr.golden` carries §9's one conditional narration line, beneath the id and above the first `step` (ADR-0119) |
 | `an-untracked-artefact-is-dirty` | the other half of the same sentence: the Definition the Step binds is not committed at all, and the entry says so — with the same warning above the first Step |
 | `a-run-on-a-runner` | the Trigger's other executor: `cause: cron`, the occasion, and no `host` |
-| `a-sink-supplied-refuses-like-one-withheld`, `-json` | a Manifest declaring `secret:`, with `--secret-out` supplied — and the Run Refuses all the same: no hyper writes the file, so the sink gate reads the Steps and not the flag (`secret-sink-unwritten`, `77`, issue #266, ADR-0146). It completed here until the sink's format was found to be undecided, and the marker it wrote to the Store was the loss the Refusal now states. The `-json` half carries the same Run's rows and exists so that the second surface's twin has one to be paired against (`mcp/run/`, issue #200) |
+| `a-secret-reaches-the-sink`, `-json` | a Manifest declaring `secret:`, with `--secret-out` supplied, and the value arriving: the Step *ran*, the Record holds the constant marker, and `sink.golden` holds `0001/status.hyper.dev/token` at `0600` with the token's own bytes (ADR-0148, issue #270). It is the case the whole sink exists for, and the one that spent a release Refusing while nothing wrote the file (issue #266, ADR-0146) — the Store half read identically then, which is why only the fourth golden can tell the two apart. The `-json` half carries the same Run's rows and exists so that the second surface's twin has one to be paired against (`mcp/run/`, issue #200) |
+| `two-secret-steps-fill-two-directories` | the reason the sink is a directory: one Procedure, two Steps declaring secret output, two hosts, and one sink holding `0001/status.hyper.dev/token` beside `0002/cert.hyper.dev/token`. *One secret, one file* could not have expressed it without a new §4 rule refusing the second Step (ADR-0148) |
+| `an-expansion-fills-one-directory-per-member` | the second reason: **one** Step, expanding over two members, and one directory per member under the one `0001/` — the values are two because the Records are two, and the Step is one |
+| `a-halt-leaves-the-secrets-it-already-wrote` | the case that decided *when* the file is written: Step 1's secret lands, Step 2 reaches the Operation's `deadline:`, and the Run is `failed` at `1` with `0001/status.hyper.dev/token` in the sink and **nothing** under `0002/`. Writing at the Run's end would have discarded what Step 1 produced, which is ADR-0146's loss one gate later; an empty directory reads as nothing where an empty file would read as a value (ADR-0148) |
+| `a-rehearsal-fills-the-sink-it-was-given` | the sink under `--dry-run`: a rehearsal performs the reads it reaches, so a `read` declaring `secret:` output produces a value and the value lands. It is the completing half of `a-rehearsal-earns-no-sink-exemption` below — the rehearsal is exempt from neither the gate nor the write |
 | `a-host-that-answered-nothing` | the `read` that never halts on what came back: the host is granted and the case serves it nothing, so the Observation records the silence and the Run completes at `0` |
 | `a-run-halted-by-its-step` | a Run the world resisted: `failed`, exit `1`, the Step *ran* with the set it concluded about, and the entry left where it stopped |
 | `what-the-run-wrote-reaches-the-remote` | the Run's own commits go out and `remote.golden` shows what arrived |
@@ -442,8 +455,8 @@ drives.
 | `one-slot-two-definitions` | two Definitions binding one Target under one scheme require **one** slot between them, so an absent variable earns one member of the array and not one per binding |
 | `a-header-scheme-reaches-the-wire` | the `header:` scheme end to end: the Manifest's `name:` and `prefix:`, the variable the Target declaration names, and what arrived at the far end |
 | `a-basic-scheme-reaches-the-wire` | the same for `basic:`, whose position and base64 composition are the scheme's and never a Manifest's |
-| `a-secret-sink-names-every-step`, `-json` | the sink gate: two Steps declaring secret output, both named at once, neither of them run — the same Refusal its sibling above earns with a sink supplied |
-| `usage-secret-out-to-stdout`, `-inside-the-repository`, `-with-no-path` | the three things `--secret-out` will not take, all `2` and all carrying no `error_code` |
+| `a-secret-sink-names-every-step`, `-json` | the sink gate: two Steps declaring secret output, **no** `--secret-out`, both named at once and neither of them run (`secret-sink-absent`, `77`). Its sibling above is the same repository with a sink supplied, and completes |
+| `usage-secret-out-to-stdout`, `-inside-the-repository`, `-with-no-path`, `-at-a-path-already-there` | the four things `--secret-out` will not take, all `2` and all carrying no `error_code`. The last is the rule the directory shape rests on — the sink is one `hyper` makes, so that every file under it is this Run's — and it is the one case in the corpus carrying a `sink-occupied` marker instead of a `sink.golden`, its path being a fixture repository the corpus itself checked in |
 | `a-member-that-reaches-the-deadline`, `-json` | the drain (issue #140): three members, the middle one reaching the Operation's `deadline:`, **every** member attempted, the two Observations that succeeded committed, the Step *ran* with the set it concluded about, `RECORDS` reading `2 of 3` and naming no member, and the `step` row carrying `expanded` beside `records` |
 | `a-field-that-went-quiet` | a recorded field's path resolving to nothing is an **absence** and not a fault: the seeded head carries `note`, the answer does not, and the Run mints a second version **without** it and completes at `0` — the bytes moved, so the field going quiet renders as a change like any other |
 | `a-collection-path-that-does-not-resolve` | the other half of that distinction: an Operation of `series` cardinality whose `over:` names a path the response does not carry. The Run halts at `1`, the Step is *ran* with an empty set, and its file carries `projection_failed_path` — without it `hyper` could not tell a collection that was empty from a path that was wrong |
@@ -482,7 +495,7 @@ drives.
 | `a-deadline-is-not-retried` | the other exclusion: a host that hangs, under the same Operation. The deadline halts the Step at `1` and no second attempt is made — a connect timeout is outside ADR-0018's class, and the Operation's own deadline is `hyper` stopping |
 | `four-paginated-members-under-a-limit-of-four` | an Expansion of four under `concurrency: 4`, each member walking three pages: twelve Observations and `pages: 12`. What the limit reached and what it did not is [`../../run_pattern_test.go`](../../run_pattern_test.go)'s |
 | `a-rehearsal-performs-the-reads-it-reaches`, `-json` | `--dry-run` over a Procedure of two `read` Steps: every read it reaches is performed, both Observations are recorded as ordinary versions carrying **no** marker of their own, the entry carries `dry_run: true`, the terminal line reads `completed · dry-run · exit 0`, and the `outcome` row carries the marker on the wire |
-| `a-rehearsal-earns-no-sink-exemption` | the sink gate carries no `--dry-run` exemption: a rehearsal reaching two Steps declaring `secret:` output Refuses `secret-sink-unwritten` at `77` — the marker is on the line and on the entry, and a rehearsal that Refuses is not a rehearsal that completes (§9, issues #137, #266) |
+| `a-rehearsal-earns-no-sink-exemption` | the sink gate carries no `--dry-run` exemption: a rehearsal reaching two Steps declaring `secret:` output and given no sink Refuses `secret-sink-absent` at `77` — the marker is on the line and on the entry, and a rehearsal that Refuses is not a rehearsal that completes (§9, issues #137, #266). `a-rehearsal-fills-the-sink-it-was-given` is the same rehearsal with a sink, and it completes |
 | `a-rehearsal-stops-at-the-first-effect`, `-json` | `--dry-run` over `read`, `mutate`, `read` (issue #155): the `read` in front of the effect **ran** and its Observation is on the branch, the `mutate` is *never reached* and so is the `read` behind it, neither writes a Step file, the page names the withheld Step and says the Run stopped, and the outcome is `completed` at `0`. The `-json` half is the same Run's rows: three `step` rows, the Run-wide `provenance` and the one Step's, and the `outcome` row carrying `dry_run: true` — and the withheld `mutate`'s row is the one carrying `withheld: true`, which is where the page's sentence is on the wire (§8, ADR-0091, issue #206) |
 | `a-rehearsal-withholds-a-destroy` | the same stop on the other effectful Kind, against a branch seeded with the Asset the selector would have reached: the `destroy` is withheld before its Expansion resolves, and the branch holds that Asset's one version and **no Tombstone** |
 | `a-rehearsal-stops-before-the-condition`, `a-guarded-effect-a-real-run-skips` | **the Kind is the whole of the test**, driven from both sides over one Procedure whose `mutate` carries a `when:` that does not hold. The rehearsal stops at that `mutate` all the same, so the `read` behind it is *never reached*; the same Procedure without the flag skips the `mutate` **by condition** and reaches that `read`. Deciding the `when:` here would be `hyper` reporting that a `mutate` *would* have been skipped, which is the prospective rendering ADR-0010 declines |
@@ -621,10 +634,10 @@ no `String` and no `MarshalJSON`, and its only path is the environment, through
 the composed header, onto the wire.
 
 A real Manifest would name that projected field in `secret:`, and a Run that
-reached it would Refuse before Step 1 —
-[`a-sink-supplied-refuses-like-one-withheld`](a-sink-supplied-refuses-like-one-withheld)
-is that case, and the Store's constant marker is what it wrote until nothing
-turned out to write the sink (issue #266). These two deliberately do not, because a marker proves nothing
+reached it would write the Store's constant marker and hand the value to the
+Secret sink —
+[`a-secret-reaches-the-sink`](a-secret-reaches-the-sink)
+is that case. These two deliberately do not, because a marker proves nothing
 about what left, and what left is the only thing they are for. Their values are
 each case's own `env` file and are spelled to be unmistakable in both
 directions: nothing under `repo-credentialled/` is a credential and neither is

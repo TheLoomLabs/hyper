@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "headers": {"Content-Type": "application/json"},
+  "body": "{\"token\":\"sk-live-4d7c1e0aa2\",\"expires_at\":\"2026-05-01T09:41:14Z\"}"
+}

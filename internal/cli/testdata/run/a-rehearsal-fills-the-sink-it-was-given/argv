@@ -1,0 +1,1 @@
+hyper run read-session --dry-run --secret-out ../session-token

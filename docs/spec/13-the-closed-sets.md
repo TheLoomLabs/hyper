@@ -446,8 +446,8 @@ artefact coordinate rather than an execution fact (§7, ADR-0061). Only `bound-e
 `run-once-recorded`, `record-identity-collision`, §6's `predicate-type-mismatch` and §6's
 `schema-mismatch` require a Step to
 have been reached at all — `record-identity-collision` at its Expansion site, its two authored sites
-reaching a Run the way §4's thirty-two do. `secret-sink-unwritten` is not among them and could have
-been: its operand is in hand at Run start, so it is stated as the Run's gate rather than the Step's,
+reaching a Run the way §4's thirty-two do. `secret-sink-absent` is not among them and could have
+been: its operands are in hand at Run start, so it is stated as the Run's gate rather than the Step's,
 and the reason is not tidiness — declining at the Step under a Cadence would run the Steps before it
 at every occurrence and never reach the tail (§6, ADR-0077).
 
@@ -530,21 +530,21 @@ all three checked before a Run's first Step and all three reported exhaustively 
 `credential-absent`, a credential a Target declaration names and the environment does not
 hold, reported for every absent slot at once; `credential-empty`, a credential the environment does hold
 and sets to the empty string, reported the same way and out of the same pass; and
-`secret-sink-unwritten`, a Run reaching a Step whose Operation declares secret output, this hyper
-having no Secret sink to put the value in, reported for every such Step at once (§6, ADR-0007,
-ADR-0146). It carries no Kind axis and no `--dry-run` exemption, a `read`
+`secret-sink-absent`, an invocation supplying no Secret sink where the Procedure reaches a Step whose
+Operation declares secret output, reported for every such Step at once (§6, ADR-0007,
+ADR-0148). It carries no Kind axis and no `--dry-run` exemption, a `read`
 declaring secret output being reached by a rehearsal and producing one.
 
-The third stands where a different code stood. `secret-sink-absent` — an invocation supplying no sink
-where the Procedure reaches such a Step — was this set's member until the sink's format was found to be
-undecided and the file written by nothing (issue #266). While nothing writes it, a sink named and a
-sink withheld are the same Run: a set holding both would hold one code no binary can produce and one
-remedy that ends on another `77`, where `77`'s promise is that a verbatim retry refuses identically.
-`secret-sink-absent` returns **in its place** when the sink is written, the count above holding either
-way and the two never standing in this set together. It is also the one of the three whose subject is
-not the occasion but the **binary** — the other two are what this invocation did or did not supply, and
-this one is what no build of `hyper` can yet do — which is why §8 renders it a different binary and not
-a different invocation.
+All three are the **occasion's** supply — two variables the environment was to hold, one path the
+command line was to name — and all three carry a remedy the operator can take without editing anything.
+
+The third stood down for one release and is back. While nothing wrote the sink at all, a sink named and
+a sink withheld were the same Run, and what stood here instead was `secret-sink-unwritten`, whose
+subject was the **binary** and whose remedy was therefore a different one: a set holding both would have
+held one code no build could produce and one remedy that ends on another `77`, where `77`'s promise is
+that a verbatim retry refuses identically (issue #266, ADR-0146). The writer separates the operands
+again, so `secret-sink-absent` stands **in its place**, the count above holding either way and the two
+never standing in this set together (issue #270).
 
 The first two are one gate reading one variable and they are **two codes rather than one code with two
 messages**, on the same test that split the two Cadence codes above: a reader handed `credential-absent`
@@ -734,6 +734,13 @@ above, so it never occurs in an encoding and the suffix is unambiguous.
 The encoding names a file and orders nothing. An Expansion is ordered by the Record `name` itself (§6,
 ADR-0044), which a listing of one of these directories is not: escaping drags every escaped character
 to the left of every unreserved one, so `Über-vm` sorts after `zone-a` by name and before it by path.
+
+**The Secret sink borrows `<nnnn>` and this encoding and is not a path in this grammar** — it is not on
+the Store branch and never reaches one, which is the whole point of it (§9, ADR-0007, ADR-0148). What it
+borrows it borrows exactly: a Record's `name` under `cat "$sink/0001/<name>/<field>"` and the same
+Record's name under `hyper records --name` are one name, and a Step is numbered by the position §12
+already numbers it by rather than by an authored id, which two invocations of one Procedure give two
+Steps one of.
 
 ## The predicate operators
 

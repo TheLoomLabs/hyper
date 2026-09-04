@@ -58,16 +58,18 @@ to the Journal like any other. The rule holds for outputs as well as inputs: a
 Manifest declares which output fields are secret, and the Record carries a
 redaction marker with *presence only* — no digest, no length, because a digest of
 a human-chosen secret is an offline-crackable oracle. Secret-valued output
-requires a sink the invocation supplies, and a sink path inside the repository
-working tree is refused — though **nothing writes the file yet**, and a Run that
-would need one Refuses rather than completing. `--secret-out` is accepted and its
-faults are refused, and the §6 gate reads the Steps rather than the flag: a Run
-reaching a Step that declares secret output declines whether a sink was named or
-not (`secret-sink-unwritten`,
-[ADR-0146](docs/adr/0146-a-sink-nothing-writes-is-a-refusal-and-not-a-completed-run.md)).
-It is a loss the tool states rather than one it performs; the `0600` creation and
-the Refusal an *absent* sink earns both land with the format the sink has yet to
-be given.
+requires a sink the invocation supplies, and a Run reaching such a Step with none
+Refuses before its first Step (`secret-sink-absent`,
+[ADR-0148](docs/adr/0148-a-secret-sink-is-a-directory-hyper-makes-and-one-file-holds-one-value.md)).
+The sink is a **directory `hyper` creates** `0700`, holding one `0600` file per
+value at `<nnnn>/<name>/<field>` — the Step's position, the Record's name and the
+declared field — and it is the one route by which a secret value leaves `hyper`
+at all. Three paths are refused: `-`, because stdout lands in the same pipe a CI
+job logs; a path inside the repository working tree, because a secret written
+there is one `git add` away from the record; and a path something is already
+standing at, so that every file under a sink is that Run's and no stale value can
+be read as fresh. The file holds the value and nothing `hyper` added, and nothing
+reads it back — no Run parses it and it never reaches the Store.
 
 What `hyper` does write is a *reference*, never a value: `project` generates a
 workflow whose `env:` block names each variable as `${{ secrets.NAME }}`,

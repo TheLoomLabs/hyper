@@ -1,0 +1,2 @@
+hyper run: --secret-out ../repo-secret: something is already there
+  the sink is a directory hyper creates, so that every file under it is this Run's — name a path that is not there yet

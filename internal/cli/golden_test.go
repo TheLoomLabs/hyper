@@ -229,6 +229,16 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //   - actor and hostname, optional: who is running hyper and on which machine,
 //     which a Journal entry's Trigger carries — `actor` on both executors and
 //     `host` on `local`. Absent, the harness's stated constants.
+//   - sink.golden, optional: the Secret sink as it stands after the run — every
+//     node under the directory `--secret-out` (or `secret_sink`) named, in path
+//     order, with its permission bits, and each file's bytes beneath its header;
+//     or a stated line where no sink was made. It is the one place `hyper` writes
+//     that is outside the Store and outside the working tree both, and the only
+//     golden that can say a secret arrived rather than that a Step ran (§9,
+//     ADR-0148, issue #270). A case naming a sink must hold one, the single
+//     exception being a case carrying a `sink-occupied` marker: its sink is a
+//     path the corpus itself already holds, which is the only way to drive
+//     `--secret-out`'s third fault and leaves nothing of the run's to render.
 //   - tree.golden, optional: the places `hyper` writes as they stand after the
 //     run — `.github/workflows/`, `hyper.yaml` and `providers/` — every path
 //     under them with its exact bytes, and a stated line where one of the three
@@ -255,8 +265,8 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //
 // Its stdout.golden, stderr.golden and exit.golden are compared byte for byte,
 // and regenerated in place behind -update — or its envelope.golden, where the
-// case is a call; so are store.golden, remote.golden and tree.golden, where the
-// case supplies them.
+// case is a call; so are store.golden, remote.golden, tree.golden and
+// sink.golden, where the case supplies them.
 func TestGolden(t *testing.T) {
 	for _, c := range goldenCases(t) {
 		t.Run(c.name, func(t *testing.T) {
@@ -275,6 +285,7 @@ func TestGolden(t *testing.T) {
 
 			run.compareBranches(t, c.dir)
 			run.compareTree(t, c.dir)
+			run.compareSink(t, c.dir)
 		})
 	}
 }
@@ -544,6 +555,34 @@ func (r goldenRun) compareTree(t *testing.T, dir string) {
 	if r.inputs.treeGolden {
 		compareRendering(t, filepath.Join(dir, "tree.golden"), r.fixture.renderTree(t))
 	}
+}
+
+// compareSink holds the case's sink.golden against the Secret sink the run
+// left behind, on compareTree's own footing: opted into by the file being
+// there, and by the invocation naming a sink at all.
+//
+// It is the fourth golden and the one axis every other one is blind to. A Run
+// that produces a secret reports a Step that *ran* on both streams and writes a
+// Record holding the marker to the Store whether the value reached anywhere or
+// nowhere — which is exactly the reading that ratified a Run destroying what it
+// was invoked for (issue #266, ADR-0146). Only this golden can say the value
+// arrived, where it arrived, and under what mode (§9, ADR-0148).
+//
+// The sink is resolved against the working directory the case was driven from,
+// which is what makes `--secret-out ../session-token` in an argv the readable
+// thing it is: the path is relative to the fixture, and the fixture is somewhere
+// under a temp directory that no case could have written down.
+func (r goldenRun) compareSink(t *testing.T, dir string) {
+	t.Helper()
+
+	if !r.inputs.sinkGolden {
+		return
+	}
+	root := r.inputs.sink
+	if !filepath.IsAbs(root) {
+		root = filepath.Join(r.wd, filepath.FromSlash(root))
+	}
+	compareRendering(t, filepath.Join(dir, "sink.golden"), renderSink(t, root))
 }
 
 // compareRendering holds one rendered fixture — a branch, or the working tree —

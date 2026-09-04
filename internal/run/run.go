@@ -131,18 +131,29 @@ type Request struct {
 	// environment is a subtraction, and a set of names nothing enumerates is
 	// not a set anything can subtract from.
 	Environ func() []string
-	// There is no SecretSink here, and its absence is the state of the
-	// feature rather than an oversight. `--secret-out` is accepted at the
-	// command line and its three faults are refused there (§9,
-	// internal/cli/run.go), and no hyper writes the file: a Run reaching a
-	// Step whose Operation declares secret output Refuses on that fact alone
-	// (`secret-sink-unwritten`, gates.go, ADR-0146).
+	// SecretSink is the Secret sink: the directory a Step whose Operation
+	// declares `secret:` output writes its values into, and "" where the
+	// invocation named none — which on a Run reaching such a Step is
+	// `secret-sink-absent` at §6's gate (gates.go, sink.go, ADR-0148).
 	//
-	// So the engine is handed no path — a field the sink gate no longer
-	// reads would be the occasion's supply arriving here to be dropped, and
-	// this package holding one is what let a Run complete and destroy the
-	// value it was given a sink for (issue #266). It comes back with the
-	// format the file has yet to be given, and not before it.
+	// **It arrives absolute**, resolved by the surface that read it against
+	// that surface's working directory, for the reason every other read here
+	// is threaded: a path resolved in this package would be resolved against
+	// the process's own directory, which is the one fact the engine reaches
+	// for nothing (§9, internal/cli/run.go).
+	//
+	// The three faults the path itself can have are the command line's and
+	// are refused there, before this value is built: `-`, a path inside the
+	// repository working tree, and a path that is already there — the sink
+	// being a directory `hyper` makes, so that every file under one is this
+	// Run's (§9, ADR-0148).
+	//
+	// It was removed for one release and this is its return. Nothing wrote
+	// the file, so the field was the occasion's supply arriving here to be
+	// dropped — which is how a Run came to complete and destroy the value it
+	// was given a sink for (issue #266, ADR-0146). What earns it back is the
+	// writer.
+	SecretSink string
 
 	// Dial and Exec are the two Capabilities' performers. Neither is reached
 	// for: internal/capability is handed one, so a case exercises a real

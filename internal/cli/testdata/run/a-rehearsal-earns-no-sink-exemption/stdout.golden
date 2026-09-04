@@ -1,24 +1,24 @@
 nothing ran. no step was reached.
 
-refused: secret-sink-unwritten
+refused: secret-sink-absent
 
   procedures/read-sessions.yaml:5
     4 │ steps:
     5 │   - id: status
-      │         ^ session read_session declares secret: output and this hyper does not write a Secret sink — the value would be produced and discarded
+      │         ^ session read_session declares secret: output and this Run was given no Secret sink to write it to
       │
       = checked at run start, before the first step
-      = a hyper that writes a Secret sink — nothing in the repository is the fault
+      = the same command again with --secret-out <path>, naming a directory outside the repository that is not there yet
 
-refused: secret-sink-unwritten
+refused: secret-sink-absent
 
   procedures/read-sessions.yaml:11
     9 │     args:
    10 │       host: status.hyper.dev
    11 │   - id: cert
-      │         ^ session read_session declares secret: output and this hyper does not write a Secret sink — the value would be produced and discarded
+      │         ^ session read_session declares secret: output and this Run was given no Secret sink to write it to
       │
       = checked at run start, before the first step
-      = a hyper that writes a Secret sink — nothing in the repository is the fault
+      = the same command again with --secret-out <path>, naming a directory outside the repository that is not there yet
 
 refused · dry-run · exit 77 · run 01991f70-1a2b-7c3d-8e4f-5a6b7c8d9e03

@@ -1,0 +1,12 @@
+kind: procedure
+procedure: read-sessions-over
+targets: [local]
+steps:
+  - id: sessions
+    definition: session-read
+    operation: read_session
+    target: local
+    over:
+      values: [status.hyper.dev, cert.hyper.dev]
+    args:
+      host: {item: $}

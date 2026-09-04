@@ -353,11 +353,10 @@ clock comes round. What is authored instead is two Procedures: the run-once Step
 by hand, and the recurring Steps in one that carries the Cadence.
 
 A Procedure declaring a Cadence may likewise reach no Step whose Operation declares secret output, at
-any depth: `cadence-secret-output` (ADR-0077). Such a Step Refuses on any Run at all while no hyper
-writes a Secret sink (`secret-sink-unwritten`, §9, ADR-0146), and once one does it will still Refuse
-where the invocation supplied none — which the workflow `project` generates never will. So where a
-Cadence carries it the Refusal lands at every occurrence and the Procedure works never, which is the
-run-once case one degree worse. It is the same walk as the rule above, reading `secret:` off the Operation
+any depth: `cadence-secret-output` (ADR-0077). Such a Step Refuses on any Run whose invocation supplied
+no Secret sink (`secret-sink-absent`, §9, ADR-0148) — which the workflow `project` generates never
+will. So where a Cadence carries it the Refusal lands at every occurrence and the Procedure works
+never, which is the run-once case one degree worse. It is the same walk as the rule above, reading `secret:` off the Operation
 where that one reads `repeatability:`, so this costs §4 a rule and not a traversal.
 
 What makes it static despite the sink being *a fact about the invocation* — the phrasing §9 fixes, and
@@ -367,8 +366,9 @@ compiled in (§10, ADR-0046), so that is a claim about reviewed text and a fixed
 about an occasion. The remedy is §10's split again, with the secret-producing Steps in the Procedure a
 person invokes and `--secret-out` on that invocation. Unlike the rule above it is always available:
 it moves a Step between the consumer's own Procedures and never asks anything of a Manifest, so an
-installed Provider strands nobody here. What the split repairs is the *Cadence* fault; whether the
-hand-invoked Run then completes waits on the sink being written at all (§9, issue #266).
+installed Provider strands nobody here. What the split repairs is the *Cadence* fault, and the
+hand-invoked Run that follows it completes: the sink it names is written, and the value lands there
+(§9, ADR-0148).
 
 Both Cadence rules refuse a Step no condition may have reached. A `when:` that never holds and a
 `skip-if-recorded` that always skips are alike beyond `check`'s reach, and refusing them is refusing a

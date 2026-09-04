@@ -895,10 +895,12 @@ joins §13's wall.
 **8. The Secret sink's file.** §9 fixes the mode (`0600`), that the path may not resolve inside the
 working tree, and that `-` is refused. It does not say what is written into it — one file per Run, one
 per Record, what keys, what shape. I named a path and wrote nothing about its contents. **This was the
-live one.** Nothing wrote the file at all, and a Run given a sink completed and discarded the secret;
-issue #266 makes that a Refusal (`secret-sink-unwritten`, ADR-0146), so the Run walked through in §3
-above exits `77` today rather than `0`. The format is still undecided, and these three shapes are the
-ones on the table.
+live one, and it is now settled.** Nothing wrote the file at all, and a Run given a sink completed and
+discarded the secret; issue #266 made that a Refusal, and issue #270 wrote the sink: it is a
+**directory** `hyper` creates, one `0600` file per value at `<nnnn>/<name>/<field>`, the value's own
+bytes and nothing added (ADR-0148). So the Run walked through in §3 above exits `0` again and the key
+lands at `<sink>/0001/<key-id>/key`. The path this example names is a file rather than a directory that
+is not there yet, which is the one line of it the decision moved.
 
 **9. `--json` abbreviation is self-contradictory in the spec.** ADR-0047 says `--json` "abbreviates
 nothing anywhere", and §8's own worked stream abbreviates:

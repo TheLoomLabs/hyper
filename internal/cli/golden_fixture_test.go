@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"maps"
@@ -87,6 +88,11 @@ const absentBranch = "no " + store.BranchName + " branch\n"
 // before it builds anything — an input that contradicts another is a fault the
 // case is told about, not one it is quietly driven past.
 type fixtureInputs struct {
+	// sink is the Secret sink the case's invocation names, read off its own
+	// argv or call and resolved against the working directory the case is
+	// driven from — the path `--secret-out` was typed with, and "" where the
+	// case names none (sinkNamed).
+	sink string
 	// repo says the case has a fixture repository, which is what every
 	// other input here is about and what materialisation copies.
 	repo bool
@@ -181,6 +187,31 @@ type fixtureInputs struct {
 	// tree says what it *did*. `project` writes files, so a case driving it
 	// with no tree.golden asserts half of what it drives (§10, issue #177).
 	treeGolden bool
+	// sinkGolden says the case asserts the **Secret sink**, which is the
+	// fourth golden and the one place `hyper` writes that is deliberately
+	// outside every other one: not the Store, not the working tree, and
+	// never anything a `git add` can reach (§9, ADR-0007, ADR-0148).
+	//
+	// It is the axis issue #270 could not land without. A Run that produces
+	// a secret reports a Step that *ran* and a Record holding the marker on
+	// both streams whether or not the value arrived anywhere — which is
+	// exactly the shape that let a Run complete and destroy it (issue #266).
+	// Only this golden can tell the two apart, and it carries the modes
+	// because §9 states them and nothing asserted them until now.
+	sinkGolden bool
+	// sinkOccupied is the one stated exception to the rule above: the case
+	// names a sink that **something in the corpus is already standing at**,
+	// which is the third of `--secret-out`'s faults and can be driven no
+	// other way (§9, ADR-0148).
+	//
+	// It holds no sink.golden because there is nothing of the run's to
+	// render: what is at that path was checked in, and a golden over it
+	// would assert the corpus's own bytes and the checkout's own modes.
+	// The assertion such a case makes is its stderr — and that the path it
+	// names is still there afterwards is what every other case in the
+	// corpus is comparing against, that directory being one of the shared
+	// fixture repositories.
+	sinkOccupied bool
 }
 
 // materialised says the case is driven against a real git repository: it
@@ -247,6 +278,14 @@ func (in fixtureInputs) fault() string {
 		return "holds a tree.golden and materialises no repository; a command that writes the working tree would write into the checked-in corpus"
 	case in.treeGolden && in.from != "":
 		return "holds a tree.golden and names a repo-from; the golden is read against the case's own repo/, and a shared one has no case to belong to"
+	case in.sinkGolden && in.sink == "":
+		return "holds a sink.golden and names no Secret sink; there is no directory for the golden to be read against"
+	case in.sink != "" && !in.sinkGolden && !in.sinkOccupied:
+		return "names a Secret sink and holds no sink.golden; a case that drives the one place hyper writes a secret and asserts nothing about it asserts the half that cannot lose one"
+	case in.sinkOccupied && in.sinkGolden:
+		return "says its Secret sink was already there and holds a sink.golden; the golden would render what the corpus put there rather than what the run wrote"
+	case in.sinkOccupied && in.sink == "":
+		return "says its Secret sink was already there and names none"
 	}
 	return ""
 }
@@ -278,7 +317,48 @@ func (c goldenCase) fixtureInputs() fixtureInputs {
 		storeGolden:       isFile(filepath.Join(c.dir, "store.golden")),
 		remoteGolden:      isFile(filepath.Join(c.dir, "remote.golden")),
 		treeGolden:        isFile(filepath.Join(c.dir, "tree.golden")),
+		sink:              c.sinkNamed(),
+		sinkGolden:        isFile(filepath.Join(c.dir, "sink.golden")),
+		sinkOccupied:      isFile(filepath.Join(c.dir, "sink-occupied")),
 	}
+}
+
+// sinkNamed is the Secret sink the case's own invocation names, exactly as it
+// wrote it, and "" where it names none.
+//
+// It is read off the invocation rather than out of a marker file for the reason
+// the repository a shared case stands in is named in its argv: the path is
+// something the case *typed*, and a reader of the case directory should find it
+// where an operator would have typed it (`--secret-out ../session-token`). The
+// two surfaces spell it differently — a flag and an argument — and both are read
+// here, so one golden asserts one directory whichever way in the case came
+// (§9, §10).
+func (c goldenCase) sinkNamed() string {
+	if c.call != nil {
+		var named struct {
+			SecretSink string `json:"secret_sink"`
+		}
+		// A call whose arguments do not parse is one compareEnvelope
+		// drives and reports on; there is no sink in it either way.
+		_ = json.Unmarshal(c.call.Arguments, &named)
+		return named.SecretSink
+	}
+	// **A path named twice is the second one, and a `--` ends the flags** —
+	// the command's own rule for a value flag, read the same way here so
+	// that the directory this golden is compared against is the directory
+	// the invocation actually named (splitValueFlag, §9).
+	named := ""
+	for i, argument := range c.argv {
+		switch {
+		case argument == "--":
+			return named
+		case argument == "--secret-out" && i+1 < len(c.argv):
+			named = c.argv[i+1]
+		case strings.HasPrefix(argument, "--secret-out="):
+			named = strings.TrimPrefix(argument, "--secret-out=")
+		}
+	}
+	return named
 }
 
 // instant is the clock the case is driven at: the RFC 3339 time in its now
@@ -803,6 +883,77 @@ func (fx gitFixture) renderDirectory(t *testing.T, dir, absent string) string {
 		}
 		fmt.Fprintf(&rendered, "=== %s (%d bytes)\n", path, len(data))
 		rendered.Write(data)
+	}
+	return rendered.String()
+}
+
+// absentSink is what a sink golden holds where the directory is not there at
+// all: a Run that reached no Step declaring secret output, and so made nothing.
+//
+// It is a stated line rather than an empty file for absentBranch's reason — a
+// sink that was never made and a sink made and left empty are two answers, and
+// a golden rendering both as nothing could not tell them apart (§9, ADR-0148).
+const absentSink = "no secret sink\n"
+
+// renderSink is the Secret sink as a sink golden holds it: every node under it
+// in path order, each on its own line with its permission bits, and a file's
+// bytes verbatim beneath its header.
+//
+// **The modes are on the line because §9 states them and nothing asserted them
+// until now.** *A sink is to be written 0600* stood in the spec through the
+// whole of the deferral while no code wrote any mode at all (ADR-0146); a
+// golden that rendered the paths and not the bits would leave the sentence
+// exactly where it was.
+//
+// **The directories are rendered beside the files** for the same reason: a
+// `0600` file inside a `0755` directory is a secret whose containing directory
+// anyone can list, and the guarantee the sink makes is about the tree rather
+// than about the leaves.
+//
+// A file's byte count is on its header, as it is on every other golden here,
+// and it is what disambiguates a value from the newline this rendering puts
+// after it: the sink's own files carry no trailing newline, the value being what
+// came off the wire and nothing `hyper` added (internal/run/sink.go).
+func renderSink(t *testing.T, root string) string {
+	t.Helper()
+
+	if _, err := os.Lstat(root); os.IsNotExist(err) {
+		return absentSink
+	}
+
+	var rendered strings.Builder
+	var paths []string
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		paths = append(paths, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(paths)
+
+	for _, path := range paths {
+		abs := filepath.Join(root, filepath.FromSlash(path))
+		info, err := os.Lstat(abs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.IsDir() {
+			fmt.Fprintf(&rendered, "=== %s/ (%04o)\n", path, info.Mode().Perm())
+			continue
+		}
+		data, err := os.ReadFile(abs)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Fprintf(&rendered, "=== %s (%04o, %d bytes)\n%s\n", path, info.Mode().Perm(), len(data), data)
 	}
 	return rendered.String()
 }

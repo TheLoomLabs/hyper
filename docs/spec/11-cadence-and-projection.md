@@ -73,10 +73,9 @@ Procedure that keeps the Cadence.
 
 A Cadence and a Step whose Operation declares **secret output** are refused together for the same
 reason one degree further on (`cadence-secret-output`, §4, ADR-0077). Such a Step Refuses on any Run
-at all while no hyper writes a Secret sink (`secret-sink-unwritten`, §9, ADR-0146), and the `env:` block
-below is the whole of what this projection hands a Run: it will supply no sink when there is one to
-supply, every way of making it either losing the secret on a disk destroyed with the runner or
-publishing it. So the Refusal lands at every occurrence
+given no Secret sink (`secret-sink-absent`, §9, ADR-0148), and the `env:` block below is the whole of
+what this projection hands a Run: it supplies no sink and cannot sensibly be made to, every way of
+making it either losing the secret on a disk destroyed with the runner or publishing it. So the Refusal lands at every occurrence
 rather than every one after the first, and the Procedure works never rather than once. The walk is the
 same walk, reading `secret:` off the Operation where the rule above reads `repeatability:`, and the
 remedy is the same split — with one difference worth knowing: it never asks anything of a Manifest, so

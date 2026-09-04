@@ -6,7 +6,7 @@ capabilities: [http]
 operations:
   read_session:
     kind: read
-    deadline: 10s
+    deadline: 1s
     http:
       method: GET
       host: "{from-target}"

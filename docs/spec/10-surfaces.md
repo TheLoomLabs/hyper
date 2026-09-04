@@ -356,29 +356,67 @@ correct operation rather than a failure; the answer is partial, and it says so o
 in the code. The flag is not global: a `records --dry-run` or a `check --dry-run` would have to mean
 something, and neither does.
 
-**`--secret-out <path>`** names the Secret sink. The path is refused where it resolves inside the
-repository working tree; `-` is not accepted, stdout being exclusively the answer and a secret written
-there landing in the same pipe a CI job logs. It is not a bypass and must not read like one: supplying
-it weakens no check.
+**`--secret-out <path>`** names the Secret sink. It is not a bypass and must not read like one:
+supplying it weakens no check.
 
-**Nothing writes the file yet, and a Run that would need one Refuses rather than completing.** A Run
-reaching a Step whose Operation declares a secret output Refuses on that fact alone
-(`secret-sink-unwritten`, §12) — a sink named and a sink withheld are the same Run, what is missing
-being the writer rather than the path. The sink is the only route by which a secret value ever leaves
-`hyper` (ADR-0007), so a Run allowed past this point would produce the value, write the marker to the
-Store in its place and discard it: a clean Run, a Record that reads correctly, and no secret. That is a
-loss and never a leak — suppression is positional and holds either way — and what §9 states in the
-meantime is the limit rather than the loss (ADR-0146). The remedy §8 renders is accordingly a
-different binary and not a different invocation, there being no invocation to send an operator back
-to. A sink is to be written `0600`; that, and the Refusal an *absent* sink earns
-(`secret-sink-absent`), both land with the format the file has yet to be given (issue #266).
+**The sink is a directory `hyper` creates, and one file under it holds one value.** The path has three
+faults, all of them usage errors carrying no `error_code`: `-` is not accepted, stdout being
+exclusively the answer and a secret written there landing in the same pipe a CI job logs; a path that
+resolves inside the repository working tree is refused, a secret written there being one `git add`
+away from a reviewed artefact and from the remote the Store pushes to; and a path something is already
+standing at is refused, because every file under a sink is that Run's — a directory `hyper` did not
+make may hold an earlier Run's secrets, and a file this Run does not write is one an operator reading
+the sink takes for this Run's.
+
+The directory is made `0700` at Run start, after the gates and before Step 1, and only where the Run
+reaches a Step that declares secret output — so a Procedure that declares none leaves nothing behind.
+Each value is written at the moment the Step produced it, as one file `0600` at
+
+```
+<sink>/<nnnn>/<name>/<field>
+```
+
+`<nnnn>` is the Step's position in the Run's written order, spelled as §12's Store path grammar spells
+it — the Step name that is unique by construction, where an authored id is not (two invocations of one
+Procedure give two Steps one id). `<name>` is the Record's name and `<field>` the field the Manifest
+declared `secret:`; both are percent-encoded exactly as §12 encodes an identity segment, so the name
+under `cat` and the name under `hyper records --name` are one name. The Target and the Definition are
+not repeated, a Step binding one of each.
+
+**The file holds the value and nothing `hyper` added** — no trailing newline, no quoting, no wrapper. A
+value that is not a string is written as the JSON it is, which is what a projected value reads as
+everywhere else. The sink is read once by a human or a wrapper and never by `hyper`: no Run reads it,
+nothing parses it, and it never reaches the Store, which is the whole point (ADR-0007, ADR-0011). So
+what is asked of the shape is legibility rather than round-tripping — `cat "$sink/0001/db-1/password"`
+gets a value out with no parser — and that a Run producing many secrets makes many paths rather than
+one ambiguous key (ADR-0148).
+
+**A Run reaching such a Step with no sink Refuses before Step 1** (`secret-sink-absent`, §12). The sink
+is the only route by which a secret value ever leaves `hyper` (ADR-0007), so a Run allowed past that
+point would produce the value, write the marker to the Store in its place and discard it: a clean Run, a
+Record that reads correctly, and no secret. That is a loss and never a leak — suppression is positional
+and holds either way — and it is the failure ADR-0146 named and this Refusal prevents. The remedy §8
+renders is a **different invocation**: the same command again with `--secret-out <path>`.
 
 The Refusal declines before Step 1 rather than at the Step, beside the credential gate and on the same
 ground — the operands are the occasion's and are in hand — and it names every Step that would
 have needed a sink rather than the first (§6). It carries no Kind axis: a `read` declaring secret
 output is as refused as a `create`, a Run that suppresses a secret into the Store with nowhere to hand
 it being useless without saying so. For the same reason `--dry-run` earns no exemption — the rehearsal
-performs the reads it reaches, and one of them may be the Step in question.
+performs the reads it reaches, and one of them may be the Step in question, whose value then lands in
+the sink like any other.
+
+**A Run that halts leaves the secrets it already wrote.** The values are written at the Step rather
+than at the Run's end, so a Procedure whose second secret-producing Step reaches its deadline leaves
+the first Step's value in the sink and nothing under the second's. An empty directory has nothing to
+read where an empty file reads as a value, which is what makes the partial tree legible rather than
+misleading — and is the whole reason the file the sink was nearly given was refused (ADR-0146,
+ADR-0148).
+
+**A member that made no call writes no file, and the absence is the answer.** A `skip-if-recorded` Step
+whose member the Store already holds concluded about that Record without asking the world for it, so
+there is no value for the sink to hold; the file not being there is what says so, which an empty one
+could not (ADR-0148).
 
 Because the projected workflow supplies no sink and cannot sensibly be made to (ADR-0007, ADR-0077),
 a Procedure that declares a Cadence and reaches such a Step is refused at `check` (`cadence-secret-output`,
@@ -1393,7 +1431,8 @@ loop this surface exists to close.
 run(procedure, dry_run?, secret_sink?)
 // args: procedure    — the Procedure's name, byte-exact and never a path, carrying no target
 //       dry_run      — boolean
-//       secret_sink  — the Secret sink: an absolute path, outside the repository working tree
+//       secret_sink  — the Secret sink: an absolute path outside the repository working tree that
+//                      is not there yet, which hyper creates as a directory and fills
 // → outcome: §12's triple
 // → rows: §8's step, refusal, remediation and provenance rows, unchanged
 //         provenance in both scopes: the Run-wide row, then one per Step file written
@@ -1421,12 +1460,12 @@ partial answer rather than inferring it from an outcome and a marker — an infe
 `secret_sink` is the CLI's `--secret-out` under the name of the thing it supplies, a flag named for a
 direction having no direction to name in an argument object. It is chosen by the caller and never
 defaulted by `hyper`: a sink supplied automatically would make `hyper` a place a secret lives, and
-would delete the guardrail that will make an absent one a Refusal once the file is written at all
-(ADR-0007). Everything the CLI half states about the path holds whoever named it — the Refusal a
-secret-producing Step earns today included, which this surface reports as any other Refusal
-(`secret-sink-unwritten`, §12). Returning the secret in the tool result is not one of the sink's forms —
-it would put a generated credential into an agent's context and from there into whatever transcript
-that agent writes to, which is the failure the sink exists to prevent.
+would delete the guardrail an absent one earns (ADR-0007). Everything the CLI half states about the
+path holds whoever named it — the directory it names and fills, the three faults it will not take, and
+the Refusal a secret-producing Step earns where the argument is left off, which this surface reports as
+any other Refusal (`secret-sink-absent`, §12). Returning the secret in the tool result is not one of the
+sink's forms — it would put a generated credential into an agent's context and from there into whatever
+transcript that agent writes to, which is the failure the sink exists to prevent.
 
 ```jsonc
 probe(provider, operation, inputs?, response?)

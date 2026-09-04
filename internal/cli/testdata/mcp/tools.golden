@@ -1441,7 +1441,7 @@ Run one Procedure through every guardrail §5 states, writing the Records, the J
     "secret_sink": {
       "type": "string",
       "minLength": 1,
-      "description": "Where a Step declaring secret output would write it: an absolute path outside the repository working tree. It is never defaulted, and the secret is never returned in this result. Nothing writes the file yet, so supplying a path rescues no Run: this version accepts it and refuses its faults, and a Run reaching such a Step Refuses under secret-sink-unwritten whether one was named or not."
+      "description": "Where a Step declaring secret output writes it: a path outside the repository working tree that is not there yet, which hyper creates as a directory 0700 and fills with one 0600 file per value at <nnnn>/<name>/<field>. It is never defaulted, and the secret is never returned in this result. A Run reaching such a Step with no sink Refuses under secret-sink-absent before its first Step."
     }
   }
 }

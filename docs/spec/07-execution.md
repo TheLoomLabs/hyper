@@ -15,18 +15,31 @@ pairs the Procedure makes. Then `check` is re-run in full with nothing skipped (
 credentials of every Target the Run may bind are resolved once (ADR-0007), each read under §12's
 credential presence — two of whose three members decline, `absent` as `credential-absent` and `empty`
 as `credential-empty`. Then the Procedure is
-tested for a Step whose Operation declares secret output, which no hyper yet has a Secret sink to put
-the value in (`secret-sink-unwritten`, §9, §12, ADR-0146). Then Step 1.
+tested for a Step whose Operation declares secret output where the invocation supplied no Secret sink
+(`secret-sink-absent`, §9, §12, ADR-0148). Then, where the Run reaches such a Step and a sink was
+named, that sink is created `0700` — the one act in this order, the four before it being reads. Then
+Step 1.
 
-That last gate is neither the environment's nor the artefacts', and its subject is this binary rather
-than the occasion: no hyper writes a Secret sink, so nothing the invocation carries changes the answer
-(§9, ADR-0146). It is stated here rather than at the Step it is about because its operand is already in
-hand: which reachable Steps declare secret output is a walk over reviewed text. Every such Step is reported at once, as the credential gate reports every absent slot. Declining
+That last gate is neither the environment's nor the artefacts': its subject is the **occasion**, like
+the credential pass above it, and what is missing is a path the command line was to name (§9,
+ADR-0148). It is stated here rather than at the Step it is about because its operands are already in
+hand: which reachable Steps declare secret output is a walk over reviewed text, and whether a sink was
+named is the invocation. Every such Step is reported at once, as the credential gate reports every absent slot. Declining
 at the Step instead would run the Steps before it and never reach the tail — which under a Cadence is
 an effectful prefix repeated for as long as the clock fires, and is the second reason the combination
 is refused at `check` before it can arise (§4, ADR-0077). The gate does not read `--dry-run`: §9's
-dry-run performs the reads it reaches, so a `read` declaring secret output is reached and produces a
-secret with nowhere to go.
+dry-run performs the reads it reaches, so a `read` declaring secret output is reached, produces a
+secret, and writes it to the sink like any other Step.
+
+Making the sink here rather than at the first Step that fills it is the same reasoning one step on: a
+sink that cannot be made — a parent that is not there, a path something is already standing at, a
+directory this process may not write — stops a Run that has not yet touched anything, rather than one
+that has already mutated three Assets and has nowhere to put the fourth's credential. A Run reaching no
+such Step makes nothing, so a sink named against a Procedure that **declares** no secret output leaves
+no directory behind at all. A Run that reaches one and then Refuses or halts before it does leave the
+directory, and that is the shape rather than an oversight: what a halted Run's sink holds is the
+secrets it actually produced, each under the Step that produced it, with the rest absent rather than
+blank — which is why the values are written at the Step and not at the end (§9, ADR-0148).
 
 What is resolved is the slots the Run's bindings require rather than every slot each Target declaration
 carries: presence is checked over the (Definition, Target) pairs the Procedure makes, exactly as slot
@@ -70,7 +83,7 @@ exists (ADR-0002).
 
 A Procedure is fully bound: `hyper run <procedure>` and the tool call behind it carry no argument
 that can change what the Procedure does, because every value a Run needs is already written in the
-artefact (ADR-0008). What the invocation does carry — a Secret sink path, a dry-run marker, output
+artefact (ADR-0008). What the invocation does carry — a Secret sink directory, a dry-run marker, output
 formatting — is a property of the occasion and never authority: none of it can change which
 Operation runs against which Target, or how many Records it may affect.
 

@@ -1,0 +1,1 @@
+hyper run watch-status --secret-out ../repo-secret --repo-dir ../repo-watch-status

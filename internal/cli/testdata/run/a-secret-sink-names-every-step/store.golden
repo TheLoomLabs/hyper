@@ -9,26 +9,26 @@ configuration, nothing on it is reviewed, and nothing on it changes what a Run
 does — it is what the Runs that have already happened left behind.
 
 Editing it by hand is editing evidence.
-=== journal/2026/04/02/01991f68-8299-74c8-9fa4-b2d3f948559c/outcome.json (804 bytes)
+=== journal/2026/04/02/01991f68-8299-74c8-9fa4-b2d3f948559c/outcome.json (724 bytes)
 {
   "ended_at": "2026-04-02T09:41:14.221Z",
   "outcome": "refused",
   "refusal": [
     {
-      "error_code": "secret-sink-unwritten",
+      "error_code": "secret-sink-absent",
       "field": "steps[0]",
       "file": "procedures/read-sessions.yaml",
       "line": 5,
-      "message": "session read_session declares secret: output and this hyper does not write a Secret sink — the value would be produced and discarded",
+      "message": "session read_session declares secret: output and this Run was given no Secret sink to write it to",
       "step": 1,
       "step_id": "status"
     },
     {
-      "error_code": "secret-sink-unwritten",
+      "error_code": "secret-sink-absent",
       "field": "steps[1]",
       "file": "procedures/read-sessions.yaml",
       "line": 11,
-      "message": "session read_session declares secret: output and this hyper does not write a Secret sink — the value would be produced and discarded",
+      "message": "session read_session declares secret: output and this Run was given no Secret sink to write it to",
       "step": 2,
       "step_id": "cert"
     }
@@ -42,7 +42,7 @@ Editing it by hand is editing evidence.
   "provenance": {
     "hyper_version": "1.4.0",
     "procedure_revision": "46ba56c83841c3a5088c20824bec9d8c6e79d2c1",
-    "repo_revision": "6862766265e2d2c50dbaeb28ee077b996c947d0e"
+    "repo_revision": "d3aa98aaac1b710f7b0df9e173d511bb8cbc8990"
   },
   "run_id": "01991f68-8299-74c8-9fa4-b2d3f948559c",
   "schema_version": 1,

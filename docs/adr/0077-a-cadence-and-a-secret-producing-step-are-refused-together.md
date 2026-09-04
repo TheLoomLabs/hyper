@@ -2,11 +2,13 @@
 
 A Step whose Operation declares secret output Refuses where the invocation supplied no Secret sink, and
 the workflow `project` generates supplies none — ADR-0007 says so outright: *in Actions the generated
-workflow simply supplies nothing*. _ADR-0146 amends this:_ no hyper writes a Secret sink, so such a Step
-Refuses on **any** Run — `secret-sink-unwritten`, whether a sink was supplied or not — and where the
-text below says *supplied no sink*, read *had nowhere to put it*. Nothing else here moves: the
+workflow simply supplies nothing*. _ADR-0146 amends this:_ no hyper writes a Secret sink, so such a
+Step Refuses on **any** Run — `secret-sink-unwritten`, whether a sink was supplied or not — and where
+the text below says *supplied no sink*, read *had nowhere to put it*. Nothing else here moves: the
 composition is worse under a Cadence for exactly the reason stated, and `check` refuses it on the same
-walk. Compose the two and a Procedure that declares a Cadence and reaches
+walk. _ADR-0148 amends the amendment:_ the sink is written, so the reading above is withdrawn and
+every sentence below holds as authored. Compose the two
+and a Procedure that declares a Cadence and reaches
 such a Step passes `check`, projects a workflow, and Refuses at every occurrence for as long as the
 clock keeps firing. **`check` refuses the combination** (`cadence-secret-output`, §4), walking every
 Procedure reachable from the one declaring the Cadence, to any depth.
@@ -84,7 +86,9 @@ same Operation on the same walk. §4 gains a rule and not a traversal.
   written, and §12's closed set carried no name for it, so the spec described a Refusal nothing could
   name, render, or exit on. It is §9's second contribution beside `credential-absent`. _ADR-0146 amends
   this:_ the member standing in §12 today is `secret-sink-unwritten`, the count is unchanged, and
-  `secret-sink-absent` returns in its place with the sink's format (issue #266).
+  `secret-sink-absent` returns in its place with the sink's format (issue #266). _ADR-0148 amends the
+  amendment:_ the format landed, and `secret-sink-absent` is back in §12 in that member's place
+  (issue #270).
 - **The absent sink declines before Step 1**, in the credential pass's company rather than at the Step
   that needs one, and reports every such Step at once as the credential pass reports every absent slot
   (§6). Both operands are in hand at Run start: the invocation carries a sink or it does not, and which
@@ -98,7 +102,8 @@ same Operation on the same walk. §4 gains a rule and not a traversal.
   table and names its remedy verbatim in the `=` notes, exactly as `credential-absent` does. _ADR-0146
   amends this:_ the class has no member while the sink is unwritten — there is no invocation to send an
   operator back to, so `secret-sink-unwritten` renders the **different binary** remedy instead, and the
-  class returns with the format.
+  class returns with the format. _ADR-0148 amends the amendment:_ the format landed, and the class has
+  its one member back.
 - **The carets cite the repository's own artefacts and never the Manifest.** `cadence-secret-output`
   cites the `cadence:` line, on `cadence-run-once`'s precedent — the check walks to the Manifest and
   cites the artefact the reader controls. `secret-sink-absent` cites one Step line per Step needing a

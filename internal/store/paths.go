@@ -157,7 +157,7 @@ type Identity struct {
 // happens here, at the one boundary where a Manifest-declared name — hostile
 // input, and the reason the encoding exists at all — becomes a filename (§7).
 func RecordPath(id Identity, run RunID, step int) string {
-	return seriesDir(id) + "/" + run.text + "-" + stepNumber(step) + ".json"
+	return seriesDir(id) + "/" + run.text + "-" + StepNumber(step) + ".json"
 }
 
 // seriesDir is the directory one Record's versions sit in, and the whole of what
@@ -179,17 +179,23 @@ func seriesDir(id Identity) string {
 			impossible("an identity carries no %s: a Record is identified by its Target, its Definition and a name (§2)", component.role)
 		}
 	}
-	return recordsPrefix + encodeSegment(id.Target) + "/" + encodeSegment(id.Definition) + "/" + encodeSegment(id.Name)
+	return recordsPrefix + EncodeSegment(id.Target) + "/" + EncodeSegment(id.Definition) + "/" + EncodeSegment(id.Name)
 }
 
-// stepNumber writes <nnnn>: the Step's position in the Run's written order, the
+// StepNumber writes <nnnn>: the Step's position in the Run's written order, the
 // first Step 0001, zero-padded to four digits and widening beyond four rather
 // than wrapping (§12). Wrapping would put the ten-thousandth Step's file on top
 // of the first's, which on an append-only branch is the one thing that cannot
 // happen (ADR-0011).
 //
 // A position below one is not a position, and no rendering of one is a path.
-func stepNumber(step int) string {
+//
+// It is exported for the Secret sink, which names a Step by the same number for
+// the same reason the Store does: a Step's id is what its author called it and
+// two invocations of one Procedure give two Steps one id, where the position is
+// the Run's own counter and unique by construction (§9, ADR-0148,
+// internal/run/sink.go).
+func StepNumber(step int) string {
 	if step < 1 {
 		impossible("step %d is not a position: the first Step in a Run is 1", step)
 	}
@@ -246,7 +252,7 @@ const (
 	digestWidth  = 16
 )
 
-// encodeSegment writes one identity component as one path segment, cut to
+// EncodeSegment writes one identity component as one path segment, cut to
 // segmentLimit where the encoding runs past it.
 //
 // **Truncation makes the path lossy, and that is why the identity is restated
@@ -258,7 +264,13 @@ const (
 // the cut discarded or the part it kept, which is what separates two identities
 // agreeing in their first two hundred bytes. `~` is outside the unreserved set,
 // so it never occurs in an encoding and the suffix is unambiguous.
-func encodeSegment(component string) string {
+//
+// It is exported for the Secret sink, whose own path segments are a Record's
+// name and a projected field's — hostile input by the same route, and named by
+// the same encoding so that the name under `cat "$sink/0001/<name>/<field>"`
+// and the name under `hyper records --name` are one name (§9, ADR-0148,
+// internal/run/sink.go).
+func EncodeSegment(component string) string {
 	encoded := escape(component)
 	if len(encoded) <= segmentLimit {
 		return encoded
@@ -335,7 +347,7 @@ func (e JournalEntry) RunPath() string { return e.dir() + "/run.json" }
 // order — a nested Procedure's Steps counted in that order, the invocation
 // itself being no Step and writing no file (§7, §12).
 func (e JournalEntry) StepPath(step int) string {
-	return e.dir() + "/steps/" + stepNumber(step) + ".json"
+	return e.dir() + "/steps/" + StepNumber(step) + ".json"
 }
 
 // OutcomePath is journal/<yyyy>/<mm>/<dd>/<run-id>/outcome.json, written when
@@ -559,7 +571,7 @@ func parseJournalPath(segments []string) (Path, error) {
 // this package, and there is one spelling of every position (§12).
 func parseStepNumber(number string) (int, error) {
 	step, err := strconv.Atoi(number)
-	if err != nil || step < 1 || stepNumber(step) != number {
+	if err != nil || step < 1 || StepNumber(step) != number {
 		return 0, fmt.Errorf("%q is not a Step's position: the first Step is 0001 and the widths beyond four are unpadded", number)
 	}
 	return step, nil

@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 147 records**, numbered `0001`–`0147` with no gaps. They are chronological:
+**This corpus holds 148 records**, numbered `0001`–`0148` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -370,3 +370,4 @@ here fails the suite.
 - **0145** · [An empty credential is its own Refusal, on both surfaces](0145-an-empty-credential-is-its-own-refusal-on-both-surfaces.md)
 - **0146** · [A sink nothing writes is a Refusal and not a completed Run](0146-a-sink-nothing-writes-is-a-refusal-and-not-a-completed-run.md)
 - **0147** · [The empty credential was read as a state, and the agent went looking for what emptied it](0147-the-empty-credential-was-read-as-a-state-and-the-agent-went-looking-for-what-emptied-it.md)
+- **0148** · [A Secret sink is a directory `hyper` makes, and one file holds one value](0148-a-secret-sink-is-a-directory-hyper-makes-and-one-file-holds-one-value.md)

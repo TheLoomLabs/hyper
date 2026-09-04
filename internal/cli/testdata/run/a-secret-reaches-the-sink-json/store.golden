@@ -1,0 +1,84 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991ed9-e44b-7f74-b064-9bac5dc38f4d/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991ed9-e44b-7f74-b064-9bac5dc38f4d/run.json (472 bytes)
+{
+  "dry_run": false,
+  "procedure": "read-session",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "e66ef493cfe8dcf040702318953c8a060919ecbe",
+    "repo_revision": "b99dd86e50bbc2534f778fc994a20305c8f44ea0"
+  },
+  "run_id": "01991ed9-e44b-7f74-b064-9bac5dc38f4d",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991ed9-e44b-7f74-b064-9bac5dc38f4d/steps/0001.json (646 bytes)
+{
+  "definition": "session-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "session",
+  "identities": {
+    "digest": "sha256:71b6b20b46299db0f8ce502940468780b5795732c59cbf3d62f410d1117137e3",
+    "members": [
+      "status.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "read_session",
+  "provenance": {
+    "definition_revision": "0f4e88dc2cb2d55deea69ca776bc6e5da24cc9ff",
+    "manifest_digest": "sha256:a2077bb5843fae35ef3e2410c76f21ca681f69e642972f5f1553532fa8a3dd3e"
+  },
+  "provider": "session",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/session-read/status.hyper.dev/01991ed9-e44b-7f74-b064-9bac5dc38f4d-0001.json (754 bytes)
+{
+  "definition": "session-read",
+  "fields": {
+    "expires_at": "2026-04-09T09:41:14Z",
+    "host": "status.hyper.dev",
+    "token": "<secret>"
+  },
+  "name": "status.hyper.dev",
+  "operation": "read_session",
+  "provenance": {
+    "definition_revision": "0f4e88dc2cb2d55deea69ca776bc6e5da24cc9ff",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a2077bb5843fae35ef3e2410c76f21ca681f69e642972f5f1553532fa8a3dd3e",
+    "procedure_revision": "e66ef493cfe8dcf040702318953c8a060919ecbe",
+    "repo_revision": "b99dd86e50bbc2534f778fc994a20305c8f44ea0"
+  },
+  "record_type": "observation",
+  "run_id": "01991ed9-e44b-7f74-b064-9bac5dc38f4d",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -110,11 +111,15 @@ func RunRun(args []string, to destination, process Process, wd, binaryVersion st
 		return rendering.terminate(store.OutcomeRefused, code, errorCode)
 	}
 
-	// The sink's path against the working tree, which needs the root and so
-	// is judged here rather than where the flag was taken off the argument
-	// list. It is after the gate for the reason every command's own work is:
-	// the pin gate fires first everywhere (§9, ADR-0020).
-	if fault := sinkInsideTheWorkingTree(sink, repoRoot, wd); fault != "" {
+	// The sink's path against the working tree and against what is already
+	// standing at it — the two of `--secret-out`'s three faults that need
+	// more than the argument list, and the resolution the engine is handed.
+	// They are judged here rather than where the flag was taken off the line
+	// because the first needs the root, and after the gate for the reason
+	// every command's own work is: the pin gate fires first everywhere (§9,
+	// ADR-0020).
+	sinkPath, fault := resolvedSink(sink, repoRoot, wd)
+	if fault != "" {
 		fmt.Fprintf(to.narrate(), "hyper %s: %s\n", runCommand, fault)
 		return ExitUsage
 	}
@@ -182,18 +187,19 @@ func RunRun(args []string, to destination, process Process, wd, binaryVersion st
 		// that takes its absence for `false` cannot recover (§7, §8,
 		// ADR-0001).
 		DryRun: dryRun,
-		// No sink reaches the engine. The path was taken off the
-		// argument list and its faults refused above, and what a Run
-		// reaching a secret-producing Step does about it is decided
-		// from the artefacts alone (run.Request, ADR-0146).
-		Trigger:   readTrigger(process.LookupEnv, process.User, process.Hostname),
-		Version:   binaryVersion,
-		Now:       process.Now,
-		Mint:      process.Mint,
-		LookupEnv: process.LookupEnv,
-		Environ:   process.Environ,
-		Dial:      process.Dial,
-		Exec:      process.Exec,
+		// The sink, absolute: resolved against this command's working
+		// directory here, because the engine reaches no process fact of
+		// its own and a relative path resolved there would be resolved
+		// against the wrong one (run.Request, ADR-0148).
+		SecretSink: sinkPath,
+		Trigger:    readTrigger(process.LookupEnv, process.User, process.Hostname),
+		Version:    binaryVersion,
+		Now:        process.Now,
+		Mint:       process.Mint,
+		LookupEnv:  process.LookupEnv,
+		Environ:    process.Environ,
+		Dial:       process.Dial,
+		Exec:       process.Exec,
 		// The drain, as the engine asks it: *has this Run been stopped
 		// by now*. Which signals are watched, what each exits with, when
 		// a second one kills the process and what a cancelled call is
@@ -373,20 +379,15 @@ func splitDryRun(args []string) (dryRun bool, rest []string) {
 // it is spelled here rather than in parseArgs so that `hyper check
 // --secret-out x` stays the unknown flag it is.
 //
-// **What the path is accepted for is not yet written to, and no Run pretends
-// otherwise.** Nothing here or in the engine creates the file: what a Run puts
-// in a Secret sink has no stated format, that decision is ADR-shaped, and it is
-// deferred rather than taken in passing (issue #266). So the path is taken off
-// the argument list, its faults are refused — and it goes no further. It does
-// not reach `run.Request`, and the sink gate is handed no sink: a Run reaching
-// a Step whose Operation declares secret output Refuses whether one was named
-// or not (`secret-sink-unwritten`, internal/run/gates.go, ADR-0146).
+// **The path names a directory `hyper` creates, not a file it overwrites.** One
+// Run produces more than one secret in three different ways — two
+// secret-producing Steps in one Procedure, one Step expanding over five members,
+// one Operation declaring two `secret:` fields — so what the sink holds is a
+// tree, one file per value at `<nnnn>/<name>/<field>`, and the structure is the
+// filesystem's rather than a format's (ADR-0148, internal/run/sink.go).
 //
-// **Refusing the path here is still worth doing**, though nothing reads it: `-`
-// and a path inside the working tree are faults whoever eventually writes the
-// file, and a caller who typed one has said what they meant to do with a secret.
-// What is not done is completing the Run and destroying the value — which is
-// what this flag bought until the deferral was stated rather than assumed.
+// This is the one fault decidable from the argument list; the other two need
+// the repository root and the filesystem, and are resolvedSink's below.
 func splitSecretOut(args []string) (path string, rest []string, fault string) {
 	return splitValueFlag("--secret-out", args, func(value string) string {
 		if value == "-" {
@@ -451,49 +452,74 @@ func splitValueFlag(flag string, args []string, reject func(string) string) (pat
 	return path, rest, ""
 }
 
-// sinkInsideTheWorkingTree is the second half of what `--secret-out` accepts:
-// the path is refused where it resolves **inside the repository working tree**
-// (§9). It answers the fault where it does, and "" where the invocation named
-// no sink or named one outside.
+// resolvedSink is the absolute path the engine is handed, and the fault where
+// `--secret-out` named something it will not take. It judges the two of the
+// flag's three faults that the argument list alone cannot decide — the third is
+// splitSecretOut's, above (§9, ADR-0148).
 //
-// It is named for the state it detects rather than for the state it permits,
-// so that its one call site — `if fault := sinkInsideTheWorkingTree(...)` —
-// reads as the thing being refused.
+// It answers "" for both where the invocation named no sink: the flag is
+// optional, and a Run reaching a Step that declares secret output with none is
+// the Refusal §6's gate states rather than anything decided here
+// (`secret-sink-absent`, internal/run/gates.go).
 //
-// The reason is the whole reason the sink exists. A secret written into the
-// tree is a secret one `git add .` away from a reviewed artefact and from the
-// remote the Store pushes to — and `hyper` is a tool whose entire claim is that
-// no artefact ever holds one (§7, ADR-0007). Nothing about the file's mode
-// would help: it is where it sits that is the fault.
-//
-// Both faults `--secret-out` can have are **usage errors carrying no
-// error_code**, and deliberately so: an `error_code` names a check that
-// declined an artefact, and a path typed at a command line is not one (§9,
-// §12, ADR-0060). Withholding the flag Refuses; misspelling it does not.
+// **The path is refused where it resolves inside the repository working tree**,
+// and that is the whole reason the sink exists. A secret written into the tree
+// is a secret one `git add .` away from a reviewed artefact and from the remote
+// the Store pushes to — and `hyper` is a tool whose entire claim is that no
+// artefact ever holds one (§7, ADR-0007). Nothing about the file's mode would
+// help: it is where it sits that is the fault.
 //
 // The comparison is lexical over cleaned absolute paths. It does not resolve
 // symlinks, and that is stated rather than hidden: a path that reaches the tree
 // through one is not caught here, and what stands against it is the same thing
 // that stands against a `--secret-out /dev/stdout` — the operator's own reading
 // of where they are writing a secret.
-func sinkInsideTheWorkingTree(sink, repoRoot, wd string) string {
+//
+// **The path is refused where anything is already standing at it**, because the
+// sink is a directory `hyper` makes and every file under one is that Run's
+// (ADR-0148). A directory this Run did not make may hold an earlier Run's
+// secrets, and a file this Run does not write is one an operator reading the
+// sink takes for this Run's — a stale credential read as fresh, which is worse
+// than the empty file ADR-0146 refused. So the test is *is anything there*
+// rather than *is it a directory*: a file, a symlink and a populated directory
+// are one fault under one sentence, and `os.Mkdir` at the gate is the atomic
+// half of the same rule (internal/run/sink.go).
+//
+// It is stated here whatever the Procedure holds, which is the rule the other
+// two already follow: `hyper run watch-status --secret-out -` is a usage error
+// on a Procedure that produces no secret at all. What the flag accepts is a
+// fact about the flag, decidable before the repository is loaded, and one that
+// turned on what a Procedure happened to declare would be a fault an author
+// could introduce into somebody else's invocation.
+//
+// **All three faults are usage errors carrying no error_code**, and deliberately
+// so: an `error_code` names a check that declined an artefact, and a path typed
+// at a command line is not one (§9, §12, ADR-0060). Withholding the flag
+// Refuses; misspelling it does not.
+func resolvedSink(sink, repoRoot, wd string) (resolved, fault string) {
 	if sink == "" {
-		return ""
+		return "", ""
 	}
 	resolved, err := filepath.Abs(absPath(wd, sink))
 	if err != nil {
-		return fmt.Sprintf("--secret-out %s: %s", sink, err)
+		return "", fmt.Sprintf("--secret-out %s: %s", sink, err)
 	}
 	root, err := filepath.Abs(repoRoot)
 	if err != nil {
-		return fmt.Sprintf("--secret-out %s: %s", sink, err)
+		return "", fmt.Sprintf("--secret-out %s: %s", sink, err)
 	}
 	inside, err := filepath.Rel(root, resolved)
-	if err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) {
-		return ""
+	outside := err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator))
+	if !outside {
+		return "", fmt.Sprintf("--secret-out %s: the path resolves inside the repository working tree\n"+
+			"  a secret written there is one `git add` away from the record — name a path outside the repository", sink)
 	}
-	return fmt.Sprintf("--secret-out %s: the path resolves inside the repository working tree\n"+
-		"  a secret written there is one `git add` away from the record — name a path outside the repository", sink)
+
+	if _, err := os.Lstat(resolved); err == nil {
+		return "", fmt.Sprintf("--secret-out %s: something is already there\n"+
+			"  the sink is a directory hyper creates, so that every file under it is this Run's — name a path that is not there yet", sink)
+	}
+	return resolved, ""
 }
 
 // unresolvedProcedure is the message a positional that is not a Procedure

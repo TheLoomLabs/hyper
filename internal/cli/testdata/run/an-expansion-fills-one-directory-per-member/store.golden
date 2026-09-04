@@ -1,0 +1,121 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991fa0-3333-7444-8555-666677778888/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991fa0-3333-7444-8555-666677778888/run.json (478 bytes)
+{
+  "dry_run": false,
+  "procedure": "read-sessions-over",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "9ed6c0400ac05c818637a8a73bab783b6cc7246a",
+    "repo_revision": "b99dd86e50bbc2534f778fc994a20305c8f44ea0"
+  },
+  "run_id": "01991fa0-3333-7444-8555-666677778888",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991fa0-3333-7444-8555-666677778888/steps/0001.json (872 bytes)
+{
+  "definition": "session-read",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "sessions",
+  "identities": {
+    "digest": "sha256:505b5170ab615a66b628c8324091f6ffbdf38a4ad2d0e42ea2531c5ceb6cf012",
+    "members": [
+      "cert.hyper.dev",
+      "status.hyper.dev"
+    ]
+  },
+  "kind": "read",
+  "operation": "read_session",
+  "provenance": {
+    "definition_revision": "0f4e88dc2cb2d55deea69ca776bc6e5da24cc9ff",
+    "manifest_digest": "sha256:a2077bb5843fae35ef3e2410c76f21ca681f69e642972f5f1553532fa8a3dd3e"
+  },
+  "provider": "session",
+  "schema_version": 1,
+  "selector": {
+    "declared": {
+      "values": [
+        "status.hyper.dev",
+        "cert.hyper.dev"
+      ]
+    },
+    "expanded_to": [
+      "status.hyper.dev",
+      "cert.hyper.dev"
+    ]
+  },
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "local"
+}
+=== records/local/session-read/cert.hyper.dev/01991fa0-3333-7444-8555-666677778888-0001.json (750 bytes)
+{
+  "definition": "session-read",
+  "fields": {
+    "expires_at": "2026-05-01T09:41:14Z",
+    "host": "cert.hyper.dev",
+    "token": "<secret>"
+  },
+  "name": "cert.hyper.dev",
+  "operation": "read_session",
+  "provenance": {
+    "definition_revision": "0f4e88dc2cb2d55deea69ca776bc6e5da24cc9ff",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a2077bb5843fae35ef3e2410c76f21ca681f69e642972f5f1553532fa8a3dd3e",
+    "procedure_revision": "9ed6c0400ac05c818637a8a73bab783b6cc7246a",
+    "repo_revision": "b99dd86e50bbc2534f778fc994a20305c8f44ea0"
+  },
+  "record_type": "observation",
+  "run_id": "01991fa0-3333-7444-8555-666677778888",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}
+=== records/local/session-read/status.hyper.dev/01991fa0-3333-7444-8555-666677778888-0001.json (754 bytes)
+{
+  "definition": "session-read",
+  "fields": {
+    "expires_at": "2026-04-09T09:41:14Z",
+    "host": "status.hyper.dev",
+    "token": "<secret>"
+  },
+  "name": "status.hyper.dev",
+  "operation": "read_session",
+  "provenance": {
+    "definition_revision": "0f4e88dc2cb2d55deea69ca776bc6e5da24cc9ff",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:a2077bb5843fae35ef3e2410c76f21ca681f69e642972f5f1553532fa8a3dd3e",
+    "procedure_revision": "9ed6c0400ac05c818637a8a73bab783b6cc7246a",
+    "repo_revision": "b99dd86e50bbc2534f778fc994a20305c8f44ea0"
+  },
+  "record_type": "observation",
+  "run_id": "01991fa0-3333-7444-8555-666677778888",
+  "schema_version": 1,
+  "step": 1,
+  "target": "local",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

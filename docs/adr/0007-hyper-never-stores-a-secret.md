@@ -44,7 +44,11 @@ model) true rather than aspirational.
   named or not (`secret-sink-unwritten`, §12). *The sink is written `0600`* states what will happen and
   not what does; `secret-sink-absent` returns to the closed set with the format. The invocation-not-
   environment rule above is untouched: it is the rule the sink's own Refusal goes back to being an
-  instance of.
+  instance of. _ADR-0148 amends the amendment:_ the sink is written, so every sentence of the bullet
+  above holds as authored again and `secret-sink-absent` is back in §12. What ADR-0148 adds is the
+  shape the mode was always stated for: the sink is a **directory** `hyper` creates `0700`, holding one
+  `0600` file per value at `<nnnn>/<name>/<field>`, because one Run produces one secret per declared
+  field of every Record of every secret-producing Step and *one secret, one file* could not say that.
 - **Some Assets are not re-readable.** An Asset whose only handle is the secret it contains — an API
   key returned once at creation — cannot be recovered from the record. You rotate rather than
   recover. `skip-if-recorded` is unaffected, because the Record exists; only the value is gone.
