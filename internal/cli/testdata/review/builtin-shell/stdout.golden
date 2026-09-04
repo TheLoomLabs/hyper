@@ -34,8 +34,6 @@
                                      │       identity: $.command
                                      │       fields:
                                      │         exit_code: $.exit_code
-                                     │         stdout: $.stdout
-                                     │         stderr: $.stderr
   mutate   run-once          opaque  │   mutate_once:
                                      │     kind: mutate
                                      │     deadline: 1h
@@ -48,8 +46,6 @@
                                      │       identity: $.command
                                      │       fields:
                                      │         exit_code: $.exit_code
-                                     │         stdout: $.stdout
-                                     │         stderr: $.stderr
   mutate   skip-if-recorded  opaque  │   mutate_skip_if_recorded:
                                      │     kind: mutate
                                      │     repeatability: skip-if-recorded
@@ -63,8 +59,6 @@
                                      │       identity: $.command
                                      │       fields:
                                      │         exit_code: $.exit_code
-                                     │         stdout: $.stdout
-                                     │         stderr: $.stderr
   DESTROY  repeatable        opaque  │   destroy:
                                      │     kind: destroy
                                      │     repeatability: repeatable
@@ -86,9 +80,9 @@
   FLAGS   index into the gutter above — no flag states anything the gutter does not
   OPAQUE   line 7   read reaches an effect hyper cannot describe
   OPAQUE   line 22  mutate reaches an effect hyper cannot describe
-  OPAQUE   line 37  mutate_once reaches an effect hyper cannot describe
-  OPAQUE   line 51  mutate_skip_if_recorded reaches an effect hyper cannot describe
-  DESTROY  line 66  destroy declares destroy
-  OPAQUE   line 66  destroy reaches an effect hyper cannot describe
-  DESTROY  line 75  destroy_once declares destroy
-  OPAQUE   line 75  destroy_once reaches an effect hyper cannot describe
+  OPAQUE   line 35  mutate_once reaches an effect hyper cannot describe
+  OPAQUE   line 47  mutate_skip_if_recorded reaches an effect hyper cannot describe
+  DESTROY  line 60  destroy declares destroy
+  OPAQUE   line 60  destroy reaches an effect hyper cannot describe
+  DESTROY  line 69  destroy_once declares destroy
+  OPAQUE   line 69  destroy_once reaches an effect hyper cannot describe

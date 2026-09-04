@@ -212,7 +212,7 @@ func TestOperationSource_IsByteForByteTheFilesOwnRange(t *testing.T) {
 // into the binary (§12, ADR-0039).
 func TestOperationSource_ReadsTheBuiltInFromTheCompiledInBytes(t *testing.T) {
 	got := mustSource(t, BuiltinShellProviderYAML, "mutate_once")
-	want := linesBetween(t, BuiltinShellProviderYAML, "  mutate_once:", "        stderr: $.stderr")
+	want := linesBetween(t, BuiltinShellProviderYAML, "  mutate_once:", "        exit_code: $.exit_code")
 
 	if got != want {
 		t.Errorf("source =\n%q\nwant\n%q", got, want)

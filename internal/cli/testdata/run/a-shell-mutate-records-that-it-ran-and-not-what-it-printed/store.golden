@@ -50,7 +50,7 @@ Editing it by hand is editing evidence.
   "operation": "mutate",
   "provenance": {
     "definition_revision": "6c988fab0796413b5b8ed0aae80595b793d8874b",
-    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4"
+    "manifest_digest": "sha256:e49e840cd47031a55883798ad436d8269b95a1f49f01165f91047fc456907222"
   },
   "provider": "shell",
   "schema_version": 1,
@@ -58,20 +58,18 @@ Editing it by hand is editing evidence.
   "step": 1,
   "target": "local"
 }
-=== records/local/host-ops/%5B%22deploy%22%2C%22r41%22%5D/01991f50-b118-7c93-8d41-6b2f7ae06a11-0001.json (746 bytes)
+=== records/local/host-ops/%5B%22deploy%22%2C%22r41%22%5D/01991f50-b118-7c93-8d41-6b2f7ae06a11-0001.json (663 bytes)
 {
   "definition": "host-ops",
   "fields": {
-    "exit_code": 0,
-    "stderr": "",
-    "stdout": "{\"release\":\"r41\",\"status\":\"deployed\"}\n"
+    "exit_code": 0
   },
   "name": "[\"deploy\",\"r41\"]",
   "operation": "mutate",
   "provenance": {
     "definition_revision": "6c988fab0796413b5b8ed0aae80595b793d8874b",
     "hyper_version": "1.4.0",
-    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4",
+    "manifest_digest": "sha256:e49e840cd47031a55883798ad436d8269b95a1f49f01165f91047fc456907222",
     "procedure_revision": "9f2194ef0af46cc3c2d152e312290c662c067139",
     "repo_revision": "18c4435a94a86c0905479a29d147213bb634deb8"
   },

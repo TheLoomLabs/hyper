@@ -112,8 +112,6 @@ operations:
       identity: $.command
       fields:
         exit_code: $.exit_code
-        stdout: $.stdout
-        stderr: $.stderr
   mutate_once:
     kind: mutate
     deadline: 1h
@@ -126,8 +124,6 @@ operations:
       identity: $.command
       fields:
         exit_code: $.exit_code
-        stdout: $.stdout
-        stderr: $.stderr
   mutate_skip_if_recorded:
     kind: mutate
     repeatability: skip-if-recorded
@@ -141,8 +137,6 @@ operations:
       identity: $.command
       fields:
         exit_code: $.exit_code
-        stdout: $.stdout
-        stderr: $.stderr
   destroy:
     kind: destroy
     repeatability: repeatable

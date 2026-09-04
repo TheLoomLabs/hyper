@@ -347,11 +347,14 @@ which the review flags as unbounded all the same (§5).
 parsed (§12, ADR-0052), so a command answering in JSON is one string in one field and no path reaches
 inside it. §7 says a blob nobody reviews has no business on a branch whose whole point is that it can
 be read, and the `shell` Provider bends that rule by construction — one more reason it is the escape
-hatch rather than the road. The cost lands unevenly by Kind and the asymmetry is the part worth
-knowing: a shell `read`'s output is an Observation, and Compaction reclaims its interior versions; a
-shell `mutate`'s is an Asset, and Compaction never removes one, so that output is on the branch
-permanently. No cap stands between a chatty command and the Store, a byte limit being a number `hyper`
-would be guessing at on a Provider that knows nothing whatever about the command (ADR-0045).
+hatch rather than the road. The cost used to land unevenly by Kind — a shell `read`'s output is an
+Observation, which Compaction reclaims interior versions of, and a shell `mutate`'s was an Asset, which
+Compaction never removes — and what closed that half is the effectful Operations no longer projecting
+`stdout` at all (§12, ADR-0143). What is left is the `read`, and it is a question of volume rather than
+of permanence: no cap stands between a chatty command and the Store, a byte limit being a number
+`hyper` would be guessing at on a Provider that knows nothing whatever about the command (ADR-0045),
+and Compaction reclaims those versions only where the repository declared a `retention:` — omitted,
+nothing is ever removed (§3).
 
 **A command that prints a credential puts it in the Store, and nothing notices.** ADR-0007's *`hyper`
 never stores a secret* holds because every credential `hyper` handles occupies a position `hyper` owns
@@ -361,6 +364,13 @@ own resolved credentials out of the child, so this is never a secret the reposit
 the command obtained elsewhere and printed. The built-in declares no `secret:` and could not usefully
 declare one, `hyper` being the Provider author and knowing nothing about the output (§3). This is the
 one place the headline claim is qualified rather than merely bounded.
+
+What bounds it now is Kind and Compaction rather than anything noticing. Only a shell `read` projects
+`stdout`, so what a printed credential reaches is an Observation and never an Asset or a Tombstone
+(§12, ADR-0143) — a version Compaction may remove where the repository declared a `retention:`, which
+is a policy an author states rather than a thing `hyper` does. It is still in `git` history, which is
+not editable, so what changed is that the branch's live tree can stop holding it; rotating the
+credential remains the only remedy that is one.
 
 **No pipe, no redirection, no glob, no `&&`.** A `command:` is a list of argv words `hyper` execs
 directly, with no interpreter in between (§3, ADR-0051), so `aws … | jq …` is not writable and neither

@@ -10,8 +10,6 @@
       identity: $.command
       fields:
         exit_code: $.exit_code
-        stdout: $.stdout
-        stderr: $.stderr
 
 CAPABILITIES        shell
 BOUND               none

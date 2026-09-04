@@ -2,16 +2,16 @@
 {"type":"gutter","line":5,"marker":"shell"}
 {"type":"gutter","line":7,"marker":"read repeatable opaque"}
 {"type":"gutter","line":22,"marker":"mutate repeatable opaque"}
-{"type":"gutter","line":37,"marker":"mutate run-once opaque"}
-{"type":"gutter","line":51,"marker":"mutate skip-if-recorded opaque"}
-{"type":"gutter","line":66,"marker":"DESTROY repeatable opaque"}
-{"type":"gutter","line":75,"marker":"DESTROY run-once opaque"}
+{"type":"gutter","line":35,"marker":"mutate run-once opaque"}
+{"type":"gutter","line":47,"marker":"mutate skip-if-recorded opaque"}
+{"type":"gutter","line":60,"marker":"DESTROY repeatable opaque"}
+{"type":"gutter","line":69,"marker":"DESTROY run-once opaque"}
 {"type":"flag","flag":"opaque","cites_line":7}
 {"type":"flag","flag":"opaque","cites_line":22}
-{"type":"flag","flag":"opaque","cites_line":37}
-{"type":"flag","flag":"opaque","cites_line":51}
-{"type":"flag","flag":"destroy","cites_line":66}
-{"type":"flag","flag":"opaque","cites_line":66}
-{"type":"flag","flag":"destroy","cites_line":75}
-{"type":"flag","flag":"opaque","cites_line":75}
+{"type":"flag","flag":"opaque","cites_line":35}
+{"type":"flag","flag":"opaque","cites_line":47}
+{"type":"flag","flag":"destroy","cites_line":60}
+{"type":"flag","flag":"opaque","cites_line":60}
+{"type":"flag","flag":"destroy","cites_line":69}
+{"type":"flag","flag":"opaque","cites_line":69}
 {"type":"result","truncated":false}
