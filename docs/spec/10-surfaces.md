@@ -349,11 +349,18 @@ something, and neither does.
 
 **`--secret-out <path>`** names the Secret sink. A Run reaching a Step whose Operation declares a
 secret output Refuses when none was supplied (`secret-sink-absent`, §12), which is a fact about the
-invocation and never about the environment it runs in (ADR-0007). The path is written `0600` and is
-refused where it resolves inside the repository working tree; `-` is not accepted, stdout being
-exclusively the answer and a secret written there landing in the same pipe a CI job logs. It is not a
-bypass and must not read like one: supplying it weakens no check, and withholding it produces a
-Refusal that renders like any other (§8).
+invocation and never about the environment it runs in (ADR-0007). The path is refused where it
+resolves inside the repository working tree; `-` is not accepted, stdout being exclusively the answer
+and a secret written there landing in the same pipe a CI job logs. It is not a bypass and must not
+read like one: supplying it weakens no check, and withholding it produces a Refusal that renders like
+any other (§8).
+
+**Nothing writes the file yet**, and what the flag is today is the gate's operand: the path is
+accepted, its faults are refused, and its presence is the whole of what a Run reads of it. A Run given
+a sink therefore completes, and the secret it produced reaches the Store as the marker rather than the
+sink as a value — a loss and never a leak, suppression being positional and holding either way
+(ADR-0007). A sink is to be written `0600`, and that lands with the format it has yet to be given
+(issue #266).
 
 The Refusal declines before Step 1 rather than at the Step, beside the credential gate and on the same
 ground — both operands are the occasion's and both are in hand — and it names every Step that would
