@@ -57,7 +57,7 @@ Editing it by hand is editing evidence.
   "operation": "destroy",
   "provenance": {
     "definition_revision": "58aeb6071a8b27e5499dc7e69058d9cc7ab47658",
-    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4"
+    "manifest_digest": "sha256:e49e840cd47031a55883798ad436d8269b95a1f49f01165f91047fc456907222"
   },
   "provider": "shell",
   "schema_version": 1,
@@ -85,7 +85,7 @@ Editing it by hand is editing evidence.
   "provenance": {
     "definition_revision": "58aeb6071a8b27e5499dc7e69058d9cc7ab47658",
     "hyper_version": "1.4.0",
-    "manifest_digest": "sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4",
+    "manifest_digest": "sha256:e49e840cd47031a55883798ad436d8269b95a1f49f01165f91047fc456907222",
     "procedure_revision": "22039deb600286eb7d1746d6f7354a4c46b36f50",
     "repo_revision": "90adf6b6623abf078bd891b58d4ab7d15c1530b7"
   },

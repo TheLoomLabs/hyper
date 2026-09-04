@@ -277,10 +277,12 @@ is **empty**, and the argv is the Operation input named `command`, arriving in a
 ADR-0081). It was written `command: "{command}"` until that ticket read it against the hole rule and
 found the one Provider `hyper` ships refused by `manifest-inconsistent` — a hole may not name an input
 declared `array` (§4, ADR-0078) — and the fix was to delete the key rather than to except it, a request
-with no shape of the Manifest's having nothing for a hole to stand in. The projection is the same on the four that carry
-one, `destroy` and `destroy_once` being forbidden a `record:` like every other `destroy` (ADR-0037) —
-so a shell Record's name is always the command that produced it. No `secret:` is declared anywhere in
-it, for the reason §3 gives and at the cost §13 states.
+with no shape of the Manifest's having nothing for a hole to stand in. The identity is the same on the four that carry a projection,
+`destroy` and `destroy_once` being forbidden a `record:` like every other `destroy` (ADR-0037) — so a
+shell Record's name is always the command that produced it. **The fields are not.** `read` projects
+`stdout` and `stderr` beside the exit code; the three effectful ones project the exit code and nothing
+else, because what they write is an Asset and Compaction never removes one (§7, ADR-0143). No `secret:`
+is declared anywhere in it, for the reason §3 gives and at the cost §13 states.
 
 ```yaml
 kind: provider
@@ -317,8 +319,6 @@ operations:
       identity: $.command
       fields:
         exit_code: $.exit_code
-        stdout: $.stdout
-        stderr: $.stderr
   destroy:
     kind: destroy
     repeatability: repeatable
@@ -332,7 +332,8 @@ operations:
 
 `mutate_once` and `destroy_once` are the two above with `repeatability:` omitted, and
 `mutate_skip_if_recorded` is `mutate` with `skip-if-recorded` in its place; nothing else in any of the
-three differs, which is the point of there being six. The repetition is not factored out because a
+three differs — the projection included, all three being effectful — which is the point of there being
+six. The repetition is not factored out because a
 Manifest has no factoring construct and would need one invented for its own author's convenience
 (ADR-0022), and because `operation` writes these lines back unchanged (§9) — what a reviewer reads is
 what `manifest_digest` covers.
@@ -616,7 +617,7 @@ There is no parsed form of `stdout`, and its absence is the `opaque` trait arriv
 `hyper` cannot describe what a command does, and parsing its output is a description of exactly that.
 Nothing enforces it beyond the grammar below, which reaches no further inside a scalar than inside a
 string anywhere else — so a shell projection reaches `$.exit_code`, `$.stdout` and `$.stderr` and
-nothing finer, and a shell response holds no collection, so every shell Operation is of `one`
+nothing finer, the last two being read by the built-in's `read` alone (ADR-0143), and a shell response holds no collection, so every shell Operation is of `one`
 cardinality by construction.
 
 An exit code is an answer and never an `error_code`, on the sentence the `http` object carries above.

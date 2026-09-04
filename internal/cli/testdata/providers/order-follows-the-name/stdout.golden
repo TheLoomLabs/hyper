@@ -1,4 +1,4 @@
 NAME   ORIGIN     SUMMARY                                                   OPERATIONS  DIGEST
 alpha  extension  class widgetco; requires http; 1 read                     1           sha256:3f3044bc9a5c46239060ec6885aa01a72e39143698fce539a5802da534ae434b
-shell  built-in   class local; requires shell; 1 read, 3 mutate, 2 destroy  6           sha256:2c572c3551bc4a6d424c6c5f9738657326f74b675d48b2a79e92683b4cdaa1e4
+shell  built-in   class local; requires shell; 1 read, 3 mutate, 2 destroy  6           sha256:e49e840cd47031a55883798ad436d8269b95a1f49f01165f91047fc456907222
 zulu   extension  class widgetco; requires http; 1 read                     1           sha256:4fe7c23aba5e098e0e2966c2f6fff6d9f76419327640bc26b84801b31da7504e

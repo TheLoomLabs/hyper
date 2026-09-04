@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 142 records**, numbered `0001`–`0142` with no gaps. They are chronological:
+**This corpus holds 143 records**, numbered `0001`–`0143` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -365,3 +365,4 @@ here fails the suite.
 - **0140** · [The README holds the first read, and a corpus it points at carries an index](0140-the-readme-holds-the-first-read-and-a-corpus-it-points-at-carries-an-index.md)
 - **0141** · [A release's body is a file in the tree the tag names](0141-a-releases-body-is-a-file-in-the-tree-the-tag-names.md)
 - **0142** · [A declared-secret field is suppressed on every surface that renders a projection](0142-a-declared-secret-field-is-suppressed-on-every-surface-that-renders-a-projection.md)
+- **0143** · [An effectful shell Operation records that it ran and not what it printed](0143-an-effectful-shell-operation-records-that-it-ran-and-not-what-it-printed.md)
