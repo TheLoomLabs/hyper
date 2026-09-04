@@ -4,7 +4,7 @@
   ],
   "structuredContent": {
     "rows": [
-      {"type":"target","name":"hostco","hosts":["api.hostco.dev"],"accepts_kinds":["read","mutate"],"grants_capabilities":["http"],"credentials":[{"slot":"username","env":"HOSTCO_USERNAME","present":true},{"slot":"password","env":"HOSTCO_PASSWORD","present":false}]}
+      {"type":"target","name":"hostco","hosts":["api.hostco.dev"],"accepts_kinds":["read","mutate"],"grants_capabilities":["http"],"credentials":[{"slot":"username","env":"HOSTCO_USERNAME","presence":"set"},{"slot":"password","env":"HOSTCO_PASSWORD","presence":"absent"}]}
     ],
     "truncated": false
   },

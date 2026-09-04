@@ -89,8 +89,16 @@ func (a Auth) Slots() []string {
 // A slot the mapping does not hold composes into the empty string rather than
 // declining, because declining here would be a second reading of a question
 // §6's credential pass already answered: presence is resolved once, before Step
-// 1, and every absent slot Refuses `credential-absent` there. By the time a
-// request is being built there is nothing left to find.
+// 1, and every unfilled slot Refuses there — `credential-absent` where the
+// environment does not hold the variable, `credential-empty` where it holds it
+// and sets it to nothing. By the time a request is being built there is nothing
+// left to find.
+//
+// That second code is what keeps this composition honest. A slot resolving to
+// the empty string used to reach here and compose into a header that was present
+// and blank — `Bearer ` with nothing after it — which the endpoint answered `401`
+// and hyper recorded as the world resisting. What had happened is that the
+// invocation was never ready, and the gate says so now (§6, §9, ADR-0145).
 func (a Auth) Credential(slots map[string]string) Credential {
 	switch a.Scheme {
 	case SchemeHeader:

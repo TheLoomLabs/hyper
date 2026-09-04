@@ -207,9 +207,17 @@ const runCorpus = "testdata/run"
 // what the five artefact kinds are for: the walk reaches every location, and a
 // Refusal cites the file the reader must edit whichever of them it came from.
 //
-// The three that are not §4's ride here beside them because they reach a Run
+// The four that are not §4's ride here beside them because they reach a Run
 // the same way and through the same rendering: the Store schema test's, the
-// credential pass's and the sink gate's (§6, §9, §12).
+// credential pass's two and the sink gate's (§6, §9, §12).
+//
+// The credential pass contributes two because it reads one variable three ways,
+// and the two halves are the two that decline: `credential-absent` where the
+// environment does not hold the variable, `credential-empty` where it holds it
+// and sets it to nothing. They are two codes rather than two messages under one
+// (§12, ADR-0145), so a corpus holding one of them would leave the other's
+// rendering — its own `=` remedy note, and its own line on `outcome.json` —
+// driven by nothing (issue #264).
 //
 // bound-exceeded is the fourth that is not §4's, and it is here on a different
 // footing from all of them: it is not a code arriving through the re-run of
@@ -277,6 +285,7 @@ var codesReachingARun = []string{
 	"envelope-exceeded",
 	"store-schema-unsupported",
 	"credential-absent",
+	"credential-empty",
 	"secret-sink-absent",
 	"bound-exceeded",
 	"run-once-recorded",

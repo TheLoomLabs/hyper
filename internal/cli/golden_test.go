@@ -208,8 +208,9 @@ func walkTestdata(t *testing.T, filename string, visit func(dir string)) {
 //   - env, optional: the environment the invocation is read against, one
 //     NAME=value line per variable. A variable the file does not list is
 //     absent, and a line whose value is empty is a variable set to the empty
-//     string — two states a case must be able to tell apart, `targets`
-//     reporting whether a credential's variable is present (issue #112).
+//     string — two of the three states a case must be able to tell apart,
+//     `targets` reporting §12's credential presence and the credential gate
+//     Refusing under two of its three members (issue #112, issue #264).
 //   - facts.json or version, optional: the build facts the entry point is
 //     handed. facts.json is the whole value, for a case whose subject is the
 //     page it renders; version is only the string the pin gate compares, for
@@ -602,9 +603,10 @@ func (c goldenCase) variables(t *testing.T) map[string]string {
 
 // environment is that map read one name at a time, which is os.LookupEnv's
 // shape rather than os.Getenv's: a variable set to the empty string and one
-// that was never set are two different answers on `targets`'s presence column,
-// and a corpus that could not state the difference could not hold the rule (§9,
-// issue #112).
+// that was never set are two different members of §12's credential presence,
+// two different words on `targets`'s column and two different codes at the
+// credential gate, and a corpus that could not state the difference could not
+// hold the rule (§9, §12, issue #112, issue #264).
 func (c goldenCase) environment(env map[string]string) func(string) (string, bool) {
 	return func(name string) (string, bool) {
 		value, present := env[name]

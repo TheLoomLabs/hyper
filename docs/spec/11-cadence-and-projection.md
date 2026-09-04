@@ -402,6 +402,11 @@ runtime binary resolves an environment variable exactly as it does on a laptop, 
 executor enters the decision; adding a Target to a Procedure makes a new secret appear in the diff
 `project` writes rather than in YAML nobody reviewed; and an executor holding no secret of that name
 Refuses before the first Step (`credential-absent`, §12) rather than failing part-way through one.
+**An executor that expands an unset secret to the empty string Refuses there too**
+(`credential-empty`, §12), which is the shape this arrives in more often than the other: a fork's
+job, or a repository where the secret was never added, runs with the variable set and holding nothing.
+Before that code existed such a job sent a header that was present and blank, took a `401`, and
+recorded the world resisting at `1` — unattended, on a recurrence, once per tick (§6, ADR-0145).
 What the block holds is a *reference* and never a value: `${{ secrets.NAME }}` is resolved by the
 executor before the runtime binary starts, so the line `hyper` writes into a reviewed file names a
 secret `hyper` itself never reads. That is the whole of `hyper`'s acquaintance with any secret store —

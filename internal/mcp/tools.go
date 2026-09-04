@@ -416,6 +416,15 @@ var operationTool = tool{
 // same disagreement its `endpoint` was resolved from, and resolved the same
 // way, §12's opening rule sending one fact to two wires under one name (§3,
 // §9, ADR-0007, issue #197).
+//
+// **`presence` is a word out of a closed three and was a boolean**, and this
+// wire is the reason that change was worth its own reviewed issue: an agent
+// parses this schema, and *the variable is set* and *the variable is set to
+// nothing* are the two readings it cannot tell apart by squinting at a
+// terminal, a `401` being all either of them produced. The member was renamed
+// rather than re-typed so that a client written against the boolean finds no
+// `present` at all rather than reading the string "absent" as true (§9, §12,
+// ADR-0145, issue #264).
 var targetsTool = tool{
 	name:        "targets",
 	description: "List every Target this repository declares, and the environment variables its credentials resolve from — names only, never a value.",
@@ -451,9 +460,9 @@ var targetsTool = tool{
 									"type": "string",
 									"description": "The environment variable the slot resolves from — the name, never the value."
 								},
-								"present": {
-									"type": "boolean",
-									"description": "Whether that variable is set, computed when the tool runs. It is absent, with env, on a slot naming no variable: there is nothing to ask the environment about, and false would answer a question nothing asked."
+								"presence": {
+									"enum": ["absent", "empty", "set"],
+									"description": "What the environment did with that variable, computed when the tool runs: absent where it does not hold it, empty where it holds it and it has no characters, set otherwise. It is absent, with env, on a slot naming no variable: there is nothing to ask the environment about, and a word would answer a question nothing asked. These are the three the credential gate decides a Run under, so a slot reading set is a slot no Run will Refuse for want of it."
 								}
 							}
 						}

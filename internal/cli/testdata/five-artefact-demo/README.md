@@ -107,7 +107,7 @@ generated workflow above earns, one file kind over.
 It is one repository and sixty-five cases, in seven corpora: the four commands'
 eight above, `check/`'s two clean cases, the two beside `targets`'s own that run
 it again under an environment supplying `CLOUDFLARE_API_TOKEN` — where the
-credential column reads present and nothing else in the answer moves —
+credential column reads `set` and nothing else in the answer moves —
 `probe/`'s thirty-one, and `review/`'s twenty-two.
 
 A copy per case is how it began, and a Provider whose Operations moved under one

@@ -227,10 +227,19 @@ to prevent.
 
 `targets` writes one row per Target declaration: its name, the hosts it grants, the Kinds it accepts,
 the Capabilities it grants, the environment variables its credentials resolve from — names only, never
-a value (§3, ADR-0007) — and whether each of those variables is present. Each variable is paired with
-the slot it fills, `token=CLOUDFLARE_API_TOKEN`, rather than listed bare: a declaration may carry slots
+a value (§3, ADR-0007) — and what the environment did with each of those variables. Each variable is
+paired with the slot it fills, `token=CLOUDFLARE_API_TOKEN`, rather than listed bare: a declaration
+may carry slots
 for more than one scheme, and a list of names alone does not say which fills what. Presence is computed
-when the command runs; the value behind a present name is never read here, and never rendered anywhere.
+when the command runs; the value behind a filled name is never read here, and never rendered anywhere.
+
+**Presence is a word out of §12's closed three and not a flag**, and it is §12's set rather than a
+reading of its own: the same three the credential gate decides a Run under (§6), which is what makes
+this column and that gate one question rather than two. `empty` is the member an upstream produces
+rather than an operator — a reader that returned nothing, a CI secret never set on the fork, every one
+of them a different fix from *you forgot to export it* (ADR-0145). The one thing read off a value is
+which member it falls under; nothing else about it reaches this surface, and nothing about it reaches
+any other.
 
 **The host grant renders as `hosts`, an array, in the declaration's own order.** §3's Target
 declaration has no `endpoint:` key: it has `hosts:`, glossed there as *one member where the Target is a
@@ -809,10 +818,15 @@ could get wrong.
 
 The mapping is what keeps the two credential failures apart. Presence is checked where §6 resolves the
 credentials the Run's bindings require, before the first Step: one a binding requires and the
-environment does not hold is a Refusal and exits `77` (`credential-absent`, §12), while one that is
-present and the endpoint rejects is the world resisting and exits `1`. Nothing about where the process
-runs enters either decision (ADR-0007). Every absent slot is reported, one member of the Refusal's array
-each (§7), because the pass resolves them all in one go and knows them all at once — reporting the first
+environment does not hold is a Refusal and exits `77` (`credential-absent`, §12), one it holds and sets
+to the empty string is a Refusal and exits `77` too (`credential-empty`, §12), while one that is
+filled and the endpoint rejects is the world resisting and exits `1`. Nothing about where the process
+runs enters either decision (ADR-0007). The empty one is on the `77` side because past it lies an act on
+the environment like any other, and it is a Refusal rather than a `401` because an empty credential
+reaches the wire as a header that is present and blank — the world would then be recorded as resisting
+an invocation that was never ready (ADR-0145). Every unfilled slot is reported, one member of the
+Refusal's array each (§7), because the pass resolves them all in one go and knows them all at once —
+reporting the first
 would send an operator round the loop once per variable, each `export` earning another `77`.
 
 Commands that are not Runs carry no outcome. They use `0` for clean, `1` for problems found, and `2`
@@ -1292,15 +1306,21 @@ format at the moment the caller needs it.
 targets()
 // → rows: [{ type: "target", name, hosts: [ … ],
 //            accepts_kinds: [ … ], grants_capabilities: [ … ],
-//            credentials: [{ slot, env: "PROD_TOKEN", present }] }]   // names, never values
+//            credentials: [{ slot, env: "PROD_TOKEN", presence }] }]  // names, never values
 //                                                                    // absent where the declaration
 //                                                                    // carries no auth: block
 ```
 
 `env` is exactly what an agent must write into a Target declaration while never seeing a value, which
 is the shape §3 fixed when it made a literal in a credential position a load error. Presence is
-computed when the tool runs; the value behind a present name is never read here and never rendered
+computed when the tool runs; the value behind a filled name is never read here and never rendered
 anywhere.
+
+**`presence` carries §12's credential presence**, the same three the CLI column above renders and the
+same three the credential gate decides a Run under (§6). It is this wire the third member was worth a
+reviewed change for: an agent parses this shape, and *the variable is set* and *the variable is set to
+nothing* are the two readings it cannot tell apart by squinting at a terminal, where a `401` is all
+either of them would otherwise have produced (ADR-0145).
 
 **The credential grant renders as `credentials`, one member per slot, each pairing the slot with its
 variable and that variable's presence.** An earlier sketch of this row named two flat members,
@@ -1308,7 +1328,7 @@ variable and that variable's presence.** An earlier sketch of this row named two
 a declaration may carry slots for more than one scheme, and a list of names alone does not say which
 fills what. §12's opening rule — one fact reaching two wires reaches them under one name — decides it
 in favour of the shape that can state the fact, exactly as it decided `hosts` above. `env` and
-`present` are absent together on a slot naming no variable, on the rule the CLI half states.
+`presence` are absent together on a slot naming no variable, on the rule the CLI half states.
 
 ### Authoring
 

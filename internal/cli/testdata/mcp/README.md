@@ -39,8 +39,9 @@ against each other: the rows in an `envelope.golden` are the rows in the
 (`TestGoldenCorpora_ARowInAnEnvelopeIsTheRowTheStreamWrites`). The pairing is
 by the row's own identity across the whole corpus rather than by directory, and
 one identity can have more than one rendering: `targets` computes credential
-presence when it runs, so `cloudflare-prod` is `present: true` in a case whose
-`env` sets the variable and `present: false` in one that does not. What the
+presence when it runs, so `cloudflare-prod` is `presence: "set"` in a case whose
+`env` fills the variable, `presence: "empty"` in one that sets it to nothing and
+`presence: "absent"` in one that does not set it at all. What the
 fence holds is that an envelope's row is **one of** the renderings the stream
 writes for that identity — keys in order, values as stated.
 
@@ -164,8 +165,9 @@ credential half. `five-artefact-demo-credentialed` carries both shapes at once:
 at all. It is also where `hosts` is read as an array in the declaration's own
 order — `local` grants two, and both are there. `empty-string-variable` is the
 line between a name and a value: the variable is set to the empty string and
-`present` is `true`, whether an empty credential works being the endpoint's
-business and not hyper's. No case anywhere holds a credential value, because
+`presence` is `"empty"` rather than either of the other two — the state an
+upstream produces, and the one a Run binding that slot now Refuses under
+(`credential-empty`, §12, ADR-0145). No case anywhere holds a credential value, because
 nothing on this surface ever reads one. `two-slot-declaration` is why the pair
 is a pair: one declaration carrying two slots, one of them set and one not,
 which a flat list of names could not have said. `no-targets-directory` is the

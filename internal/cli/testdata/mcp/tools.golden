@@ -2345,9 +2345,13 @@ List every Target this repository declares, and the environment variables its cr
                   "type": "string",
                   "description": "The environment variable the slot resolves from — the name, never the value."
                 },
-                "present": {
-                  "type": "boolean",
-                  "description": "Whether that variable is set, computed when the tool runs. It is absent, with env, on a slot naming no variable: there is nothing to ask the environment about, and false would answer a question nothing asked."
+                "presence": {
+                  "enum": [
+                    "absent",
+                    "empty",
+                    "set"
+                  ],
+                  "description": "What the environment did with that variable, computed when the tool runs: absent where it does not hold it, empty where it holds it and it has no characters, set otherwise. It is absent, with env, on a slot naming no variable: there is nothing to ask the environment about, and a word would answer a question nothing asked. These are the three the credential gate decides a Run under, so a slot reading set is a slot no Run will Refuse for want of it."
                 }
               }
             }

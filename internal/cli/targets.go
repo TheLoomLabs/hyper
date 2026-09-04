@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
+	"github.com/TheLoomLabs/hyper/internal/presence"
 	"github.com/TheLoomLabs/hyper/internal/render"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 )
@@ -25,10 +26,11 @@ import (
 // invocation.
 //
 // What it does reach is the environment, which nothing else in this milestone
-// does: presence is computed when the command runs, by asking whether the
-// variable a credential slot names is set. The value behind a present name is
-// never read, and nothing on this surface has ever held a secret (§3, §9,
-// ADR-0007).
+// does: presence is computed when the command runs, by asking what the
+// environment did with the variable a credential slot names — it does not hold
+// it, it holds it empty, or it fills it. The value behind a filled name is never
+// read, and nothing on this surface has ever held a secret (§3, §9, ADR-0007,
+// ADR-0145).
 func RunTargets(args []string, to destination, lookupenv func(string) (string, bool), wd, binaryVersion string) int {
 	parsed, to, code := parseArgs("targets", args, parameters{limit: defaultListLimit}, lookupenv, to)
 	if code != 0 {
@@ -102,18 +104,31 @@ type targetRow struct {
 }
 
 // credentialCell is one credential slot on the wire: the slot, the environment
-// variable it resolves from — the name, never the value — and whether that
-// variable is present.
+// variable it resolves from — the name, never the value — and what the
+// environment did with that name.
 //
-// Present is a pointer because a slot naming no variable has no presence to
-// state, and false would be an answer to a question nothing asked: env: absent
-// or malformed is credential-slot-malformed, which check reports, and the
-// zero value here must not stand in for it (§7, §8, ADR-0064). Where a
-// variable is named, present is always written — false included.
+// Presence is a pointer because a slot naming no variable has no presence to
+// state, and a word here would be an answer to a question nothing asked: env:
+// absent or malformed is credential-slot-malformed, which check reports, and no
+// zero value here must stand in for it (§7, §8, ADR-0064). Where a variable is
+// named, presence is always written — whichever of the three it is.
+//
+// It is a word out of §12's closed three rather than a boolean, and it replaced
+// a boolean rather than growing a flag beside one: absent, empty and set are one
+// question's three answers, and two booleans would have spelled them as four
+// states of which one — present and not present but empty — is unreachable
+// (§9, §12, ADR-0145). The rename is what makes the change loud: a consumer
+// reading the old present finds no member rather than reading the string
+// "absent" as true.
+//
+// The set is internal/presence's rather than a second spelling here, which is
+// the whole point of it: the credential gate decides a Run under those three
+// (§6), and a column that agreed with the gate by coincidence is a column a
+// reader cannot use to predict a Run.
 type credentialCell struct {
-	Slot    string `json:"slot"`
-	Env     string `json:"env,omitempty"`
-	Present *bool  `json:"present,omitempty"`
+	Slot     string             `json:"slot"`
+	Env      string             `json:"env,omitempty"`
+	Presence *presence.Presence `json:"presence,omitempty"`
 }
 
 // Cells is the row's line on the page, in targetColumns' order. Every member
@@ -140,28 +155,13 @@ func (r targetRow) Cells() []string {
 func (r targetRow) credentialsCell() string {
 	rendered := make([]string, 0, len(r.Credentials))
 	for _, credential := range r.Credentials {
-		if credential.Present == nil {
+		if credential.Presence == nil {
 			rendered = append(rendered, credential.Slot)
 			continue
 		}
-		rendered = append(rendered, fmt.Sprintf("%s=%s (%s)", credential.Slot, credential.Env, presence(*credential.Present)))
+		rendered = append(rendered, fmt.Sprintf("%s=%s (%s)", credential.Slot, credential.Env, string(*credential.Presence)))
 	}
 	return strings.Join(rendered, ", ")
-}
-
-// presence is the word the page uses for what the wire writes as a boolean. It
-// says whether the variable is set and nothing about what is in it: an
-// empty-string variable is present, whether an empty credential works being the
-// endpoint's business and not hyper's.
-//
-// It takes the answer rather than the row's pointer to one, so that "no
-// presence was stated" has no rendering here to be given by accident: the
-// caller has already read that off the member that can be absent.
-func presence(present bool) string {
-	if present {
-		return "present"
-	}
-	return "absent"
 }
 
 // targetColumns is the page's header, and the columns are the row's own members
@@ -209,22 +209,23 @@ func targetRows(loaded repository.Loaded, lookupenv func(string) (string, bool))
 }
 
 // credentialCells pairs every slot the declaration carries with its variable
-// and asks the environment whether that variable is set — which is the whole
-// question, asked at the moment of the call. The value is never read: what
-// lookupenv answers about it is discarded here, and an empty-string variable is
-// present like any other (§9, ADR-0007).
+// and asks the environment what it did with that variable — which is the whole
+// question, asked at the moment of the call. The value itself is never read: the
+// one thing taken off it is whether it has any characters at all, and no
+// credential's contents reach this row, this page or this stream (§9, ADR-0007,
+// ADR-0145).
 //
 // Every slot is reported, which is deliberately wider than what a Run checks: a
 // Run resolves the slots its bindings require, and this command has no
-// Procedure in hand to narrow by — so an absence here is not by itself a Run
-// that will Refuse.
+// Procedure in hand to narrow by — so an absent or empty slot here is not by
+// itself a Run that will Refuse.
 func credentialCells(slots []artefact.CredentialSlot, lookupenv func(string) (string, bool)) []credentialCell {
 	cells := make([]credentialCell, 0, len(slots))
 	for _, slot := range slots {
 		cell := credentialCell{Slot: slot.Slot, Env: slot.Env}
 		if slot.Env != "" {
-			_, present := lookupenv(slot.Env)
-			cell.Present = &present
+			stated := presence.Of(lookupenv(slot.Env))
+			cell.Presence = &stated
 		}
 		cells = append(cells, cell)
 	}

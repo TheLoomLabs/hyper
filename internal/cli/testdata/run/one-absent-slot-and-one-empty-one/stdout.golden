@@ -1,0 +1,24 @@
+nothing ran. no step was reached.
+
+refused: credential-empty
+
+  targets/paid.yaml:8
+    7 │ auth:
+    8 │   token: {env: PAID_TOKEN}
+      │          ^ the environment sets PAID_TOKEN to the empty string
+      │
+      = checked at run start, before the first step
+      = give it a value, and check what left it empty — op read, a CI secret on a fork, vault kv get
+
+refused: credential-absent
+
+  targets/vault.yaml:9
+    7 │ auth:
+    8 │   username: {env: VAULT_USER}
+    9 │   password: {env: VAULT_PASSWORD}
+      │             ^ the environment does not hold VAULT_PASSWORD
+      │
+      = checked at run start, before the first step
+      = set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --
+
+refused · exit 77 · run 01991f63-4e55-7b84-9c70-7f9d15b41d58

@@ -1,0 +1,13 @@
+nothing ran. no step was reached.
+
+refused: credential-empty
+
+  targets/paid.yaml:8
+    7 │ auth:
+    8 │   token: {env: PAID_TOKEN}
+      │          ^ the environment sets PAID_TOKEN to the empty string
+      │
+      = checked at run start, before the first step
+      = give it a value, and check what left it empty — op read, a CI secret on a fork, vault kv get
+
+refused · exit 77 · run 01991f62-3d44-7a15-8c60-6e8f04b3ac21

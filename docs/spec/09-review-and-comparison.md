@@ -1227,8 +1227,9 @@ was reached is the most important thing on the page — an absence cannot carry 
 
 **The caret excerpt survives**, and every code that reaches a Run this way cites a line: a static code
 its own artefact and line, `cadence-run-once` and `cadence-secret-output` the `cadence:` line,
-`credential-absent` the `env:` line of the Target declaration whose slot the environment did not fill,
-and `secret-sink-absent` one Step line per Step that would have needed a sink. The two Cadence codes
+`credential-absent` and `credential-empty` the `env:` line of the Target declaration whose slot the
+environment did not fill, and `secret-sink-absent` one Step line per Step that would have needed a
+sink. The two Cadence codes
 cite the `cadence:` line although the fault is a Manifest's — an undeclared `repeatability:`, a
 declared `secret:` — because the walk goes to the Manifest and the citation comes back to the artefact
 whose author can act. That is also what keeps a caret off a Manifest verified by digest, which would be
@@ -1253,8 +1254,12 @@ change*, a file the reader must not touch. Its file and field go in the `=` note
 three remedies, none of them an edit and all of them keeping `77`'s promise that a verbatim retry
 refuses identically: a **command** (`projection-stale` → `hyper project`, `store-absent` → `hyper store
 init`), a **different binary** (`store-schema-unsupported`, `manifest-schema-unsupported`,
-`version-pin-mismatch`), an **act on the environment** (`credential-absent`), and a **different
-invocation** (`secret-sink-absent` → the same command with `--secret-out <path>`). The last is the
+`version-pin-mismatch`), an **act on the environment** (`credential-absent`, `credential-empty`), and
+a **different invocation** (`secret-sink-absent` → the same command with `--secret-out <path>`). The
+environment class carries two codes and two notes, and that is the whole reason it is two codes: one
+names the wrappers that export a variable — `op run --`, `direnv`, `aws-vault exec --` — and the other
+the readers that export an empty one, so a reader whose variable is already exported is not sent to
+check the one thing that is not wrong (§12, ADR-0145). The last is the
 only remedy on this list that the Run's own operator can take without leaving the shell, and it is
 also the only one no generated workflow can take at all, the projection being byte-exact with a
 compiled-in executor — which is why a Cadence over such a Step is refused at `check` rather than

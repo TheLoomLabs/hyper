@@ -88,12 +88,13 @@ type targetRowFixture struct {
 }
 
 // credentialRowFixture is one credential entry as a case reads it back.
-// Present is a pointer because absent-from-the-object and false are two
-// different readings: a slot naming no variable has no presence to state.
+// Presence is a pointer because absent-from-the-object and a stated word are
+// two different readings: a slot naming no variable has no presence to state,
+// and the three words it can carry are all of them answers.
 type credentialRowFixture struct {
-	Slot    string `json:"slot"`
-	Env     string `json:"env"`
-	Present *bool  `json:"present"`
+	Slot     string  `json:"slot"`
+	Env      string  `json:"env"`
+	Presence *string `json:"presence"`
 }
 
 // readTargetRows reads the target rows off a --json stream, leaving the
@@ -284,8 +285,8 @@ func TestRunTargets_ADeclarationCarryingTwoSlotsReportsBoth(t *testing.T) {
 		t.Fatalf("credentials = %v, want both slots", rows[0].Credentials)
 	}
 	for _, want := range []credentialRowFixture{
-		{Slot: "username", Env: "HOSTCO_USERNAME", Present: boolPtr(true)},
-		{Slot: "password", Env: "HOSTCO_PASSWORD", Present: boolPtr(false)},
+		{Slot: "username", Env: "HOSTCO_USERNAME", Presence: stringPtr("set")},
+		{Slot: "password", Env: "HOSTCO_PASSWORD", Presence: stringPtr("absent")},
 	} {
 		found := false
 		for _, got := range rows[0].Credentials {
@@ -293,8 +294,8 @@ func TestRunTargets_ADeclarationCarryingTwoSlotsReportsBoth(t *testing.T) {
 				continue
 			}
 			found = true
-			if got.Env != want.Env || got.Present == nil || *got.Present != *want.Present {
-				t.Errorf("slot %s = %+v, want env %s present %v", got.Slot, got, want.Env, *want.Present)
+			if got.Env != want.Env || got.Presence == nil || *got.Presence != *want.Presence {
+				t.Errorf("slot %s = %+v, want env %s presence %s", got.Slot, got, want.Env, *want.Presence)
 			}
 		}
 		if !found {
@@ -316,7 +317,7 @@ auth:
   password: {env: HOSTCO_PASSWORD}
 `
 
-func boolPtr(b bool) *bool { return &b }
+func stringPtr(s string) *string { return &s }
 
 // TestRunTargets_PresenceIsComputedWhenTheCommandRuns is the acceptance
 // criterion stated as the experiment it describes: one repository, two
@@ -330,23 +331,52 @@ func TestRunTargets_PresenceIsComputedWhenTheCommandRuns(t *testing.T) {
 	if without == with {
 		t.Fatalf("the two environments produced identical output %q; presence is asked of the environment at the moment of the call", without)
 	}
-	if got, want := without, strings.Replace(with, `"present":true`, `"present":false`, 1); got != want {
+	if got, want := without, strings.Replace(with, `"presence":"set"`, `"presence":"absent"`, 1); got != want {
 		t.Errorf("the two outputs differ outside the presence member:\n %q\n %q", got, want)
 	}
 }
 
-// TestRunTargets_AnEmptyStringVariableIsPresent is the whole of what presence
-// asks: is this variable set. Whether an empty credential works is the
-// endpoint's business, and hyper has no opinion about a value it does not look
-// at.
-func TestRunTargets_AnEmptyStringVariableIsPresent(t *testing.T) {
+// TestRunTargets_TheThreeStatesAreDistinguished is the whole of what presence
+// asks and the reason it is a word rather than a flag: an environment that does
+// not hold the variable, one that holds it and sets it to nothing, and one that
+// fills it are three answers, and the middle one is what an upstream produces —
+// a reader that returned nothing, a CI secret never set on the fork (issue
+// #264, ADR-0145).
+//
+// The three are the credential gate's own, which is the invariant issue #112
+// bought: `set` here means a Run binding this slot will not Refuse for want of
+// it (internal/run/gates.go).
+func TestRunTargets_TheThreeStatesAreDistinguished(t *testing.T) {
 	root := targetsRepo(t, map[string]string{"cloudflare-prod.yaml": cloudflareProdTarget})
 
-	stdout, _, _ := runTargetsIn(t, root, map[string]string{"CLOUDFLARE_API_TOKEN": ""}, "--json")
+	for _, c := range []struct {
+		what string
+		env  map[string]string
+		want string
+	}{
+		{"a variable nothing exported", nil, "absent"},
+		{"a variable exported to nothing", map[string]string{"CLOUDFLARE_API_TOKEN": ""}, "empty"},
+		{"a variable that is filled", map[string]string{"CLOUDFLARE_API_TOKEN": "a-value-nothing-reads"}, "set"},
+	} {
+		stdout, _, _ := runTargetsIn(t, root, c.env, "--json")
 
-	rows := readTargetRows(t, stdout)
-	if got := rows[0].Credentials[0].Present; got == nil || !*got {
-		t.Errorf("present = %v for a variable set to the empty string, want true", got)
+		got := readTargetRows(t, stdout)[0].Credentials[0].Presence
+		if got == nil || *got != c.want {
+			t.Errorf("%s: presence = %v, want %q", c.what, got, c.want)
+		}
+	}
+}
+
+// TestRunTargets_TheEmptyStateRendersOnThePageToo holds the two surfaces to one
+// word: the column and the stream write the same three, so a reader with the
+// table open and an agent parsing the stream are told the same thing (§9,
+// ADR-0026).
+func TestRunTargets_TheEmptyStateRendersOnThePageToo(t *testing.T) {
+	root := targetsRepo(t, map[string]string{"cloudflare-prod.yaml": cloudflareProdTarget})
+
+	table, _, _ := runTargetsIn(t, root, map[string]string{"CLOUDFLARE_API_TOKEN": ""})
+	if want := "token=CLOUDFLARE_API_TOKEN (empty)"; !strings.Contains(table, want) {
+		t.Errorf("the table is %q, want the pair rendered %q", table, want)
 	}
 }
 
@@ -432,7 +462,7 @@ auth:
 	if len(got) != 1 || got[0].Slot != "token" {
 		t.Fatalf("credentials = %+v, want the slot the declaration carries", got)
 	}
-	if got[0].Env != "" || got[0].Present != nil {
+	if got[0].Env != "" || got[0].Presence != nil {
 		t.Errorf("credential = %+v, want no variable and no presence stated", got[0])
 	}
 }
@@ -772,13 +802,21 @@ func TestRunTargets_TheThreeGlobalsAreTheOnesSectionNineCloses(t *testing.T) {
 // TestRunTargets_ReachesNoNetworkNoStoreAndInvokesNothing fences the command's
 // own file, on the shape `version` and `completions` are fenced by: what a
 // command can reach is what it imports, and this one imports its streams, the
-// repository load, the artefact facts and the renderer. No net, no os/exec, no
-// Store — the whole answer is the load and one lookup per credential slot.
+// repository load, the artefact facts, §12's credential presence and the
+// renderer. No net, no os/exec, no Store — the whole answer is the load and one
+// lookup per credential slot.
 //
 // The fence matters more here than on its neighbours rather than less: this is
 // the one command in the milestone that reaches outside the repository at all,
-// and what it is allowed to ask the environment is whether a name is set (§9,
-// ADR-0007).
+// and what it is allowed to ask the environment is which of §12's three members
+// a name falls under (§9, §12, ADR-0007, ADR-0145).
+//
+// internal/presence is on the list and internal/capability is not, though the
+// set could have been declared beside the Auth schemes whose slots name the
+// variables: that package is how an invocation reaches the world — `net/http`,
+// `os/exec` — and admitting it here would have retired the fence to buy three
+// constants. A leaf package holding one closed set and importing nothing is the
+// thing this list can admit without weakening what it asserts (issue #264).
 func TestRunTargets_ReachesNoNetworkNoStoreAndInvokesNothing(t *testing.T) {
 	allowed := map[string]bool{
 		`"fmt"`:     true,
@@ -787,6 +825,7 @@ func TestRunTargets_ReachesNoNetworkNoStoreAndInvokesNothing(t *testing.T) {
 		`"slices"`:  true,
 		`"strings"`: true,
 		`"github.com/TheLoomLabs/hyper/internal/artefact"`:   true,
+		`"github.com/TheLoomLabs/hyper/internal/presence"`:   true,
 		`"github.com/TheLoomLabs/hyper/internal/render"`:     true,
 		`"github.com/TheLoomLabs/hyper/internal/repository"`: true,
 	}

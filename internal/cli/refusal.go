@@ -133,8 +133,16 @@ func refusalPhase(member refusalRow) string {
 // **different invocation**, which is the only remedy on the list the Run's own
 // operator can take without leaving the shell — and the only one no generated
 // workflow can take at all (§4, ADR-0077).
+//
+// The act-on-the-environment class holds **two** members, and their notes are
+// what makes the split worth a code each: `credential-absent` names the
+// wrappers that export a variable, and `credential-empty` names the readers that
+// export an empty one. A reader handed the first for a variable that is already
+// exported has been sent to check the one thing that is not wrong, which is the
+// set's own test for two codes rather than one (§12, ADR-0145).
 var refusalRemedies = map[string]string{
 	run.CodeCredentialAbsent:               "set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --",
+	run.CodeCredentialEmpty:                "give it a value, and check what left it empty — op read, a CI secret on a fork, vault kv get",
 	run.CodeSecretSinkAbsent:               "the same invocation again with --secret-out <path>",
 	verify.CodeProjectionStale:             "hyper project",
 	storeAbsentCode:                        "hyper store init",

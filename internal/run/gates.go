@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/TheLoomLabs/hyper/internal/artefact"
+	"github.com/TheLoomLabs/hyper/internal/presence"
 	"github.com/TheLoomLabs/hyper/internal/problem"
 	"github.com/TheLoomLabs/hyper/internal/repository"
 	"github.com/TheLoomLabs/hyper/internal/store"
@@ -31,17 +32,29 @@ import (
 // serving two Providers does not oblige a Run to read a series or hold a
 // credential no Step of it could reach (§6).
 
-// The two codes §9 contributes, alike in being the **occasion's** supply rather
-// than the environment's or the artefacts', both checked before a Run's first
-// Step and both reported exhaustively rather than at the first (§12, ADR-0007).
+// The three codes §9 contributes, alike in being the **occasion's** supply
+// rather than the environment's or the artefacts', all three checked before a
+// Run's first Step and all three reported exhaustively rather than at the first
+// (§12, ADR-0007).
 //
 // They are spelled here because this is where the checks that carry them are.
 // internal/store reports the schema condition and does not name a code, and
 // §4's thirty-two arrive already carrying theirs.
+//
+// The first two are one gate reading one variable, and they are **two codes
+// rather than one message**, on the set's own test: a reader handed
+// `credential-absent` for a variable that is exported checks the export, finds
+// it, and is out of moves. The remedies differ and §8 holds one remedy per code
+// (refusal.go), so a single code could only ever have offered the wrong one to
+// whichever half it was not written for (§12, ADR-0145).
 const (
 	// CodeCredentialAbsent is a credential a Target declaration names and
 	// the environment does not hold.
 	CodeCredentialAbsent = "credential-absent"
+	// CodeCredentialEmpty is a credential a Target declaration names that
+	// the environment holds and sets to the empty string — a variable an
+	// upstream produced rather than one nobody exported.
+	CodeCredentialEmpty = "credential-empty"
 	// CodeSecretSinkAbsent is an invocation supplying no Secret sink where
 	// the Procedure reaches a Step whose Operation declares secret output.
 	CodeSecretSinkAbsent = "secret-sink-absent"
@@ -219,16 +232,33 @@ type credentials map[string]map[string]string
 type credentialSlot struct{ target, slot string }
 
 // resolveCredentials resolves every slot the Run's bindings require and answers
-// what the environment did not hold.
+// which of them the environment did not fill.
 //
-// **Every absent slot is reported at once**, one member of the array each,
+// **Every unfilled slot is reported at once**, one member of the array each,
 // because the pass resolves them all in one go and knows them all at once.
 // Reporting the first would send an operator round the loop once per variable,
 // each `export` earning another `77` (§6, §9, ADR-0007).
 //
-// Presence is the whole question and the value is not judged: a variable set to
-// the empty string is present, which is the same reading `targets` reports a
-// slot under (§9, issue #112).
+// **The question is three-valued and the value is still not judged**: §12's
+// credential presence, read once per slot, with two of its three members
+// declining — `absent` earning `credential-absent` and `empty` earning
+// `credential-empty`. What is read of a value is which of the three it falls
+// under and nothing else — no length beyond zero, no shape, no plausibility —
+// the endpoint owning whether a credential works and `hyper` owning only whether
+// one was supplied (§12, ADR-0007, ADR-0145).
+//
+// The empty half is here rather than at the wire because an empty string
+// composes into a header that is present and blank, and the `401` it earns
+// reads as the world resisting when what happened is that the invocation was
+// never ready. A variable exported to nothing is not a typo anyone makes twice;
+// it is what an upstream produces — a `$(op read …)` that returned nothing, a
+// CI secret never set on the fork — and on an effectful Procedure the Steps
+// before the first authenticated one have already run by the time the `401`
+// lands (§9, ADR-0145).
+//
+// `targets` reports the same three under the same three names, which is the
+// invariant issue #112 bought: the gate and `targets` ask one question, so
+// `set` there means this pass will proceed (§9, targets.go).
 //
 // Two shapes are passed over rather than reported, and both are `check`'s,
 // which has already run: a Target whose slots do not cover the bound Provider's
@@ -261,13 +291,13 @@ func resolveCredentials(loaded repository.Loaded, steps []sequenced, lookupEnv f
 			asked[credentialSlot{pair.Target, named.Slot}] = true
 
 			value, present := lookupEnv(named.Env)
-			if !present {
+			if code, message := credentialRefusal(presence.Of(value, present), named.Env); code != "" {
 				declined = append(declined, Refusal{RefusalMember: store.RefusalMember{
-					ErrorCode: CodeCredentialAbsent,
+					ErrorCode: code,
 					File:      file,
 					Line:      named.Line,
 					Field:     "auth." + named.Slot,
-					Message:   "the environment does not hold " + named.Env,
+					Message:   message,
 				}})
 				continue
 			}
@@ -280,6 +310,31 @@ func resolveCredentials(loaded repository.Loaded, steps []sequenced, lookupEnv f
 
 	sortRefusals(declined)
 	return resolved, declined
+}
+
+// credentialRefusal is what one slot's Presence costs the Run: the code it
+// Refuses under and the message that names its variable, or no code at all where
+// the environment filled it.
+//
+// **The reading is not taken here.** §12's closed three is internal/presence's,
+// and so is the step that decides which member a variable falls under: what this
+// adds is the two Refusals two of those three earn. A second reading here would be the gate and `targets`'s column
+// answering *what did the environment do with this name* separately, which is
+// where the two come to disagree — and the thing they would disagree about is
+// whether a Run is about to Refuse (§9, ADR-0145).
+//
+// The messages name the variable and state what the environment did, and
+// neither of them says what to do about it: the remedy is §8's, one per code,
+// and a message carrying one would be the same fact rendered twice on one screen
+// (§8, ADR-0026).
+func credentialRefusal(held presence.Presence, name string) (code, message string) {
+	switch held {
+	case presence.Absent:
+		return CodeCredentialAbsent, "the environment does not hold " + name
+	case presence.Empty:
+		return CodeCredentialEmpty, "the environment sets " + name + " to the empty string"
+	}
+	return "", ""
 }
 
 // withheldVariables is every environment variable the repository names — as a

@@ -12,7 +12,9 @@ below declines. A Run that then declines at a gate has already reaped, which is 
 is pushed before the gates at all. Then the Store files the Run must read are checked for a schema version above this binary's
 (`store-schema-unsupported`, §12), over the Journal and the Record heads under the (Definition, Target)
 pairs the Procedure makes. Then `check` is re-run in full with nothing skipped (§4). Then the
-credentials of every Target the Run may bind are resolved once (ADR-0007). Then the invocation is
+credentials of every Target the Run may bind are resolved once (ADR-0007), each read under §12's
+credential presence — two of whose three members decline, `absent` as `credential-absent` and `empty`
+as `credential-empty`. Then the invocation is
 tested for a Secret sink, where the Procedure reaches a Step whose Operation declares secret output
 (`secret-sink-absent`, §12). Then Step 1.
 
@@ -32,6 +34,14 @@ coverage is (§4) and exactly as the schema check above is, so a Target serving 
 oblige a Run to hold a credential no Step of it could send (`credential-absent`, §12). Two Run-start
 gates scoped by one sentence is one rule; two gates scoped by two sentences is a second thing to keep
 true.
+
+**`empty` is read here and nowhere later.** A variable set to the empty string composes into a header
+that is present and blank, so a Run that let it past would send it, earn a `401`, and record the world
+resisting where what happened is that the invocation was not ready — and on an effectful Procedure the
+Steps before the first authenticated one would already have run. It is a Refusal rather than a
+downgrade to an unauthenticated request: a declaration naming an Auth scheme has declared that it
+authenticates, and unauthenticated is already expressible where a reviewer can see it, a Provider
+naming no scheme sending no credential (§2, ADR-0145).
 
 Every one of those gates declines before Step 1, which is most of the closed `error_code` set rather
 than a corner of it: `check` re-runs in full, so all of §4's static codes reach a Run this way

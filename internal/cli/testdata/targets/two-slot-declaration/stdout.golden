@@ -1,2 +1,2 @@
 NAME    HOSTS           KINDS         CAPABILITIES  CREDENTIALS
-hostco  api.hostco.dev  read, mutate  http          username=HOSTCO_USERNAME (present), password=HOSTCO_PASSWORD (absent)
+hostco  api.hostco.dev  read, mutate  http          username=HOSTCO_USERNAME (set), password=HOSTCO_PASSWORD (absent)

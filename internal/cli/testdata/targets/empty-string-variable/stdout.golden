@@ -1,2 +1,2 @@
 NAME             HOSTS               KINDS                  CAPABILITIES  CREDENTIALS
-cloudflare-prod  api.cloudflare.com  read, mutate, destroy  http          token=CLOUDFLARE_API_TOKEN (present)
+cloudflare-prod  api.cloudflare.com  read, mutate, destroy  http          token=CLOUDFLARE_API_TOKEN (empty)

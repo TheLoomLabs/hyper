@@ -393,6 +393,32 @@ membership at two rather than leaving it to accumulate. Request signing, OAuth2 
 a client certificate are each refused by that sentence rather than beside it, and each stands at the
 wall §13 states costs for.
 
+## Credential presence
+
+**Closed.** Three, and they are one question's three answers: what the environment did with the
+variable a Target declaration's credential slot names (§3, §6, §9, ADR-0145).
+
+| member | the environment | what it costs a Run |
+| --- | --- | --- |
+| `absent` | does not hold the variable | Refuses `credential-absent` before Step 1 |
+| `empty` | holds it, and it has no characters | Refuses `credential-empty` before Step 1 |
+| `set` | holds it, and it has some | the slot resolves and the Run goes on |
+
+**One set reaches two places and they are held to it together.** §6's credential pass decides a Run
+under these three, and `targets` reports the same three on both its wires — so `set` on that column
+means a Run binding that slot will not Refuse for want of it, which is the invariant the column exists
+for. A third state in the gate alone would have inverted it: the column would have gone on saying
+*present* about a slot the Run declines (§9, ADR-0145).
+
+The whole of what is read of a value is which of the three it falls under. `empty` is **no characters**
+and never a judgement about a credential's contents — no length beyond zero, no shape, no plausibility
+— because whether a credential works is the endpoint's business and needs the value to decide, where
+whether one was supplied is `hyper`'s and does not (ADR-0007).
+
+A slot naming no variable has no member here at all, on the ordinary absence rule: there is nothing to
+ask the environment about, so the surfaces write neither the variable nor a presence, and what is wrong
+with such a slot is `credential-slot-malformed`, which `check` reports (§4, §7, §9).
+
 ## Patterns
 
 **Closed.** Three: **pagination**, **polling** to a terminal condition, and **retry**, which follows
@@ -406,7 +432,7 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Fifty-one members, each the identifier of a check that declined, named where that check is
+**Closed.** Fifty-two members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
@@ -499,13 +525,25 @@ and `store-schema-unsupported`, a Store file whose schema version is above the r
 tested at Run start over the files the Run will read (§6). A Run that could not sync the Store
 contributes no member: it is `failed` at `75` rather than a Refusal, the network coming back being no
 act of anyone's, and `77` promising above that a verbatim retry refuses identically (§7, ADR-0061). §9
-contributes two, alike in being the occasion's supply rather than the environment's or the artefacts',
-both checked before a Run's first Step and both reported exhaustively rather than at the first:
+contributes three, alike in being the occasion's supply rather than the environment's or the artefacts',
+all three checked before a Run's first Step and all three reported exhaustively rather than at the first:
 `credential-absent`, a credential a Target declaration names and the environment does not
-hold, reported for every absent slot at once; and `secret-sink-absent`, an invocation supplying no
-Secret sink where the Procedure reaches a Step whose Operation declares secret output, reported for
-every such Step at once (§6, ADR-0007). It carries no Kind axis and no `--dry-run` exemption, a `read`
-declaring secret output being reached by a rehearsal and producing one. §10's four are the Cadence's: `cadence-malformed`,
+hold, reported for every absent slot at once; `credential-empty`, a credential the environment does hold
+and sets to the empty string, reported the same way and out of the same pass; and
+`secret-sink-absent`, an invocation supplying no Secret sink where the Procedure reaches a Step whose
+Operation declares secret output, reported for every such Step at once (§6, ADR-0007). It carries no Kind axis and no `--dry-run` exemption, a `read`
+declaring secret output being reached by a rehearsal and producing one.
+
+The first two are one gate reading one variable and they are **two codes rather than one code with two
+messages**, on the same test that split the two Cadence codes above: a reader handed `credential-absent`
+for a variable that is exported checks the export, finds it, and is out of moves. §8 holds one remedy
+per code, and the two remedies are not the same act — one names the wrappers that export a variable and
+the other the readers that export an empty one, a `$(op read …)` that returned nothing or a CI secret
+never set on the fork. An empty credential is not a typo anyone makes twice; it is what an upstream
+produces, and until it was named the Run proceeded, composed a header that was present and blank, and
+recorded the `401` it earned as the world resisting at `1` — a failure, where what happened was that the
+invocation was never ready (ADR-0145). Both exit `77`: past each lies an act on the environment, which
+is what that code promises and the only thing it promises. §10's four are the Cadence's: `cadence-malformed`,
 a Cadence outside the cron grammar §10 states; `projection-stale`, a generated workflow that is
 not what `project` would write now; `cadence-run-once`, a Procedure declaring a Cadence that
 reaches a run-once Step at any depth (§4, ADR-0038) — a recurrence whose second occurrence Refuses,
