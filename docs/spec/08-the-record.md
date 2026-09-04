@@ -88,8 +88,14 @@ what §6's crash guarantee rests on. Between two pushes there is no dirty direct
 have to tell from a hand-edit, and a crashed Run's local branch tip is exactly what it confirmed.
 
 The local ref is `refs/heads/hyper-store`, so a human's `git checkout hyper-store` works on the clone
-they already have. There is nothing to keep private: the record being in the open is the thesis, and a
-worktree would take that checkout away — `git worktree add` locks the branch to itself.
+they already have, and a worktree would take that checkout away — `git worktree add` locks the branch
+to itself. What *in the open* means is open to whoever can read the repository. The record holds no
+credential, positionally (ADR-0007), and it holds hostnames, addresses, resource and account
+identifiers, and an Observation series is those over time: *not a credential* and *nothing to keep
+private* are two claims, and only the first is earned. A private repository is a required assumption
+(ADR-0006), and the Store inherits the repository's own access boundary rather than standing outside
+it — which the fetch makes concrete, a wildcard refspec on any runner taking the branch whole
+(ADR-0132).
 
 What does sit on disk is `hyper`'s own, under `.git/hyper/`: the lock §6 states, and any derived state
 that makes a Head lookup or a backward scan faster. It is never committed and never part of the record.
