@@ -319,7 +319,10 @@ its directory; `hyper.yaml` is the one exception, agreeing with its filename ins
   declares, and the Capabilities it requires. Data, never code.
 - **Target declaration** — the reviewed half of a Target: which Kinds it accepts, which
   Capabilities it grants, which endpoint it names. It holds no credentials, which is why every
-  static check runs without them.
+  static check runs without them — it names the *environment variables* they resolve from, so
+  `export HCLOUD_TOKEN=…` works and so does wrapping the invocation: `op run --`, `direnv`,
+  `aws-vault exec --`. `hyper` reads credentials from the process environment and nothing else,
+  which is how it works with every secret manager without integrating with any of them.
 - **Definition** — a named, authority-scoped use of one Provider: the Kinds it claims and the
   Targets it may bind. It carries no argument values; those belong to the Step.
 - **Procedure** — an ordered list of Steps, and the full set of Targets it and everything it
@@ -518,6 +521,9 @@ Four things worth knowing before you wire it:
   ([ADR-0007](docs/adr/0007-hyper-never-stores-a-secret.md)). The process that performs a Run is
   the server, so export the variable in the shell you launch the client from and let the server
   inherit it — writing it into a config file is the one thing this design is arranged to avoid.
+  A client that never sourced your shell profile has the same problem here as with `$PATH` above,
+  and the same answer: start the server through the wrapper that holds your secrets, `"command":
+  "op", "args": ["run", "--", "hyper", "mcp"]`.
 - **A committed `.mcp.json` is documentation, not configuration.** Most clients treat a file in the
   repository as project scope and will not load it until each user approves it — and an unapproved
   one loads silently and says nothing. Commit one so a stranger can see how the repository is

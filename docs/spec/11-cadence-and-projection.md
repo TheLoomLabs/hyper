@@ -402,6 +402,11 @@ runtime binary resolves an environment variable exactly as it does on a laptop, 
 executor enters the decision; adding a Target to a Procedure makes a new secret appear in the diff
 `project` writes rather than in YAML nobody reviewed; and an executor holding no secret of that name
 Refuses before the first Step (`credential-absent`, §12) rather than failing part-way through one.
+What the block holds is a *reference* and never a value: `${{ secrets.NAME }}` is resolved by the
+executor before the runtime binary starts, so the line `hyper` writes into a reviewed file names a
+secret `hyper` itself never reads. That is the whole of `hyper`'s acquaintance with any secret store —
+it emits the wiring for the same environment-variable interface it reads on a laptop, and integrates
+with none of them (ADR-0007).
 
 **The checkout leaves the token behind**, which is what `hyper` fetches and pushes the Store branch with
 — that sync is `hyper`'s own work rather than a step of the workflow (§7). `persist-credentials: true`

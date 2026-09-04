@@ -46,15 +46,30 @@ against one of them is a report against something real, and much of the usual
 attack surface is simply absent.
 
 **`hyper` never holds a secret.** There is no vault, no keychain, no encryption
-at rest, because nothing is at rest. A Target declaration names the *environment
-variables* its credentials resolve from; `hyper` resolves them once per Run,
-holds them in memory, and writes none of them anywhere
-([ADR-0007](docs/adr/0007-hyper-never-stores-a-secret.md)). The rule holds for
-outputs as well as inputs: a Manifest declares which output fields are secret,
-and the Record carries a redaction marker with *presence only* — no digest, no
-length, because a digest of a human-chosen secret is an offline-crackable
-oracle. Secret-valued output requires a sink the invocation supplies, written
-`0600`, and a sink path inside the repository working tree is refused.
+at rest, because nothing is at rest — `hyper` reads credentials from the process
+environment, which is how it works with every secret manager without integrating
+with any of them. A Target declaration names the *environment variables* its
+credentials resolve from; `hyper` resolves them once per Run, holds them in
+memory, and writes no credential *value* anywhere
+([ADR-0007](docs/adr/0007-hyper-never-stores-a-secret.md)). The variable *names*
+do reach the record, and that is the whole of what does: a `credential-absent`
+Refusal names the variable the environment did not hold, and a Refusal is written
+to the Journal like any other. The rule holds for outputs as well as inputs: a
+Manifest declares which output fields are secret, and the Record carries a
+redaction marker with *presence only* — no digest, no length, because a digest of
+a human-chosen secret is an offline-crackable oracle. Secret-valued output
+requires a sink the invocation supplies, and a sink path inside the repository
+working tree is refused — though what a sink is *written* is not yet
+implemented: the flag is accepted and its two faults refused, its presence is
+what the §6 gate reads, and the `0600` creation lands with the format the sink
+has yet to be given. A Run reaching a Step that declares secret output without a
+sink Refuses; a Run given one writes nothing to it.
+
+What `hyper` does write is a *reference*, never a value: `project` generates a
+workflow whose `env:` block names each variable as `${{ secrets.NAME }}`,
+derived from the bindings ([§10](docs/spec/11-cadence-and-projection.md)). That
+is a reviewed file naming a secret `hyper` never resolves — the runner resolves
+it, before `hyper` starts.
 
 **There is no third-party code.** A Provider is a Manifest and nothing else —
 no plugin binary, no extension language, no sandboxed module, no transitive
