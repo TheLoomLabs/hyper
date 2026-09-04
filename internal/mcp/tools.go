@@ -1485,7 +1485,7 @@ var runTool = tool{
 		"secret_sink": {
 			"type": "string",
 			"minLength": 1,
-			"description": "Where a Step declaring secret output writes it: an absolute path outside the repository working tree, written 0600. It is never defaulted — a Run reaching such a Step with none supplied Refuses — and the secret is never returned in this result."
+			"description": "Where a Step declaring secret output would write it: an absolute path outside the repository working tree. It is never defaulted — a Run reaching such a Step with none supplied Refuses — and the secret is never returned in this result. Nothing writes the file yet: this version accepts the path, refuses its faults, and reads only its presence, so a Run given one completes and the secret it produced is suppressed rather than delivered."
 		}
 	}`, "procedure"),
 	output: closedObject(`{
