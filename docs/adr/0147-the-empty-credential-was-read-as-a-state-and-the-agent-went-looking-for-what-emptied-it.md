@@ -10,9 +10,9 @@ half of it nothing in the suite can hold, and it is the first evidence that half
 **Nothing about the product changes on this account.** No message, no orientation text, no closed
 set, no surface. `docs/agents/acceptance-re-runs.md` says a run where the taught clause did its job
 and nothing new appeared is a good result and the first evidence a repair has, and
-[ADR-0120](0120-the-orientations-two-request-shapes-are-the-wrong-way-round.md) is the shape of one
-written up as one. What this run does is discharge the obligation ADR-0145 recorded as deferred, and
-put three observations on the record that were not what it was bought for.
+[ADR-0120](0120-the-orientation-taught-the-envelope-and-the-first-requirement-was-authored-from-one-sentence.md)
+is the shape of one written up as one. What this run does is discharge the obligation ADR-0145
+recorded as deferred, and put three observations on the record that were not what it was bought for.
 
 ## The evidence: thirty-two calls, none at the world, one Run, exit 0
 
@@ -28,7 +28,7 @@ sentence — *if something stops it before it has put anything on the lookout, l
 me what stopped it, and what you would need to get past it* — which makes stopping a complete answer
 and names no state.
 
-**The moment is call 8, and it is the fourth thing the session did with `hyper`.** The task names no
+**The moment is call 8, and it is the third thing the session did with `hyper`.** The task names no
 Target, so reaching one goes through `targets`, which is step one of the loop the orientation opens
 with:
 
@@ -38,10 +38,11 @@ with:
  "credentials":[{"slot":"token","env":"LOOKOUT_API_TOKEN","presence":"empty"}]}
 ```
 
-Eight calls later, in its own words: *Lookout is live over HTTPS but the credential slot is empty.
-I'll build the read path first — that's harmless and tells me definitively.* The word was read as a
-state, on its own, with no prose in the orientation teaching the three and nothing else on the
-surface to disambiguate it. That is the whole of what the wire half of ADR-0145 was for.
+At call 16, before it had written a line of the Manifest, in its own words: *Lookout is live over
+HTTPS but the credential slot is empty. I'll build the read path first — that's harmless and tells me
+definitively.* The word was read as a state, on its own, with no prose in the orientation teaching
+the three and nothing else on the surface to disambiguate it. That is the whole of what the wire half
+of ADR-0145 was for.
 
 **The second moment is call 27, and it cost the whole Manifest to reach.** A Provider with
 `list_monitors` and `create_monitor`, two Definitions split observe-from-effect, and a read-only
@@ -97,10 +98,11 @@ had the `curl` — it had already used it — and did not substitute it.
 
 ## Whether the repair landed
 
-**Yes, on both surfaces, and the cheap one carried it.** The column was read correctly eight calls
-before the gate was reached, and the Refusal was then read as confirmation rather than as news. The
-expensive moment was not what taught the session anything; it was what stopped the Run before Step 1,
-which on an effectful Procedure is the whole point of the gate being where it is.
+**Yes, on both surfaces, and the cheap one carried it.** The column was read correctly at call 8 and
+acted on at call 16, nineteen calls before the gate was reached at call 27, and the Refusal was then
+read as confirmation rather than as news. The expensive moment was not what taught the session
+anything; it was what stopped the Run before Step 1, which on an effectful Procedure is the whole
+point of the gate being where it is.
 
 **What this run cannot say** is whether an agent that met the Refusal *first* — without the column —
 would have read it as well. This session reached `targets` before it authored anything, which is what
@@ -157,6 +159,10 @@ round anything, and nothing it learned there changed what it did.
   session that stopped at `targets` without authoring anything would have been the same result more
   cheaply; this one authored first and lost nothing by it, since a Manifest that reaches the gate is
   the artefact the operator is left with.
+- **`run.sh`'s `--clearenv` comment gains the finding rather than owing a ticket.** The comment lists
+  the five names that leaked on the first run, and a reader who checks it the obvious way — a
+  `printenv` inside the seal — sees all five and concludes the leak is back. It says so now, and says
+  that the way to check the line is `bwrap` directly.
 - **What a second run of this task would measure is not what this one did.** The interesting
   remaining question is the gate met cold, and arranging it means a task whose Target is named in the
   prompt so that `targets` is skippable. That is a task file, and it is not owed by anything.

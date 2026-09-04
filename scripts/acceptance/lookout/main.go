@@ -1,6 +1,5 @@
-// Command lookout is the fixture API the `monitor-coverage` and
-// `monitor-retirement` acceptance tasks point a Provider Manifest at (issues
-// #227 and #255). It mints a certificate, listens on a free loopback port, and
+// Command lookout is the fixture API the lookout acceptance tasks point a
+// Provider Manifest at (issues #227, #255 and #268). It mints a certificate, listens on a free loopback port, and
 // serves a small JSON API behind a bearer token until it is killed. Nothing in
 // `hyper` knows it exists: it is reached the way any vendor's API is, over TLS,
 // through a Manifest an agent authored.

@@ -255,8 +255,9 @@ SERVICES
 # says no — because an author who cannot read the API cannot write a Manifest for
 # it, and that is not the thing being measured either.
 #
-# **One API is one document, and two tasks ship the same bytes.** It lived in a
-# heredoc here while there was one task. A second task needing the same reference
+# **One API is one document, and every task that reads it ships the same bytes.**
+# It lived in a heredoc here while there was one task. A second task needing the
+# same reference
 # would have made it two copies of ~110 lines of prose, and the fixture's own
 # fence already states what that costs: the file written into the repository is
 # the only description of this API anyone inside the seal can read, so a drift

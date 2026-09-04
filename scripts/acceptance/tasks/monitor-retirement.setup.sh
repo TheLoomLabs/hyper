@@ -291,7 +291,7 @@ done <<-SERVICES
 SERVICES
 
 # The API's documentation, installed rather than written here so that one API is
-# one document and the two tasks that read it read the same bytes (issue #255).
+# one document and every task that reads it reads the same bytes (issue #255).
 # **It documents the API and never the Manifest** (ADR-0105): no §3 vocabulary,
 # no artefact keys, no talk of projections, Kinds or Patterns, and no mention of
 # this task. It describes the first look the way it describes the retire route

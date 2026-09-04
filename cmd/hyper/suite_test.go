@@ -36,8 +36,8 @@ import (
 // The fifth property is not a question about the file. A runner with no
 // `bubblewrap` installed makes `TestAcceptance_…` **skip in silence**, and the
 // seam that fences every acceptance task is then the one thing CI does not run
-// — issue #222's rot arriving through a new door, un-fencing all six tasks at
-// once. So the workflow installs the tool and claims, in `prepared`, that it
+// — issue #222's rot arriving through a new door, un-fencing every task in
+// `scripts/acceptance/tasks/` at once. So the workflow installs the tool and claims, in `prepared`, that it
 // did; `unavailable` below is what turns that claim into a red job rather than
 // a green one nobody reads.
 
@@ -189,7 +189,7 @@ func TestSuite_TheToolchainIsGoModsDirectiveAndNoActionDecidesIt(t *testing.T) {
 // work. `TestAcceptance_TheSealedHarnessHandsAnAgentTheQuickstartAndNothingElse`
 // opens with `needTools(t, "bash", "bwrap", …)` and `needSeal`, both correct,
 // and on a runner without the tool they mean the fence that ranges over
-// `tasks/*.md` does not run at all — six tasks un-fenced by a green job.
+// `tasks/*.md` does not run at all — every task un-fenced by a green job.
 //
 // So the runner installs `bubblewrap` and the test step claims `prepared`,
 // which is what makes the gate above fail instead of skip.
@@ -197,7 +197,7 @@ func TestSuite_TheAcceptanceSeamRunsRatherThanSkipping(t *testing.T) {
 	suite := workflowOf(t, "suite.yml")
 
 	if !slices.ContainsFunc(runsOf(suite), func(run string) bool { return strings.Contains(run, "bubblewrap") }) {
-		t.Errorf("no step of the suite installs bubblewrap; without it the acceptance seam skips and six tasks are fenced by nothing")
+		t.Errorf("no step of the suite installs bubblewrap; without it the acceptance seam skips and every acceptance task is fenced by nothing")
 	}
 
 	claimed := false

@@ -344,6 +344,16 @@ printf '{"hasCompletedOnboarding":true,"installMethod":"native","autoUpdates":fa
 # `CLAUDE_EFFORT` and a messaging socket and token — enough for the sealed
 # session to be running as a child of the one that started it, at an effort
 # level it did not choose. The first run of this harness leaked all of those.
+#
+# **Those names are visible inside the seal anyway, and it is not this leak**
+# (ADR-0147, issue #268). A `printenv` in the sealed session answers twenty-eight
+# variables including all five, which reads as the leak having come back. It has
+# not: the twenty-eight account for the seven set below, seven a login shell adds
+# from the machine's profile, and fourteen the client mints for the shell it opens
+# for its own Bash tool — and `bwrap` with this list passes `HOME`, `PATH` and
+# `PWD`. What an agent can see is the sealed session naming itself to its own
+# subprocess, so the way to check this line is `bwrap` directly and never
+# `printenv` from inside a session.
 seal=(
 	bwrap --bind / /
 	--clearenv

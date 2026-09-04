@@ -130,9 +130,10 @@
 #
 # Thirty-two tool calls, none of them at the world, one Run, exit `0`, four
 # minutes forty. **The repair landed and the cheap moment carried it**: the
-# session read `presence: "empty"` off `targets` at its fourth `hyper` call and
-# said so — *lookout is live over HTTPS but the credential slot is empty* —
-# eight calls before it had a Manifest to run.
+# session read `presence: "empty"` off `targets` at its third `hyper` call and
+# said so at call 16 — *lookout is live over HTTPS but the credential slot is
+# empty* — before it had written a line of the Manifest, and nineteen calls
+# before the gate it would meet at call 27.
 #
 # What it did between the two moments is the part the run was worth buying for.
 # It asked its own environment and found the variable is not the session's,
@@ -148,7 +149,7 @@
 # asked for it off the repository, and off the repository it is empty*.
 #
 # What the run cannot say is how the Refusal reads to a session that meets it
-# **cold**, without the column eight calls earlier. Arranging that means a task
+# **cold**, without the column nineteen calls earlier. Arranging that means a task
 # whose prompt names the Target so `targets` is skippable, and nothing owes one.
 #
 # **The two guards below are the fence.** A task that emptied a slot the base
@@ -167,16 +168,23 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # and the `endpoint.env` it folds into the MCP server's environment.
 "$here/monitor-coverage.setup.sh" "$repo" "$outdir"
 
+me=$(basename "${BASH_SOURCE[0]}")
 grep -q '^LOOKOUT_API_TOKEN=.' "$outdir/endpoint.env" || {
-	echo "monitor-coverage-empty-credential.setup.sh: monitor-coverage no longer exports LOOKOUT_API_TOKEN filled; there is nothing here to empty and this task would measure the state it is named for without reaching it" >&2
+	echo "$me: monitor-coverage no longer exports LOOKOUT_API_TOKEN filled" >&2
+	echo "$me: nothing here to empty, so this task would run without reaching its state" >&2
 	exit 2
 }
 grep -q 'env: LOOKOUT_API_TOKEN' "$repo/targets/lookout.yaml" || {
-	echo "monitor-coverage-empty-credential.setup.sh: the Target declaration no longer names LOOKOUT_API_TOKEN; the slot this task empties is not the slot the repository reads" >&2
+	echo "$me: the Target declaration no longer names LOOKOUT_API_TOKEN" >&2
+	echo "$me: the slot this task empties is not the slot the repository reads" >&2
 	exit 2
 }
 
-# The one value, and the line is rewritten in place rather than the file rewritten
-# whole: a third variable `monitor-coverage` came to export would survive this
-# task rather than be dropped by it in silence.
-sed -i 's/^LOOKOUT_API_TOKEN=.*$/LOOKOUT_API_TOKEN=/' "$outdir/endpoint.env"
+# The one value. The line is rewritten rather than the file rewritten whole, so
+# that a third variable `monitor-coverage` came to export would survive this task
+# rather than be dropped by it in silence — and through a temporary file rather
+# than `sed -i`, which is GNU's and not the portable `sed` the script beside this
+# one is written in.
+rewritten=$outdir/endpoint.env.rewritten
+sed 's/^LOOKOUT_API_TOKEN=.*$/LOOKOUT_API_TOKEN=/' "$outdir/endpoint.env" >"$rewritten"
+mv "$rewritten" "$outdir/endpoint.env"
