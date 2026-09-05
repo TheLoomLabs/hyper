@@ -1,15 +1,15 @@
 // Command lookout is the fixture API the lookout acceptance tasks point a
-// Provider Manifest at (issues #227, #255 and #268). It mints a certificate, listens on a free loopback port, and
+// Provider Manifest at (issues #227, #255, #268 and #271). It mints a certificate, listens on a free loopback port, and
 // serves a small JSON API behind a bearer token until it is killed. Nothing in
 // `hyper` knows it exists: it is reached the way any vendor's API is, over TLS,
 // through a Manifest an agent authored.
 //
-// **One service, two worlds.** `-fixture` names the initial state it starts in,
+// **One service, three worlds.** `-fixture` names the initial state it starts in,
 // and each of those states is a task's fiction: which monitors are already
 // there, and which services will not answer the first look a create takes at
 // them. The states and the argument for each are in api.go; nothing else about
 // the service varies between them, so a Manifest written against one is a
-// Manifest that works against the other.
+// Manifest that works against the others.
 //
 // **Why any of this is here** is [ADR-0105](../../../docs/adr/0105-the-acceptance-endpoint-is-a-local-tls-server-and-no-artefact-trusts-it.md).
 // A task that asks for a Manifest needs something for that Manifest to talk to,
@@ -58,6 +58,13 @@
 //   - **A create whose answer differs from an element of the list.** `POST`
 //     answers a single object under `data.monitor` with a `state` of its own, so
 //     a projection written off the list does not resolve against the create.
+//
+// A fifth is not awkwardness and is here for a different reason. **One route
+// answers a value the service will not answer again** — a monitor's push
+// credential, minted by a `POST` of its own — which is the class ADR-0007 names
+// as not re-readable and the only thing this fixture offers that a Manifest
+// would mark `secret:` (issue #271). Everything else here comes back as often as
+// it is asked for.
 //
 // Three further facts of it are load-bearing rather than decorative. The list
 // pages at two, so an agent that does not reach for a pagination Pattern sees

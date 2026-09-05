@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -28,6 +29,24 @@ type monitor struct {
 	Muted   bool   `json:"muted"`
 	State   string `json:"state"`
 	Created string `json:"created"`
+}
+
+// credential is what the lookout hands back when it mints one: the handle it
+// keeps, the monitor it belongs to, the value, and when it was made. `token` is
+// the only member of it the service never answers again — there is no route that
+// gives one back, which is the class of thing ADR-0007 names as not re-readable:
+// you rotate rather than recover.
+//
+// It is a type of its own rather than three fields on a monitor because that is
+// what the API is: a monitor is a thing the lookout holds and a credential is a
+// thing it issued, and folding the second into the first would put a value the
+// list carries into a list the list does not carry it in.
+type credential struct {
+	ID      string `json:"id"`
+	Monitor string `json:"monitor"`
+	Service string `json:"service"`
+	Token   string `json:"token"`
+	Issued  string `json:"issued"`
 }
 
 // fixture is one named initial state this service can be started in: the
@@ -120,6 +139,50 @@ func fixtures() map[string]fixture {
 			},
 			unreachable: []string{"pricing"},
 		},
+
+		// **`push-credential`'s** (issue #271), and it is arranged for what
+		// happens *after* a Run rather than for what stands in the way of one.
+		//
+		// Two monitors, both already there, both naming a service `services/`
+		// names. That is the whole world, and every trap the other two arrange is
+		// deliberately absent from it: two monitors against a page size of two is
+		// one page and no cursor, nothing has drifted, nothing is unreachable, and
+		// there is nothing to create. The four awkwardnesses main.go names are all
+		// still reachable and none of them is switched off: the envelope, the
+		// collection under a name, the `ref`/`service` split, and an answer that
+		// is not an element of the list — which here is the mint's own, a single
+		// object under `data.credential`, so a projection written off the list
+		// resolves against it no better than one written off a create. What is
+		// absent is everything that was arranged rather than designed.
+		//
+		// **One designed thing does stand in the way, and it is left standing.**
+		// The mint route takes a `ref`, the repository knows service names, and an
+		// effectful Step's Expansion ranges over Assets and never over Observations
+		// (§5) — so a session lists first, reads the refs back off its own Records,
+		// and writes the Expansion as a literal. That is two Runs before the
+		// Refusal, and it is the `ref`/`service` split doing exactly what it was
+		// put here to do. Removing it would mean a credential route that takes a
+		// service name, which is not how this API names a monitor.
+		//
+		// **The reason is what the task measures.** It is the only task in the set
+		// that reaches a Step whose Operation declares `secret:` output, and what
+		// it is for is the round trip on the far side of that: a Run Refused
+		// `secret-sink-absent`, §8's remedy read, the same command again with
+		// `--secret-out`, and a value the session then has to get out of the sink.
+		// A session that spends its turns on a paging trap never reaches any of
+		// it, and a transcript that stopped short would measure the trap. So the
+		// difficulty is spent where the measurement is (issues #266, #270).
+		//
+		// Two rather than one, because one secret is the shape the sink was nearly
+		// given and refused (ADR-0148): a Step expanding over two monitors fills
+		// two directories, and whether that is legible to the agent reading it is
+		// the thing the directory shape either earns or does not.
+		"push-credential": {
+			monitors: []monitor{
+				{Ref: "mon_1e6a05", Service: "ledger", Window: 60, State: "active", Created: "2026-04-08T09:12:35Z"},
+				{Ref: "mon_58c3d1", Service: "dispatch", Window: 300, State: "active", Created: "2026-07-21T14:47:02Z"},
+			},
+		},
 	}
 }
 
@@ -160,15 +223,25 @@ func (l *lookout) route(w http.ResponseWriter, r *http.Request) int {
 	if !found || (rest != "" && !strings.HasPrefix(rest, "/")) {
 		return l.reject(w, http.StatusNotFound, "no_such_route", "there is nothing at "+r.URL.Path)
 	}
-	ref := strings.Trim(rest, "/")
+	// One monitor's own paths are two segments now rather than one, and `under`
+	// is the second of them: `""` for the monitor itself and `credential` for
+	// the thing it is issued. Anything else there is a path this service does
+	// not have, and it says so before the method is looked at — a `POST` to a
+	// route that is not there is not a method the route declines.
+	ref, under, _ := strings.Cut(strings.Trim(rest, "/"), "/")
+	if under != "" && under != "credential" {
+		return l.reject(w, http.StatusNotFound, "no_such_route", "there is nothing at "+r.URL.Path)
+	}
 	switch {
 	case r.Method == http.MethodGet && ref == "":
 		return l.list(w, r)
 	case r.Method == http.MethodPost && ref == "":
 		return l.create(w, r)
-	case r.Method == http.MethodGet && ref != "":
+	case r.Method == http.MethodPost && ref != "" && under == "credential":
+		return l.issue(w, ref)
+	case r.Method == http.MethodGet && ref != "" && under == "":
 		return l.one(w, ref)
-	case r.Method == http.MethodDelete && ref != "":
+	case r.Method == http.MethodDelete && ref != "" && under == "":
 		return l.remove(w, ref)
 	}
 	return l.reject(w, http.StatusMethodNotAllowed, "method_not_allowed", r.Method+" is not something "+r.URL.Path+" answers")
@@ -293,6 +366,60 @@ func (l *lookout) create(w http.ResponseWriter, r *http.Request) int {
 		l.monitors = append(l.monitors, created)
 	}
 	return l.answer(w, http.StatusCreated, map[string]any{"monitor": created})
+}
+
+// issue mints one monitor's push credential and is the only route here that
+// answers a value the service will not answer again (issue #271).
+//
+// **It is a route rather than a field on the create's answer, and that is a
+// decision.** A `push_token` beside the monitor would have been cheaper and it
+// would have put a credential in front of `monitor-coverage` and
+// `monitor-retirement`, whose transcripts are read against one another across
+// years and neither of which is about one: an agent that projected the field as
+// an ordinary member would have written a live credential into a reviewed
+// artefact, which is a second variable in two experiments that already have
+// their own. It could not have been made a property of the fixture either —
+// main.go states the invariant the fixtures hold, that nothing about the service
+// varies between worlds, so a Manifest written against one works against
+// another. A route every world answers and one document describes keeps both.
+//
+// **It is a `mutate` and the value exists only because the call was made**,
+// which is what makes it the shape ADR-0146's loss was found on. A `read` that
+// answered an existing secret would have been cheaper still and would measure
+// less: it is a shape a Provider author writes rarely, and a Run that merely
+// read one had nothing at stake in the sink.
+//
+// **There is no route that gives one back.** That is the class ADR-0007 names —
+// an API key returned once at creation cannot be recovered from the record, you
+// rotate rather than recover — and it is why the task has a real reason to want
+// the value on disk. Asking again mints another; the service is not tracking
+// which of them a monitor is using, because it would answer that to nobody:
+// every route below carries the monitor and none of them carries a token.
+//
+// A `ref` this service does not hold gets the same `404 no_such_monitor` the
+// two routes below give it, the credential being the monitor's rather than a
+// thing of its own.
+func (l *lookout) issue(w http.ResponseWriter, ref string) int {
+	for _, held := range l.monitors {
+		if held.Ref == ref {
+			// `rand.Text` rather than a hash of anything: a credential a caller
+			// could compute is not one. It answers the RFC 4648 base32 alphabet
+			// at whatever length carries 128 bits — 26 characters today, and
+			// longer if a later Go decides it must be — and it cannot fail,
+			// which is why nothing here handles an error the way the
+			// certificate's own key generation does (main.go). Nothing depends
+			// on the length: the id takes a prefix and the value is copied
+			// whole.
+			return l.answer(w, http.StatusCreated, map[string]any{"credential": credential{
+				ID:      "cred_" + strings.ToLower(rand.Text()[:8]),
+				Monitor: held.Ref,
+				Service: held.Service,
+				Token:   rand.Text(),
+				Issued:  time.Now().UTC().Format(time.RFC3339),
+			}})
+		}
+	}
+	return l.reject(w, http.StatusNotFound, "no_such_monitor", "there is no monitor "+ref)
 }
 
 // remove retires a monitor. Nothing in the task asks for one to be retired; it

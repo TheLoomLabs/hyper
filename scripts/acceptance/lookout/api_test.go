@@ -30,13 +30,13 @@ import (
 // These cases drive the handler directly rather than over TLS: the certificate
 // is main.go's business, and the transport is not what any of this is about.
 //
-// **There are two worlds now** (issue #255). Everything below but the last three
-// cases drives `monitor-coverage`'s, because that is the state these routes were
-// written against and the one whose transcripts are compared across years. The
-// last three, in the order they stand: the first world's bytes held against a
-// golden so a later fixture cannot move them, the second world's own arrangement,
-// and the shipped documentation held to naming nothing the service does not
-// answer.
+// **There are three worlds now** (issues #255, #271). Everything below but the
+// last four cases drives `monitor-coverage`'s, because that is the state these
+// routes were written against and the one whose transcripts are compared across
+// years. The last four, in the order they stand: the first world's bytes held
+// against a golden so a later fixture cannot move them, the second world's own
+// arrangement, the third world's, and the shipped documentation held to naming
+// nothing the service does not answer.
 
 // coverage is the monitors `monitor-coverage` starts with — the world every case
 // below that does not say otherwise is driving, and the length the counts in them
@@ -65,6 +65,7 @@ func TestLookout_ACallWithoutTheTokenIsRefusedWhateverItAsksFor(t *testing.T) {
 		{http.MethodPost, "/v1/monitors"},
 		{http.MethodGet, "/v1/monitors/mon_0d3e88"},
 		{http.MethodDelete, "/v1/monitors/mon_0d3e88"},
+		{http.MethodPost, "/v1/monitors/mon_0d3e88/credential"},
 		{http.MethodGet, "/v1/nothing-here"},
 	} {
 		answer := ask(t, api, call.method, call.path, "", "")
@@ -221,6 +222,88 @@ func TestLookout_ARefReachesOneMonitorAndRetiresIt(t *testing.T) {
 	}
 }
 
+// TestLookout_ACredentialIsAnsweredOnceAndByNoOtherRoute is the fixture's half of
+// what the `push-credential` task measures (issue #271). The task is the only one
+// in the set that reaches a Step whose Operation declares `secret:` output, and it
+// reaches it here: this is the one value the service issues that it will not issue
+// again, which is the class ADR-0007 names as not re-readable.
+//
+// **The claim under assertion is the absence.** `docs/lookout-api.md` tells the
+// agent the token is in this answer and in no other, and an author who marked the
+// field `secret:` on the strength of that sentence has been told the truth only if
+// no other route carries it. A service that leaked the value into the list would
+// make the sink pointless and the documentation a lie, and nothing else here would
+// notice: the value is random, so a golden cannot hold it and only this can.
+//
+// The two path faults are here for the same reason the create's five are. A `GET`
+// at the credential path is a method the route declines and a second segment the
+// service does not have is a route that is not there, and an author who met one
+// wearing the other's answer would be debugging our routing.
+func TestLookout_ACredentialIsAnsweredOnceAndByNoOtherRoute(t *testing.T) {
+	api := fixtures()["coverage"].serve("fixture")
+
+	first := issued(t, api, "mon_0d3e88")
+	if first.Monitor != "mon_0d3e88" || first.Service != "ingest" {
+		t.Errorf("the credential names monitor %q and service %q, want mon_0d3e88 and ingest", first.Monitor, first.Service)
+	}
+	if first.ID == "" || first.Token == "" || first.Issued == "" {
+		t.Fatalf("the credential came back as %+v, want an id, a token and an issue time", first)
+	}
+
+	second := issued(t, api, "mon_0d3e88")
+	if second.Token == first.Token || second.ID == first.ID {
+		t.Errorf("a second mint answered id %q token %q, and the first answered %q and %q: asking again gets another one",
+			second.ID, second.Token, first.ID, first.Token)
+	}
+
+	// The whole of the service's other surface, read back and searched for the
+	// value it was told to carry nowhere.
+	for _, path := range []string{"/v1/monitors?limit=100", "/v1/monitors/mon_0d3e88"} {
+		body := ask(t, api, http.MethodGet, path, "", "fixture").Body.String()
+		for _, token := range []string{first.Token, second.Token} {
+			if strings.Contains(body, token) {
+				t.Errorf("GET %s carries a minted token; the documentation says it is in the mint's answer and in no other", path)
+			}
+		}
+	}
+	if held := len(api.monitors); held != len(coverage()) {
+		t.Errorf("%d monitors stand after two mints, want %d: issuing a credential is not creating a monitor", held, len(coverage()))
+	}
+
+	answer := ask(t, api, http.MethodPost, "/v1/monitors/mon_nothing/credential", "", "fixture")
+	if code := errorCode(t, answer.Body.String()); answer.Code != http.StatusNotFound || code != "no_such_monitor" {
+		t.Errorf("a mint against a ref we do not hold answered %d %q, want 404 no_such_monitor", answer.Code, code)
+	}
+	answer = ask(t, api, http.MethodGet, "/v1/monitors/mon_0d3e88/credential", "", "fixture")
+	if answer.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET at the credential path answered %d, want 405: the route is there and the method is not", answer.Code)
+	}
+	answer = ask(t, api, http.MethodPost, "/v1/monitors/mon_0d3e88/heartbeats", "", "fixture")
+	if code := errorCode(t, answer.Body.String()); answer.Code != http.StatusNotFound || code != "no_such_route" {
+		t.Errorf("a second segment the service does not have answered %d %q, want 404 no_such_route", answer.Code, code)
+	}
+}
+
+// issued mints one credential and hands back what came out of it, failing the
+// case rather than the assertion where the call did not answer `201`.
+func issued(t *testing.T, api *lookout, ref string) credential {
+	t.Helper()
+
+	answer := ask(t, api, http.MethodPost, "/v1/monitors/"+ref+"/credential", "", "fixture")
+	if answer.Code != http.StatusCreated {
+		t.Fatalf("the mint for %s answered %d: %s", ref, answer.Code, answer.Body)
+	}
+	var minted struct {
+		Data struct {
+			Credential credential `json:"credential"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(answer.Body.Bytes(), &minted); err != nil {
+		t.Fatal(err)
+	}
+	return minted.Data.Credential
+}
+
 // ask puts one call through the handler and hands back what came out.
 func ask(t *testing.T, api *lookout, method, path, body, token string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -347,6 +430,46 @@ func TestLookout_AServiceThatDoesNotAnswerItsFirstLookIsNotKept(t *testing.T) {
 	}
 	if answer := ask(t, api, http.MethodDelete, "/v1/monitors/"+kept[len(kept)-1].Ref, "", "fixture"); answer.Code != http.StatusNoContent {
 		t.Errorf("the delete for the kept monitor answered %d, want 204", answer.Code)
+	}
+}
+
+// TestLookout_ThePushCredentialFixtureIsOnePageAndNothingInTheWay is the third
+// world's arrangement, and every assertion in it is an absence (issue #271).
+//
+// That task's measurement is on the far side of a Run: a Refusal read, the same
+// command again with a sink, and a value got out of the directory `hyper` made.
+// A session that spent its turns on a paging trap would never reach any of it, so
+// this world has none — two monitors against a page size of two is one page and no
+// cursor, both name services the repository names, and nothing is switched off.
+// The four awkwardnesses the API has by design are still there and are not this
+// case's to assert; what is asserted here is that nothing *else* is.
+//
+// It is a fence rather than a description because the arrangement is a set of
+// numbers that hold only while they agree with each other: a third monitor seeded
+// here, or a page size raised to three in main.go, silently reintroduces or
+// removes the trap this world exists without.
+func TestLookout_ThePushCredentialFixtureIsOnePageAndNothingInTheWay(t *testing.T) {
+	world := fixtures()["push-credential"]
+	if len(world.monitors) != pageSize {
+		t.Errorf("%d monitors against a page size of %d is not the one page this world is", len(world.monitors), pageSize)
+	}
+	if world.unreachable != nil {
+		t.Errorf("this world switches off %v; nothing here is arranged to fail", world.unreachable)
+	}
+
+	api := world.serve("fixture")
+	whole := page(t, api, "/v1/monitors")
+	if len(whole.Data.Monitors) != len(world.monitors) || whole.Data.Cursor != "" {
+		t.Fatalf("the first page held %d monitors and cursor %q, want all %d and no second page",
+			len(whole.Data.Monitors), whole.Data.Cursor, len(world.monitors))
+	}
+	for _, held := range whole.Data.Monitors {
+		if held.State != "active" {
+			t.Errorf("%s is %q; both monitors here have settled and neither is a thing to wonder about", held.Service, held.State)
+		}
+		if minted := issued(t, api, held.Ref); minted.Service != held.Service || minted.Token == "" {
+			t.Errorf("the mint for %s answered %+v, want a token for that service", held.Ref, minted)
+		}
 	}
 }
 

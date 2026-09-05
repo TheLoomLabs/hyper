@@ -193,4 +193,6 @@ sink named against a Procedure producing none leaves no empty directory behind.
   `secret:` output**, which is the same gap ADR-0146 recorded and did not buy. There is still no
   transcript this repair could be measured in, so the gap is a task file rather than an unspent run
   (#222, #250), and it is not being bought here either. Two deferrals now stand on the same missing task;
-  that is the argument for writing it.
+  that is the argument for writing it. **It was written**: `push-credential` (#271) reaches a Step
+  declaring `secret:` output and is arranged around the round trip past the Refusal, so the run both
+  repairs owe is a run of it. Adding the task is what fenced the gap; the run is still unbought.

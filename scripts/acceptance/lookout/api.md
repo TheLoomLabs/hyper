@@ -88,7 +88,7 @@ certain what we already hold.
 
 **We look once, straight away.** A service that does not answer that first look
 was never watched by us: you still get the `201` and the monitor above, and we do
-not keep it. It will not be in the list, and naming its `ref` at either of the
+not keep it. It will not be in the list, and naming its `ref` at any of the
 routes below gets `404 no_such_monitor` the way any `ref` we do not hold does. We
 do not tell you afterwards, so if it matters to you that we took it on, look.
 
@@ -100,6 +100,40 @@ DELETE /v1/monitors/{ref}   204, and we stop watching it
 ```
 
 Either of those against a `ref` we do not hold gets `404 no_such_monitor`.
+
+## Pushing instead
+
+Some of what we watch we cannot reach, and those report in to us instead of being
+looked at. A monitor pushes its heartbeats with a credential of its own, and this
+is where one comes from:
+
+```
+POST /v1/monitors/{ref}/credential
+```
+
+```json
+{
+  "request_id": "req_000007",
+  "data": {
+    "credential": {
+      "id": "cred_k4x2p7qb",
+      "monitor": "mon_0d3e88",
+      "service": "ingest",
+      "token": "AHY6ZKWQ3T5MRNPD2XJF4CVBLE",
+      "issued": "2026-09-05T11:02:13Z"
+    }
+  }
+}
+```
+
+`201`, and the credential comes back under `data.credential`. `id` is what this
+one is called. `token` is what the monitor authenticates with, and it is the one
+thing here we do not keep a copy of that anyone can read: it is in this answer and
+in no other, there is no route that gives it back, and none of the routes above
+carries it. **Put it somewhere before you lose the answer.**
+
+Ask again and you get another one, with an `id` of its own. A `ref` we do not hold
+gets `404 no_such_monitor`.
 
 ## When we say no
 

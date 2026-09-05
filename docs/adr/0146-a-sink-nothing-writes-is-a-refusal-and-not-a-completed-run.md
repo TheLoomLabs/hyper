@@ -117,4 +117,6 @@ was built in the first place.
   happens then is a `77` naming the reason. Per `docs/agents/acceptance-re-runs.md` a taught repair
   names its run: **no task in the set reaches a Step whose Operation declares `secret:` output**, so
   there is no transcript this repair could have been measured in, and the gap is a task file rather
-  than an unspent run (#222, #250). It is not being bought here.
+  than an unspent run (#222, #250). It is not being bought here. **The task file was written**:
+  `push-credential` (#271) is the one task in the set that reaches such a Step, so the run this repair
+  owes is a run of it, and that run is still unbought.

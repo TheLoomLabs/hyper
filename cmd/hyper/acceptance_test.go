@@ -30,6 +30,19 @@ import (
 // the search not having run at all — so a case that runs the script to
 // completion has asserted it.
 //
+// **One more thing rides in on that same assertion** (issue #271). It is not a
+// fourth property the evidence rests on; it is what a task needs in order to be
+// run at all. The script's probe also makes and removes a directory under each of
+// the two tmpfs mounts — the home directory and the output directory — and stops
+// the harness where either fails: `--secret-out` refuses a path inside the
+// repository working tree, so a task reaching a Step whose Operation declares
+// `secret:` output needs somewhere in there that is not the repository, and which
+// of the two a session reaches for is the session's choice. That is a property of
+// the seal rather than of a task, and it is the kind that goes quietly — a
+// session handed nowhere to write would meet a usage error from its own
+// invocation, and the transcript would be evidence about the seal rather than
+// about the task.
+//
 // **The setup half runs in no namespace, and that is what this case needs.**
 // The cover goes up around the session; everything below runs against the
 // output directory on the host, where the repository the harness materialised

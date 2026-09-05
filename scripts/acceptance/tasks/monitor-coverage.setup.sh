@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # The lookout the coverage task points at, the five services it is supposed to be
 # watching, the documentation for its API, and the one artefact this script ships
-# — plus the service itself, which is what makes this one of the two setup scripts
-# that start a process of their own (`monitor-retirement` is the other, and starts
-# the same binary in a world of its own; `monitor-coverage-empty-credential` gets
-# one by running this script).
+# — plus the service itself, which is what makes this one of the three setup
+# scripts that start a process of their own (`monitor-retirement` and
+# `push-credential` are the others, and each starts the same binary in a world of
+# its own; `monitor-coverage-empty-credential` gets one by running this script).
 #
 # **The point of this task is the Manifest** (issue #227). `providers/` is absent
 # from the fixture on purpose — `run.sh` says so of itself, *that absence is the
@@ -88,6 +88,25 @@
 # field did, and moving the field would have changed what this task's agent
 # observes of a world it is being measured in. The sentence moved. `pending` on
 # a create's answer and `active` on the seeded four are the same bytes they were.
+#
+# **It moved a third time, and this is the reading of that** (issue #271). The
+# service gained a route that mints a monitor's push credential, and
+# `docs/lookout-api.md` gained a section describing it — because it documents the
+# API rather than the task, which is the ground the retire route is described on,
+# and a copy of it that omitted a route the service answers would be the
+# documentation that lies this fixture's own fence warns about. So an agent
+# running *this* task now reads about one more route, and `push-credential` is the
+# task that is about it.
+#
+# **What it costs here is a route an agent could take and is not asked to.** It is
+# a `mutate` and this Target grants `mutate`, so unlike the retire route it earns
+# no `kind-not-granted` — an agent that mints a credential nobody asked for gets a
+# `201` and, if its Manifest did not declare the field `secret:`, a live token in
+# its own Store. That is the same reticence the retire route already relies on,
+# one Kind further in: the task says what it wants, `services/` says what is run,
+# and neither mentions credentials. **The four seeded monitors, their order and
+# the page boundaries are untouched**, which is what the comparison across years
+# is actually against; nothing this task is measured on moved.
 #
 # **What the API asks of an author, and where each one bites.** None of it is
 # advertised as a trap: they are properties of an API, and `docs/lookout-api.md`

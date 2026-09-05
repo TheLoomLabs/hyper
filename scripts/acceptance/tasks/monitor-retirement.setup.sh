@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The lookout the retirement task points at, the seven services it is supposed to
 # be watching, the documentation for its API, and the one artefact this script
-# ships — plus the service itself, started in the second of the two worlds it
+# ships — plus the service itself, started in the second of the three worlds it
 # knows.
 #
 # **The point of this task is the `destroy`** (issue #255). ADR-0106 states the

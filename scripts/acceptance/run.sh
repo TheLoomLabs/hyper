@@ -607,6 +607,28 @@ seal+=(--proc /proc --dev /dev --die-with-parent --chdir "$repo")
 # — so it takes the sentinel with it on the way out rather than hiding its
 # errors, which is the `|| exit 1` and the `2>/dev/null` the other three have and
 # it does not.
+#
+# **A second sentinel says a Secret sink has somewhere to go** (issue #271).
+# `--secret-out` refuses a path that resolves inside the repository working tree,
+# so a task reaching a Step whose Operation declares `secret:` output needs a
+# writable place in here that is not the repository. That is a property of the
+# seal rather than of a task, and it is the kind that goes quietly: a session
+# handed nowhere to write would meet a `2` from its own invocation, and the
+# transcript would be evidence about the seal rather than about the task.
+#
+# **Both tmpfs mounts are probed and both must answer**, because a session picks
+# and the harness does not get to say which. `$HOME` is the one an agent reaches
+# for from a working directory inside the repository; the output directory is the
+# one `..` from that working directory lands in, and it is what the by-hand walk
+# of `push-credential` actually used. Either going read-only is the same task
+# broken, so asserting one and trusting the other would leave half the property
+# fenced.
+#
+# It is asserted the way everything else here is, by doing the thing rather than
+# by trusting the mount list: a directory is made and removed under each. It runs
+# after both walks above, so the probes are never something the inventory has to
+# be taught to expect, and it prints on success only — a `mkdir` that failed
+# prints nothing, and the missing line is the failure.
 report=$("${seal[@]}" /bin/sh -c '
 	find "$HOME" /opt /srv /var/tmp \
 		\( -name go.mod -readable -exec grep -l "^module github.com/TheLoomLabs/hyper$" {} + \) -o \
@@ -614,13 +636,20 @@ report=$("${seal[@]}" /bin/sh -c '
 		\( -type f -name lookout -print \) 2>/dev/null
 	find "$HOME" "$1" -mindepth 1 -path "$2" -prune -o -print || exit 1
 	command -v hyper 2>/dev/null
+	mkdir "$HOME/.sink-probe" "$1/.sink-probe" 2>/dev/null &&
+		rmdir "$HOME/.sink-probe" "$1/.sink-probe" && echo SINKABLE
 	echo SEALED
 ' sh "$outdir" "$repo" || true)
 if ! printf '%s\n' "$report" | grep -qx SEALED; then
 	echo "run.sh: the seal could not be built — the search inside it never ran" >&2
 	exit 2
 fi
-if reachable=$(printf '%s\n' "$report" | grep -vx SEALED |
+if ! printf '%s\n' "$report" | grep -qx SINKABLE; then
+	echo "run.sh: the home directory or the output directory is not writable inside the seal" >&2
+	echo "run.sh: a task reaching a Step that declares secret: output would have nowhere to put a Secret sink" >&2
+	exit 2
+fi
+if reachable=$(printf '%s\n' "$report" | grep -vxE 'SEALED|SINKABLE' |
 	grep -vxF -f <(printf '%s\n' "${allowed[@]}") | grep .); then
 	echo "run.sh: the seal is not holding — this is reachable inside it:" >&2
 	echo "$reachable" >&2

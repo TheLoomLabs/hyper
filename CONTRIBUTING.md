@@ -178,7 +178,7 @@ only human a headless session has.
 directory beside the repository, and reads two files back out of it afterwards:
 `endpoint.pid`, whose process it kills in a trap on the way out, and
 `endpoint.env`, whose `NAME=value` lines it folds into the environment the MCP
-server runs with. That is how the three lookout tasks reach an HTTPS endpoint from
+server runs with. That is how the four lookout tasks reach an HTTPS endpoint from
 inside the seal — a local TLS server built from `scripts/acceptance/lookout`,
 trusted through `SSL_CERT_FILE` in the `hyper` process's environment and through
 nothing any artefact could name
@@ -200,6 +200,20 @@ the setup half on every `go test ./cmd/hyper`. A **path** `endpoint.env` names
 inside the output directory is bound back through the seal, since the process
 that opens it is the sealed session's own child; that is how `SSL_CERT_FILE`
 reaches a certificate the cover would otherwise hide.
+
+**One route of that service answers a value it will not answer again** — a
+monitor's push credential — and `push-credential` is the one task in the set that
+reaches a Step whose Operation declares `secret:` output. What it is for is the
+round trip on the far side of that: a Run Refused `secret-sink-absent`, §8's
+fourth remediation class read off the page, the same command again with
+`--secret-out`, and a value got out of the directory `hyper` made
+([ADR-0148](docs/adr/0148-a-secret-sink-is-a-directory-hyper-makes-and-one-file-holds-one-value.md),
+[#271](https://github.com/TheLoomLabs/hyper/issues/271)). **The seal asserts there
+is somewhere to write one.** `--secret-out` refuses a path inside the working
+tree, so the probe inside the namespace makes and removes a directory under both
+tmpfs mounts — the home directory and the output directory — and a seal where
+either fails stops the harness before the session starts. A task with nowhere to
+write would fail for a reason that is not the task's.
 
 ## The spec is the authority
 
