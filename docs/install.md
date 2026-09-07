@@ -52,7 +52,7 @@ hand-write one.
 Go 1.25 or newer, which `go.mod` carries.
 
 ```bash
-go install github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.2-alpha
+go install github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.3-alpha
 ```
 
 A binary reports the module version Go recorded wherever nothing stamped one
@@ -79,7 +79,7 @@ git checkout v<tag>
 go build -o ~/bin/hyper ./cmd/hyper
 ```
 
-Anywhere else that build reports what it honestly is — `0.0.2-alpha+dirty` from an edited tree,
+Anywhere else that build reports what it honestly is — `0.0.3-alpha+dirty` from an edited tree,
 or a pseudo-version from a later commit, of which
 `0.0.1-alpha.0.20260902184134-c9cf477bd361` is one Go actually produced — and Refuses every repository,
 neither being a version a release published. To make a binary from such a tree act on one, stamp
@@ -87,7 +87,7 @@ it, which is the release's own invocation and what
 [`docs/build/releasing.md`](build/releasing.md) owns:
 
 ```bash
-go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.2-alpha" \
+go build -ldflags "-X github.com/TheLoomLabs/hyper/internal/version.Version=0.0.3-alpha" \
   -o ~/bin/hyper ./cmd/hyper
 ```
 
