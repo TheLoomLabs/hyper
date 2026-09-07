@@ -1,6 +1,7 @@
 package artefact
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 )
@@ -152,7 +153,7 @@ func TestReadManifestMarks_MarksTheSchemeTheCapabilitiesAndEveryOperation(t *tes
 		{Line: 9, Name: "list_things", Kind: "read", Repeatability: "repeatable"},
 		{Line: 21, Name: "end_thing", Kind: "destroy", Repeatability: "run-once"},
 	}
-	if got := marks.Operations; !slices.Equal(got, want) {
+	if got := marks.Operations; !reflect.DeepEqual(got, want) {
 		t.Errorf("the Operations mark %v, want %v", got, want)
 	}
 }
@@ -219,7 +220,7 @@ operations:
 		t.Errorf("auth: marks %v beside line %d, want no line and nothing derived", marks.Auth.Values, marks.Auth.Line)
 	}
 	want := []OperationMark{{Line: 7, Name: "run", Kind: "mutate", Repeatability: "repeatable", Opaque: true}}
-	if got := marks.Operations; !slices.Equal(got, want) {
+	if got := marks.Operations; !reflect.DeepEqual(got, want) {
 		t.Errorf("the Operation marks %v, want %v", got, want)
 	}
 }
@@ -255,4 +256,45 @@ digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
 // carry, which is the whole of a KeyMark.
 func sameKeyMark(a, b KeyMark) bool {
 	return a.Line == b.Line && slices.Equal(a.Values, b.Values)
+}
+
+// TestReadManifestMarks_AnOperationDeclaringSecretOutputIsMarkedBesideItsKey is
+// the roster member ADR-0152 adds: the field names `secret:` declares, marked
+// beside the line the Operation's key is written on rather than beside the
+// `secret:` line itself.
+//
+// The line is the key's for the reason every other Operation mark's is — it is
+// the line that binds the claim, an Operation's body being everything indented
+// beneath its name — and it is the whole of the mark's value here: `secret:`
+// sits at the foot of the body, and the reviewer reading the key line is told
+// there that this Operation hands a value out of the Store (§8, issue #276).
+func TestReadManifestMarks_AnOperationDeclaringSecretOutputIsMarkedBesideItsKey(t *testing.T) {
+	marks := ReadManifestMarks(parse(t, `kind: provider
+provider: session
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  issue_credential:
+    kind: mutate
+    http: {method: POST, host: "{from-target}", path: /sessions}
+    record:
+      identity: "{name}"
+      fields: {id: $.body.id, token: $.body.token}
+    secret: [token]
+  list_sessions:
+    kind: read
+    http: {method: GET, host: "{from-target}", path: /sessions}
+    record:
+      identity: $.id
+      fields: {id: $.id}
+`))
+
+	want := []OperationMark{
+		{Line: 7, Name: "issue_credential", Kind: "mutate", Repeatability: "run-once", Secret: []string{"token"}},
+		{Line: 14, Name: "list_sessions", Kind: "read", Repeatability: "repeatable"},
+	}
+	if got := marks.Operations; !reflect.DeepEqual(got, want) {
+		t.Errorf("the Operations mark %v, want %v", got, want)
+	}
 }

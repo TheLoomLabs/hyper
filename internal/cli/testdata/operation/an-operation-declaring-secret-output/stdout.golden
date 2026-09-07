@@ -1,0 +1,28 @@
+  read_session:
+    kind: read
+    deadline: 10s
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /session
+      host-input: host
+    input:
+      type: object
+      properties:
+        host: {type: string}
+    record:
+      identity: $.host
+      fields:
+        host: $.host
+        token: $.body.token
+        expires_at: $.body.expires_at
+    secret: [token]
+
+CAPABILITIES        http
+BOUND               none
+RECORD CARDINALITY  one
+RECORD IDENTITY     $.host
+SECRET FIELDS       token
+REPEATABILITY       repeatable
+DEADLINE            10s
+CONCURRENCY LIMIT   1

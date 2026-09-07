@@ -1,0 +1,7 @@
+AUTH SCHEME     none
+CAPABILITIES    http
+DIGEST          sha256:a2077bb5843fae35ef3e2410c76f21ca681f69e642972f5f1553532fa8a3dd3e
+SCHEMA VERSION  1
+
+NAME          KIND  OPAQUE  SUMMARY
+read_session  read  false   GET /session; repeatable; projects one Record; secret output: token

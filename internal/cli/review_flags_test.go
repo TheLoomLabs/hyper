@@ -165,6 +165,70 @@ steps:
 	return root
 }
 
+// TestRunReview_SecretReadsOnTheManifestOperationThatDeclaresIt is the
+// vocabulary's newest name, and the second to arrive by §12's own rule rather
+// than by a decision to grow the set: §8 gained a marker class, and every
+// marker class the gutter carries indexes here (ADR-0152, issue #276).
+//
+// **It reads on a Manifest and on nothing else**, which is not a gap in the
+// roster. `secret:` is a Provider author's claim about that Provider's own
+// output and no downstream artefact restates it — a Definition cannot vary it,
+// a Step cannot decline it (§13) — so the Manifest Operation's key line is the
+// one line in the repository where the claim is made.
+//
+// The row names the fields for the reason the marker beside the line does: a
+// reviewer approving this artefact is approving a value that leaves `hyper` for
+// a directory on the operator's disk, and *which value* is the question.
+func TestRunReview_SecretReadsOnTheManifestOperationThatDeclaresIt(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/providers/session.yaml", `kind: provider
+provider: session
+schema-version: 1
+class: session
+capabilities: [http]
+operations:
+  issue_credential:
+    kind: mutate
+    repeatability: repeatable
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /sessions
+    record:
+      identity: $.body.id
+      fields: {id: $.body.id, token: $.body.token, refresh: $.body.refresh}
+    secret: [token, refresh]
+  list_sessions:
+    kind: read
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /sessions
+    record:
+      identity: $.id
+      fields: {id: $.id}
+`)
+
+	stdout, stderr, exit := runReview(t, root, "session")
+	if exit != 0 || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+
+	const want = "SECRET  line 7  issue_credential declares secret output: token, refresh"
+	got := flagsOf(stdout)
+	if !slices.Contains(got, want) {
+		t.Errorf("the block reads\n%q\nwant a row %q", got, want)
+	}
+	// The Operation declaring none draws no row. A flag is an index into
+	// the gutter and the gutter marked nothing there, so a row saying so
+	// would be the editorial claim ADR-0026 removed (§12).
+	for _, row := range got {
+		if strings.HasPrefix(row, "SECRET") && strings.Contains(row, "list_sessions") {
+			t.Errorf("an Operation declaring no secret: draws the row %q", row)
+		}
+	}
+}
+
 // TestRunReview_UnboundedReadsOnAMutateStepCarryingNoBound is §8's own row, on
 // the one mark whose absence no static check reports: a `mutate` Step with no
 // `bound:` is `mutate!` in the gutter, and this is the surface that puts it on

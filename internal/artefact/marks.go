@@ -159,12 +159,29 @@ type ManifestMarks struct {
 //
 // Opaque is whether the Operation's request uses an Opaque Capability, read off
 // the request block because no artefact anywhere declares it (§12).
+//
+// Secret is the field names the Operation's own `secret:` declares, in the
+// Manifest's own order, and empty where it declares none. It is the fact this
+// roster carries that the reviewer most needs the gutter for and least reads
+// off the line the mark stands on: `secret:` sits at the foot of an Operation's
+// body, several lines below the key that binds the claim, where the Kind is one
+// line down and the `opaque` fact is nowhere in the file at all. Marking it
+// beside the key puts *this Operation hands a value out of the Store* on the
+// line a reviewer is already reading, and a value leaving `hyper` for an
+// operator's disk is the strongest thing a Manifest declares about its own
+// output (§8, ADR-0152, issue #276).
+//
+// It is nil where the Operation declares none, where OperationDetail's own list
+// is an empty slice: this roster is read by a renderer that draws nothing for
+// an empty cell, and that one is read by a wire member whose `[]` is an answer
+// (§9, operation_detail.go).
 type OperationMark struct {
 	Line          int
 	Name          string
 	Kind          string
 	Repeatability string
 	Opaque        bool
+	Secret        []string
 }
 
 // ReadManifestMarks reads that roster off a Manifest's own root, the built-in's
@@ -233,6 +250,7 @@ func operationMarks(opsVal *yaml.Node) []OperationMark {
 			Kind:          info.Kind,
 			Repeatability: effectiveRepeatability(info),
 			Opaque:        info.IsShell,
+			Secret:        info.Secret,
 		})
 	}
 	return marks

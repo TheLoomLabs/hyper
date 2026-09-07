@@ -983,16 +983,17 @@ would not.
 
 ## The `FLAGS` vocabulary
 
-**Closed to `hyper`.** Eight names; no Manifest mints a flag any more than it mints an `error_code`
+**Closed to `hyper`.** Nine names; no Manifest mints a flag any more than it mints an `error_code`
 (ADR-0004). `FLAGS` is the one surface in the whole tool permitted to say *look here*, and what binds
 every name is the relation §8 states: a flag cites a line the gutter already marked, and introduces no
 claim of its own.
 
 **The set is a rule before it is a list.** Every marker class the gutter carries indexes here, and the
-eight names below are what that rule yields today: a marker class arriving in §8 brings its flag
+nine names below are what that rule yields today: a marker class arriving in §8 brings its flag
 without this enumeration moving, exactly as a Provenance member joining brings a `THE CODE MOVED` row.
-`unresolved` is the first name to arrive that way, and it is evidence the rule works rather than a
-decision to grow the set — §8 gained a marker class and this listing followed it (ADR-0064).
+`unresolved` is the first name to arrive that way and `secret` is the second, and both are evidence the
+rule works rather than a decision to grow the set — §8 gained a marker class and this listing followed
+it (ADR-0064, ADR-0152).
 The names are written out anyway, so the set stays checkable against a rendering — an intensional rule
 nobody can enumerate is a set that has stopped being closed.
 
@@ -1002,8 +1003,8 @@ place, and a name for one would be the editorial claim ADR-0026 removed.
 
 ### The standing names
 
-Five, each reading on every artefact whose gutter marks the fact. They are facts rather than artefact
-kinds, which is why there are five rather than five per artefact:
+Six, each reading on every artefact whose gutter marks the fact. They are facts rather than artefact
+kinds, which is why there are six rather than six per artefact:
 
 - **`destroy`** — `destroy` authority is claimed, granted, or exercised on the cited line. It reads on
   a Step whose Operation declares that Kind, on a Definition's claimed Kinds, on a Target declaration's
@@ -1011,6 +1012,14 @@ kinds, which is why there are five rather than five per artefact:
 - **`opaque`** — the cited line reaches an effect `hyper` cannot describe. It reads on a Manifest
   Operation whose request uses an Opaque Capability, on a Step invoking one, and on the opt-in by which
   a Target declaration admits an `opaque` `destroy` at all (§4).
+- **`secret`** — the cited line declares output `hyper` will hold as a marker and hand to the operator
+  instead. It reads on a Manifest Operation whose own `secret:` names a field, and on that alone:
+  `secret:` is a Provider author's claim about output that author understands (§3), and no artefact
+  downstream restates it — a Definition cannot vary a Manifest's declared facts and a Step cannot
+  decline one. Its row names the fields, which is the one place this vocabulary says more than *the
+  fact holds*: what is being approved is a value leaving `hyper` for a directory on the operator's
+  disk, and *which value* is the reviewer's question. Manifest-only for the reason `unbounded` is
+  Procedure-only — the fact has one line in the repository to be declared on.
 - **`unbounded`** — an effectful Step whose magnitude no Bound stands behind, in three forms: a `mutate`
   Step carrying no `bound:`, which the gutter marks `mutate!` (§8); an `opaque` `destroy` Step, which may
   carry no Bound at all and where a Bound is refused (`bound-illegal`, §4); and an `opaque` `mutate`

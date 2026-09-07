@@ -147,7 +147,24 @@ type ProviderInfo struct {
 // whether its own secret: is present and names at least one field — the
 // other fact that same walk reads; and SecretFields, the field names
 // secret: itself names — the set a predicate's own field: is checked
-// against, nil where secret: is absent (§3, §4, §12, issue #97).
+// against, nil where secret: is absent (§3, §4, §12, issue #97); and Secret,
+// the same names in the Manifest's own order.
+//
+// The last three are one read in three shapes. Two of them are one question
+// asked twice and that is a defect rather than a design: HasSecret answers
+// *does this Operation declare any* off the key's own length, and the §6 sink
+// gate asks the same question of SecretFields' length instead — two readings of
+// one declaration, with nothing holding them equal and no record saying which
+// is canonical. It is not reachable from a Manifest that checks clean, `secret:`
+// being an array of string, and it is issue #278 rather than this change's
+// (gates.go, procedure_graph.go, internal/run/repeat.go).
+//
+// The third shape is new information rather than a fourth reading of that one.
+// SecretFields answers *is this field secret*, which is what a predicate and a
+// projection ask of one name. Secret answers *which fields, in what order*,
+// which is what every surface that renders an Operation writes — and a
+// rendering that sorted the names itself would state a list the file open
+// beside it does not carry (§8, §9, ADR-0152).
 type OperationInfo struct {
 	IsShell       bool
 	Kind          string
@@ -157,6 +174,7 @@ type OperationInfo struct {
 	Repeatability string
 	HasSecret     bool
 	SecretFields  map[string]bool
+	Secret        []string
 	// HostTemplate is the raw host: scalar an http: block carries — ""
 	// on a shell Operation, which has no host: at all — the template
 	// whose at-load expansion is the candidate set the bound Target's

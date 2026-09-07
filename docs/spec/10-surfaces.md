@@ -156,10 +156,11 @@ and the digest on this row is `manifest_digest`, which every Provider carries (�
 `provider`'s, below, where a Manifest's own facts are reported.
 
 `provider <name>` writes one row per Operation the named Provider exposes — its name, its declared
-Kind, whether it is `opaque`, and a summary — beside the Manifest's own facts: its Auth scheme, the
-Capabilities it requires, its digest, its schema version, and the ref and digest of its `origin:` block
-where it carries one. Kind is on every row at this level because it is what answers the two-key
-question (§5) before a single input schema has been read.
+Kind, whether it is `opaque`, and a summary, which names the Operation's `secret:` output where it
+declares any — beside the Manifest's own facts: its Auth scheme, the Capabilities it requires, its
+digest, its schema version, and the ref and digest of its `origin:` block where it carries one. Kind is
+on every row at this level because it is what answers the two-key question (§5) before a single input
+schema has been read.
 
 The two origin members follow the ordinary absence rule: both are written where the block is there and
 both are absent where it is not, which is a built-in Provider and a locally authored Extension (§3,
@@ -181,7 +182,8 @@ marker is §7's one constant rather than a second one.
 `operation <provider> <operation>` writes the Manifest lines declaring that Operation, verbatim, and
 beside them the facts the source does not carry in that form: the one Capability `hyper` derives from
 it, whether a Bound is mandatory, illegal or neither, the Patterns it resolves to, its Record
-cardinality and declared identity field, its Repeatability, its deadline, and its concurrency limit.
+cardinality, declared identity field and declared secret output fields, its Repeatability, its
+deadline, and its concurrency limit.
 The source verbatim, because a Manifest is written in the format the caller is expected to author
 Definitions in (§3); the derived facts beside it, because making the caller re-derive what `hyper` has
 already computed is waste.
@@ -198,6 +200,22 @@ The MCP tool below carries the same name and the same set.
 Bound buys nothing there. This member reports what `check` does with the key, a Bound on such a Step is
 a truthful Record count, and what a count of Records is worth beside a command is the review's
 `unbounded` flag to say — beside the line, where the command is (§5, §8, ADR-0121).
+
+`secret_fields` goes out as a list too, in the Manifest's own order, and is empty rather than absent on
+the same rule with a Run behind it: *none of them* is what makes a `--secret-out` handed to a Run over
+this Operation a Refusal rather than an empty directory (§6, ADR-0151). It is the name `records` already
+carries for the same fact read off a written Record (§8), and it stands with the Record pair rather than
+after them, being the third fact about the projection — which of the fields named there reaches the
+Store as §7's constant instead of a value.
+
+**`secret:` is named on every surface that renders an Operation, and this is where the set is closed at
+four.** `provider`'s summary carries it, this block carries it, `review`'s gutter marks it beside the
+Operation's key line with a `SECRET` flag indexing that line (§8, §12), and the orientation states the
+authoring position in prose (below). Before that it was named by none of them: a sealed session that had
+to author an Operation declaring `secret:` output got the spelling wrong, lost two live credentials to a
+`check` that then accepted it, and spent thirteen `Bash` calls finding the right one — eight of them
+`strings` and `nm` over the binary, which is a user's own reading of a tool that ships no specification
+on their machine (ADR-0099, ADR-0109, ADR-0149, ADR-0152).
 
 `patterns_resolved` goes out as a list and is empty rather than absent where the Operation declares no
 Pattern: a caller asking which Patterns run around this call is answered *none of them*, which is a
@@ -996,7 +1014,7 @@ not `run_show` — and it puts `install`, `store init` and `compact` out of reac
 which is true of both, rather than as *absent from this surface*, which is true only of the server and
 is read as permission by the reader holding a terminal.
 
-It states eleven things, each of them something the tool set cannot teach. Every tool carries a
+It states twelve things, each of them something the tool set cannot teach. Every tool carries a
 description and `operation` goes further — it answers *the Manifest's own lines, verbatim*, which
 teaches the authoring format at the moment a caller needs it — but all of them arrive with a call
 already in mind, and none of these is about a call:
@@ -1012,6 +1030,17 @@ already in mind, and none of these is about a call:
   It is stated with what the omission costs — the Record pointing nowhere, the next `review` opening at
   no baseline, the catch-all counting no moved lines — on the exception rule's own footing below: a
   rule with no consequence beside it is one an agent reorders against whatever else it is doing.
+- **Where an Operation's `secret:` output is declared, and where it is not.** `secret: [<field>]` goes
+  beside that Operation's `record:` and never inside `fields:`, and the clause states both halves and
+  what a name in the list costs: the field reaches the Store as §7's constant, no surface renders it,
+  no `require:` may read it, and a Run reaching such a Step hands the values to a sink or Refuses. It
+  stands beside the sentence saying a credential is never *in* an artefact, that being the same fact
+  read the other way — the credential a call hands back. Nothing else reached an agent with it: the
+  three renderings above now name the fact and none of them did, so a sealed session authoring one got
+  the spelling wrong, lost two live credentials, and found the right one by running `strings` and `nm`
+  over the binary (ADR-0149, ADR-0152). It is held to `check` in both
+  directions by a case, on the Bound rule's own footing
+  (`TestInstructions_TheSecretOutputSpellingIsTheOneCheckHolds`).
 - **The four verbs an operator asks for** — author, change, retire, operate — and the fact each needs
   before it starts: that a changed artefact is reviewed again, that deleting a Definition abandons its
   Assets rather than destroying them (ADR-0012), and that a declared Cadence left unprojected is
@@ -1358,6 +1387,8 @@ operation(provider, operation)
 //              patterns_resolved: [ … ],
 //              record_cardinality, record_identity,   // both absent on a destroy, which projects
 //                                                     // no Record of its own (§3)
+//              secret_fields: [ … ],     // the secret: list, in the Manifest's own order, and []
+//                                        // rather than absent where it declares none
 //              repeatability,            // §12, and effective: run-once where the Manifest omits it
 //              deadline_seconds,
 //              concurrency_limit } }]    // effective: 1 where absent, and on every effectful Operation

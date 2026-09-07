@@ -1,0 +1,5 @@
+{"type":"artefact","kind":"provider","path":"providers/session.yaml","baseline_absent":"no-store"}
+{"type":"gutter","line":5,"marker":"http"}
+{"type":"gutter","line":7,"marker":"read repeatable secret token"}
+{"type":"flag","flag":"secret","cites_line":7}
+{"type":"result","truncated":false}

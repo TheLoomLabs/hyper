@@ -727,6 +727,87 @@ func requirementSentence(t *testing.T, instructions string) string {
 	return theOneSentence(t, instructions, "what a require: roots at", "roots at")
 }
 
+// TestInstructions_TheSecretOutputSpellingIsTheOneCheckHolds is the Bound
+// rule's own footing on the clause ADR-0152 adds: the orientation says where
+// `secret:` goes and where it does not, and both halves are held to the
+// `check` that decides them (§3, §4, ADR-0151, issue #276).
+//
+// **Both halves, because a rule stated here is stated with its exception or it
+// is not stated** (ADR-0101). The right spelling checking clean is half a
+// claim: a text that named the position and stopped would leave the wrong one
+// exactly as findable as it was, which is the state ADR-0149 recorded — a
+// Manifest that checked clean, declared no secret output, and destroyed two
+// live credentials at exit `0`.
+//
+// The two Manifests differ in one line and in nothing else, which is what makes
+// the pair the assertion rather than two cases: the same field, the same path,
+// the same projection, marked in the two positions an author picks between.
+func TestInstructions_TheSecretOutputSpellingIsTheOneCheckHolds(t *testing.T) {
+	sentence := secretOutputSentence(t, mcp.Instructions("1.4.0"))
+
+	const manifest = "kind: provider\nprovider: session\nschema-version: 1\nclass: session\n" +
+		"capabilities: [http]\nauth:\n  header: {name: Authorization, prefix: \"Bearer \"}\n" +
+		"operations:\n  issue_credential:\n    kind: mutate\n    repeatability: repeatable\n    deadline: 30s\n" +
+		"    http: {method: POST, host: \"{from-target}\", path: /sessions, body: {name: \"{name}\"}}\n" +
+		"    input:\n      type: object\n      properties:\n        name: {type: string}\n" +
+		"    record:\n      identity: \"{name}\"\n      fields:\n        id: $.body.id\n"
+
+	for _, c := range []struct {
+		name   string
+		tail   string
+		code   string
+		stated string
+	}{
+		{
+			name: "beside record:, which is where the orientation puts it",
+			tail: "        token: $.body.token\n    secret: [token]\n",
+		},
+		{
+			name:   "inside fields:, which is where it says it does not go",
+			tail:   "        token: {secret: $.body.token}\n",
+			code:   schema.CodeMismatch,
+			stated: "`fields:`",
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeFile(t, filepath.Join(root, "hyper.yaml"), validHyperYAML)
+			writeFile(t, filepath.Join(root, "providers/session.yaml"), manifest+c.tail)
+
+			var stdout, stderr bytes.Buffer
+			exit := cli.RunCheck([]string{"--repo-dir", root, "--json"}, cli.Streams(&stdout, &stderr), emptyEnvironment, t.TempDir(), "1.4.0")
+			codes := errorCodesIn(t, stdout.String())
+
+			switch {
+			case c.code == "" && exit != cli.ExitClean:
+				t.Fatalf("check declines the spelling the orientation teaches with %v (exit %d)\n%s", codes, exit, stderr.String())
+			case c.code != "" && !slices.Contains(codes, c.code):
+				t.Fatalf("check answers %v and not %s (exit %d); the position the orientation rules out is not the one check rules out", codes, c.code, exit)
+			}
+			// The pairing, as the `require:` case makes it: a spelling
+			// `check` declines with no word for it in the sentence an
+			// author reads is what sent one session to `strings` over
+			// the binary (ADR-0149).
+			if c.stated != "" && !strings.Contains(sentence, c.stated) {
+				t.Errorf("check answers %s for this position and the orientation's secret: sentence never says %q: %q", c.code, c.stated, sentence)
+			}
+		})
+	}
+}
+
+// secretOutputSentence is the one sentence of the orientation that states where
+// an Operation's `secret:` output is declared, unwrapped the way a reader takes
+// it in.
+//
+// The spelling itself is the mark. `secret:` alone is named twice over — the
+// `require:` sentence rules a predicate out over one — and the authoring
+// position is stated exactly where the key is written out with a field in it.
+func secretOutputSentence(t *testing.T, instructions string) string {
+	t.Helper()
+
+	return theOneSentence(t, instructions, "where secret: output is declared", "secret: [token]")
+}
+
 // theOneSentence is the single unwrapped sentence of the orientation carrying
 // any of marks, and the assertion that there is exactly one of it.
 //

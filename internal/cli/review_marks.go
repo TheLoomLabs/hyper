@@ -45,6 +45,15 @@ const (
 	// Definition claims or a Target declaration accepts, and the `destroy:`
 	// line naming Operations.
 	markerDestroy = "DESTROY"
+	// markerSecret is what an Operation declaring `secret:` output carries
+	// after its opacity, and it stands in front of the field names the
+	// declaration lists — the arrangement `DESTROY` takes on a Definition's
+	// `destroy:` line, where what the line means goes in front of what it
+	// says. A list of field names is a list of field names wherever it
+	// appears; what makes this one a claim is that these are the fields no
+	// surface will ever render and no predicate may read (§8, §12,
+	// ADR-0152).
+	markerSecret = "secret"
 	// markerUnbounded is what a `mutate` Step with no declared Bound carries
 	// after its Kind. A `destroy` Step with none carries no `!`: that is
 	// `bound-missing`, a static check, and `check`'s to report (§4, §12).
@@ -291,12 +300,15 @@ func targetDeclarationMarkers(marks artefact.TargetDeclarationMarks) []reviewMar
 
 // manifestMarkers is §8's roster on a Manifest: the Auth scheme it names, the
 // Capabilities its Operations require, and each Operation's Kind, effective
-// Repeatability and opacity beside the line its key is written on.
+// Repeatability, opacity and declared secret output beside the line its key is
+// written on.
 //
 // The Operations are the one roster on this artefact that composes from fields,
 // and they align exactly as a Procedure's Steps do: reading down the column is
 // the Operation table, which a field appearing on some lines and not others
-// would break at the one place the eye is reading (§8).
+// would break at the one place the eye is reading (§8). The secret field is a
+// fourth column of that table for the same reason the opacity is a third — an
+// Operation that declares none leaves the cell empty rather than the row short.
 func manifestMarkers(marks artefact.ManifestMarks) []reviewMarker {
 	var markers []reviewMarker
 	markers = appendWhole(markers, marks.Auth.Line, setMarker(marks.Auth.Values))
@@ -304,7 +316,7 @@ func manifestMarkers(marks artefact.ManifestMarks) []reviewMarker {
 	for _, op := range marks.Operations {
 		markers = append(markers, reviewMarker{
 			line:   op.Line,
-			fields: []string{kindMarker(op.Kind), op.Repeatability, opaqueToken(op.Opaque)},
+			fields: []string{kindMarker(op.Kind), op.Repeatability, opaqueToken(op.Opaque), secretToken(op.Secret)},
 		})
 	}
 	return markers
@@ -398,6 +410,23 @@ func opaqueToken(opaque bool) string {
 		return markerOpaque
 	}
 	return ""
+}
+
+// secretToken is the secret field's own text: the marker and the names the
+// Operation's `secret:` declares, in the Manifest's own order, and nothing at
+// all where it declares none.
+//
+// The names go in the cell rather than a bare `secret`, and that is the one
+// place this column says more than *the fact holds*. A reviewer reading the
+// key line is being told which of the fields declared below it will never be
+// rendered again — by `show`, by `records`, by a Comparison — so a mark that
+// stopped at the word would send them back down the body to find out which,
+// which is the reading the mark exists to save (§8, §9, ADR-0142, ADR-0152).
+func secretToken(fields []string) string {
+	if len(fields) == 0 {
+		return ""
+	}
+	return markerSecret + markerMemberGap + setMarker(fields)
 }
 
 // gutterRow is one **rendered line** of the review and not one marked cell: it

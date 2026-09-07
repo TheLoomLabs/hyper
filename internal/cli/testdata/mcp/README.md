@@ -148,8 +148,13 @@ boolean: an opaque `destroy`, whose Bound is `illegal` rather than absent.
 `a-mutate-declaring-no-repeatability` is the effective value with no spelling in
 the source at all, `run-once` derived from a Kind that omitted the key, and
 `a-mutate-declaring-skip-if-recorded` is the third member of the same set, this
-one authored. `deadline_seconds` is a number on every one of them, the wire
-fixing the unit so that nothing downstream parses a suffix.
+one authored. `an-operation-declaring-secret-output` is the member with a Run
+behind it: `secret_fields` naming what the Store will not hold, against
+`../../secret-output-demo/repo` — and `[]` on every case above it, which is the
+absence rule read from its other end and the answer a Run acts on, a
+`--secret-out` handed to one of those being Refused rather than left empty
+(ADR-0151, ADR-0152). `deadline_seconds` is a number on every one of them, the
+wire fixing the unit so that nothing downstream parses a suffix.
 
 **Either positional naming nothing is a protocol error**, which is why there are
 two of them: `operation/provider-matching-nothing` and

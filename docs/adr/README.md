@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 151 records**, numbered `0001`–`0151` with no gaps. They are chronological:
+**This corpus holds 152 records**, numbered `0001`–`0152` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -375,3 +375,4 @@ here fails the suite.
 - **0149** · [The sink was supplied, both secrets were lost, and `check` was clean throughout](0149-the-sink-was-supplied-both-secrets-were-lost-and-check-was-clean-throughout.md)
 - **0150** · [A skipped member's absent secret is a line, and not a `check`](0150-a-skipped-members-absent-secret-is-a-line-and-not-a-check.md)
 - **0151** · [A `fields:` value is a path, and a sink nothing can fill is a Refusal](0151-a-fields-value-is-a-path-and-a-sink-nothing-can-fill-is-a-refusal.md)
+- **0152** · [`secret:` is named on every surface that renders an Operation](0152-secret-is-named-on-every-surface-that-renders-an-operation.md)

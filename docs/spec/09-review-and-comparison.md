@@ -139,10 +139,18 @@ is what `FLAGS` below may index — so what a review can say about an artefact i
 else. On a **Definition** it marks the Kinds claimed, the Targets bindable, and the `destroy`
 Operations named; on a **Target declaration** the Kinds accepted, the Capabilities and the hosts
 granted, each credential slot's environment variable, and the opt-in admitting an `opaque` `destroy`
-(§4); on a **Manifest** each Operation's Kind, its Repeatability, its opacity, the auth scheme, and the
-Capabilities required; on a **Repository declaration** the `hyper` version pin and the retention
-policy. Only a Procedure has Steps, so only a Procedure carries a Kind, Target, Bound or envelope mark,
-and the last of those is why only a Procedure is guaranteed a flag.
+(§4); on a **Manifest** each Operation's Kind, its Repeatability, its opacity, the field names its
+`secret:` declares, the auth scheme, and the Capabilities required; on a **Repository declaration** the
+`hyper` version pin and the retention policy. Only a Procedure has Steps, so only a Procedure carries a
+Kind, Target, Bound or envelope mark, and the last of those is why only a Procedure is guaranteed a
+flag.
+
+The `secret:` mark is the one on that list whose subject is not on the line it stands beside: a
+`secret:` list sits at the foot of an Operation's body, several lines below the key that binds the
+claim, where a Kind is one line down and opacity is nowhere in the file. It is marked at the key anyway,
+on the rule every Operation mark is marked under — the line that binds the claim is an Operation's own
+key — and the names go in the cell rather than the marker alone, a reviewer being told there which of
+the fields declared below will never be rendered again by any surface (§7, ADR-0142, ADR-0152).
 
 **The change column reads on all five**, and that is a statement about which artefacts have a range
 rather than about which renderings carry one. No kind is exempt from the column: where it is empty the

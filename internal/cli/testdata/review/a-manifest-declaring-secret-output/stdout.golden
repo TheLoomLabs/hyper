@@ -1,0 +1,30 @@
+  MANIFEST                        │  providers/session.yaml                  no baseline — no Store
+  ────────────────────────────────┼────────────────────────────────────────────────────────────────
+                                  │ kind: provider
+                                  │ provider: session
+                                  │ schema-version: 1
+                                  │ class: local
+  http                            │ capabilities: [http]
+                                  │ operations:
+  read  repeatable  secret token  │   read_session:
+                                  │     kind: read
+                                  │     deadline: 10s
+                                  │     http:
+                                  │       method: GET
+                                  │       host: "{from-target}"
+                                  │       path: /session
+                                  │       host-input: host
+                                  │     input:
+                                  │       type: object
+                                  │       properties:
+                                  │         host: {type: string}
+                                  │     record:
+                                  │       identity: $.host
+                                  │       fields:
+                                  │         host: $.host
+                                  │         token: $.body.token
+                                  │         expires_at: $.body.expires_at
+                                  │     secret: [token]
+
+  FLAGS   index into the gutter above — no flag states anything the gutter does not
+  SECRET  line 7  read_session declares secret output: token

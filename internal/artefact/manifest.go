@@ -1260,8 +1260,9 @@ func inputPropertyTypes(inputVal *yaml.Node) map[string]string {
 // its request is the shell Capability, its input: schema's own property
 // names, types and enums, its record: cardinality and field names — nil
 // where it declares no record: at all, a destroy carrying none by
-// construction (checkKindProjection) — and its own secret: field names, the
-// set a predicate's own field: is checked against (§12, issue #97). It is
+// construction (checkKindProjection) — and its own secret: field names, as
+// the set a predicate's own field: is checked against and as the list every
+// surface that renders an Operation writes (§12, issue #97, issue #276). It is
 // read once per Manifest pass, alongside the rest of ProviderInfo, rather
 // than reparsed per Step that names this Operation.
 func operationInfoFromNode(op *yaml.Node) OperationInfo {
@@ -1288,6 +1289,7 @@ func operationInfoFromNode(op *yaml.Node) OperationInfo {
 		for _, item := range secretVal.Content {
 			if item.Kind == yaml.ScalarNode {
 				info.SecretFields[item.Value] = true
+				info.Secret = append(info.Secret, item.Value)
 			}
 		}
 	}

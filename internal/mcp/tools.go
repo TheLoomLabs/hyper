@@ -328,7 +328,7 @@ var operationTool = tool{
 					"derived": {
 						"type": "object",
 						"additionalProperties": false,
-						"required": ["patterns_resolved", "concurrency_limit"],
+						"required": ["patterns_resolved", "secret_fields", "concurrency_limit"],
 						"description": "What hyper derives from the declaration above, which the source does not carry in this form. capabilities, bound and repeatability are absent only where a Manifest hyper could not read left nothing to derive them from, which is the check surface's to report.",
 						"properties": {
 							"capabilities": {
@@ -350,6 +350,11 @@ var operationTool = tool{
 								"description": "Absent, together with record_identity, on a destroy, which projects no Record of its own."
 							},
 							"record_identity": {"type": "string"},
+							"secret_fields": {
+								"type": "array",
+								"items": {"type": "string"},
+								"description": "The fields the Operation's own secret: list names, in the Manifest's own order, and [] rather than absent where it names none. secret: is declared beside record: — never inside fields: — and each name it carries reaches the Store as a presence-only marker rather than a value, is rendered by no surface, may root no require: or when:, and is handed to the operator only through the sink a Run's --secret-out names."
+							},
 							"repeatability": {
 								"enum": ["repeatable", "skip-if-recorded", "run-once"],
 								"description": "The effective value and not the declared one: run-once where an effectful Manifest omits the key, repeatable where a read does."
@@ -787,7 +792,7 @@ var reviewTool = tool{
 						"description": "One row of the index into the gutter above. A flag states nothing the gutter does not: it carries no state and no text, and the row on the line it cites is what says which.",
 						"properties": {
 							"type": {"const": "flag"},
-							"flag": {"enum": ["destroy", "opaque", "unbounded", "envelope", "unresolved", "widened", "narrowed", "changed"]},
+							"flag": {"enum": ["destroy", "opaque", "secret", "unbounded", "envelope", "unresolved", "widened", "narrowed", "changed"]},
 							"cites_line": {"type": "integer", "minimum": 1, "description": "The line this flag indexes, which is a line a gutter row above marked."},
 							"step": {"type": "string", "description": "The Step the flag cites, absent on a flag whose subject is the file rather than a Step."}
 						}

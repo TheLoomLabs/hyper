@@ -71,6 +71,21 @@ var patternMembers = []string{"pagination", "polling", "retry"}
 // of its own. The identity is the identity: scalar verbatim, a template hole
 // and a response path alike.
 //
+// Secret is the Operation's own secret: list, in the Manifest's own order, and
+// it is empty rather than absent where the Operation declares none —
+// PatternsResolved's rule, and for a stronger reason than symmetry. *None of
+// them* is the fact a Run acts on twice over: a Run reaching this Operation
+// needs no sink, and a Run handed one anyway Refuses under
+// secret-sink-unfilled (§6, §12, ADR-0151). A member that went absent would
+// leave a caller unable to tell an Operation that declares no secret output
+// from a question this block was not asked (ADR-0152, issue #276).
+//
+// It is spelled as OperationInfo spells it, and that is the package keeping one
+// name for one shape: SecretFields is the *set* a check resolves a name
+// against, here and there, and Secret is the *list* a surface renders. The wire
+// member this becomes is secret_fields, which is §9's name and internal/cli's
+// to spell (operation.go).
+//
 // Repeatability is the effective value and not the declared one: an Operation
 // whose Manifest omits repeatability: gets run-once where it effects and
 // repeatable where it reads (§12, ADR-0037). run-once is rendered even though
@@ -96,6 +111,7 @@ type OperationDetail struct {
 	PatternsResolved  []string
 	RecordCardinality string
 	RecordIdentity    string
+	Secret            []string
 	Repeatability     string
 	Deadline          string
 	DeadlineSeconds   *int
@@ -126,6 +142,11 @@ func ReadOperationDetail(root *yaml.Node, name string) OperationDetail {
 	detail.Bound = boundRule(info)
 	detail.PatternsResolved = patternsResolved(op)
 	detail.RecordCardinality, detail.RecordIdentity = recordProjection(info)
+	// Copied rather than aliased, because empty and nil are two answers
+	// here and the reader's is nil: `[]` is what the wire carries for *none
+	// of them*, and appending onto an empty slice is what makes it that
+	// whatever the Manifest declared (§9, ADR-0152).
+	detail.Secret = append([]string{}, info.Secret...)
 	detail.Repeatability = effectiveRepeatability(info)
 	detail.Deadline = scalarValue(topLevelFields(op, "deadline")["deadline"])
 	if seconds, authored := schema.DurationSeconds(detail.Deadline); authored {

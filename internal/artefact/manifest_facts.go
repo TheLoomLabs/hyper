@@ -203,8 +203,9 @@ func operationFacts(opsVal *yaml.Node) []OperationFacts {
 // what the Manifest states and none of them a key an author could write.
 //
 // The three are chosen for what they answer that the row's other members do
-// not. The request is where an agent reads what the Operation does before
-// opening its input schema. The Repeatability in force is the one fact here
+// not, and the fourth below for what none of them could. The request is where
+// an agent reads what the Operation does before opening its input schema. The
+// Repeatability in force is the one fact here
 // with no spelling in the source at all: run-once is what an effectful
 // Operation declaring no repeatability: is, and §12 gives it no keyword to
 // author, so a reader who scanned the Manifest for it would find nothing
@@ -217,6 +218,14 @@ func operationFacts(opsVal *yaml.Node) []OperationFacts {
 // request to name, and one whose kind: is not one of the three has no default
 // Repeatability to derive (§12, ADR-0064). What it projects is always stated,
 // an Operation projecting nothing saying so in words.
+//
+// A fourth clause stands beside the projection where the Operation declares
+// `secret:` output, and it is a clause rather than a word inside the third for
+// the reason §3 keeps the list out of `fields:`: what a Provider handles that
+// never reaches the Store is read on one line rather than scanned for. It is
+// the listing's half of ADR-0152 — this is the row an agent reads *before* it
+// opens the Operation, and a listing that named the fact nowhere is the surface
+// that sent a session to `strings` over the binary (§9, issue #276).
 func operationSummary(op *yaml.Node, info OperationInfo) string {
 	var clauses []string
 	if request := operationRequest(op, info); request != "" {
@@ -225,7 +234,11 @@ func operationSummary(op *yaml.Node, info OperationInfo) string {
 	if repeatability := effectiveRepeatability(info); repeatability != "" {
 		clauses = append(clauses, repeatability)
 	}
-	return strings.Join(append(clauses, projection(info)), "; ")
+	clauses = append(clauses, projection(info))
+	if len(info.Secret) > 0 {
+		clauses = append(clauses, "secret output: "+strings.Join(info.Secret, ", "))
+	}
+	return strings.Join(clauses, "; ")
 }
 
 // operationRequest names the request the Operation makes: its method and path

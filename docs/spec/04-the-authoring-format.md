@@ -1084,6 +1084,12 @@ position keeps meaning a reference and nothing else (ADR-0022). And a reviewer a
 handles that never reaches the Store reads one line rather than scanning a projection for marks — the
 argument §12 makes for keeping a closed set readable in one place.
 
+**Every surface that renders an Operation names the declaration**, and §9 states each rendering:
+`provider`'s summary, `operation`'s derived block, `review`'s gutter and its `SECRET` flag, and the
+orientation's own clause on where the key goes. That is a repair rather than a design: the key was
+named by none of them, and the session that had to author one found it by running `strings` over the
+binary (ADR-0149, ADR-0152).
+
 **The separation is enforced rather than assumed**, and it was assumed for one milestone too long. A
 `secret:` written inside `fields:` — as a value's own key, or beside the path it meant to mark — is a
 `fields:` value that is not a scalar, which `check` refuses as `schema-mismatch` and names this spelling

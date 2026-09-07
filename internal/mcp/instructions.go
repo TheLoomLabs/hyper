@@ -95,6 +95,18 @@ func Instructions(version string) string {
 // holds it is a golden — internal/cli/testdata/run/a-halt-inside-a-nested-procedure,
 // whose caller's own next Step renders `never-reached` (§6, ADR-0111).
 //
+// **And the converse of the credential sentence is stated where that one is.**
+// `secret:` was named by no surface an agent is handed — not the orientation,
+// not `operation`, not `provider`, not `review` — and a sealed session that
+// needed it spent thirteen `Bash` calls finding it, eight of them `strings` and
+// `nm` over the binary, having first lost two live credentials to a spelling
+// `check` then accepted (ADR-0149, issue #276). The clause states where the key
+// goes, where it does not, and the two things a name in it costs: the value is
+// gone from every rendering, and the Run will not proceed without somewhere to
+// put it. It is held to `check` in both directions by
+// TestInstructions_TheSecretOutputSpellingIsTheOneCheckHolds one package over
+// (§3, §4, ADR-0151, ADR-0152).
+//
 // **And a predicate is written where the review shows it.** The `require:`
 // above is the shape a session authored right first time and then filled the
 // weaker way: `sh -c 'test "$(cat control/window)" = open'` gated on
@@ -193,6 +205,11 @@ of them did, and on an **opaque** ` + "`mutate`" + ` it is **accepted and buys n
 so ` + "`review`" + ` flags that Step ` + "`UNBOUNDED`" + ` whether you write one or not.
 **The credential is never in an artefact** — the Target names the environment variable,
 ` + "`hyper`" + ` puts it in the header the Manifest's ` + "`auth:`" + ` names, and no rendering prints it.
+**A credential a call hands *back* is the converse and the Manifest declares it**:
+` + "`secret: [token]`" + ` beside that Operation's ` + "`record:`" + `, naming projected fields — and never
+inside ` + "`fields:`" + `, which ` + "`check`" + ` refuses. A field named there reaches the Store as a marker
+no surface renders and no ` + "`require:`" + ` may read, and a Run reaching such a Step hands the values to a
+sink the invocation names or Refuses.
 
 ## Two request shapes
 

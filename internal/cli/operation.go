@@ -149,19 +149,30 @@ type operationDetailRow struct {
 
 // operationDerived is the derived block, and its members are §9's own in §9's
 // own order: the Capability the request is written under, the Bound, the
-// Patterns resolved, the Record's cardinality and declared identity, the
-// Repeatability in force, the deadline in seconds, and the effective
-// concurrency limit.
+// Patterns resolved, the Record's cardinality, declared identity and secret
+// fields, the Repeatability in force, the deadline in seconds, and the
+// effective concurrency limit.
 //
-// Three of the eight follow the ordinary absence rule and three do not, and
-// which is which is the answer rather than the encoding. patterns_resolved is
+// Three of the nine are always written and six follow the ordinary absence
+// rule, and which is which is the answer rather than the encoding. patterns_resolved is
 // empty rather than absent: a caller asking which Patterns run around this call
-// is answered *none of them*, which is a fact. concurrency_limit is always
-// present, an effective limit existing for every Operation (ADR-0045). The
-// Record pair is absent together on a destroy, which declares no record: at all
-// (§3, ADR-0037), and capabilities, bound and repeatability are absent only
-// where a Manifest hyper could not read left nothing to derive them from —
-// which is check's to report and never this row's to substitute for (ADR-0064).
+// is answered *none of them*, which is a fact. secret_fields is that rule
+// again, and the empty answer there is one a Run acts on: a
+// sink handed to a Run over an Operation declaring none is Refused
+// (secret-sink-unfilled) rather than left empty (§6, ADR-0151, ADR-0152).
+// concurrency_limit is always present, an effective limit existing for every
+// Operation (ADR-0045). The Record pair is absent together on a destroy, which
+// declares no record: at all (§3, ADR-0037), and capabilities, bound and
+// repeatability are absent only where a Manifest hyper could not read left
+// nothing to derive them from — which is check's to report and never this row's
+// to substitute for (ADR-0064).
+//
+// secret_fields stands with the Record pair rather than after them because it
+// is the third fact about the projection: which of the fields named there
+// reaches the Store as §7's constant instead of a value. Its wire name is the
+// one `records` already carries for the same fact read off a written Record
+// (§8, records.go); how each page separates the names is that page's own, and
+// on this one it is the comma the two lists above it already use.
 //
 // deadline is the page's and never the wire's: §9 fixed the wire name and its
 // unit with it, so what goes out is deadline_seconds, and what the table
@@ -175,6 +186,7 @@ type operationDerived struct {
 	PatternsResolved  []string `json:"patterns_resolved"`
 	RecordCardinality string   `json:"record_cardinality,omitempty"`
 	RecordIdentity    string   `json:"record_identity,omitempty"`
+	SecretFields      []string `json:"secret_fields"`
 	Repeatability     string   `json:"repeatability,omitempty"`
 	DeadlineSeconds   *int     `json:"deadline_seconds,omitempty"`
 	ConcurrencyLimit  int      `json:"concurrency_limit"`
@@ -196,6 +208,7 @@ func newOperationDetailRow(source string, detail artefact.OperationDetail) opera
 			PatternsResolved:  detail.PatternsResolved,
 			RecordCardinality: detail.RecordCardinality,
 			RecordIdentity:    detail.RecordIdentity,
+			SecretFields:      detail.Secret,
 			Repeatability:     detail.Repeatability,
 			DeadlineSeconds:   detail.DeadlineSeconds,
 			ConcurrencyLimit:  detail.ConcurrencyLimit,
@@ -258,7 +271,9 @@ func writeOperationPage(w io.Writer, rows []render.Row) error {
 // no Pattern is that rule read from its other end — the wire says *none of
 // them* with an empty list and the page says it by having no line — and the
 // concurrency limit always has one, there being an effective limit for every
-// Operation (ADR-0045).
+// Operation (ADR-0045). SECRET FIELDS reads with the Patterns: an Operation
+// declaring none draws no line, and one that declares them names them beneath
+// the identity whose projection they belong to.
 //
 // DEADLINE is the authored spelling and not the wire's seconds, because the
 // source it stands beneath says 30s and a page restating it as 30 would be a
@@ -270,6 +285,7 @@ func writeDerivedBlock(w io.Writer, derived operationDerived) error {
 		{"PATTERNS RESOLVED", strings.Join(derived.PatternsResolved, ", ")},
 		{"RECORD CARDINALITY", derived.RecordCardinality},
 		{"RECORD IDENTITY", derived.RecordIdentity},
+		{"SECRET FIELDS", strings.Join(derived.SecretFields, ", ")},
 		{"REPEATABILITY", derived.Repeatability},
 		{"DEADLINE", derived.deadline},
 		{"CONCURRENCY LIMIT", strconv.Itoa(derived.ConcurrencyLimit)},

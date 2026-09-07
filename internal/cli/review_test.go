@@ -1594,6 +1594,67 @@ func TestRunReview_AManifestsGutterMarksItsSchemeItsCapabilitiesAndEachOperation
 	}
 }
 
+// TestRunReview_TheSecretFieldsMarkedAreTheOnesTheOperationDeclares is the
+// fourth field of the Manifest's Operation table, and the one whose subject is
+// several lines below the line it is marked on: `secret:` sits at the foot of
+// an Operation's body, where the Kind is the line under the key and the opacity
+// is nowhere in the file (§8, ADR-0152, issue #276).
+//
+// **The cell is empty on the Operation that declares none rather than the row
+// being short**, which is the alignment rule the opacity field already holds:
+// reading down the column is the Operation table, and a field appearing on some
+// lines and not others would break it at the one place the eye is reading.
+//
+// The names are separated by the one gap this vocabulary puts between two
+// members of one fact, which is the gap `read DESTROY` and `DESTROY end_thing`
+// already read under — the marker column has one separator, and a second one
+// inside a cell would make the column's own spacing say two different things
+// (§8).
+func TestRunReview_TheSecretFieldsMarkedAreTheOnesTheOperationDeclares(t *testing.T) {
+	root := newRepo(t)
+	writeFile(t, root+"/providers/session.yaml", `kind: provider
+provider: session
+schema-version: 1
+class: session
+capabilities: [http]
+operations:
+  issue_credential:
+    kind: mutate
+    repeatability: repeatable
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /sessions
+    record:
+      identity: $.body.id
+      fields: {id: $.body.id, token: $.body.token, refresh: $.body.refresh}
+    secret: [token, refresh]
+  list_sessions:
+    kind: read
+    http:
+      method: GET
+      host: "{from-target}"
+      path: /sessions
+    record:
+      identity: $.id
+      fields: {id: $.id}
+`)
+
+	stdout, stderr, exit := runReview(t, root, "session")
+	if exit != cli.ExitClean || stderr != "" {
+		t.Fatalf("exit = %d, stderr = %q, want a clean review", exit, stderr)
+	}
+
+	want := map[int]string{
+		5:  "http",
+		7:  "mutate  repeatable  secret token refresh",
+		18: "read    repeatable",
+	}
+	if got := markersOf(t, stdout); !maps.Equal(got, want) {
+		t.Errorf("the marker column is\n %v\nwant\n %v", got, want)
+	}
+}
+
 // TestRunReview_TheRepeatabilityMarkedIsTheEffectiveOne is §12's derivation
 // rendered rather than the Manifest's own key read back: an Operation omitting
 // `repeatability:` is run-once where it effects and repeatable where it reads,

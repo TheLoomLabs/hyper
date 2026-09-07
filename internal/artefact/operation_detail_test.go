@@ -11,7 +11,9 @@ import (
 // declared concurrency limit, a `mutate` under each of the two Repeatability
 // values it may declare and one under neither, a `read` declaring none, and a
 // `destroy` whose request is http: — the non-opaque one, the built-in shell
-// Provider carrying the other.
+// Provider carrying the other. The `mutate` declaring neither Repeatability is
+// also the one declaring `secret:` output, two of the three fields it projects
+// and in an order that is not the projection's.
 const derivedFactsManifest = `kind: provider
 provider: widget
 schema-version: 1
@@ -71,7 +73,8 @@ operations:
     http: {method: POST, host: "{from-target}", path: "/widgets/{id}/rotate"}
     record:
       identity: "{id}"
-      fields: {id: $.body.id}
+      fields: {id: $.body.id, token: $.body.token, refresh: $.body.refresh}
+    secret: [token, refresh]
   delete_widget:
     kind: destroy
     repeatability: repeatable
@@ -356,5 +359,37 @@ func TestReadOperationDetail_TheBuiltInsSixOperationsExerciseTheDerivedSets(t *t
 	}
 	if len(want) != len(topLevelFields(root, "operations")["operations"].Content)/2 {
 		t.Error("the built-in declares an Operation this case does not name; the six are the whole of it")
+	}
+}
+
+// TestReadOperationDetail_TheSecretListIsTheDeclaredNamesInTheManifestsOrder
+// is the block's answer to *what does this Operation hand out that the Store
+// will not hold*: the `secret:` list verbatim, in the Manifest's own order —
+// which is neither the projection's order nor a sort (§9, ADR-0152, issue
+// #276).
+func TestReadOperationDetail_TheSecretListIsTheDeclaredNamesInTheManifestsOrder(t *testing.T) {
+	if got, want := detail(t, "rotate_widget").Secret, []string{"token", "refresh"}; !slices.Equal(got, want) {
+		t.Errorf("secret fields = %v, want %v", got, want)
+	}
+}
+
+// TestReadOperationDetail_AnOperationDeclaringNoSecretAnswersEmptyAndNotAbsent
+// is PatternsResolved's rule on the member beside it, and the reason it holds
+// here is stronger than symmetry: *none of them* is what makes a `--secret-out`
+// handed to a Run over this Operation a Refusal rather than an empty directory
+// (§6, §12, ADR-0151, ADR-0152).
+func TestReadOperationDetail_AnOperationDeclaringNoSecretAnswersEmptyAndNotAbsent(t *testing.T) {
+	for _, name := range []string{"create_widget", "delete_widget"} {
+		got := detail(t, name).Secret
+		if got == nil {
+			t.Errorf("%s answers a nil secret list, want an empty one: none of them is a fact", name)
+		}
+		if len(got) != 0 {
+			t.Errorf("%s secret fields = %v, want none", name, got)
+		}
+	}
+
+	if got := ReadOperationDetail(BuiltinShellProviderRoot(), "read").Secret; len(got) != 0 {
+		t.Errorf("the built-in shell read declares %v secret, want none: hyper knows nothing about the command (§3)", got)
 	}
 }

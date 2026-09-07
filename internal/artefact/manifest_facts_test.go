@@ -312,3 +312,25 @@ operations: {}
 		t.Errorf("auth scheme = %q, want none: the scheme names no header to compose", facts.AuthScheme)
 	}
 }
+
+// TestReadManifestFacts_TheSummaryNamesSecretOutputWhereTheOperationDeclaresIt
+// is the fourth clause: the listing an agent reads *before* it opens an
+// Operation says which of that Operation's projected fields never reach the
+// Store, in the Manifest's own order (§9, ADR-0152, issue #276).
+//
+// The clause stands beside the projection rather than inside it, which is §3's
+// own arrangement of the two keys: `secret:` is a list beside `record:` and not
+// a marking within it, so a summary that folded the names into *projects one
+// Record* would render the shape `check` refuses (§3, ADR-0151).
+func TestReadManifestFacts_TheSummaryNamesSecretOutputWhereTheOperationDeclaresIt(t *testing.T) {
+	facts := ReadManifestFacts(parse(t, derivedFactsManifest))
+
+	if got, want := operationNamed(t, facts, "rotate_widget").Summary,
+		"POST /widgets/{id}/rotate; run-once; projects one Record; secret output: token, refresh"; got != want {
+		t.Errorf("summary = %q, want %q", got, want)
+	}
+	if got, want := operationNamed(t, facts, "create_widget").Summary,
+		"POST /widgets; skip-if-recorded; projects one Record"; got != want {
+		t.Errorf("an Operation declaring no secret: summarises %q, want %q — a clause with nothing to say is not written empty", got, want)
+	}
+}

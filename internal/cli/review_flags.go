@@ -15,21 +15,26 @@ import (
 // closed set's own, where the page renders each name upper-case for the eye
 // exactly as the gutter renders the Kind `destroy` as `DESTROY` (§8, §12).
 //
-// Two of them spell what a marker spells and are declared here anyway. A
+// Three of them spell what a marker spells and are declared here anyway. A
 // marker is §8's word for what the gutter marks a line with and a flag name is
 // §12's name for what indexes it; they are two closed sets that happen to agree
-// on two members, and a surface reading one from the other would make a
+// on three members, and a surface reading one from the other would make a
 // rendering rule out of the coincidence.
+//
+// `secret` is the second name to arrive by §12's own rule rather than by a
+// decision to grow the set: §8 gained a marker class, and every marker class
+// the gutter carries indexes here (ADR-0152, issue #276).
 //
 // The three change names — `widened`, `narrowed`, `changed` — are directions
 // rather than classes, the class being carried in the row's text. All three
 // read the lines the gutter's change column marks, and they are named here
-// beside the five standing names because one vocabulary goes out on one wire:
+// beside the six standing names because one vocabulary goes out on one wire:
 // what separates them is which supply they read, not which surface they reach
 // (§12, issue #168).
 const (
 	flagDestroy    = "destroy"
 	flagOpaque     = "opaque"
+	flagSecret     = "secret"
 	flagUnbounded  = "unbounded"
 	flagEnvelope   = "envelope"
 	flagUnresolved = "unresolved"
@@ -567,12 +572,19 @@ func targetDeclarationFlags(marks artefact.TargetDeclarationMarks) []reviewFlag 
 }
 
 // manifestFlags is §12's roster on a Manifest: each Operation's declared Kind
-// where it is `destroy`, and its opacity where its request uses an Opaque
-// Capability.
+// where it is `destroy`, its opacity where its request uses an Opaque
+// Capability, and its `secret:` output where it declares any.
 //
-// Both cite the line the Operation's key is written on, which is the line the
-// gutter marks and the line that binds the claim — an Operation's body being
-// everything indented beneath its name (§8).
+// All three cite the line the Operation's key is written on, which is the line
+// the gutter marks and the line that binds the claim — an Operation's body
+// being everything indented beneath its name (§8).
+//
+// The third is the one this block earns most on this artefact. `destroy` and
+// `opaque` are read off a Kind and a request block sitting one or two lines
+// under the key; a `secret:` list sits at the foot of the body, and on a
+// Manifest of twenty Operations the lines that hand a value to the operator are
+// exactly what an index exists to put on one screen — the reviewing agent's own
+// question, on an artefact another agent wrote (§12, ADR-0152, issue #276).
 func manifestFlags(marks artefact.ManifestMarks) []reviewFlag {
 	var flags []reviewFlag
 	for _, op := range marks.Operations {
@@ -590,8 +602,29 @@ func manifestFlags(marks artefact.ManifestMarks) []reviewFlag {
 				text:      opaqueText(op.Name),
 			})
 		}
+		if len(op.Secret) > 0 {
+			flags = append(flags, reviewFlag{
+				name:      flagSecret,
+				citesLine: op.Line,
+				text:      secretOutputText(op.Name, op.Secret),
+			})
+		}
 	}
 	return flags
+}
+
+// secretOutputText is the `secret` row's own text: which Operation, and which
+// of its projected fields the Store will hold as §7's constant instead of a
+// value.
+//
+// It names the fields for the reason the marker beside the line does, and it
+// says what becomes of them, which the marker has no room for: a reviewer
+// deciding whether this Manifest may be approved is deciding about a value that
+// leaves `hyper` for a directory on the operator's disk, and *declares secret
+// output* is the sentence that fact is stated in on every other surface (§4,
+// §7, ADR-0152).
+func secretOutputText(operation string, fields []string) string {
+	return operation + " declares secret output: " + strings.Join(fields, ", ")
 }
 
 // absentNameText is the `unresolved` row's own text: which name failed, and
