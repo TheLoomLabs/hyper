@@ -5,10 +5,11 @@
 # scripts that start a process of their own.
 #
 # **The point of this task is a Step whose Operation declares `secret:` output**
-# (issue #271). It is the only one in the set that reaches one, and until it
-# landed there was no transcript in which anything the Secret sink teaches could
-# be measured. Two repairs deferred the run they owed on that ground and recorded
-# the deferral in their own last consequence:
+# (issue #271). It was the only task in the set that reached one until
+# `push-credential-already-recorded` was written beside it (#277), and until this
+# one landed there was no transcript in which anything the Secret sink teaches
+# could be measured. Two repairs deferred the run they owed on that ground and
+# recorded the deferral in their own last consequence:
 #
 #   - **#266 / ADR-0146** taught the `run` tool's `secret_sink` description —
 #     *supplying a path rescues no Run*, while nothing wrote the file.

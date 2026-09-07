@@ -27,13 +27,19 @@ Thirty-nine tool calls, forty turns, four minutes forty-one, **$1.67**, exit `0`
 Eighteen `Bash`, five `check`, three `review`, two each of `operation`, `run`, `changes`, `probe` and
 `ToolSearch`, and one each of `providers`, `records` and `run_show`.
 
-**It is the second cheapest sealed run in the corpus and has the second fewest calls** — behind the
-empty-credential run's 32 and $1.43
-([ADR-0147](0147-the-empty-credential-was-read-as-a-state-and-the-agent-went-looking-for-what-emptied-it.md))
-and `change-window`'s 20 and $0.73
-([ADR-0120](0120-the-orientation-taught-the-envelope-and-the-first-requirement-was-authored-from-one-sentence.md)),
-which is a smaller task. What matters is not the rank: **it is the same task as ADR-0149's, and it cost
-39 calls against 81 and $1.67 against $4.28.**
+**Five sealed runs have cost less** —
+[ADR-0124](0124-the-second-change-window-run-declined-the-bound-and-a-taught-repair-owes-a-run.md)'s
+19 calls and $0.69,
+[ADR-0120](0120-the-orientation-taught-the-envelope-and-the-first-requirement-was-authored-from-one-sentence.md)'s
+20 and $0.73,
+[ADR-0110](0110-a-run-is-reachable-from-the-surface-and-the-rehearsal-is-what-recorded-the-pre-state.md)'s
+27 and $1.19,
+[ADR-0112](0112-the-second-run-skipped-what-the-first-did-and-every-revision-it-recorded-is-unresolvable.md)'s
+30 and $1.23, and
+[ADR-0147](0147-the-empty-credential-was-read-as-a-state-and-the-agent-went-looking-for-what-emptied-it.md)'s
+32 and $1.43 — and every one of them is a smaller task than this. **The rank is not the finding.**
+What is, is that this is the same task as ADR-0149's and it cost 39 calls against 81 and $1.67
+against $4.28.
 
 **Two Runs, both completed, and nothing Refused anywhere.** `survey-lookout` (call 17, one `read` Step,
 two Records) and `enrol-push-heartbeats` (call 32, four Steps, all `ran`). Five `check` calls, every one
@@ -123,7 +129,7 @@ session ran the Procedure once, so no member was ever already recorded and the l
 
 **It reported the behaviour anyway, unprompted, in its closing paragraph:**
 
-> One thing to know before you paste: re-running `enrol-push-heartbeats` will *skip* both credential
+> One thing to know before you paste: `re-running enrol-push-heartbeats` will *skip* both credential
 > steps, because `skip-if-recorded` finds the Records already there — it reports `secrets_skipped` and
 > writes no file. That is the safe behaviour, not a failure, but it means the sink will not refill
 > itself.

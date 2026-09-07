@@ -12,13 +12,16 @@
 # the sentence, rather than reporting a failure, is a thing only a transcript can
 # say (`docs/agents/acceptance-re-runs.md`).
 #
-# **And `push-credential` could not put an agent in front of it.** It is the one
-# task in the set that reaches a Step declaring `secret:` output, so it is the
-# only task the repair could be measured against — but the state needs a **third**
-# Run of the agent's own Procedure over Records its own earlier Run wrote, and
-# `push-credential` asks for the credentials once. Its two Runs are the Refusal
-# and the round trip past it, the Manifest is the agent's to write, and nothing in
-# the prompt asks for the Repeatability or for a Run after the one that minted.
+# **And `push-credential` could not put an agent in front of it.** It was the only
+# task in the set reaching a Step that declares `secret:` output, so it was the
+# only task the repair could be measured against — but the state needs **a Run of
+# the agent's own Procedure over Records an earlier Run of it wrote**, and
+# `push-credential` asks for the credentials once. #277 and ADR-0150 both call that
+# a *third* Run, counting the Refusal ahead of it; ADR-0153's session named its
+# sink up front and was never Refused, so for a session like that one it is the
+# second. The count is not the property — a Record standing when the Step expands
+# is. The Manifest is the agent's to write, and nothing in `push-credential`'s
+# prompt asks for the Repeatability or for a Run after the one that minted.
 # ADR-0150 named that and deferred it; ADR-0152 named it again as the one axis of
 # four that was not buyable as the task stood. This file is that gap closed, and
 # closing it is one task file and the script beside it (#222).
@@ -48,7 +51,7 @@
 #   for something we already hold does not help me — the one it replaces does not
 #   go anywhere, and I would have to come back and paste it again.
 #
-# **The first half is what makes the third Run happen**, and it is the operator's
+# **The first half is what makes the later Run happen**, and it is the operator's
 # own reason rather than an instruction to re-run: someone pasting credentials
 # into a deploy environment by hand would rather find out on one of them that
 # something is wrong than on both. It asks for the rest through the *same* thing
@@ -62,9 +65,9 @@
 # credential for a service that already had one, and leaves the first standing
 # with nobody able to revoke it — which is the consequence ADR-0149's session
 # reported unprompted after `run-once` made its own loss permanent. The default is
-# `run-once`, so a session that declares nothing meets `run-once-recorded` on the
-# third Run and has to choose; the paragraph is what makes one of the two choices
-# the operator's.
+# `run-once`, so a session that declares nothing meets `run-once-recorded` when it
+# runs the widened Procedure and has to choose; the paragraph is what makes one of
+# the two choices the operator's.
 #
 # **Neither half names a Repeatability, a Step, a Run or a sink.** What is being
 # measured is what an agent reads and then decides, and a prompt that spelled the
@@ -204,7 +207,8 @@ variant=$here/${me%.setup.sh}.md
 if dropped=$(grep -Fxv -f "$variant" "$base" | grep .); then
 	echo "$me: push-credential.md has lines this task's prompt does not:" >&2
 	echo "$dropped" >&2
-	echo "$me: the two prompts differ in more than the one paragraph, so their transcripts cannot be read against each other" >&2
+	echo "$me: the two prompts differ in more than the one paragraph, so" >&2
+	echo "$me: their transcripts cannot be read against each other" >&2
 	exit 2
 fi
 
@@ -215,9 +219,18 @@ fi
 # *Do one of them first, then the rest* needs a rest. One service would reach the
 # wholly skipped Step and never the mixed one, which is the case ADR-0150 turned
 # on.
-services=$(find "$repo/services" -mindepth 1 -maxdepth 1 -type d | grep -c . || true)
-if [ "$services" -lt 2 ]; then
-	echo "$me: push-credential now ships $services service(s) and this task needs at least two" >&2
-	echo "$me: with one there is no second member to skip, so the Run this task is named for is the empty sink and not the short one" >&2
+#
+# A glob and no utility at all, for the reason the guard above reaches for `grep`
+# rather than `diff`: the four tools `run.sh` declares stay four, and `find`'s
+# `-mindepth` is no more POSIX than the `sed -i` the script beside this one was
+# made to drop. `nullglob` is set and unset around it so an unmatched pattern is
+# no directories rather than one directory named `*`.
+shopt -s nullglob
+services=("$repo"/services/*/)
+shopt -u nullglob
+if [ "${#services[@]}" -lt 2 ]; then
+	echo "$me: push-credential ships ${#services[@]} service(s) and this task needs two" >&2
+	echo "$me: with one there is no second member to skip, so the Run this" >&2
+	echo "$me: task is named for is the empty sink and not the short one" >&2
 	exit 2
 fi
