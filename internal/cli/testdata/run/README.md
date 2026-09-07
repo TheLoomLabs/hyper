@@ -178,6 +178,16 @@ names one in a **`repo-from`** file instead, and the ones here are:
   two directories one Run fills (ADR-0148). Its Operation declares `deadline: 1s`
   for `repo-drain`'s reason: a number an artefact declared is a number a case can
   drive to, and the halt that leaves a partly filled sink is one of them.
+- [`repo-skip-secret/`](repo-skip-secret) — the two declarations together
+  (ADR-0150, issue #273): a `vault-tokens` Manifest whose `mint_token` is a
+  `mutate` declaring **both** `repeatability: skip-if-recorded` and
+  `secret: [token]`, a credentialled Target, and one Procedure over a `values:`
+  list of three services. It is the combination §4 decided **not** to refuse, so
+  the fixture is what keeps it running as well as what drives the report; and it
+  is a repository of its own rather than a Procedure added to
+  `repo-skip-if-recorded`, whose Operation declares no `secret:` and whose every
+  golden would move if it did. Its cases differ in the branch they were seeded
+  with, as that repository's do.
 - [`repo-two-reads/`](repo-two-reads) — `repo-watch-status` with its one-Step
   Procedure replaced by a two-Step one, both `read`, one host each. Two is the
   smallest number of Steps that can tell one push at the end from a push per
@@ -355,6 +365,9 @@ drives.
 | `an-expansion-fills-one-directory-per-member` | the second reason: **one** Step, expanding over two members, and one directory per member under the one `0001/` — the values are two because the Records are two, and the Step is one |
 | `a-halt-leaves-the-secrets-it-already-wrote` | the case that decided *when* the file is written: Step 1's secret lands, Step 2 reaches the Operation's `deadline:`, and the Run is `failed` at `1` with `0001/status.hyper.dev/token` in the sink and **nothing** under `0002/`. Writing at the Run's end would have discarded what Step 1 produced, which is ADR-0146's loss one gate later; an empty directory reads as nothing where an empty file would read as a value (ADR-0148) |
 | `a-rehearsal-fills-the-sink-it-was-given` | the sink under `--dry-run`: a rehearsal performs the reads it reaches, so a `read` declaring `secret:` output produces a value and the value lands. It is the completing half of `a-rehearsal-earns-no-sink-exemption` below — the rehearsal is exempt from neither the gate nor the write |
+| `a-skipped-member-writes-no-secret`, `-json` | the sink short of a directory, and the line that says so (ADR-0150, issue #273): three members, two already recorded and one calling, so the sink holds `0001/mailer/token` and nothing for the other two. It is the **mixed** Step, which is the case the report exists for — the row reads `ran` with a `RECORDS` of `3`, member for member what a Step that wrote every value writes, so nothing but the sentence and the `-json` half's `secrets_skipped` tells the two apart |
+| `every-member-skips-and-the-sink-holds-nothing` | the other end of the same rule: every member already recorded, the Step *skipped as already recorded*, no call made, and a `sink.golden` holding the one node the sink has. The directory is still created — the gate walks reviewed text and makes it wherever the Run **reaches** a Step declaring secret output (ADR-0148) — so what an operator is handed is an empty tree at exit `0`, which is the page's sentence rather than a fault |
+| `a-step-with-no-set-counts-no-skipped-secret` | the boundary the count is scoped by: the first member skips and the second member's request **provably never left**, so the Step is *attempted, world untouched*, carries no identity set, and renders the dash. It skipped a Record all the same, and the page writes no line and the row no `secrets_skipped` — the count is a count against the set, and a dash beside a claim about a skipped Record would be one Step saying both (§8, ADR-0062, ADR-0150). It is `a-skip-then-a-request-that-never-left` over the repository whose Operation also declares `secret:` |
 | `a-host-that-answered-nothing` | the `read` that never halts on what came back: the host is granted and the case serves it nothing, so the Observation records the silence and the Run completes at `0` |
 | `a-run-halted-by-its-step` | a Run the world resisted: `failed`, exit `1`, the Step *ran* with the set it concluded about, and the entry left where it stopped |
 | `what-the-run-wrote-reaches-the-remote` | the Run's own commits go out and `remote.golden` shows what arrived |

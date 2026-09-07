@@ -418,6 +418,21 @@ whose member the Store already holds concluded about that Record without asking 
 there is no value for the sink to hold; the file not being there is what says so, which an empty one
 could not (ADR-0148).
 
+**The Run says which Steps those were and how many Records each covers.** Beneath the Step table stands
+one line per Step whose Operation declares `secret:` output and which concluded about a Record without
+calling for it — *step 2 skipped 2 records and wrote no secret for them* — and one line beneath them
+carrying the reason, once however many Steps have it (§8). It is the same fact as the row's
+`secrets_skipped`, and it is on the page because the tree the operator was handed is short of a
+directory and the table alone cannot say why: a wholly skipped Step's Disposition explains the absence
+only to a reader who already knows the Operation declares `secret:`, and a Step that skipped some
+members and called for others renders `ran` and a count that a Step which wrote every value renders
+too. Nothing is lost either way — the value was never produced — and what the line ends is the operator
+reading an absence as a failure (ADR-0150).
+
+`check` refuses none of this. `skip-if-recorded` on an Operation declaring `secret:` output is a legal
+Manifest and a coherent one — *mint a credential only where we hold no record of one* — so §4 takes no
+view and the surface carries the report instead (§4, ADR-0150).
+
 Because the projected workflow supplies no sink and cannot sensibly be made to (ADR-0007, ADR-0077),
 a Procedure that declares a Cadence and reaches such a Step is refused at `check` (`cadence-secret-output`,
 §4) rather than left to Refuse unattended at every occurrence.

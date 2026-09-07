@@ -1110,6 +1110,27 @@ func runPage(terminal outcomeRow, withheld string) func(io.Writer, []render.Row)
 		if withheld != "" {
 			blocks = append(blocks, func(w io.Writer) error { _, err := fmt.Fprintln(w, stopped(withheld)); return err })
 		}
+		// **A Step that concluded about a Record without calling for it
+		// wrote no secret for it, and the page says which Steps and how
+		// many** — the sink's absences, named where the operator who
+		// asked for the values is reading (§9, ADR-0150, issue #273).
+		//
+		// It stands beside the rehearsal's sentence and for the same
+		// reason: the table's own cells are true and incomplete. A mixed
+		// Step renders `ran` and a count that says nothing about which
+		// of its members reached the world, and a wholly skipped one
+		// renders a Disposition that explains the empty tree only to a
+		// reader who already knows the Operation declares `secret:`.
+		if lines := secretsSkipped(steps); len(lines) > 0 {
+			blocks = append(blocks, func(w io.Writer) error {
+				for _, line := range lines {
+					if _, err := fmt.Fprintln(w, line); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		}
 		// **The terminal line's pointer is earned by truncation, not by
 		// the outcome** (§8). It stands where the page is incomplete —
 		// where the caret reported a **count** standing for members it
@@ -1159,6 +1180,51 @@ func stopped(withheld string) string {
 	return "stopped at " + withheld + ". a rehearsal performs the reads it reaches and withholds the first effectful step rather than simulating it."
 }
 
+// secretsSkipped is what a Run whose sink is short of a Record writes beneath
+// its Step table: one line per Step that concluded about a Record without
+// calling for it while declaring `secret:` output, and one line saying why
+// there is nothing under those names (§9, ADR-0150, issue #273).
+//
+// **The count is the Step's and the reason is the Run's**, which is why the
+// reason is written once however many Steps carry the fact. Repeating it under
+// each is a page that says one thing three times where the thing it is saying
+// is the same sentence about the same Repeatability value.
+//
+// The Step is named by position rather than by its authored id, and that is the
+// one place this sentence departs from the rehearsal's beside it. What a reader
+// does with the line is go and look at the sink, whose leading segment is that
+// same position — zero-padded there and not here, a path segment being sorted
+// and a sentence being read (§9, ADR-0148, store.StepNumber).
+//
+// **It says the absence and never what the value would have been.** A line
+// naming the credential a member did not mint would be the prospective
+// rendering `hyper` does not have, on the surface of a Run that deliberately
+// did not act (ADR-0010).
+func secretsSkipped(steps []render.Row) []string {
+	var lines []string
+	for _, row := range steps {
+		step, is := row.(stepRow)
+		if !is || step.SecretsSkipped == 0 {
+			continue
+		}
+		records, them := "records", "them"
+		if step.SecretsSkipped == 1 {
+			records, them = "record", "it"
+		}
+		lines = append(lines, fmt.Sprintf("step %d skipped %d %s and wrote no secret for %s.", step.Step, step.SecretsSkipped, records, them))
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+	return append(lines, secretsSkippedReason)
+}
+
+// secretsSkippedReason is why the sink holds nothing under those names, and it
+// is the whole of what the operator has to know to read the tree they were
+// given: nothing was lost, because nothing was produced (§9, ADR-0148,
+// ADR-0150).
+const secretsSkippedReason = "a member skip-if-recorded found already recorded makes no call, so there was no value for the sink to hold."
+
 // rowsOf narrows a Run's rows to one of the four types on its stream, in the
 // order they were built.
 //
@@ -1196,6 +1262,20 @@ func rowsOf[T render.Row](rows []render.Row) []render.Row {
 // reached under, beside its own id and absent on a top-level Step — the same
 // pair the Step file carries (§7, issue #141).
 //
+// secrets_skipped is how many of the Records this Step concluded about it made
+// no call for, on a Step whose Operation declares `secret:` output — the count
+// of Secret sink entries that are absent for a reason (§8, §9, ADR-0150, issue
+// #273). It carries no key anywhere else, zero included: a Step that skipped
+// nothing, a Step that produces no secret, and a Step carrying no identity set
+// at all have no absence to account for, and §7's absence rule says so by
+// writing nothing.
+//
+// It is on `run`'s row and not on the entry `show` reads back, and that is the
+// member saying where it belongs rather than a gap. The sink is a directory on
+// the machine the Run was invoked from, it never reaches the Store and no Run
+// reads it (ADR-0007, ADR-0011), so *which values this Run put on that disk* is
+// not a fact a branch anybody can clone has any business carrying.
+//
 // withheld is the Step a rehearsal stopped at, and §7's absence rule is the
 // whole of its semantics: written `true` on the one Step and carrying no key
 // anywhere else, so the member is itself the discriminator. It has to be one,
@@ -1204,15 +1284,16 @@ func rowsOf[T render.Row](rows []render.Row) []render.Row {
 // the one member here written from the Answer rather than the Step, and
 // `runRows` is what writes it.
 type stepRow struct {
-	Type        string `json:"type"`
-	Step        int    `json:"step"`
-	ID          string `json:"id"`
-	Path        string `json:"path,omitempty"`
-	Kind        string `json:"kind"`
-	Disposition string `json:"disposition"`
-	Records     *int   `json:"records,omitempty"`
-	Expanded    *int   `json:"expanded,omitempty"`
-	Withheld    bool   `json:"withheld,omitempty"`
+	Type           string `json:"type"`
+	Step           int    `json:"step"`
+	ID             string `json:"id"`
+	Path           string `json:"path,omitempty"`
+	Kind           string `json:"kind"`
+	Disposition    string `json:"disposition"`
+	Records        *int   `json:"records,omitempty"`
+	Expanded       *int   `json:"expanded,omitempty"`
+	Withheld       bool   `json:"withheld,omitempty"`
+	SecretsSkipped int    `json:"secrets_skipped,omitempty"`
 }
 
 // stepRowOf is one Step of the answer as a row. Records is written where the
@@ -1249,6 +1330,18 @@ func stepRowOf(step run.Step) stepRow {
 			row.Expanded = &expanded
 		}
 	}
+	// SecretsSkipped rides as the plain count the engine answered, and the
+	// key is absent where that count is zero. It needs no pointer for
+	// Records' reason: zero here is *nothing is missing*, which is exactly
+	// what carrying no key means, where a `records` of zero is a Step that
+	// looked and found nothing — a conclusion, and one the absent key would
+	// deny (§8, run.Step).
+	//
+	// It is written outside the Concluded branch above and is nonetheless
+	// never on a row that carries no `records`: the engine leaves it zero
+	// wherever the Step carries no set, because it is a count against that
+	// set (run.Step).
+	row.SecretsSkipped = step.SecretsSkipped
 	return row
 }
 

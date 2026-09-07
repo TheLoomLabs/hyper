@@ -1,0 +1,8 @@
+kind: target-declaration
+target: vault-prod
+class: vault
+kinds: [mutate]
+capabilities: [http]
+hosts: [api.vault.example]
+auth:
+  token: {env: VAULT_TOKEN}

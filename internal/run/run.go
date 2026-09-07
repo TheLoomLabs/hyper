@@ -366,6 +366,38 @@ type Step struct {
 	// is `expanded_to`'s and nowhere else, and a Step value carrying them
 	// would be the second place a surface could read them from (§7, §8).
 	Expanded int
+	// SecretsSkipped is how many of the Records this Step concluded about
+	// it made **no call** for, on a Step whose Operation declares `secret:`
+	// output — and zero on every other Step in the tool (§8, §9, ADR-0150,
+	// issue #273).
+	//
+	// It is the count of Secret sink entries that are **absent for a
+	// reason**. A `skip-if-recorded` member the Store already holds is
+	// concluded about without asking the world for it, so there is no value
+	// to write and the sink holds no directory for that Record; the absence
+	// is the answer, and this is the number the surface says it with (§9,
+	// ADR-0148).
+	//
+	// **It is scoped to a secret-producing Step and is not the skip split.**
+	// How a mixed Step divided into members that called and members that
+	// skipped is derivable — a member that ran under this value always mints
+	// a version, a standing head having skipped it — and ADR-0056 declined
+	// to carry it. What is not derivable from any surface is which sink
+	// entries are missing and why, this being the one fact about a Run that
+	// is about a directory on the operator's own disk.
+	//
+	// A wholly skipped Step and a mixed one both carry it: the Disposition
+	// tells a reader the first skipped and says nothing at all about the
+	// second, whose `ran` and whose count are what a Step that wrote every
+	// value carries too.
+	//
+	// **It is a count against Records above**, so it is zero wherever
+	// Concluded is false: *attempted, world untouched* carries no set, and a
+	// Step that skipped one member and whose next request provably never
+	// left is that Disposition (ADR-0062). On a halted Step carrying `n of
+	// m` it counts the skips among the `n` — the members the halt never
+	// reached are neither skipped nor called, and they are Expanded's.
+	SecretsSkipped int
 	// Provenance is the Step's half: what the Step file carries, and what
 	// that Step's `provenance` row renders (§7, ADR-0043).
 	Provenance store.StepProvenance

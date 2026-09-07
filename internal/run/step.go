@@ -466,6 +466,41 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 			reached.Expanded = reachedIdentities
 		}
 	}
+	// **The Records this Step concluded about and wrote no secret for.** A
+	// member the skip test found already standing was concluded about
+	// without a call, so nothing was produced for the sink to hold, and a
+	// Step whose Operation declares `secret:` output is the one Step where
+	// that absence is a fact an operator is owed: they asked for the value
+	// on disk and part of the tree they were given is not there (§8, §9,
+	// ADR-0150).
+	//
+	// It is written on the wholly skipped Step **and on the mixed one**,
+	// where it is the harder of the two to read: the Disposition says
+	// *skipped as already recorded* on the first, and on the second says
+	// `ran` — indistinguishable, on the page and on the wire, from the Step
+	// that wrote every value it concluded about (ADR-0056).
+	//
+	// **It is written where the Step carries a set and nowhere else**, which
+	// is why it stands here rather than beside the Disposition above. The
+	// number counts members of that set, so on a Step carrying none there is
+	// nothing for it to be a count of: *attempted, world untouched*
+	// concluded about nothing by construction, and a Step that skipped one
+	// member and whose next request provably never left carries that value.
+	// A page rendering the dash beside a row claiming a skipped Record would
+	// be one Step saying both (§7, §8, ADR-0062).
+	//
+	// On a Step that **halted** and carries `n of m`, it counts the skips
+	// among the `n`. The members the halt never reached are neither skipped
+	// nor called, and they are already `n of m`'s: what is unaccounted for
+	// is that arithmetic's to say and never this member's (§7, §8).
+	//
+	// Zero reaches the row and the row writes no key for it. A Step that
+	// skipped nothing, and every Step whose Operation declares no `secret:`
+	// at all, has no absence to account for (§7's absence rule,
+	// cli.stepRow).
+	if bound.producesSecret() && reached.Concluded {
+		reached.SecretsSkipped = skipped
+	}
 	// What this Step acted on is held for the Steps after it at the moment
 	// it reaches its Disposition, which is the moment §6 fixes: a Step's
 	// Records are written as each call confirms, and all of it before the

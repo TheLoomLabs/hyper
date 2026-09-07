@@ -67,6 +67,18 @@ func (b binding) skipsIfRecorded() bool {
 	return b.operation.Repeatability == "skip-if-recorded"
 }
 
+// producesSecret says this Step's Operation declares `secret:` output, which is
+// the second half of *this Step concluded about a Record and wrote no value for
+// it* (§9, ADR-0150, step.go).
+//
+// It reads the same declaration the §6 gate walks the Procedure for, and it is
+// read here per Step rather than taken off that walk's answer: the gate asks
+// **which Steps a Run would need a sink for**, before Step 1 and over reviewed
+// text, and this asks what became of one Step that has already run. A Step
+// value carrying the gate's finding would be that walk's answer arriving at a
+// second question it was not asked (gates.go).
+func (b binding) producesSecret() bool { return b.operation.HasSecret }
+
 // recorded is the Record name `skip-if-recorded` found still standing for one
 // member, and "" where that member's call is to go out — which on every
 // Operation that does not declare the value is every member.

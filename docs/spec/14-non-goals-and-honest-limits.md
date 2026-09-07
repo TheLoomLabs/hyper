@@ -50,6 +50,13 @@ asserts is that the record was consulted, never that the world was. The test dec
 (ADR-0056), so this is paid per member rather than per Step: one hand-deleted member of a list is
 skipped while the rest of the list is served correctly, and the Run says nothing about the one.
 
+The same skip is what makes a **Secret sink** partial where the Operation declares one: a member
+concluded about from the record produced no value, so no file stands under that Record's name (§9). The
+Run says which Steps and how many Records, on the page and on the row, so the absence is stated rather
+than discovered (ADR-0150). What it cannot do is hand the value over anyway. `hyper` never stores a
+secret (ADR-0007), so a credential minted by an earlier Run is gone from `hyper`'s reach the moment that
+Run ended, and the only route to it is minting another — which is the Repeatability being declined.
+
 **That a scheduled Run did not happen.** A workflow auto-disabled after 60 days of repository
 inactivity produces no run and no error anywhere `hyper` can read, and an oversized job summary is
 dropped without failing the step (§10). `hyper` is not running at either moment and has nothing to

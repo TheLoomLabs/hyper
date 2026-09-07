@@ -1,0 +1,7 @@
+STEP  ID    KIND    DISPOSITION                  RECORDS
+1     mint  mutate  skipped-as-already-recorded  3
+
+step 1 skipped 3 records and wrote no secret for them.
+a member skip-if-recorded found already recorded makes no call, so there was no value for the sink to hold.
+
+completed · exit 0 · run 01991fa0-7777-7888-8999-000011112222

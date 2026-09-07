@@ -1453,6 +1453,14 @@ var runShowTool = tool{
 // Record's name and the field the Manifest declared — so an agent that has to
 // hand a value on knows where it is without being told twice.
 //
+// **A path under the sink that is not there is not always a fault.** A member a
+// `skip-if-recorded` Step found already recorded is concluded about without a
+// call, so no value was produced and no file stands under that Record's name;
+// the Step's row says how many such Records there were under `secrets_skipped`,
+// and the sink is complete for every one the Step did call for. An agent that
+// reads the absence as a loss and re-runs gets the same absence, the Store
+// holding the same head (§9, ADR-0148, ADR-0150).
+//
 // **Returning the secret in the tool result is not one of the sink's forms**,
 // and nothing here could make it one: what the sink names is a path, and a Run
 // will write the file. A generated credential in a tool result is a credential
@@ -1504,7 +1512,7 @@ var runTool = tool{
 		"secret_sink": {
 			"type": "string",
 			"minLength": 1,
-			"description": "Where a Step declaring secret output writes it: a path outside the repository working tree that is not there yet, which hyper creates as a directory 0700 and fills with one 0600 file per value at <nnnn>/<name>/<field>. It is never defaulted, and the secret is never returned in this result. A Run reaching such a Step with no sink Refuses under secret-sink-absent before its first Step."
+			"description": "Where a Step declaring secret output writes it: a path outside the repository working tree that is not there yet, which hyper creates as a directory 0700 and fills with one 0600 file per value at <nnnn>/<name>/<field>. It is never defaulted, and the secret is never returned in this result. A Run reaching such a Step with no sink Refuses under secret-sink-absent before its first Step. A member a skip-if-recorded Step found already recorded made no call and produced no value, so no file stands under that Record: read secrets_skipped on the step row rather than the empty path as a failure."
 		}
 	}`, "procedure"),
 	output: closedObject(`{
@@ -1549,6 +1557,11 @@ var runTool = tool{
 							"withheld": {
 								"const": true,
 								"description": "The Step a rehearsal stopped at, written true on that one Step and absent on every other and on every Run that is not a rehearsal. It is the boundary of a partial answer: this Step's effect was withheld rather than simulated, and the Steps after it are never-reached behind it. Do not read the first never-reached row as this — a Run the world resisted leaves those rows too."
+							},
+							"secrets_skipped": {
+								"type": "integer",
+								"minimum": 1,
+								"description": "How many of the Records this Step concluded about it made no call for, on a Step whose Operation declares secret output: the count of sink entries that are absent for a reason. A skip-if-recorded member the Store already holds is concluded about without asking the world, so no value was produced and the sink holds no directory under that Record's name. Absent everywhere else, zero included. Nothing was lost — the value was never minted — and the sink is complete for every Record this Step did call for."
 							}
 						}
 					},

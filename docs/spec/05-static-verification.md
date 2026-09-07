@@ -375,6 +375,17 @@ Both Cadence rules refuse a Step no condition may have reached. A `when:` that n
 delayed certainty rather than guessing: the morning the condition first holds is the morning the
 Procedure stops (ADR-0038).
 
+**`skip-if-recorded` on an Operation declaring `secret:` output is not refused**, and this is the
+neighbouring shape that reads like the two above and is not one of them. Such a Step skips a member the
+Store already holds, concludes about that Record without a call, and produces no value — so a Run over
+it completes with nothing in the sink for that member. Nothing is lost, because nothing was made: it is
+not the loss `secret-sink-absent` stands in front of, which is a value produced and discarded
+(ADR-0146). And the shape is one an author may mean — *mint a credential only where we hold no record
+of one* is a coherent declaration, and the empty sink on the second Run is then the correct report.
+What `check` would be refusing is a Manifest that works, which is a cost §4 charges nowhere else. The
+absence is stated where an operator meets it instead: the Run names the Steps and the counts beneath
+its Step table and on the `step` row (§8, §9, ADR-0150).
+
 ## What `check` cannot know
 
 Every rule above is checkable because it compares one artefact's declared claim against another's, or

@@ -90,6 +90,53 @@ func TestSkipsIfRecorded_ReadsTheDeclaredValue(t *testing.T) {
 	}
 }
 
+// TestProducesSecret_ReadsTheDeclaration holds the second half of *this Step
+// concluded about a Record and wrote no value for it*: whether the Operation
+// declares `secret:` output at all (§9, ADR-0150, issue #273).
+//
+// **What it reads is `HasSecret` and never the set beside it**, and the third
+// case is what fences that: the two members answer the same question and the §6
+// gate reads the first, so a second reading over `SecretFields` would be two
+// readings of one declaration and the day they disagree is already written down
+// (gates.go, artefact.OperationInfo).
+//
+// The empty declaration is the case worth writing down beside it. `secret: []`
+// names no field, so nothing is suppressed and nothing reaches a sink, and a
+// Step under it that skipped every member is short of nothing.
+func TestProducesSecret_ReadsTheDeclaration(t *testing.T) {
+	for name, c := range map[string]struct {
+		operation artefact.OperationInfo
+		want      bool
+	}{
+		"an Operation declaring a secret field": {
+			operation: artefact.OperationInfo{Kind: "mutate", HasSecret: true, SecretFields: map[string]bool{"password": true}},
+			want:      true,
+		},
+		"an Operation declaring none": {
+			operation: artefact.OperationInfo{Kind: "mutate"},
+			want:      false,
+		},
+		"an Operation whose secret: names no field": {
+			operation: artefact.OperationInfo{Kind: "mutate", SecretFields: map[string]bool{}},
+			want:      false,
+		},
+		"the declaration read off HasSecret alone": {
+			// The set is not the operand. A reading over
+			// `SecretFields` would answer no here and the gate
+			// would answer yes, which is the Run declining for a
+			// Step this reports nothing about.
+			operation: artefact.OperationInfo{Kind: "mutate", HasSecret: true},
+			want:      true,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if held := (binding{operation: c.operation}).producesSecret(); held != c.want {
+				t.Errorf("producesSecret reads %v, want %v", held, c.want)
+			}
+		})
+	}
+}
+
 // TestHaltedBeforeTheCall_TellsAPreCallFaultFromEveryOtherWayAMemberEnds is the
 // reason skipFault is a type. A member's turn answers one error channel and two
 // unrelated things travel down it: what a call answered, which is this Step's

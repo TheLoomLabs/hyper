@@ -1,0 +1,28 @@
+kind: provider
+provider: vault-tokens
+schema-version: 1
+class: vault
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  mint_token:
+    kind: mutate
+    repeatability: skip-if-recorded
+    deadline: 1s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /v1/tokens
+      body: {service: "{service}"}
+    input:
+      type: object
+      properties:
+        service: {type: string}
+    record:
+      identity: "{service}"
+      fields:
+        service: $.body.service
+        created_on: $.body.created_on
+        token: $.body.token
+    secret: [token]

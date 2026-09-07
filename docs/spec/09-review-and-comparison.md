@@ -1144,6 +1144,43 @@ stopped short of its Expansion. How much of that `n` was a call is the Compariso
 members that ran are the rows in `YOU DID THIS`, and the members that skipped wrote no version and have
 none.
 
+**A Step that skipped a member and declares `secret:` output writes a line beneath the table**, naming
+the Step by position and how many of the Records it concluded about it made no call for, with one line
+under them all carrying the reason:
+
+```
+$ hyper run mint-tokens --secret-out ../service-tokens
+
+  STEP  ID    KIND    DISPOSITION  RECORDS
+  1     mint  mutate  ran          3
+
+  step 1 skipped 2 records and wrote no secret for them.
+  a member skip-if-recorded found already recorded makes no call, so there was no value for the sink to hold.
+
+  completed · exit 0 · run 01991fa0-5555-7666-8777-888899990000
+```
+
+It stands where a rehearsal's *stopped at* line stands and for the same reason: the cells above it are
+true and incomplete. The Secret sink is short of a directory per Record named there (§9), nothing is
+lost — the value was never produced — and the row above says neither. A wholly skipped Step's
+Disposition names the skip and says nothing about the sink; a mixed Step's says `ran` and a count that
+the Step which wrote every value carries too.
+
+**The Step is named by position and not by its authored id**, which is the one place this line differs
+from the rehearsal's. What a reader does with it is go and look at the sink, whose leading segment is
+that position (§9, §12). The line describes the absence and never the value a member did not mint: a
+Run that deliberately did not act is the last surface a prospective rendering belongs on (ADR-0010).
+The reason is written once however many Steps carry the fact, being one sentence about one
+Repeatability value (ADR-0150).
+
+**The count is a count against the cell above it, so a Step rendering `–` writes no line.** A Step that
+skipped one member and whose next request provably never left is *attempted, world untouched*: it
+reached the world nowhere, it carries no identity set, and its cell is the dash. It skipped a Record all
+the same, and neither the line nor the row's member is written — a dash saying no set exists beside a
+claim about a Record concluded about would be one Step saying both (ADR-0062). On a Step that halted and
+renders `n of m`, the count is of the skips among the `n`; the members the halt never reached were
+neither skipped nor called, and *unaccounted for* is what the arithmetic beside them already says.
+
 ## The Refusal
 
 A Refusal is the most verbose surface in the tool (ADR-0026). No flag, no confirmation and no override
@@ -1579,6 +1616,20 @@ it shares with every Step behind it. A consumer does not infer it from the first
 the world resisted leaves those rows too, and the inference would put the boundary of a partial answer under
 a Run that failed. A rehearsal that reached the end of a Procedure with no effectful Step in it withheld
 nothing and writes the key nowhere.
+
+**A Step that skipped a Record it would have written a secret for carries `secrets_skipped`**, the count
+of sink entries that are absent for a reason, and no other row carries the key. It is written on the
+wholly skipped Step and on the mixed one alike, and it is absent where it would be zero — a Step that
+skipped nothing, and every Step whose Operation declares no `secret:` at all, has no absence to account
+for — as has a Step carrying no identity set, the count being a count against that set — which is §7's
+absence rule. It is the row's half of the line the page writes beneath its table, and a consumer does
+not derive it from the Disposition: *skipped as already recorded* is carried by Steps that produce no
+secret at all, and the mixed Step that carries the member reports `ran`.
+
+It rides on the row a **Run** writes and not on the entry `show` reads back, and that is the member
+saying where it belongs rather than a gap in the entry. The sink is a directory on the machine the Run
+was invoked from; it never reaches the Store and no Run reads it (§7, ADR-0007, ADR-0011), so which
+values a Run put on that disk is not a fact a branch anybody can clone carries (ADR-0150).
 
 Provenance splits on the wire exactly as it splits in the Store (§7): one `provenance` row carrying the
 Run-wide members and one per Step file written, distinguished by `step` the way §7 distinguishes the two

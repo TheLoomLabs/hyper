@@ -1,0 +1,1 @@
+{"tool": "run", "arguments": {"procedure": "mint-tokens", "secret_sink": "../service-tokens"}}

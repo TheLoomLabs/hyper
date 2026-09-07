@@ -1,0 +1,4 @@
+{"type":"step","step":1,"id":"mint","kind":"mutate","disposition":"ran","records":3,"secrets_skipped":2}
+{"type":"provenance","hyper_version":"1.4.0","procedure_revision":"9e09763e208e9ff0199dd4c79ca51340d00a0232","repo_revision":"beb29f82579cc8ec83f5ad9f0fa3e830d287ef44"}
+{"type":"provenance","step":1,"definition_revision":"016667b38b4eed96dbd0c5317dbbc6ba7fcc66dd","manifest_digest":"sha256:79009ff99978f46a8fd836356cbe5399f22fe41270ac16bf4e36ac9636359f61"}
+{"type":"outcome","outcome":"completed","code":0,"dry_run":false,"run_id":"01991fa0-6666-7777-8888-999900001111"}

@@ -1,0 +1,13 @@
+kind: procedure
+procedure: mint-tokens
+targets: [vault-prod]
+steps:
+  - id: mint
+    definition: service-token
+    operation: mint_token
+    target: vault-prod
+    over:
+      values: [billing, search, mailer]
+    args:
+      service: {item: $}
+    bound: 3

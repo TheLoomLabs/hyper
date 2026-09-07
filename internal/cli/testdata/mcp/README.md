@@ -436,6 +436,21 @@ Its sink is a relative path because a golden cannot hold an absolute one; §9
 describes the argument as absolute, and what the command does with either is
 resolve it against the process's working directory.
 
+`a-skipped-member-writes-no-secret` is the third of the sink's cases here, and it
+is on this surface because the fact it carries is a **row member**: a Step whose
+Operation declares `secret:` output and which concluded about two Records without
+calling for them writes `secrets_skipped: 2`, and the envelope is where an agent
+reads it (ADR-0150, issue #273). The page's own sentence has no counterpart in a
+tool result — the text block here is `run`'s summary line rather than its page —
+so the member is the whole of what this surface says, which is the reason the
+schema declares it. Its `sink.golden` is the argv twin's, one directory filled
+and two absent, and its `store.golden` is that twin's too: this case exists to
+say that the second surface reports the shortfall, not that it runs differently.
+It pairs against `run/a-skipped-member-writes-no-secret-json`, which is not a
+third `-json` twin written for this surface: the row member is a fact about the
+`--json` stream in its own right, so the argv corpus holds that case whether or
+not anything here pairs against it.
+
 The ten `usage-` cases are §9's malformed set for this tool, and they split in
 two. `usage-a-definition-is-not-an-argument`, `usage-inputs-is-not-an-argument`
 and `usage-a-target-is-not-an-argument` never reach a command: the schema is

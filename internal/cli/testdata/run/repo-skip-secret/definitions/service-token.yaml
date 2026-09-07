@@ -1,0 +1,5 @@
+kind: definition
+definition: service-token
+provider: vault-tokens
+kinds: [mutate]
+targets: [vault-prod]
