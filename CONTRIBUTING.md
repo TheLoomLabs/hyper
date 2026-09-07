@@ -188,6 +188,16 @@ its own fiction gets one and observes no other task's world; the states and the
 argument for each are in `scripts/acceptance/lookout/api.go`, and the
 documentation every one of them installs into the repository is the one file
 `scripts/acceptance/lookout/api.md`.
+**Raising it is one file as well**: the build, the wait on its report,
+`endpoint.env`, the Target declaration, the `services/` tree and that
+documentation copy are
+`scripts/acceptance/lookout/fixture.sh`, which a setup script **sources** rather
+than runs — so `$0` is still the setup script and a failure names the task — and
+which lives beside the service rather than in `tasks/`, where a `.md` next to it
+would make it a task
+([#274](https://github.com/TheLoomLabs/hyper/issues/274)). A task passes the
+world it wants, the Kinds its Target grants and its services, and keeps its own
+header, which is the argument for one world and is not duplication.
 `endpoint.env` is a fixture's other half, and one task empties a line of it
 rather than filling it: `monitor-coverage-empty-credential` is
 `monitor-coverage`'s setup run as it stands with `LOOKOUT_API_TOKEN` exported to

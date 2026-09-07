@@ -158,14 +158,14 @@
 # the difference this task exists to put in front of an agent.
 #
 # **A second task runs this script and empties one value it writes** (issue
-# #268). `monitor-coverage-empty-credential.setup.sh` calls this one, asserts
-# that the `LOOKOUT_API_TOKEN` line below was written filled and that the
-# declaration still names it, and then rewrites that line to nothing — which is
-# the one arrangement in the set that puts an agent in front of the third member
-# of credential presence (ADR-0145). Nothing here is arranged for it and nothing
-# here may be: what that task claims is *this fixture with one variable emptied*,
-# so a change made here reaches both, which is the point of it running this
-# script rather than a copy.
+# #268). `monitor-coverage-empty-credential.setup.sh` calls this one, asserts that
+# the `LOOKOUT_API_TOKEN` line this script's `endpoint.env` carries was written
+# filled and that the declaration still names it, and then rewrites that line to
+# nothing — which is the one arrangement in the set that puts an agent in front of
+# the third member of credential presence (ADR-0145). Nothing here is arranged for
+# it and nothing here may be: what that task claims is *this fixture with one
+# variable emptied*, so a change made here — or in the file this script sources —
+# reaches both, which is the point of it running this script rather than a copy.
 #
 # **Completed by hand once before it landed** — a Manifest nobody has written is a
 # transcript about the task. What that established, in order: `check` clean over
@@ -189,99 +189,30 @@
 #     Observations rather than four, and the create halted `409 already_watched`
 #     on its first member with nothing created.
 set -euo pipefail
-repo=${1:?usage: monitor-coverage.setup.sh <repository> <output-directory>}
-outdir=${2:?usage: monitor-coverage.setup.sh <repository> <output-directory>}
 
-# This script's own path, three levels down from the checkout, rather than a
-# third argument: `run.sh`'s `root` is a local it does not export, and a task
-# that needs the source needs it to build with rather than to read.
-root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+# **One file raises the lookout for all four lookout tasks** (issue #274). It is
+# sourced rather than run, so `$0` is still this script and a failure names the
+# task; its own header is the argument for where it sits and what it owns.
+. "$(dirname "${BASH_SOURCE[0]}")/../lookout/fixture.sh"
 
-# Built outside the seal, like `hyper` above it, because the seal hides the
-# source and not the binary. `go` rather than a fifth tool: `run.sh` declares
-# `bwrap git go python3` and the fence asserts the same four, so anything else
-# here would be an edit to the seam this task is fenced by (ADR-0105).
-mkdir -p "$outdir/bin"
-go build -C "$root" -o "$outdir/bin/lookout" ./scripts/acceptance/lookout
-
-# The report is written atomically by the endpoint once it is listening, so
-# waiting for the file is waiting for the service — no sleep long enough to be
-# wrong on a loaded machine, and no port guessed before the kernel handed one
-# out. A dead process is not waited on for the full ten seconds: what a task
-# owes a reader here is the log, and what it must not do is hang the suite.
-rm -f "$outdir/lookout.report"
-"$outdir/bin/lookout" -dir "$outdir" -fixture coverage >>"$outdir/lookout.log" 2>&1 &
-echo $! >"$outdir/endpoint.pid"
-for _ in $(seq 1 200); do
-	[ -f "$outdir/lookout.report" ] && break
-	kill -0 "$(cat "$outdir/endpoint.pid")" 2>/dev/null || break
-	sleep 0.05
-done
-[ -f "$outdir/lookout.report" ] || {
-	echo "monitor-coverage.setup.sh: the lookout did not start; $outdir/lookout.log is why" >&2
-	exit 2
-}
-port=$(sed -n 's/^port=//p' "$outdir/lookout.report")
-certificate=$(sed -n 's/^certificate=//p' "$outdir/lookout.report")
-token=$(sed -n 's/^token=//p' "$outdir/lookout.report")
-
-# What `run.sh` folds into the MCP server's environment, which is the whole of
-# how the sealed session comes to trust this certificate and hold this
-# credential. Neither is hidden by the seal and neither is worth anything
-# outside the process that checks it; `hyper` still stores no secret (ADR-0007),
-# resolving the slot from its own environment at Run start exactly as it would
-# against a vendor.
-cat >"$outdir/endpoint.env" <<ENV
-SSL_CERT_FILE=$certificate
-LOOKOUT_API_TOKEN=$token
-ENV
-
-cat >"$repo/targets/lookout.yaml" <<YAML
-kind: target-declaration
-target: lookout
-class: lookout
-kinds: [read, mutate]
-capabilities: [http]
-hosts: [localhost:$port]
-auth:
-  token: {env: LOOKOUT_API_TOKEN}
-YAML
-
-# The five services, one directory each, with the sort of file a service
-# directory has in it so that *what is a service here* is answered by the shape
-# of the tree rather than by a list this script also has to keep true. Three of
-# the five are already watched and two are not, and which two is not written
-# down anywhere in the repository — it is a fact about the lookout, which is
-# where the task's first question has to be answered from.
-while read -r service owner; do
-	mkdir -p "$repo/services/$service"
-	printf 'owner = %s\nrestart = on-failure\n' "$owner" >"$repo/services/$service/service.conf"
-done <<-SERVICES
+# The world, the Kinds and the services — the three things that are this task's
+# rather than the fixture's.
+#
+# **`-fixture coverage` is the first of the worlds the lookout knows**, and what
+# each of its monitors is arranged to ask is the comment beside it in
+# `scripts/acceptance/lookout/api.go`.
+#
+# **`kinds:` admits `read` and `mutate` and stops there**, which is argued at
+# length above: a Target admitting `destroy` would turn *should I clean that up*
+# into a judgement call standing between this session and the Manifest.
+#
+# **Five services.** Three of the five are already watched and two are not, and
+# which two is not written down anywhere in the repository — it is a fact about
+# the lookout, which is where the task's first question has to be answered from.
+lookout_fixture "${1-}" "${2-}" coverage 'read, mutate' <<-SERVICES
 	billing   payments
 	checkout  storefront
 	ingest    data
 	mailer    platform
 	search    data
 SERVICES
-
-# The API's documentation, which is the fixture's own because there are no public
-# docs to point at, and which is **installed rather than written here** (issue
-# #255). **It documents the API and never the Manifest** (ADR-0105): no §3
-# vocabulary, no artefact keys, no talk of projections, Kinds or Patterns. A
-# transcript that succeeded because this file described a Manifest would be one
-# that measured our prose. What it does carry is everything a vendor's reference
-# would — the envelope, the paging, the field types, and every way the service
-# says no — because an author who cannot read the API cannot write a Manifest for
-# it, and that is not the thing being measured either.
-#
-# **One API is one document, and every task that reads it ships the same bytes.**
-# It lived in a heredoc here while there was one task. A second task needing the
-# same reference
-# would have made it two copies of ~110 lines of prose, and the fixture's own
-# fence already states what that costs: the file written into the repository is
-# the only description of this API anyone inside the seal can read, so a drift
-# between it and the service is a sealed session graded against documentation
-# that lies. Two copies drift; one file cannot. It sits beside the service it
-# describes and `api_test.go` reads it.
-mkdir -p "$repo/docs"
-cp "$root/scripts/acceptance/lookout/api.md" "$repo/docs/lookout-api.md"
