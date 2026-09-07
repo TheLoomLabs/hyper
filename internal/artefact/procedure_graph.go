@@ -224,7 +224,8 @@ func buildProcedureGraphInfo(file string, root *yaml.Node, providers ProviderInd
 
 // procedureGraphStepFacts resolves one Step entry's definition: and
 // operation: against definitions and providers and reads the Operation's
-// own RunOnce and HasSecret facts off it. A Step whose definition: or
+// own run-once and secret-output facts off it, each through the predicate
+// its own question has (OperationInfo, issue #278). A Step whose definition: or
 // operation: does not resolve contributes false for both — the resolution
 // fault is already reported by procedure.go's own file-local checks, and an
 // unresolved Operation carries no Kind or Repeatability for this walk to
@@ -249,7 +250,7 @@ func procedureGraphStepFacts(fields map[string]*yaml.Node, providers ProviderInd
 		return step
 	}
 	step.runOnce = op.IsRunOnce()
-	step.hasSecret = op.HasSecret
+	step.hasSecret = op.DeclaresSecret()
 	step.effects = op.Kind != "read"
 	return step
 }

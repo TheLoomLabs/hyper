@@ -144,27 +144,23 @@ type ProviderInfo struct {
 // reference's path: half resolves against; every input its input: schema
 // declares, by name; its own Repeatability, "" where undeclared — the fact
 // IsRunOnce reads, and the two Cadence rules' own walk with it (issue #96);
-// whether its own secret: is present and names at least one field — the
-// other fact that same walk reads; and SecretFields, the field names
-// secret: itself names — the set a predicate's own field: is checked
-// against, nil where secret: is absent (§3, §4, §12, issue #97); and Secret,
-// the same names in the Manifest's own order.
+// and its secret: declaration in two shapes — SecretFields, the field names
+// secret: names, nil where the key is absent, and Secret, the same names in
+// the Manifest's own order (§3, §4, §12, issue #97, issue #276).
 //
-// The last three are one read in three shapes. Two of them are one question
-// asked twice and that is a defect rather than a design: HasSecret answers
-// *does this Operation declare any* off the key's own length, and the §6 sink
-// gate asks the same question of SecretFields' length instead — two readings of
-// one declaration, with nothing holding them equal and no record saying which
-// is canonical. It is not reachable from a Manifest that checks clean, `secret:`
-// being an array of string, and it is issue #278 rather than this change's
-// (gates.go, procedure_graph.go, internal/run/repeat.go).
-//
-// The third shape is new information rather than a fourth reading of that one.
-// SecretFields answers *is this field secret*, which is what a predicate and a
+// The two shapes are two questions and not one asked twice. SecretFields
+// answers *is this field secret*, which is what a predicate's own field: and a
 // projection ask of one name. Secret answers *which fields, in what order*,
 // which is what every surface that renders an Operation writes — and a
 // rendering that sorted the names itself would state a list the file open
 // beside it does not carry (§8, §9, ADR-0152).
+//
+// **Neither of them is *does this Operation declare any*.** That third question
+// has three askers — §4's Cadence walk, the §6 sink gate, and the Run's own
+// per-Step reading — and one answer, DeclaresSecret, derived below rather than
+// carried here. It was a stored bool until issue #278: a member the three read
+// unevenly, holding for every input the schema admits a fact both of these
+// already carry, with nothing keeping it equal to them (ADR-0154).
 type OperationInfo struct {
 	IsShell       bool
 	Kind          string
@@ -172,7 +168,6 @@ type OperationInfo struct {
 	RecordFields  map[string]bool
 	Inputs        map[string]InputInfo
 	Repeatability string
-	HasSecret     bool
 	SecretFields  map[string]bool
 	Secret        []string
 	// HostTemplate is the raw host: scalar an http: block carries — ""
@@ -221,6 +216,30 @@ func (o OperationInfo) IsOpaqueDestroy() bool {
 // is never run-once whatever its Repeatability reads.
 func (o OperationInfo) IsRunOnce() bool {
 	return o.Repeatability == "" && (o.Kind == "mutate" || o.Kind == "destroy")
+}
+
+// DeclaresSecret reports whether this Operation declares secret output at all:
+// the question §4's Cadence walk carries up an invocation, the §6 sink gate
+// walks a Procedure asking, and a Run asks again of one Step that has already
+// run (§4, §6, §9, §12, issue #278).
+//
+// **One question with three askers gets one reading, and the reading is
+// derived.** It was a member beside Secret and SecretFields until ADR-0154,
+// which is how two of those askers came to read different ones: a stored answer
+// to a question two other members already answer is a member that can disagree
+// with them. `secret:` being an array of string, nothing a Manifest that checks
+// clean could say told them apart, and the two things that did were a hand-built
+// OperationInfo — which is what the case fencing the arrangement built — and an
+// item that is not a name, which the Cadence walk read as a declaration and the
+// other two members read as nothing (ADR-0154, procedure_graph.go).
+//
+// It reads Secret rather than SecretFields, and off any Manifest the two answer
+// alike. Secret is the closer of the two to the key: it is the list as
+// authored, and the set is that list with its order and any repetition
+// discarded. *Does this Operation declare any* is a fact about what was
+// written, so it is read off the member that still says what was written.
+func (o OperationInfo) DeclaresSecret() bool {
+	return len(o.Secret) > 0
 }
 
 // InputInfo is what checking a Step's args: value against one Operation

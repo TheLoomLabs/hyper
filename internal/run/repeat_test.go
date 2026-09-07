@@ -94,11 +94,14 @@ func TestSkipsIfRecorded_ReadsTheDeclaredValue(t *testing.T) {
 // concluded about a Record and wrote no value for it*: whether the Operation
 // declares `secret:` output at all (§9, ADR-0150, issue #273).
 //
-// **What it reads is `HasSecret` and never the set beside it**, and the third
-// case is what fences that: the two members answer the same question and the §6
-// gate reads the first, so a second reading over `SecretFields` would be two
-// readings of one declaration and the day they disagree is already written down
-// (gates.go, artefact.OperationInfo).
+// **It reads the declaration through the one predicate every walk that asks
+// this question reads it through**, artefact.OperationInfo.DeclaresSecret, and
+// that is the whole of what issue #278 left standing here. The rule a fourth
+// case used to fence — that this reading and the §6 gate's must not be two
+// readings of one declaration — is now held by there being one member to read:
+// the member that let them differ was deleted rather than made canonical, so
+// the day they disagree cannot arrive (ADR-0154, gates.go,
+// artefact.OperationInfo).
 //
 // The empty declaration is the case worth writing down beside it. `secret: []`
 // names no field, so nothing is suppressed and nothing reaches a sink, and a
@@ -109,7 +112,7 @@ func TestProducesSecret_ReadsTheDeclaration(t *testing.T) {
 		want      bool
 	}{
 		"an Operation declaring a secret field": {
-			operation: artefact.OperationInfo{Kind: "mutate", HasSecret: true, SecretFields: map[string]bool{"password": true}},
+			operation: artefact.OperationInfo{Kind: "mutate", Secret: []string{"password"}, SecretFields: map[string]bool{"password": true}},
 			want:      true,
 		},
 		"an Operation declaring none": {
@@ -117,16 +120,8 @@ func TestProducesSecret_ReadsTheDeclaration(t *testing.T) {
 			want:      false,
 		},
 		"an Operation whose secret: names no field": {
-			operation: artefact.OperationInfo{Kind: "mutate", SecretFields: map[string]bool{}},
+			operation: artefact.OperationInfo{Kind: "mutate", Secret: []string{}, SecretFields: map[string]bool{}},
 			want:      false,
-		},
-		"the declaration read off HasSecret alone": {
-			// The set is not the operand. A reading over
-			// `SecretFields` would answer no here and the gate
-			// would answer yes, which is the Run declining for a
-			// Step this reports nothing about.
-			operation: artefact.OperationInfo{Kind: "mutate", HasSecret: true},
-			want:      true,
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

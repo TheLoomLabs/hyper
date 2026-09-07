@@ -434,3 +434,107 @@ func TestCheckDefinition_ASecondClassLocalDeclarationConfinesTheOptIn(t *testing
 	outside := "kind: definition\ndefinition: snapshots\nprovider: shell\ndestroy: [destroy]\ntargets: [local]\n"
 	mustCode(t, CheckDefinition("definitions/snapshots.yaml", parse(t, outside), providers, targets), CodeOpaqueDestroyNotGranted)
 }
+
+// secretDeclarations is one Manifest carrying the four shapes a `secret:` key
+// arrives in — a list naming fields, a list naming none, no key at all, and an
+// item that is not a name — which is the whole of what a reading of *does this
+// Operation declare secret output* has to answer over (§3, §12, issue #278).
+//
+// The fourth is a Manifest `check` refuses, `secret:` being an array of string,
+// and it is here because it is the one shape on which the reading below and the
+// member issue #278 deleted ever gave different answers (ADR-0154).
+const secretDeclarations = `kind: provider
+provider: declarer
+schema-version: 1
+class: declarer
+capabilities: [http]
+operations:
+  names_two:
+    kind: mutate
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /issue
+    record:
+      identity: $.id
+      fields:
+        token: $.token
+        refresh: $.refresh
+    secret: [token, refresh]
+  names_none:
+    kind: mutate
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /rotate
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+    secret: []
+  declares_nothing:
+    kind: mutate
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /widgets
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+  item_is_not_a_name:
+    kind: mutate
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /reissue
+    record:
+      identity: $.id
+      fields:
+        token: $.token
+    secret: [{path: $.token}]
+`
+
+// TestOperationInfo_DeclaresSecretIsOneReadingOfOneMember holds what issue #278
+// repaired: *does this Operation declare secret output* is answered off Secret
+// and off nothing else, through one predicate the three walks that ask it share
+// — §4's Cadence walk, the §6 sink gate, and the Run's own per-Step reading
+// (ADR-0154).
+//
+// The second assertion is what the deleted member cost: the set beside the list
+// is empty exactly when the list is, on all four shapes and not only on the
+// three a clean Manifest can carry, so the two survivors cannot be told apart
+// by this question whatever a file says. SecretFields stays because it answers
+// a different question of a different operand — *is this one field secret* —
+// which is what a predicate's `field:` and a projection ask of one name (§12,
+// ADR-0142).
+//
+// The fourth row is the one answer that moved. An item that is not a name once
+// read as a declaration to the Cadence walk and as nothing to both of these;
+// there is one reading now and it is *nothing*, which
+// TestCheckProcedureGraph_ASecretItemThatIsNotANameDeclaresNothingToCarryUp
+// holds at the walk that used to say otherwise (procedure_graph.go).
+func TestOperationInfo_DeclaresSecretIsOneReadingOfOneMember(t *testing.T) {
+	operations := BuildProviderIndex([]*yaml.Node{parse(t, secretDeclarations)})["declarer"].Operations
+	for name, want := range map[string]bool{
+		"names_two":          true,
+		"names_none":         false,
+		"declares_nothing":   false,
+		"item_is_not_a_name": false,
+	} {
+		operation, declared := operations[name]
+		if !declared {
+			t.Fatalf("the fixture declares no Operation named %s", name)
+		}
+		if held := operation.DeclaresSecret(); held != want {
+			t.Errorf("%s declares secret output: %v, want %v", name, held, want)
+		}
+		if held := len(operation.SecretFields) > 0; held != want {
+			t.Errorf("%s: the set beside the list answers %v, want %v — the two survivors cannot disagree on this question", name, held, want)
+		}
+	}
+}

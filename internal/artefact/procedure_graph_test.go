@@ -2,6 +2,7 @@ package artefact
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -400,6 +401,34 @@ func TestCheckProcedureGraph_CadenceOverNoSecretOutputDrawsNoCadenceSecretOutput
 
 	got := CheckProcedureGraph(graph)
 	mustNoCode(t, got, CodeCadenceSecretOutput)
+}
+
+// TestCheckProcedureGraph_ASecretItemThatIsNotANameDeclaresNothingToCarryUp is
+// the one row this walk's reading moved, held rather than left to be noticed
+// (issue #278, ADR-0154). An item that is not a name resolves to no field, so
+// there is no declaration for the walk to carry up, and the row a recurrence
+// over it once drew is gone.
+//
+// **The artefact is refused either way**, on the `schema-mismatch` the item
+// itself earns (`secret:` is an array of string, manifest.go), and the Cadence
+// row comes back the moment the item becomes a name — which is what the case
+// above holds over the same Procedure. What is fenced here is that the walk
+// states nothing about a declaration it could not read.
+//
+// The Manifest is secretProvider with that one edit made to it rather than a
+// second fixture carrying it, so *one difference* is a fact about this case
+// rather than a claim a reader has to check by diffing two constants.
+func TestCheckProcedureGraph_ASecretItemThatIsNotANameDeclaresNothingToCarryUp(t *testing.T) {
+	mappingItem := strings.Replace(secretProvider, "secret: [token]", "secret: [{path: $.token}]", 1)
+	if mappingItem == secretProvider {
+		t.Fatal("secretProvider no longer declares secret: [token]; this case's one edit landed nowhere")
+	}
+
+	graph := BuildProcedureGraph([]ProcedureRoot{
+		procedureRoot(t, "procedures/rotate.yaml", cadenceOverSecretOutput),
+	}, BuildProviderIndex([]*yaml.Node{parse(t, mappingItem)}), secretDefinitions())
+
+	mustNoCode(t, CheckProcedureGraph(graph), CodeCadenceSecretOutput)
 }
 
 // --- procedure-cycle: an invocation graph that closes on itself ---

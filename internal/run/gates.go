@@ -670,5 +670,5 @@ func secretOutputOf(loaded repository.Loaded, step sequenced) (string, bool) {
 	if !declares {
 		return "", false
 	}
-	return step.Operation, len(operation.SecretFields) > 0
+	return step.Operation, operation.DeclaresSecret()
 }

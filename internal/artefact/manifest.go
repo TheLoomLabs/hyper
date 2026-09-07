@@ -1284,7 +1284,6 @@ func operationInfoFromNode(op *yaml.Node) OperationInfo {
 		info.Repeatability = repVal.Value
 	}
 	if secretVal := fields["secret"]; secretVal != nil && secretVal.Kind == yaml.SequenceNode {
-		info.HasSecret = len(secretVal.Content) > 0
 		info.SecretFields = map[string]bool{}
 		for _, item := range secretVal.Content {
 			if item.Kind == yaml.ScalarNode {
