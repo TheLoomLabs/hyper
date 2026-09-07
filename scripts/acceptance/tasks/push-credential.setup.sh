@@ -176,12 +176,31 @@
 # state it is named for**: no earlier Refusal stands between a checked Manifest
 # and the sink gate, and the round trip on the far side of it is walkable.
 #
-# # The run this task exists for is not bought here
+# # Two sealed runs have been bought against this task
 #
-# Adding the task file is what fences the gap (#222); whether a sealed run is
-# bought against it is the ordinary decision `docs/agents/acceptance-re-runs.md`
-# describes, and it costs a session and real money. Two ADRs are waiting on the
-# transcript. Land the task, then decide.
+# **2026-09-06 — ADR-0149.** Eighty-one calls, six Runs, ten minutes thirty-five,
+# $4.28. It met `secret-sink-absent`, took §8's fourth remediation class verbatim
+# on the next call, and got two credentials out of `<nnnn>/<name>/<field>` naming
+# which belonged to which service — so ADR-0146's clause and ADR-0148's did the job
+# they were written for. Forty calls earlier the same session had lost two
+# credentials to `token: {path: $…, secret: true}` written inside `fields:`, which
+# `check`, `probe` and `review` all passed over. That is where ADR-0151 and
+# ADR-0152 came from, and thirteen of its `Bash` calls were spent finding the right
+# spelling against the binary.
+#
+# **2026-09-07 — ADR-0153.** Thirty-nine calls, two Runs, four minutes forty-one,
+# $1.67, no Refusal anywhere. It read `AGENTS.md` at call 4, authored
+# `secret: [token]` correctly at call 21 in one draft, and spent no call at all on
+# where the key goes. **ADR-0152's clause is measured and it landed**, and because
+# it landed the three surfaces behind it — ADR-0151's `check` message,
+# `secret-sink-unfilled`, and the two sink usage errors — were never reached: each
+# fires on a mistake this session did not make. The two sink usage errors are now
+# unobserved after two runs, both sessions having named a good path first try.
+#
+# **The task file did not move between them**, which is what makes the two
+# transcripts comparable and is the argument #277 declined to spend: the fourth
+# axis got `push-credential-already-recorded` beside this file rather than a
+# paragraph inside it.
 set -euo pipefail
 
 # **One file raises the lookout for all four lookout tasks** (issue #274). It is

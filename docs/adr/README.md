@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 152 records**, numbered `0001`–`0152` with no gaps. They are chronological:
+**This corpus holds 153 records**, numbered `0001`–`0153` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -201,7 +201,8 @@ none. The list below is the whole corpus and the only complete thing on this pag
 [0126](0126-a-predicate-over-an-expansion-holds-of-all-of-them-and-an-answer-must-name-which.md) ·
 [0129](0129-the-destroy-landed-inside-the-seal-and-what-held-the-hand-made-monitors-was-not-the-bound.md) ·
 [0130](0130-the-seal-covers-the-home-directory-and-the-session-comes-back-by-name.md) ·
-[0149](0149-the-sink-was-supplied-both-secrets-were-lost-and-check-was-clean-throughout.md)
+[0149](0149-the-sink-was-supplied-both-secrets-were-lost-and-check-was-clean-throughout.md) ·
+[0153](0153-the-spelling-was-right-the-first-time-and-the-three-repairs-behind-it-were-never-reached.md)
 
 **How this repository is built and held**
 [0007](0007-hyper-never-stores-a-secret.md) ·
@@ -376,3 +377,4 @@ here fails the suite.
 - **0150** · [A skipped member's absent secret is a line, and not a `check`](0150-a-skipped-members-absent-secret-is-a-line-and-not-a-check.md)
 - **0151** · [A `fields:` value is a path, and a sink nothing can fill is a Refusal](0151-a-fields-value-is-a-path-and-a-sink-nothing-can-fill-is-a-refusal.md)
 - **0152** · [`secret:` is named on every surface that renders an Operation](0152-secret-is-named-on-every-surface-that-renders-an-operation.md)
+- **0153** · [The spelling was right the first time, and the three repairs behind it were never reached](0153-the-spelling-was-right-the-first-time-and-the-three-repairs-behind-it-were-never-reached.md)

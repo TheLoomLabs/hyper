@@ -174,10 +174,15 @@
 # # The run this task exists for is not bought here
 #
 # #277 bought `push-credential`'s run and left this one, which is the answer that
-# ticket says is complete so long as it is written down: the three axes standing
-# on the unchanged task are measured against the baseline ADR-0149 set, and the
-# fourth is fenced by this file and unspent. `docs/agents/acceptance-re-runs.md`
-# owns the decision and it costs a session and real money.
+# ticket says is complete so long as it is written down. That run is **ADR-0153**:
+# thirty-nine calls, two Runs, no Refusal, and `secret: [token]` authored correctly
+# in one draft — so ADR-0152's clause is measured and landed, and the three
+# surfaces behind it were never reached because each fires on a mistake that
+# session did not make.
+#
+# **ADR-0150's line is the one axis of the four still unrendered in front of an
+# agent**, and it is this task's. `docs/agents/acceptance-re-runs.md` owns the
+# decision to buy it and it costs a session and real money.
 set -euo pipefail
 me=$(basename "${BASH_SOURCE[0]}")
 repo=${1:?usage: $me <repository> <output-directory>}
