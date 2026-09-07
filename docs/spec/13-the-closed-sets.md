@@ -432,7 +432,7 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Fifty-two members, each the identifier of a check that declined, named where that check is
+**Closed.** Fifty-three members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
@@ -525,18 +525,32 @@ and `store-schema-unsupported`, a Store file whose schema version is above the r
 tested at Run start over the files the Run will read (§6). A Run that could not sync the Store
 contributes no member: it is `failed` at `75` rather than a Refusal, the network coming back being no
 act of anyone's, and `77` promising above that a verbatim retry refuses identically (§7, ADR-0061). §9
-contributes three, alike in being neither the environment's nor the artefacts',
-all three checked before a Run's first Step and all three reported exhaustively rather than at the first:
+contributes four, alike in being neither the environment's nor the artefacts',
+all four checked before a Run's first Step and all four reported exhaustively rather than at the first:
 `credential-absent`, a credential a Target declaration names and the environment does not
 hold, reported for every absent slot at once; `credential-empty`, a credential the environment does hold
-and sets to the empty string, reported the same way and out of the same pass; and
+and sets to the empty string, reported the same way and out of the same pass;
 `secret-sink-absent`, an invocation supplying no Secret sink where the Procedure reaches a Step whose
 Operation declares secret output, reported for every such Step at once (§6, ADR-0007,
 ADR-0148). It carries no Kind axis and no `--dry-run` exemption, a `read`
-declaring secret output being reached by a rehearsal and producing one.
+declaring secret output being reached by a rehearsal and producing one. And `secret-sink-unfilled`, the
+same gate's other operand: an invocation supplying a Secret sink where **no** Step the Run reaches
+declares secret output, so nothing would ever be written into the path it named (§6, ADR-0151).
 
-All three are the **occasion's** supply — two variables the environment was to hold, one path the
-command line was to name — and all three carry a remedy the operator can take without editing anything.
+The fourth is a member rather than a widening of the third for the set's own test: a reader handed
+`secret-sink-absent` for a sink they named goes looking for the flag they already typed. It cites the
+Procedure the invocation named rather than a Step, no Step of such a Run being at fault, and it is the
+one member of §8's not-an-edit set whose remedy names an artefact edit anyway — the check holds both
+operands and cannot say
+whether the sink was a flag nobody needed or a `secret:` an Operation was meant to declare, and a note
+offering only the first sends the author of the second back to the loss ADR-0149 records: a `secret:`
+written inside `record: fields:`, dropped by the projection, and a Run completing at exit `0` with the
+value destroyed. §4 refuses that spelling now and this refuses every future variant of the same class,
+neither being the other's substitute (§4, §8, ADR-0149, ADR-0151).
+
+All four are the **occasion's** supply — two variables the environment was to hold, one path the
+command line was to name and one it was not — and the first three carry a remedy the operator can take
+without editing anything.
 
 The third stood down for one release and is back. While nothing wrote the sink at all, a sink named and
 a sink withheld were the same Run, and what stood here instead was `secret-sink-unwritten`, whose

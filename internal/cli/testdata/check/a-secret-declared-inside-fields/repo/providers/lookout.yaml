@@ -1,0 +1,41 @@
+kind: provider
+provider: lookout
+schema-version: 1
+class: lookout
+capabilities: [http]
+auth:
+  header: {name: Authorization, prefix: "Bearer "}
+operations:
+  issue_credential:
+    kind: mutate
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /v1/monitors/{ref}/credential
+    input:
+      type: object
+      properties:
+        ref: {type: string}
+    record:
+      identity: $.body.data.credential.service
+      fields:
+        id: $.body.data.credential.id
+        token: {path: $.body.data.credential.token, secret: true}
+  rotate_credential:
+    kind: mutate
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /v1/monitors/{ref}/credential/rotate
+    input:
+      type: object
+      properties:
+        ref: {type: string}
+    record:
+      identity: $.body.data.credential.service
+      fields:
+        id: $.body.data.credential.id
+        token: $.body.data.credential.token
+    secret: [token]

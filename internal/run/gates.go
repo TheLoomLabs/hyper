@@ -17,11 +17,11 @@ import (
 // §6 fixes the order and no Step starts until all of it has happened: the Store
 // files the Run must read are held to this binary's schema versions, `check` is
 // re-run in full with nothing skipped, the credentials of every Target the Run
-// may bind are resolved once, and the Procedure is tested for a Step whose
-// Operation declares secret output where the invocation supplied no Secret
-// sink. Then, where the Run reaches such a Step and a sink was named, the sink
-// itself is made — the one act in this order, the four checks before it being
-// reads. Then Step 1.
+// may bind are resolved once, and the Procedure is tested against the Secret
+// sink the invocation named in both directions — a Step declaring secret output
+// with no sink, and a sink no Step this Run reaches could fill. Then, where the
+// Run reaches such a Step and a sink was named, the sink itself is made — the
+// one act in this order, the four checks before it being reads. Then Step 1.
 //
 // Each of them declines into the entry that already exists, which is why they
 // sit here rather than beside the gates the CLI runs before a Run is identified
@@ -35,15 +35,16 @@ import (
 // serving two Providers does not oblige a Run to read a series or hold a
 // credential no Step of it could reach (§6).
 
-// The three codes §9 contributes, alike in being neither the environment's nor
-// the artefacts', all three checked before a Run's first Step and all three
+// The four codes §9 contributes, alike in being neither the environment's nor
+// the artefacts', all four checked before a Run's first Step and all four
 // reported exhaustively rather than at the first (§12, ADR-0007).
 //
-// All three are the **occasion's** supply: two variables the environment was to
-// hold, and one path the command line was to name. The third was this
-// *binary's* for one release, while nothing wrote the sink at all and no
+// All four are the **occasion's** supply: two variables the environment was to
+// hold, one path the command line was to name and one it was not. The third was
+// this *binary's* for one release, while nothing wrote the sink at all and no
 // invocation could rescue a Run reaching a secret-producing Step; the writer
-// returns it to the group it belongs in (ADR-0146, ADR-0148).
+// returns it to the group it belongs in (ADR-0146, ADR-0148). The fourth is the
+// third's own gate read the other way round (ADR-0151).
 //
 // They are spelled here because this is where the checks that carry them are.
 // internal/store reports the schema condition and does not name a code, and
@@ -54,7 +55,10 @@ import (
 // `credential-absent` for a variable that is exported checks the export, finds
 // it, and is out of moves. The remedies differ and §8 holds one remedy per code
 // (refusal.go), so a single code could only ever have offered the wrong one to
-// whichever half it was not written for (§12, ADR-0145).
+// whichever half it was not written for (§12, ADR-0145). The last two are one
+// gate reading two operands and are two codes on that same test: a reader handed
+// `secret-sink-absent` for a sink they named goes looking for the flag they
+// already typed.
 const (
 	// CodeCredentialAbsent is a credential a Target declaration names and
 	// the environment does not hold.
@@ -81,6 +85,26 @@ const (
 	// ADR-0146). The writer is what brings it back and retires the other
 	// (issue #270).
 	CodeSecretSinkAbsent = "secret-sink-absent"
+	// CodeSecretSinkUnfilled is the converse: a Run given a Secret sink
+	// that reaches no Step whose Operation declares secret output, so
+	// nothing would ever be written into it.
+	//
+	// It is one gate's other operand and a code of its own on the set's own
+	// test — a reader handed `secret-sink-absent` here would go looking for
+	// a sink they named. It is the **occasion's** supply like the three
+	// above it, and it is the one member of §8's not-an-edit set whose note
+	// names an artefact edit anyway: `hyper` holds both facts and cannot say
+	// which half is wrong, an author who meant a secret having written the
+	// declaration somewhere it is not read, so the note names the edit first
+	// and the invocation second (§8, §9, refusal.go).
+	//
+	// It did not exist while the silence was the design, and the silence
+	// was defensible: a sink named against a Procedure that produces none
+	// left no empty directory behind (sink.go). What it cost is ADR-0149 —
+	// a sink named, a `secret:` written inside `fields:` and dropped, two
+	// credentials minted and destroyed at exit `0`, with `hyper` holding
+	// both operands at run start and saying nothing (issue #275, ADR-0151).
+	CodeSecretSinkUnfilled = "secret-sink-unfilled"
 )
 
 // Refusal is one check that declined a Run: everything its Store counterpart
@@ -154,16 +178,23 @@ func (r run) gates(steps []sequenced) (credentials, []Refusal, error) {
 		return nil, declined, nil
 	}
 
-	// The Secret sink gate, and the two things one walk answers: **which
-	// Steps would produce a secret**, and therefore both whether the Run
-	// Refuses for want of a sink and whether there is a sink to make. Two
-	// walks over one question is where the day comes that the Run declines
-	// for a Step the sink was never made for (§6, §9).
+	// The Secret sink gate, and the three things one walk answers: **which
+	// Steps would produce a secret**, and therefore whether the Run Refuses
+	// for want of a sink, whether it Refuses for a sink nothing can fill,
+	// and whether there is a sink to make. Two walks over one question is
+	// where the day comes that the Run declines for a Step the sink was
+	// never made for (§6, §9).
+	//
+	// The entry Procedure is read beside it because the converse Refusal
+	// cites it: no Step of such a Run is at fault, so what the check has to
+	// point at is the Procedure the invocation named. It resolves, and the
+	// found-bool is discarded on the precondition Request states rather than
+	// on a check of this package's: the surface resolves the positional
+	// before a Run is identified at all, so a name matching nothing is a
+	// usage error and never reaches here (§9, ADR-0060, run.go).
 	producing := secretOutputSteps(loaded, steps)
-	if len(producing) == 0 {
-		return resolved, nil, nil
-	}
-	if declined := sinkRefusals(loaded, producing, r.sink()); len(declined) > 0 {
+	entry, _ := loaded.Procedure(r.request.Procedure)
+	if declined := sinkRefusals(loaded, entry, producing, r.sink()); len(declined) > 0 {
 		return nil, declined, nil
 	}
 
@@ -171,6 +202,13 @@ func (r run) gates(steps []sequenced) (credentials, []Refusal, error) {
 	// Step that will write into it: a sink that cannot be made stops a Run
 	// that has not yet touched anything, and a Procedure declaring no secret
 	// output leaves no empty directory behind (sink.go, ADR-0148).
+	//
+	// **Past the gate the two facts agree**, so this is called unconditionally
+	// and the sink's own `named` is the whole of the condition: a Run holding a
+	// path that nothing would fill has already Refused, and a Run holding none
+	// makes nothing. Re-asking *does this Run produce a secret* here would be
+	// the gate's own question answered a second time, which is where the day
+	// comes that the two answers differ.
 	//
 	// It is the one act in §6's order — the four checks above read and
 	// decline, and this writes. It is here rather than at the first Step for
@@ -453,10 +491,19 @@ func (r Refusal) coordinate() problem.Problem {
 	return problem.Problem{File: r.File, Line: r.Line, ErrorCode: r.ErrorCode}
 }
 
-// sinkRefusals is the Secret sink gate: where the Procedure reaches a Step
-// whose Operation declares secret output and the invocation named **no sink**,
-// the Run Refuses, naming every such Step at once rather than the first (§6,
-// §9, §12).
+// sinkRefusals is the Secret sink gate, and it reads two operands: whether the
+// invocation named a sink, and whether the Procedure reaches a Step whose
+// Operation declares secret output. **Either one without the other Refuses**
+// (§6, §9, §12).
+//
+// Where a Step declares secret output and no sink was named, the Run Refuses
+// `secret-sink-absent`, naming every such Step at once rather than the first.
+// Where a sink was named and no Step declares secret output, it Refuses
+// `secret-sink-unfilled`, citing the Procedure the invocation named — the two
+// operands there being an invocation and a Procedure, of which the Procedure is
+// the half with a file, and no Step of such a Run being at fault (§7,
+// ADR-0061). The other two combinations are the ordinary Run: a sink for the
+// Steps that will fill it, or neither.
 //
 // The sink is the only route by which a secret value ever leaves `hyper` (§9,
 // ADR-0007). A Run that reached such a Step with none would produce the value,
@@ -494,7 +541,22 @@ func (r Refusal) coordinate() problem.Problem {
 // that file's own `steps:`, a coordinate being an artefact's and never the
 // Run's flattened order. Which Steps it is handed is secretOutputSteps' —
 // every Step the Run holds, a nested Procedure's included.
-func sinkRefusals(loaded repository.Loaded, producing []secretStep, sink secretSink) []Refusal {
+//
+// **The converse half was silence until ADR-0151 and the silence was
+// defensible**: a sink named against a Procedure that produces none left no
+// empty directory behind (sink.go), and the tidiness argument for saying
+// nothing was written before there was a reason to say something. What it cost
+// is ADR-0149 — a `secret:` written inside `fields:`, dropped by the projection,
+// a sink named on the invocation and never made, and two credentials minted and
+// destroyed at exit `0`. `hyper` held both operands at run start. Either half of
+// this gate alone would have caught it before the first call (issue #275).
+func sinkRefusals(loaded repository.Loaded, entry repository.LoadedArtefact, producing []secretStep, sink secretSink) []Refusal {
+	if len(producing) == 0 {
+		if !sink.named() {
+			return nil
+		}
+		return []Refusal{unfilledSinkRefusal(entry)}
+	}
 	if sink.named() {
 		return nil
 	}
@@ -518,6 +580,43 @@ func sinkRefusals(loaded repository.Loaded, producing []secretStep, sink secretS
 		})
 	}
 	return declined
+}
+
+// unfilledSinkRefusal is the converse gate's one member: the invocation named a
+// Secret sink and this Run reaches no Step that could ever write into it.
+//
+// **It cites the Procedure and never a Step.** Every Step of such a Run is
+// correct as authored — none of them declares secret output and none of them
+// was asked to — so a citation on one would send a reader to edit the one thing
+// that is not wrong, which is the test §12 splits `credential-absent` from
+// `credential-empty` on (§12, ADR-0145). What the two operands are is an
+// invocation and a Procedure, and the Procedure is the half that has a file: the
+// line its own name is written on, which is the name the operator typed beside
+// the sink.
+//
+// **The message states both readings because the check cannot tell them
+// apart.** One is an operator who named a sink this Procedure never needed. The
+// other is an author who meant a value to be kept, wrote the declaration
+// somewhere the projection does not read it, and would otherwise have watched
+// the Run complete at exit `0` with the value gone (ADR-0149). A Refusal naming
+// only the first sends the second back to the loss, so the remedy note names the
+// artefact edit first and the invocation second (refusal.go, §8).
+//
+// A Procedure that resolved to nothing carries no file and cites none, and the
+// state is unreachable: a positional matching no Procedure is a usage error at
+// the surface, refused before a Run is identified (§9, ADR-0060, run.go). The
+// zero value is written out all the same rather than guarded against, because
+// what it renders is the honest thing — the message and the phase as `=` notes,
+// with no caret over a file that is not there (§8, refusal.go).
+func unfilledSinkRefusal(entry repository.LoadedArtefact) Refusal {
+	return Refusal{RefusalMember: store.RefusalMember{
+		ErrorCode: CodeSecretSinkUnfilled,
+		File:      entry.Path,
+		Line:      artefact.TopLevelKeyLine(entry.Root, "procedure"),
+		Field:     "procedure",
+		Message: "this Run was given a Secret sink and reaches no Step whose Operation declares secret: output — " +
+			"either the sink is a flag this invocation did not need, or an Operation is missing the secret: that would fill it",
+	}}
 }
 
 // secretStep is one Step of the Run whose Operation declares secret output: the

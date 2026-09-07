@@ -1265,8 +1265,10 @@ was reached is the most important thing on the page — an absence cannot carry 
 **The caret excerpt survives**, and every code that reaches a Run this way cites a line: a static code
 its own artefact and line, `cadence-run-once` and `cadence-secret-output` the `cadence:` line,
 `credential-absent` and `credential-empty` the `env:` line of the Target declaration whose slot the
-environment did not fill, and `secret-sink-absent` one Step line per Step whose Operation declares
-secret output. The two Cadence codes
+environment did not fill, `secret-sink-absent` one Step line per Step whose Operation declares
+secret output, and `secret-sink-unfilled` the `procedure:` line of the Procedure the invocation named —
+the two operands there being an invocation and a Procedure, of which the Procedure is the half with a
+file, and no Step of such a Run being at fault. The two Cadence codes
 cite the `cadence:` line although the fault is a Manifest's — an undeclared `repeatability:`, a
 declared `secret:` — because the walk goes to the Manifest and the citation comes back to the artefact
 whose author can act. That is also what keeps a caret off a Manifest verified by digest, which would be
@@ -1292,7 +1294,8 @@ four remedies, none of them an edit and all of them keeping `77`'s promise that
 a verbatim retry refuses identically: a **command** (`projection-stale` → `hyper project`, `store-absent` → `hyper store
 init`), a **different binary** (`store-schema-unsupported`, `manifest-schema-unsupported`,
 `version-pin-mismatch`), an **act on the environment**
-(`credential-absent`, `credential-empty`), and **a different invocation** (`secret-sink-absent`). The
+(`credential-absent`, `credential-empty`), and **a different invocation** (`secret-sink-absent`,
+`secret-sink-unfilled`). The
 environment class carries two codes and two notes, and that is the whole reason it is two codes: one
 names the wrappers that export a variable — `op run --`, `direnv`, `aws-vault exec --` — and the other
 the readers that export an empty one, so a reader whose variable is already exported is not sent to
@@ -1302,15 +1305,28 @@ remedy, so naming it states a fact rather than editorialising: `FLAGS` is the on
 restricts, and it is restricted for summarising other lines, which this does not do. Prose that
 describes a command without naming it is the same fact rendered worse.
 
-**The fourth class has one member, and it is the only remedy the Run's own operator can take without
-leaving the shell**: `secret-sink-absent` → the same command again with `--secret-out <path>`, naming a
-directory outside the repository that is not there yet. It stood empty for one release, while nothing
+**The fourth class holds the remedies the Run's own operator can take without leaving the shell**:
+`secret-sink-absent` → the same command again with `--secret-out <path>`, naming a directory outside the
+repository that is not there yet. It stood empty for one release, while nothing
 wrote a Secret sink and a secret-producing Step earned `secret-sink-unwritten` instead, whose remedy was
 a binary — naming the flag then would have ended the round trip on another `77`, which is the one thing
 this rendering exists to prevent (ADR-0146, ADR-0148). It is also the one class **no generated workflow
 can take at all**, the projection being byte-exact with a compiled-in executor, which is why a Cadence
 over such a Step is refused at `check` rather than allowed to reach this rendering unattended (§4,
 ADR-0077).
+
+**Its second member is the one note in this whole set that names an artefact edit** — the set being the
+codes whose way past is *not* one — and it names it because the
+check holds two facts and cannot say which half is wrong: `secret-sink-unfilled` → *declare
+`secret: [<field>]` beside the Operation's `record:`, or the same command again without `--secret-out`*.
+One reading is an operator who named a sink this Procedure never needed, whose way past is the
+invocation. The other is an author who meant a value to be kept and wrote the declaration where the
+projection does not read it, whose way past is the Manifest — and a note offering only the invocation
+would send that author back to a Run that completes at exit `0` with the value destroyed, which is the
+loss the check exists to catch (§4, §6, §12, ADR-0149, ADR-0151). It renders no `EDIT ONE OF` all the
+same, and for this table's own rule rather than as an exception to it: the edit it names is a key the
+Manifest does not carry, so there is no line to point a reader at, and a row on the Procedure it cites
+would name the one file that is not the fault.
 
 Where a Refusal carries more than one member — the two phases that evaluate many checks together (§7) —
 **every one of them renders**, each with its own caret excerpt and its own remediation table where it

@@ -369,7 +369,8 @@ make may hold an earlier Run's secrets, and a file this Run does not write is on
 the sink takes for this Run's.
 
 The directory is made `0700` at Run start, after the gates and before Step 1, and only where the Run
-reaches a Step that declares secret output — so a Procedure that declares none leaves nothing behind.
+reaches a Step that declares secret output — so a Run over a Procedure that declares none never makes
+one, having either named no sink or been refused below for naming one.
 Each value is written at the moment the Step produced it, as one file `0600` at
 
 ```
@@ -405,6 +406,18 @@ output is as refused as a `create`, a Run that suppresses a secret into the Stor
 it being useless without saying so. For the same reason `--dry-run` earns no exemption — the rehearsal
 performs the reads it reaches, and one of them may be the Step in question, whose value then lands in
 the sink like any other.
+
+**A Run given a sink no Step of it can fill Refuses too** (`secret-sink-unfilled`, §12), and that is the
+same gate read the other way round. It cites the Procedure the invocation named rather than a Step — no
+Step of such a Run is at fault — and its remedy is the one in §8's not-an-edit set that names an
+artefact edit anyway: declare `secret: [<field>]` beside the Operation's `record:`, or run the same
+command again without `--secret-out`. Silence here was the earlier rule and the argument for it was tidiness, a sink named
+against a Procedure that produces none leaving no empty directory behind. What it cost is on the record:
+`secret:` is declared beside `record:` and a marking written **inside** `fields:` is dropped by the
+projection, so a Manifest carrying one checked clean, declared no secret output, and completed a Run at
+exit `0` with two credentials minted and destroyed while the sink the operator named was never created
+(§4, ADR-0149, ADR-0151). `hyper` held both facts at Run start. `check` refuses that spelling now and
+this refuses every future variant of the same class.
 
 **A Run that halts leaves the secrets it already wrote.** The values are written at the Step rather
 than at the Run's end, so a Procedure whose second secret-producing Step reaches its deadline leaves
@@ -1477,8 +1490,9 @@ direction having no direction to name in an argument object. It is chosen by the
 defaulted by `hyper`: a sink supplied automatically would make `hyper` a place a secret lives, and
 would delete the guardrail an absent one earns (ADR-0007). Everything the CLI half states about the
 path holds whoever named it — the directory it names and fills, the three faults it will not take, and
-the Refusal a secret-producing Step earns where the argument is left off, which this surface reports as
-any other Refusal (`secret-sink-absent`, §12). Returning the secret in the tool result is not one of the
+both halves of the sink gate: the Refusal a secret-producing Step earns where the argument is left off,
+and the one a sink earns where the Run reaches no such Step, which this surface reports as any other
+Refusal (`secret-sink-absent`, `secret-sink-unfilled`, §12). Returning the secret in the tool result is not one of the
 sink's forms — it would put a generated credential into an agent's context and from there into whatever
 transcript that agent writes to, which is the failure the sink exists to prevent.
 

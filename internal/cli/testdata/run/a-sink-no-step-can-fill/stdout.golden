@@ -1,0 +1,13 @@
+nothing ran. no step was reached.
+
+refused: secret-sink-unfilled
+
+  procedures/watch-two.yaml:2
+    1 │ kind: procedure
+    2 │ procedure: watch-two
+      │            ^ this Run was given a Secret sink and reaches no Step whose Operation declares secret: output — either the sink is a flag this invocation did not need, or an Operation is missing the secret: that would fill it
+      │
+      = checked at run start, before the first step
+      = declare secret: [<field>] beside the Operation's record:, or the same command again without --secret-out
+
+refused · exit 77 · run 01991f68-8299-74c8-9fa4-b2d3f9480275

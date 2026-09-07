@@ -129,7 +129,22 @@ func refusalPhase(member refusalRow) string {
 // class with no command to name, its remedy being an install rather than an
 // invocation. An **act on the environment**, whose note names the wrappers an
 // operator actually reaches for rather than telling them to export something.
-// And **a different invocation**, whose sole member is `secret-sink-absent`.
+// And **a different invocation**, whose first member is `secret-sink-absent`.
+//
+// **The fourth class has a second member, and it is the one note in this map
+// that names an artefact edit at all** — this being the map of codes whose way
+// past is *not* an edit. `secret-sink-unfilled` is the sink gate's other operand — a sink
+// named against a Run that reaches no Step declaring secret output — and `hyper`
+// holds both facts without being able to say which half is wrong. One reading is
+// an operator who named a sink this Procedure never needed, whose way past is
+// the invocation. The other is an author who meant a value to be kept and wrote
+// the declaration where the projection does not read it, whose way past is the
+// Manifest. A note offering only the first would send that author back to the
+// Run that completes at exit `0` with the value destroyed, which is the loss this
+// check exists to catch — so the edit is named first and the flag second
+// (ADR-0149, ADR-0151). It renders no `EDIT ONE OF` all the same: the edit is a
+// key the Manifest does not carry, and a table pointing at the Procedure would
+// point at the one file that is not the fault.
 //
 // **The fourth class stood empty for one release and this is its return.**
 // While nothing wrote a Secret sink there was no invocation to send an operator
@@ -148,6 +163,7 @@ var refusalRemedies = map[string]string{
 	run.CodeCredentialAbsent:               "set it in the environment, or wrap the invocation — op run --, direnv, aws-vault exec --",
 	run.CodeCredentialEmpty:                "give it a value, and check what left it empty — op read, a CI secret on a fork, vault kv get",
 	run.CodeSecretSinkAbsent:               "the same command again with --secret-out <path>, naming a directory outside the repository that is not there yet",
+	run.CodeSecretSinkUnfilled:             "declare secret: [<field>] beside the Operation's record:, or the same command again without --secret-out",
 	verify.CodeProjectionStale:             "hyper project",
 	storeAbsentCode:                        "hyper store init",
 	store.SchemaUnsupportedCode:            "a hyper that reads this schema version — nothing in the repository is the fault",

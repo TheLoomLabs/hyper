@@ -1453,6 +1453,21 @@ var runShowTool = tool{
 // Record's name and the field the Manifest declared — so an agent that has to
 // hand a value on knows where it is without being told twice.
 //
+// **A sink no Step can fill is the same Refusal read the other way round.** A
+// path supplied over a Run that reaches no Step declaring secret output declines
+// before Step 1 too (`secret-sink-unfilled`, §12, ADR-0151), and the reason it
+// is said rather than ignored is an agent's own most likely mistake: a call that
+// supplied a sink and got a completed Run back used to be the shape of a value
+// destroyed at exit `0`, the `secret:` having been declared somewhere the
+// projection does not read it (ADR-0149).
+//
+// **What the schema says is that the Refusal exists, and no more than that.**
+// Where `secret:` is written is a thing no surface an agent is handed names at
+// all, which is issue #276's whole subject and is a repair across four surfaces
+// rather than a clause smuggled into one argument's description. What teaches it
+// here is the Refusal's own remedy, at the moment the mistake is made
+// (refusal.go, §8).
+//
 // **A path under the sink that is not there is not always a fault.** A member a
 // `skip-if-recorded` Step found already recorded is concluded about without a
 // call, so no value was produced and no file stands under that Record's name;
@@ -1512,7 +1527,7 @@ var runTool = tool{
 		"secret_sink": {
 			"type": "string",
 			"minLength": 1,
-			"description": "Where a Step declaring secret output writes it: a path outside the repository working tree that is not there yet, which hyper creates as a directory 0700 and fills with one 0600 file per value at <nnnn>/<name>/<field>. It is never defaulted, and the secret is never returned in this result. A Run reaching such a Step with no sink Refuses under secret-sink-absent before its first Step. A member a skip-if-recorded Step found already recorded made no call and produced no value, so no file stands under that Record: read secrets_skipped on the step row rather than the empty path as a failure."
+			"description": "Where a Step declaring secret output writes it: a path outside the repository working tree that is not there yet, which hyper creates as a directory 0700 and fills with one 0600 file per value at <nnnn>/<name>/<field>. It is never defaulted, and the secret is never returned in this result. A Run reaching such a Step with no sink Refuses under secret-sink-absent before its first Step, and a Run given a sink that reaches no such Step Refuses under secret-sink-unfilled before it too. A member a skip-if-recorded Step found already recorded made no call and produced no value, so no file stands under that Record: read secrets_skipped on the step row rather than the empty path as a failure."
 		}
 	}`, "procedure"),
 	output: closedObject(`{

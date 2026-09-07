@@ -222,7 +222,9 @@ The destination an invocation supplies for output an Operation declares secret: 
 creates `0700`, holding one `0600` file per value at `<nnnn>/<name>/<field>` — the Step's position, the
 Record's name and the declared field (ADR-0148). It is written once and never read back by `hyper`, and
 it never reaches the Store. A Run reaching such a Step with no sink Refuses before Step 1
-(`secret-sink-absent`) — a fact about the invocation rather than about the environment it runs in.
+(`secret-sink-absent`), and a Run given a sink that reaches no such Step Refuses beside it
+(`secret-sink-unfilled`) — facts about the invocation rather than about the environment it runs in, and
+one gate read in both directions (ADR-0151).
 _Avoid_: Secret output, Vault write, Capture file
 
 **Run**:

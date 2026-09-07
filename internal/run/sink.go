@@ -47,7 +47,9 @@ const (
 
 // named says the invocation supplied a sink. It is what the §6 gate reads
 // beside *does this Run reach a Step whose Operation declares secret output*,
-// the two together being `secret-sink-absent` (gates.go).
+// and either one without the other declines: no sink and a producing Step is
+// `secret-sink-absent`, a sink and no producing Step is `secret-sink-unfilled`
+// (gates.go, ADR-0148, ADR-0151).
 func (s secretSink) named() bool { return s.root != "" }
 
 // create makes the sink directory, `0700`, and answers what stopped it.
@@ -76,8 +78,11 @@ func (s secretSink) named() bool { return s.root != "" }
 // anything, rather than a Run that has already mutated three Assets and has
 // nowhere to put the fourth's credential (§6, gates.go).
 //
-// A Run that reaches no Step declaring secret output never calls it, so a sink
-// named against a Procedure that produces none leaves no empty directory behind.
+// A Run that reaches no Step declaring secret output never calls it, so no sink
+// is ever made that nothing will fill. That used to be the whole of the rule and
+// was defensible on tidiness alone; it is now the gate's own consequence, a Run
+// naming a sink it cannot fill having Refused before this is reached
+// (`secret-sink-unfilled`, gates.go, ADR-0151).
 func (s secretSink) create() error {
 	if !s.named() {
 		return nil

@@ -1441,7 +1441,7 @@ Run one Procedure through every guardrail §5 states, writing the Records, the J
     "secret_sink": {
       "type": "string",
       "minLength": 1,
-      "description": "Where a Step declaring secret output writes it: a path outside the repository working tree that is not there yet, which hyper creates as a directory 0700 and fills with one 0600 file per value at <nnnn>/<name>/<field>. It is never defaulted, and the secret is never returned in this result. A Run reaching such a Step with no sink Refuses under secret-sink-absent before its first Step. A member a skip-if-recorded Step found already recorded made no call and produced no value, so no file stands under that Record: read secrets_skipped on the step row rather than the empty path as a failure."
+      "description": "Where a Step declaring secret output writes it: a path outside the repository working tree that is not there yet, which hyper creates as a directory 0700 and fills with one 0600 file per value at <nnnn>/<name>/<field>. It is never defaulted, and the secret is never returned in this result. A Run reaching such a Step with no sink Refuses under secret-sink-absent before its first Step, and a Run given a sink that reaches no such Step Refuses under secret-sink-unfilled before it too. A member a skip-if-recorded Step found already recorded made no call and produced no value, so no file stands under that Record: read secrets_skipped on the step row rather than the empty path as a failure."
     }
   }
 }

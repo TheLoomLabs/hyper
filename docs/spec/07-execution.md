@@ -15,13 +15,14 @@ pairs the Procedure makes. Then `check` is re-run in full with nothing skipped (
 credentials of every Target the Run may bind are resolved once (ADR-0007), each read under §12's
 credential presence — two of whose three members decline, `absent` as `credential-absent` and `empty`
 as `credential-empty`. Then the Procedure is
-tested for a Step whose Operation declares secret output where the invocation supplied no Secret sink
-(`secret-sink-absent`, §9, §12, ADR-0148). Then, where the Run reaches such a Step and a sink was
-named, that sink is created `0700` — the one act in this order, the four before it being reads. Then
-Step 1.
+tested against the Secret sink the invocation named, **in both directions**: a Step whose Operation
+declares secret output where no sink was supplied is `secret-sink-absent`, and a sink supplied where no
+Step this Run reaches declares secret output is `secret-sink-unfilled` (§9, §12, ADR-0148, ADR-0151).
+Then, where the Run reaches such a Step and a sink was named, that sink is created `0700` — the one act
+in this order, the four before it being reads. Then Step 1.
 
 That last gate is neither the environment's nor the artefacts': its subject is the **occasion**, like
-the credential pass above it, and what is missing is a path the command line was to name (§9,
+the credential pass above it, and what is at stake is a path the command line was to name (§9,
 ADR-0148). It is stated here rather than at the Step it is about because its operands are already in
 hand: which reachable Steps declare secret output is a walk over reviewed text, and whether a sink was
 named is the invocation. Every such Step is reported at once, as the credential gate reports every absent slot. Declining
@@ -31,12 +32,28 @@ is refused at `check` before it can arise (§4, ADR-0077). The gate does not rea
 dry-run performs the reads it reaches, so a `read` declaring secret output is reached, produces a
 secret, and writes it to the sink like any other Step.
 
+**It reads two operands and either one without the other declines.** The absent sink is the older
+half and the unfilled one is the same gate read the other way round: a Run given a sink that reaches no
+Step declaring secret output would produce nothing to put in it, so the path the operator named would
+stand empty or not stand at all. Saying nothing there was the earlier rule and it was defensible on
+tidiness — a sink named against a Procedure that produces none left no empty directory behind — and it
+is what made a real loss invisible: `hyper` held both facts at run start, an author had written a
+`secret:` marking inside `record: fields:` where the projection does not read it, and the Run completed
+at exit `0` with two credentials minted and destroyed (§4, ADR-0149, ADR-0151). The converse Refusal
+cites the **Procedure the invocation named**, at the line naming it, and no Step: every Step of such a
+Run is correct as authored, none of them declares secret output and none was asked to, so a citation on
+one would send a reader to edit the one thing that is not wrong. Its remedy is the one in §8's
+not-an-edit set that names an artefact edit anyway, `hyper` holding both operands and being unable to
+say which half was meant.
+
 Making the sink here rather than at the first Step that fills it is the same reasoning one step on: a
 sink that cannot be made — a parent that is not there, a path something is already standing at, a
 directory this process may not write — stops a Run that has not yet touched anything, rather than one
 that has already mutated three Assets and has nowhere to put the fourth's credential. A Run reaching no
-such Step makes nothing, so a sink named against a Procedure that **declares** no secret output leaves
-no directory behind at all. A Run that reaches one and then Refuses or halts before it does leave the
+such Step makes nothing, and does not reach this point holding a path at all: a sink named against a
+Procedure that **declares** no secret output is the Refusal above rather than an empty directory, so
+the only Run that gets here with a path to make is one that will fill it.
+A Run that reaches one and then Refuses or halts before it does leave the
 directory, and that is the shape rather than an oversight: what a halted Run's sink holds is the
 secrets it actually produced, each under the Step that produced it, with the rest absent rather than
 blank — which is why the values are written at the Step and not at the end (§9, ADR-0148).

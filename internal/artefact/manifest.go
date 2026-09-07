@@ -1543,13 +1543,57 @@ func checkRecord(file, field string, node *yaml.Node, inputProps map[string]bool
 	if fieldsVal := fields["fields"]; fieldsVal != nil && fieldsVal.Kind == yaml.MappingNode {
 		for i := 0; i+1 < len(fieldsVal.Content); i += 2 {
 			key, val := fieldsVal.Content[i], fieldsVal.Content[i+1]
-			if key.Kind != yaml.ScalarNode || val.Kind != yaml.ScalarNode {
+			if key.Kind != yaml.ScalarNode {
 				continue
 			}
-			problems = append(problems, checkPathValue(file, field+".fields."+key.Value, val)...)
+			problems = append(problems, checkRecordField(file, field, key.Value, val)...)
 		}
 	}
 	return problems
+}
+
+// checkRecordField reads one record: fields: entry's value, which is a
+// response path and therefore a scalar. A value that is not one is
+// schema-mismatch here rather than a path fault below it, there being no
+// characters to read the grammar against.
+//
+// It composes the position it cites from the record: block's own field and
+// the recorded name, rather than being handed one: the two would otherwise
+// travel together to every call and be one string spelled in two places.
+//
+// §3 has said the values stay uniformly scalar since
+// it was written — which is what keeps a mapping in that position meaning a
+// reference and nothing else (ADR-0022) — and nothing held it: fields: is an
+// Open object, so the schema declined to have an opinion, and the projection
+// reader takes scalars and drops the rest because what is wrong with a
+// Manifest is check's to report and never a reader's to guess at (ADR-0064).
+// The division of labour was right and the other half never looked (ADR-0149).
+//
+// **The rule is that the value is a path, and not that it carries no secret
+// key.** A rule written against the key would fix the one door an author
+// walks through and leave the position open behind it (issue #275).
+//
+// The message is where the second half of the repair sits. `secret:` is
+// discoverable from no surface an agent is handed and cost a sealed session
+// thirteen calls against the binary to find (ADR-0149, issue #276), so a
+// value carrying that key is told where the declaration is written instead —
+// beside record: at the Operation's own level, naming this field. A message
+// that said only *expected a scalar* would spend those calls again.
+func checkRecordField(file, record, name string, node *yaml.Node) []problem.Problem {
+	field := record + ".fields." + name
+	if node.Kind == yaml.ScalarNode {
+		return checkPathValue(file, field, node)
+	}
+
+	message := "record: fields: is a mapping of recorded name to response path, and a path is a scalar"
+	if topLevelFields(node, "secret")["secret"] != nil {
+		message = fmt.Sprintf("secret: is declared beside record: as secret: [%s] and never inside fields: — a marking written here is dropped by the projection and the value is destroyed", name)
+	}
+	return []problem.Problem{{
+		File: file, Line: node.Line, Column: node.Column, Field: field,
+		ErrorCode: schema.CodeMismatch,
+		Message:   message,
+	}}
 }
 
 // checkIdentity reads a record: identity: value, which is either a

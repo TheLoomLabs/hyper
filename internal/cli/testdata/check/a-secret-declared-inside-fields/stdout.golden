@@ -1,0 +1,2 @@
+FILE                    LINE  FIELD                                            ERROR_CODE       MESSAGE
+providers/lookout.yaml  24    operations.issue_credential.record.fields.token  schema-mismatch  secret: is declared beside record: as secret: [token] and never inside fields: — a marking written here is dropped by the projection and the value is destroyed

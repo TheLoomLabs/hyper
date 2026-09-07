@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/TheLoomLabs/hyper/internal/run"
 )
 
 // **The caret excerpt shows the offending line in its own context, and the
@@ -178,6 +180,27 @@ func TestRefusalRemedies_AreTheSetWithNoRemediationTable(t *testing.T) {
 	notes = edit.notes(refusalPhase(edit))
 	if last := notes[len(notes)-1]; last != noBypassNote {
 		t.Errorf("last note is %q; want ADR-0001's", last)
+	}
+
+	// `secret-sink-unfilled` is in the map and its note names an artefact
+	// edit all the same, which no other member's does. It is the one check
+	// that holds both operands and cannot say which half is wrong: an
+	// operator who named a sink they did not need, or an author whose
+	// `secret:` is not where the projection reads it — and a note offering
+	// only the invocation would send that author back to a Run that
+	// completes with the value destroyed (§8, ADR-0149, ADR-0151).
+	//
+	// It renders no table for the reason membership decides: the edit it
+	// names is a key the Manifest does not carry, so there is no line to
+	// point a reader at.
+	unfilled := refusalRow{ErrorCode: run.CodeSecretSinkUnfilled, File: "procedures/watch.yaml", Line: 2, Field: "procedure"}
+	if rows := remediationsFor(unfilled, nil, time.Time{}); len(rows) != 0 {
+		t.Errorf("a sink nothing can fill rendered %d remediation rows; want none", len(rows))
+	}
+	notes = unfilled.notes(refusalPhase(unfilled))
+	last := notes[len(notes)-1]
+	if !strings.Contains(last, "secret:") || !strings.Contains(last, "--secret-out") {
+		t.Errorf("the remedy note is %q; want it to name the edit and the invocation both", last)
 	}
 }
 

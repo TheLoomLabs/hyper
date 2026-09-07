@@ -44,6 +44,20 @@ reader handed that code would go looking for a hole.
 disagreements over four artefacts, and one code standing for both would leave a reader of the rendering
 unable to tell which of two files to edit.
 
+**A `record: fields:` value is a response path and stays a scalar**, and a value that is not one is
+`schema-mismatch` at that field's own position. §3 has said the values stay uniformly scalar since it
+was written — which is what keeps a mapping in that position meaning a reference and nothing else — and
+this is where that sentence is enforced. It went unenforced for the whole of milestone 1 and the cost is
+recorded: an Operation writing `token: {path: $…, secret: true}` checked clean over eleven artefacts,
+had the field dropped by the projection, declared no secret output, and completed a Run at exit `0`
+having destroyed the value it was invoked for (§3, §6, ADR-0149, ADR-0151).
+
+The check is *the value is a path* and not *the value carries no `secret:` key*: a rule written against
+the key would refuse the one door an author walks through and leave the position open behind it. What
+the key earns is the **message**, which names the Operation-level spelling — `secret: [<field>]`, beside
+`record:` — because `secret:` is named by no surface an agent is handed and the position an author
+reaching for *this field is secret* naturally writes it in is the one this refuses (§3, §9, ADR-0149).
+
 `schema-mismatch` and `unknown-key` are the two halves of one schema and two codes all the same, and
 the line between them is §12's own: `additionalProperties: false` is **forced rather than authored**,
 so `unknown-key` refuses the one constraint `hyper` imposes and `schema-mismatch` refuses a value

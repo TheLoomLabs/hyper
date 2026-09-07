@@ -220,6 +220,14 @@ const runCorpus = "testdata/run"
 // again, and what this binary cannot produce is now the other one (§9, §12,
 // ADR-0146, ADR-0148).
 //
+// `secret-sink-unfilled` is the sink gate's second, and it is the same gate read
+// the other way round: a sink named against a Run that reaches no Step declaring
+// secret output. It is a member here rather than a unit test alone because what
+// it has to be driven through is the **rendering** — it is the one code in the
+// set whose remedy note names an artefact edit and an invocation both, and the
+// only assertion that it renders no `EDIT ONE OF` beside that note is a golden
+// (§8, §12, issue #275, ADR-0151).
+//
 // The credential pass contributes two because it reads one variable three ways,
 // and the two halves are the two that decline: `credential-absent` where the
 // environment does not hold the variable, `credential-empty` where it holds it
@@ -296,6 +304,7 @@ var codesReachingARun = []string{
 	"credential-absent",
 	"credential-empty",
 	"secret-sink-absent",
+	"secret-sink-unfilled",
 	"bound-exceeded",
 	"run-once-recorded",
 	"cadence-malformed",

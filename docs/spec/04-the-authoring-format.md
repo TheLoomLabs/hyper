@@ -1084,6 +1084,13 @@ position keeps meaning a reference and nothing else (ADR-0022). And a reviewer a
 handles that never reaches the Store reads one line rather than scanning a projection for marks — the
 argument §12 makes for keeping a closed set readable in one place.
 
+**The separation is enforced rather than assumed**, and it was assumed for one milestone too long. A
+`secret:` written inside `fields:` — as a value's own key, or beside the path it meant to mark — is a
+`fields:` value that is not a scalar, which `check` refuses as `schema-mismatch` and names this spelling
+in (§4, ADR-0151). Until it did, such a Manifest checked clean, the projection dropped the field
+because a reader judges nothing (ADR-0064), the Operation declared no secret output, and the Run
+completed at exit `0` with the value gone and no surface saying so (ADR-0149).
+
 The built-in `shell` Provider declares none, and that is a decision rather than an omission. `secret:`
 is a Provider author's claim about output that author understands, and here the author is `hyper`,
 which knows nothing whatever about the command: declaring `stdout` secret on every command would be

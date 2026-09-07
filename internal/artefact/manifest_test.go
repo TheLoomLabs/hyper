@@ -1801,3 +1801,67 @@ operations:
 		t.Errorf("want no problems, got %+v", got)
 	}
 }
+
+// **A `record: fields:` value is a response path and stays a scalar**, and the
+// two spellings an author reaching for *this field is secret* writes are the
+// two this check exists for (§3, §4, issue #275, ADR-0151).
+//
+// §3 has said `fields:` values stay uniformly scalar since it was written, so
+// that a mapping in that position keeps meaning a reference and nothing else
+// (ADR-0022). Nothing held it: `fields:` is an Open object, the projection
+// reader takes scalars and skips the rest (ADR-0064), and the Manifest ADR-0149
+// records checked clean over eleven artefacts while the value it declared
+// secret was dropped, never projected, and destroyed at exit `0`.
+//
+// **The rule is that the value is a path and not that it carries no `secret:`
+// key**, so the sequence and the mapping naming nothing are refused as hard as
+// the two spellings are — a rule written against the key would fix the one door
+// an author walks through and leave the position open behind it. What the key
+// earns is the message, which names the Operation-level spelling: `secret:` is
+// discoverable from no surface an agent is handed and cost a sealed session
+// thirteen calls against the binary to find (ADR-0149, issue #276), and a
+// message reading only *expected a scalar* would spend them again.
+func TestCheckManifest_ARecordFieldIsAScalarAndASecretNamesItsOwnSpelling(t *testing.T) {
+	for named, c := range map[string]struct {
+		field       string
+		wantSpelled bool
+	}{
+		// The spelling the sealed run shipped: a mapping carrying the
+		// path it meant and the marking beside it.
+		"the path and the marking together": {field: `{path: $.body.token, secret: true}`, wantSpelled: true},
+		// The other one `check` passed: the marking in the value's own
+		// position, the path having nowhere left to go.
+		"the marking in the path's position": {field: `{secret: $.body.token}`, wantSpelled: true},
+		// Neither of those, and refused all the same. These are the two
+		// that say the rule is about the value.
+		"a mapping naming no secret": {field: `{path: $.body.token}`},
+		"a sequence":                 {field: `[$.body.token]`},
+	} {
+		doc := `kind: provider
+provider: lookout
+schema-version: 1
+class: lookout
+capabilities: [http]
+operations:
+  issue:
+    kind: mutate
+    deadline: 30s
+    http:
+      method: POST
+      host: "{from-target}"
+      path: /v1/credential
+    record:
+      identity: $.body.service
+      fields:
+        token: ` + c.field + `
+`
+		got := checkManifest(t, "providers/lookout.yaml", doc)
+		p := mustCode(t, got, schema.CodeMismatch)
+		if p.Field != "operations.issue.record.fields.token" {
+			t.Errorf("%s: Field = %q, want operations.issue.record.fields.token", named, p.Field)
+		}
+		if spelled := strings.Contains(p.Message, "secret: [token]"); spelled != c.wantSpelled {
+			t.Errorf("%s: Message = %q, want it to name secret: [token]: %v", named, p.Message, c.wantSpelled)
+		}
+	}
+}

@@ -193,7 +193,9 @@ names one in a **`repo-from`** file instead, and the ones here are:
   smallest number of Steps that can tell one push at the end from a push per
   Step (issue #138), and it is a repository of its own because adding a
   Procedure to `repo-watch-status` would move the `repo_revision` in every
-  golden that names it.
+  golden that names it. It is also what `a-sink-no-step-can-fill` names a sink
+  over: the converse sink gate wants a Procedure declaring no secret output at
+  all, and an ordinary two-`read` one is exactly that (issue #275).
 - [`repo-drain/`](repo-drain) — the drain (issue #140): one `read` Operation
   declaring `deadline: 1s`, over three granted hosts, and a Procedure expanding
   over all three in an order whose sorted set is not it. The middle host is the
@@ -469,6 +471,7 @@ drives.
 | `a-header-scheme-reaches-the-wire` | the `header:` scheme end to end: the Manifest's `name:` and `prefix:`, the variable the Target declaration names, and what arrived at the far end |
 | `a-basic-scheme-reaches-the-wire` | the same for `basic:`, whose position and base64 composition are the scheme's and never a Manifest's |
 | `a-secret-sink-names-every-step`, `-json` | the sink gate: two Steps declaring secret output, **no** `--secret-out`, both named at once and neither of them run (`secret-sink-absent`, `77`). Its sibling above is the same repository with a sink supplied, and completes |
+| `a-sink-no-step-can-fill` | the same gate read the other way round: `--secret-out` named over `repo-two-reads`, whose two `read` Steps declare no secret output at all — `secret-sink-unfilled` at `77`, citing the **Procedure** the invocation named rather than a Step, no Step of such a Run being at fault. Silence here is what made ADR-0149's loss invisible: `hyper` held both operands at run start and the tidiness argument for saying nothing was written before there was a reason to speak. It is also the one Refusal in the corpus whose `=` remedy names an artefact edit **and** an invocation, and renders no `EDIT ONE OF` beside it (§8, issue #275, ADR-0151). Its `store.golden` is where the member's own shape is held: a `file`, a `line` and a `field`, and **no `step`** — the absence rule over a check that cites none (§7) |
 | `usage-secret-out-to-stdout`, `-inside-the-repository`, `-with-no-path`, `-at-a-path-already-there` | the four things `--secret-out` will not take, all `2` and all carrying no `error_code`. The last is the rule the directory shape rests on — the sink is one `hyper` makes, so that every file under it is this Run's — and it is the one case in the corpus carrying a `sink-occupied` marker instead of a `sink.golden`, its path being a fixture repository the corpus itself checked in |
 | `a-member-that-reaches-the-deadline`, `-json` | the drain (issue #140): three members, the middle one reaching the Operation's `deadline:`, **every** member attempted, the two Observations that succeeded committed, the Step *ran* with the set it concluded about, `RECORDS` reading `2 of 3` and naming no member, and the `step` row carrying `expanded` beside `records` |
 | `a-field-that-went-quiet` | a recorded field's path resolving to nothing is an **absence** and not a fault: the seeded head carries `note`, the answer does not, and the Run mints a second version **without** it and completes at `0` — the bytes moved, so the field going quiet renders as a change like any other |
