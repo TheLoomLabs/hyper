@@ -224,6 +224,17 @@ tree, so the probe inside the namespace makes and removes a directory under both
 tmpfs mounts — the home directory and the output directory — and a seal where
 either fails stops the harness before the session starts. A task with nowhere to
 write would fail for a reason that is not the task's.
+**A second task asks for that value twice.**
+`push-credential-already-recorded` is `push-credential`'s prompt with one
+paragraph added — do one of them first, then get the rest by running the same
+thing again — and its setup runs `push-credential.setup.sh` as it stands, the
+world it wants being the world already there. What the paragraph reaches is a
+member a `skip-if-recorded` Step found already recorded, which is the one line a
+Run writes that nothing in the suite can fail over
+([ADR-0150](docs/adr/0150-a-skipped-members-absent-secret-is-a-line-and-not-a-check.md),
+[#277](https://github.com/TheLoomLabs/hyper/issues/277)). It is a task beside the
+first rather than a clause inside it because a prompt is what a transcript is
+measured against, and three other measurements already stand on that one.
 
 ## The spec is the authority
 
