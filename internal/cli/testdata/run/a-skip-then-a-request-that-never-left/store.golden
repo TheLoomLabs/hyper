@@ -34,7 +34,7 @@ Editing it by hand is editing evidence.
     "host": "thinkpad"
   }
 }
-=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05e17/steps/0001.json (974 bytes)
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05e17/steps/0001.json (990 bytes)
 {
   "answered": [
     {
@@ -55,6 +55,7 @@ Editing it by hand is editing evidence.
   "provider": "cloudflare-dns",
   "schema_version": 1,
   "selector": {
+    "bound": 3,
     "declared": {
       "values": [
         "docs.preview-42.example.com",

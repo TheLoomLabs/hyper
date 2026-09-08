@@ -45,7 +45,7 @@ Editing it by hand is editing evidence.
     "host": "thinkpad"
   }
 }
-=== journal/2026/04/02/01991f10-b118-7c93-8d41-6b2f7ae05e05/steps/0001.json (675 bytes)
+=== journal/2026/04/02/01991f10-b118-7c93-8d41-6b2f7ae05e05/steps/0001.json (691 bytes)
 {
   "definition": "preview-dns",
   "disposition": "refused",
@@ -60,6 +60,7 @@ Editing it by hand is editing evidence.
   "provider": "cloudflare-dns",
   "schema_version": 1,
   "selector": {
+    "bound": 1,
     "declared": {
       "values": [
         "Preview-42.example.com"

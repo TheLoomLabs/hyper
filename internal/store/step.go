@@ -93,6 +93,14 @@ type Selector struct {
 	// Bound is what the Expansion was counted against, and zero where the
 	// Step declared none — a read Step carries no Bound, having nothing for
 	// one to guard (§4).
+	//
+	// Zero is therefore *absent* and not `bound: 0`, which the two are not
+	// distinguished by: a Step declaring `bound: 0` is accepted by `check`
+	// on anything but a read or an Opaque destroy and Refuses every
+	// non-empty Expansion, and its entry records the member no differently
+	// from a Step that declared no Bound at all. The absence rule is the
+	// older of the two facts and this is what it costs; separating them
+	// would be a schema change rather than a writer's (§7, issue #286).
 	Bound int
 }
 

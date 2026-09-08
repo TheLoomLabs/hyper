@@ -381,6 +381,21 @@ func TestStepFile_CarriesNoSelectorWhereTheStepDeclaredNone(t *testing.T) {
 	}
 }
 
+// The Bound is a member of the **selector** and not of the Step, so a `bound:`
+// written on a Step that declared no `over:` records nothing: it is a guardrail
+// with no Expansion to have been counted against, and §7 attaches what was
+// counted to what it was counted over. The case above asserts the block's
+// absence over the zero Selector; this one asserts that a Bound alone does not
+// bring the block back (§7, issue #286).
+func TestStepFile_CarriesNoBoundWhereTheStepDeclaredNoSelector(t *testing.T) {
+	file := stepFile()
+	file.Selector = store.Selector{Bound: 1}
+
+	if got := string(file.Encode()); strings.Contains(got, "bound") || strings.Contains(got, "selector") {
+		t.Errorf("step file:\n%s\nwant no selector block and no bound in it", got)
+	}
+}
+
 func TestStepFile_CarriesTheAnsweredSectionSevenPublishesForEachCapability(t *testing.T) {
 	for name, tc := range map[string]struct {
 		answered store.Answered

@@ -58,7 +58,7 @@ Editing it by hand is editing evidence.
   "step": 1,
   "target": "cloudflare-prod"
 }
-=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05e15/steps/0002.json (1105 bytes)
+=== journal/2026/04/02/01991f20-b118-7c93-8d41-6b2f7ae05e15/steps/0002.json (1121 bytes)
 {
   "definition": "preview-dns",
   "disposition": "skipped-as-already-recorded",
@@ -81,6 +81,7 @@ Editing it by hand is editing evidence.
   "provider": "cloudflare-dns",
   "schema_version": 1,
   "selector": {
+    "bound": 3,
     "declared": {
       "values": [
         "docs.preview-42.example.com",

@@ -67,6 +67,15 @@ names one in a **`repo-from`** file instead, and the ones here are:
   `bound:` beside an `assets:` selector. It is a repository of its own rather
   than a Procedure added to `repo-effectful` because adding one there would
   move the `repo_revision` in every golden that names it.
+- [`repo-unexpanded-bound/`](repo-unexpanded-bound) — `repo-bounded`'s Manifest,
+  Definition and Target unchanged, over one Procedure whose `mutate` Step carries
+  a `bound:` and **no `over:` at all** (issue #286). It is the one shape that
+  says a Bound belongs to the selector rather than to the Step: `check` accepts
+  it, the Run makes its single call, and the Step file it writes carries no
+  `selector` block and therefore no Bound — there having been no Expansion for
+  one to have been counted against. Its case is the only place that claim is
+  driven rather than asserted at the encoder. It is a repository of its own for
+  `repo-bounded`'s reason above.
 - [`repo-destroy/`](repo-destroy) — the `destroy` Kind (issue #150): the same
   `cloudflare-dns` shape with a `delete_dns_record` beside the `create` — a
   `destroy` of no `record:` block at all, projecting nothing and declaring no

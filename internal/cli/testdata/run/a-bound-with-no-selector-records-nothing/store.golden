@@ -1,0 +1,84 @@
+=== STORE.md (442 bytes)
+# The `hyper` Store
+
+This branch is the record. Every other file on it is machine-written: `hyper`
+put it there, no file here was authored by hand, and none is meant to be.
+
+The branch is `hyper`'s account of the world, not part of it. Nothing on it is
+configuration, nothing on it is reviewed, and nothing on it changes what a Run
+does — it is what the Runs that have already happened left behind.
+
+Editing it by hand is editing evidence.
+=== journal/2026/04/02/01991f71-2b3c-7d4e-9f50-6b7c8d9e0f22/outcome.json (94 bytes)
+{
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "outcome": "completed",
+  "schema_version": 1
+}
+=== journal/2026/04/02/01991f71-2b3c-7d4e-9f50-6b7c8d9e0f22/run.json (471 bytes)
+{
+  "dry_run": false,
+  "procedure": "refresh-one",
+  "provenance": {
+    "hyper_version": "1.4.0",
+    "procedure_revision": "6386381ab1c7a233706f39b1be5760fe7832de20",
+    "repo_revision": "6f3aa996badc9f64ac71b5245c937ccad5f0f1bc"
+  },
+  "run_id": "01991f71-2b3c-7d4e-9f50-6b7c8d9e0f22",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "trigger": {
+    "actor": "igor",
+    "cause": "manual",
+    "executor": "local",
+    "host": "thinkpad"
+  }
+}
+=== journal/2026/04/02/01991f71-2b3c-7d4e-9f50-6b7c8d9e0f22/steps/0001.json (675 bytes)
+{
+  "definition": "preview-dns",
+  "disposition": "ran",
+  "ended_at": "2026-04-02T09:41:14.221Z",
+  "id": "refresh",
+  "identities": {
+    "digest": "sha256:059fd80bc53e9dad924c77d7a988b6a006b43e74d17afc44a6cd696a2b2d4601",
+    "members": [
+      "preview-42.example.com"
+    ]
+  },
+  "kind": "mutate",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "a2000f6bec3f1d8df893e19fc3fbaefbcc942d4b",
+    "manifest_digest": "sha256:759d04769fa3c2b5fac6f83fc9ba12d104a781f3e9d877d5c25391fe4c01c45d"
+  },
+  "provider": "cloudflare-dns",
+  "schema_version": 1,
+  "started_at": "2026-04-02T09:41:14.221Z",
+  "step": 1,
+  "target": "cloudflare-prod"
+}
+=== records/cloudflare-prod/preview-dns/preview-42.example.com/01991f71-2b3c-7d4e-9f50-6b7c8d9e0f22-0001.json (799 bytes)
+{
+  "definition": "preview-dns",
+  "fields": {
+    "created_on": "2026-04-02T09:41:14.221Z",
+    "id": "372e67954025e0ba6aaa6d586b9e0b59",
+    "name": "preview-42.example.com"
+  },
+  "name": "preview-42.example.com",
+  "operation": "create_dns_record",
+  "provenance": {
+    "definition_revision": "a2000f6bec3f1d8df893e19fc3fbaefbcc942d4b",
+    "hyper_version": "1.4.0",
+    "manifest_digest": "sha256:759d04769fa3c2b5fac6f83fc9ba12d104a781f3e9d877d5c25391fe4c01c45d",
+    "procedure_revision": "6386381ab1c7a233706f39b1be5760fe7832de20",
+    "repo_revision": "6f3aa996badc9f64ac71b5245c937ccad5f0f1bc"
+  },
+  "record_type": "asset",
+  "run_id": "01991f71-2b3c-7d4e-9f50-6b7c8d9e0f22",
+  "schema_version": 1,
+  "step": 1,
+  "target": "cloudflare-prod",
+  "written_at": "2026-04-02T09:41:14.221Z"
+}

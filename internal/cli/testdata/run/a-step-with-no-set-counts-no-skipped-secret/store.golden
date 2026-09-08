@@ -34,7 +34,7 @@ Editing it by hand is editing evidence.
     "host": "thinkpad"
   }
 }
-=== journal/2026/04/02/01991fa0-9999-7000-8111-222233334444/steps/0001.json (810 bytes)
+=== journal/2026/04/02/01991fa0-9999-7000-8111-222233334444/steps/0001.json (826 bytes)
 {
   "answered": [
     {
@@ -55,6 +55,7 @@ Editing it by hand is editing evidence.
   "provider": "vault-tokens",
   "schema_version": 1,
   "selector": {
+    "bound": 3,
     "declared": {
       "values": [
         "billing",

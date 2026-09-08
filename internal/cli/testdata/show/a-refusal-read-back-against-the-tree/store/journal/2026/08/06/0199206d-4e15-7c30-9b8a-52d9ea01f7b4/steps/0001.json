@@ -12,6 +12,7 @@
   "provider": "cloudflare-dns",
   "schema_version": 1,
   "selector": {
+    "bound": 2,
     "declared": {
       "assets": [
         {

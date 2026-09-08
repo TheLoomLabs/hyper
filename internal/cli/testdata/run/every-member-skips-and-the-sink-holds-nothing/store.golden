@@ -34,7 +34,7 @@ Editing it by hand is editing evidence.
     "host": "thinkpad"
   }
 }
-=== journal/2026/04/02/01991fa0-7777-7888-8999-000011112222/steps/0001.json (902 bytes)
+=== journal/2026/04/02/01991fa0-7777-7888-8999-000011112222/steps/0001.json (918 bytes)
 {
   "definition": "service-token",
   "disposition": "skipped-as-already-recorded",
@@ -57,6 +57,7 @@ Editing it by hand is editing evidence.
   "provider": "vault-tokens",
   "schema_version": 1,
   "selector": {
+    "bound": 3,
     "declared": {
       "values": [
         "billing",

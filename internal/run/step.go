@@ -137,7 +137,31 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	if err != nil {
 		return Step{}, nil, err
 	}
-	file.Selector = store.Selector{Declared: expanded.Selector.Declared, ExpandedTo: expanded.names()}
+	// **The Bound is recorded beside what it was counted over**, this being
+	// the only place a Step's `store.Selector` is built. It is read with
+	// `declaredBound`, which is the same reading `exceededBound` guards
+	// with, rather than a second one: two readings of `bound:` could
+	// disagree about what a Step declared, and the reading that decides is
+	// the one that has to be written down (§7, issue #286).
+	//
+	// The Bound belongs to the **selector** and not to the Step, so a
+	// `bound:` on a Step with no `over:` records nothing: §7 attaches what
+	// was counted to what it was counted over, and a guardrail with no
+	// Expansion beneath it was counted against nothing. `store.Selector`'s
+	// own `write` holds that by returning early where the selector is
+	// absent.
+	//
+	// **`declaredBound`'s second answer is dropped deliberately.** Carrying
+	// *whether* a Bound was declared would buy nothing here: the member
+	// would still have to survive `store.Selector`'s absence rule, which
+	// drops a zero — so `bound: 0` records as absence either way, and what
+	// that costs is stated where that rule is.
+	declared, _ := declaredBound(authored.Bound)
+	file.Selector = store.Selector{
+		Declared:   expanded.Selector.Declared,
+		ExpandedTo: expanded.names(),
+		Bound:      declared,
+	}
 
 	// A Refusal at a Step's Expansion. The Step file records what actually
 	// happened to that Step — its Disposition, its selector, and what it
