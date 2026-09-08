@@ -124,12 +124,15 @@ Target-class type-check get their names here: an Operation projecting a Record a
 identity field for it is `identity-undeclared`, and a Definition naming a Target outside its Provider's
 declared class is `target-class-mismatch`.
 
-Thirteen further checks are one fact wearing thirteen shapes — a Manifest whose own declarations
+Fourteen further checks are one fact wearing fourteen shapes — a Manifest whose own declarations
 disagree with each other — and they share one name, `manifest-inconsistent`: a `pagination` Pattern on an
 Operation whose `record:` carries no collection path, a `host-input:` naming a property the Operation's
 input schema does not define, a `path:` carrying a `?` or a `#` — the two delimiters that end a path,
 and neither of which `hyper` will read as one, a query belonging in the `query:` key beside it and a
-fragment being never sent at all (§3, ADR-0107) — a `headers:` entry taking the request position its
+fragment being never sent at all (§3, ADR-0107) — a `method:` that is not an HTTP `token`, the verb
+being a literal and `1*tchar` the production the wire will carry, so anything else is a request that
+never leaves and a fault this check names where it is written rather than leaving a Run to report it
+against the host (§3, ADR-0156) — a `headers:` entry taking the request position its
 Auth scheme owns, a Provider declaring only the `shell` Capability while carrying an `auth:` block, a
 Target declaration's credential slots not covering the scheme's slots for a binding a Definition makes
 (§3), a template hole naming an input the same file declares `object` or `array` — a hole fills a

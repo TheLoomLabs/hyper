@@ -680,6 +680,17 @@ source, so the name inside it is never read. It follows that `method:` reaches n
 named only there is declared, supplied by every Step that binds the Operation, and read by nothing,
 which is `manifest-inconsistent` on the rule every unreached input carries (§4).
 
+Being a literal, the literal is read. A `method:` is one HTTP `token` — RFC 9110's `1*tchar`, the
+production `net/http` itself accepts — and one that is not is `manifest-inconsistent` (§4), cited at
+the `method:` line. `method: "GET "` is the case: a space is not a `tchar`, so the request never leaves,
+and where that is discovered at Run time rather than by `check` a `read` writes the Record a host that
+answered nothing writes and reports success over it, while a `mutate` names the far end for a fault
+that is on the `method:` line
+([ADR-0156](../adr/0156-a-method-that-is-not-an-http-token-is-refused-where-it-is-written.md)). The
+**grammar** is the line and the registry is not: HTTP's method space is extensible, so a verb no
+registry names — and a verb written in lower case, which is a different method to a server that
+compares them — is the author's to write and `check` says nothing about it.
+
 `path:` is written as text and `hyper` percent-encodes it — `url.URL`'s `Path`, not a second convention
 — so an author writes the path a reader would say out loud and the escaping is `hyper`'s. Two characters
 therefore cannot mean there what they mean in a URL, and neither is silently accepted. A `?` does not

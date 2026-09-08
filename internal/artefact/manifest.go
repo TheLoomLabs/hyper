@@ -6,7 +6,7 @@
 // declarations against each other, with nothing but the file in hand
 // (§4, issue #92). capability-mismatch and identity-undeclared read what an
 // Operation's own request and record: imply against what the Manifest
-// declares elsewhere; manifest-inconsistent is twelve decidable-from-one-
+// declares elsewhere; manifest-inconsistent is thirteen decidable-from-one-
 // file shapes of one fact sharing one code; header-reserved and
 // capability-reserved refuse a name the tool holds rather than an internal
 // contradiction, the second of them being the one check here whose subject
@@ -73,21 +73,26 @@ const CodeCapabilityReserved = "capability-reserved"
 // identify (§3, §4).
 const CodeIdentityUndeclared = "identity-undeclared"
 
-// CodeManifestInconsistent is the one code twelve decidable-from-one-
+// CodeManifestInconsistent is the one code thirteen decidable-from-one-
 // Manifest shapes of a Manifest disagreeing with itself share, each
 // pointing a reader at one file, one Operation, and two adjacent keys
-// rather than earning a code of its own (§3, §4). The thirteenth shape —
+// rather than earning a code of its own (§3, §4). The fourteenth shape —
 // Target slot coverage — needs a (Definition, Target) binding to decide
-// and is #93's, and the fourteenth — a candidate set and a bound Target's
+// and is #93's, and the fifteenth — a candidate set and a bound Target's
 // grant intersecting to several hosts under an Operation declaring no
 // host-input: — needs a Step's binding and is #98's, emitted from
 // procedure.go where that binding is read.
 //
-// The twelfth of the twelve is a path: carrying a ? or a #. The ? is the
+// The twelfth of the thirteen is a path: carrying a ? or a #. The ? is the
 // two adjacent keys in the plainest form the code has — the value is in
 // path: and it belongs in query: — and the # is the same fault with no key
 // to move to, a fragment being a thing no request carries at all
 // (ADR-0107, issue #229).
+//
+// The thirteenth is a method: that is not an HTTP token, which is the same
+// argument on the key beside it: knowably wrong offline, one edit away,
+// and otherwise carried to net/http, which refuses it after check was
+// clean (ADR-0156, issue #285).
 const CodeManifestInconsistent = "manifest-inconsistent"
 
 // CodeHeaderReserved is the code drawn on the five headers hyper computes
@@ -935,13 +940,18 @@ func checkExactlyOneOf(file, field string, node *yaml.Node, keys []string) []pro
 // hole rules the request's positions split on: host: is Capability-relevant
 // and its holes resolve only against a declared enumerations: entry or
 // from-target; method: admits no hole at all; every other position resolves
-// only against this Operation's own input (§3, §12, ADR-0155).
+// only against this Operation's own input (§3, §12, ADR-0155). method: is
+// then read as the literal ADR-0155 made it: the two checks on that one key
+// are the two ways a verb reaches net/http as something it will not send —
+// a value from outside the artefact, and a literal that is not a token
+// (ADR-0156).
 func checkHTTPRequest(file, field string, node *yaml.Node, enumNames, inputProps map[string]bool, inputTypes map[string]string, ownedHeader string) []problem.Problem {
 	problems := schema.CheckAt(node, httpRequestDeclaration, field, file)
 	fields := topLevelFields(node, "method", "host", "path", "query", "headers", "body", "host-input")
 
 	if methodVal := fields["method"]; methodVal != nil && methodVal.Kind == yaml.ScalarNode {
 		problems = append(problems, checkMethodHole(file, field+".method", methodVal)...)
+		problems = append(problems, checkMethodToken(file, field+".method", methodVal)...)
 	}
 	if hostVal := fields["host"]; hostVal != nil && hostVal.Kind == yaml.ScalarNode {
 		problems = append(problems, checkCapabilityHoles(file, field+".host", hostVal, enumNames)...)
@@ -973,7 +983,7 @@ func checkHTTPRequest(file, field string, node *yaml.Node, enumNames, inputProps
 // %3F inside the path and reaches nothing (§3, §4, ADR-0107, issue #229).
 //
 // It is manifest-inconsistent rather than a code of its own because it is
-// the same shape the other eleven here have: one file, one Operation, and
+// the same shape the other twelve here have: one file, one Operation, and
 // two adjacent keys — the value is in path: and it belongs in query:,
 // which is the key beside it. The # has no key to move to and is refused
 // with it anyway: a fragment is never transmitted, so admitting the one
@@ -1217,6 +1227,79 @@ func checkMethodHole(file, field string, node *yaml.Node) []problem.Problem {
 	return refuseHoleOutright(file, field, node,
 		"method: admits no hole of any kind — the verb a request performs is written literally, and a value from outside the artefact may not choose it")
 }
+
+// checkMethodToken reports manifest-inconsistent on a method: whose literal
+// is not RFC 9110's token production — the fault ADR-0155 left standing when
+// it closed the hole one key over, and the one net/http refuses before the
+// request leaves (§3, §4, ADR-0156, issue #285).
+//
+// It is manifest-inconsistent rather than a code of its own for the reason
+// checkPathDelimiters gives above and on the same shape: one file, one
+// Operation, one key, and an edit the row can name. What it buys is that
+// the fault is reported where it is written. Left to the Run, a `method:
+// "GET "` on a read reaches Call.request, fails at
+// http.NewRequestWithContext, and Perform answers the object it answers for
+// a host that never replied — so the Record a Manifest fault produces and
+// the Record a silent host produces are the same Record, written with exit
+// 0 (internal/capability/http.go, §6, ADR-0050). On a mutate the
+// disposition is right — nothing left, the world is untouched — and the
+// sentence beside it names the far end for a fault on line 14 of the file.
+//
+// The grammar is the line, and a known verb is not. HTTP's method space is
+// extensible, so a check against IANA's registry would refuse a correct
+// Manifest written against an API that ships its own verb; token is what
+// net/http will accept, which is the fault actually being reported. Nor is
+// case read: `get` is a token, is a different method from `GET` to a server
+// that compares them, and is the author's to write.
+//
+// A hole is not token text. { and } are not tchar, so a hole read as a
+// literal would put a second row on the line checkMethodHole has already
+// cited for one fault — and eliding it the way checkPathDelimiters does
+// would leave the empty string, which is not a token either. So a value
+// carrying one is left to the check that refuses the position (ADR-0155).
+func checkMethodToken(file, field string, node *yaml.Node) []problem.Problem {
+	if holePattern.MatchString(node.Value) || isHTTPToken(node.Value) {
+		return nil
+	}
+	return []problem.Problem{{
+		File: file, Line: node.Line, Column: node.Column, Field: field,
+		ErrorCode: CodeManifestInconsistent,
+		Message:   fmt.Sprintf("method: %q is not an HTTP token — a verb is one word of the characters RFC 9110 admits, and a request carrying anything else never leaves", node.Value),
+	}}
+}
+
+// isHTTPToken is RFC 9110's token: one or more tchar, the reading
+// net/http's own validMethod performs (§3, ADR-0156).
+func isHTTPToken(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if !httpTokenChars[s[i]] {
+			return false
+		}
+	}
+	return true
+}
+
+// httpTokenChars is RFC 9110's tchar set, byte by byte: the fifteen
+// punctuation marks it names, DIGIT and ALPHA. A byte above ASCII is not
+// one, which is why this is indexed by byte rather than ranged over as
+// runes (§3, ADR-0156).
+var httpTokenChars = func() [256]bool {
+	var set [256]bool
+	for _, c := range []byte("!#$%&'*+-.^_`|~") {
+		set[c] = true
+	}
+	for c := byte('0'); c <= '9'; c++ {
+		set[c] = true
+	}
+	for c := byte('a'); c <= 'z'; c++ {
+		set[c] = true
+		set[c-('a'-'A')] = true
+	}
+	return set
+}()
 
 // checkAuthHoles reports every hole found anywhere inside an Auth scheme's
 // parameters as hole-illegal outright, whatever it would have resolved to —

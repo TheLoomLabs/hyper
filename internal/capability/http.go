@@ -75,7 +75,10 @@ var reservedHeaders = map[string]bool{
 type Request struct {
 	// Method is the verb, and it is a literal: a hole here is one of the
 	// two §12 refuses outright, so what is read is what leaves (§3, §12,
-	// hole-illegal, ADR-0155).
+	// hole-illegal, ADR-0155). check holds it to RFC 9110's token as well,
+	// which is the reading net/http performs on it one layer down — so a
+	// Manifest that checks clean cannot reach request below with a verb the
+	// standard library will refuse (manifest-inconsistent, ADR-0156).
 	Method  string
 	Host    string
 	Path    string
@@ -297,10 +300,17 @@ func Deadline(ctx context.Context, seconds *int) (context.Context, context.Cance
 //
 // The object is always usable: where no response arrived at all it is host and
 // nothing else, which is the answer a read records rather than a failure it
-// halts on (§6, §12, ADR-0050). The error beside it says what went wrong and
-// is narration's alone — no member of the object says it, that being the
-// catch-all bucket ADR-0017 closed, and a surface that wrote it into one would
-// be minting a sixth member.
+// halts on (§6, §12, ADR-0050). That answer is about the far end, and it is
+// check's job to see that nothing else arrives at it: a method: that is not a
+// token used to fail in request below and be recorded here as a host that
+// answered nothing, so a Manifest fault and a silent host wrote one Record —
+// which is why the token is read offline (manifest-inconsistent, ADR-0156,
+// issue #285).
+//
+// The error beside it says what went wrong and is narration's alone — no
+// member of the object says it, that being the catch-all bucket ADR-0017
+// closed, and a surface that wrote it into one would be minting a sixth
+// member.
 func (c Call) Perform(ctx context.Context, dial Dial, now time.Time, credential Credential) (Object, error) {
 	object := Object{{Name: MemberHost, Value: c.Host}}
 

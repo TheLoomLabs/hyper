@@ -8,7 +8,8 @@
 // than either artefact alone — a Target outside the bound Provider's class,
 // a Capability the Target's declaration does not grant, and the Target's
 // credential slots not covering the bound Provider's Auth scheme, the
-// twelfth shape of manifest-inconsistent left open by #92 (§4, §5).
+// fourteenth shape of manifest-inconsistent and the one #92 left open
+// (§4, §5).
 package artefact
 
 import (
@@ -751,9 +752,10 @@ func checkDestroyResolution(file string, destroyVal *yaml.Node, provider Provide
 // outside the bound Provider's declared class is target-class-mismatch; a
 // Capability the Provider's Operations require and the Target does not
 // grant is capability-not-granted; a Target whose credential slots do not
-// cover the Provider's Auth scheme is manifest-inconsistent — the twelfth
-// shape, decidable only once a binding exists; and, where claimsOpaqueDestroy
-// is true, a Target that has not opted into opaque-destroy: is
+// cover the Provider's Auth scheme is manifest-inconsistent — the
+// fourteenth shape, decidable only once a binding exists; and, where
+// claimsOpaqueDestroy is true, a Target that has not opted into
+// opaque-destroy: is
 // opaque-destroy-not-granted — the artefact half of the check, the credential
 // half needing a Run to resolve and belonging to §5. Each points a reader at
 // the targets: member that made the binding, since that is the line whose

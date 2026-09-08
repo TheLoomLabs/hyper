@@ -1,0 +1,2 @@
+FILE                    LINE  FIELD                                 ERROR_CODE             MESSAGE
+providers/lookout.yaml  11    operations.list_monitors.http.method  manifest-inconsistent  method: "GET " is not an HTTP token — a verb is one word of the characters RFC 9110 admits, and a request carrying anything else never leaves

@@ -1,0 +1,27 @@
+kind: provider
+provider: lookout
+schema-version: 1
+class: lookout
+capabilities: [http]
+operations:
+  list_monitors:
+    kind: read
+    deadline: 30s
+    http:
+      method: "GET "
+      host: "{from-target}"
+      path: /v1/monitors
+    record:
+      over: $.body.data.monitors
+      identity: $.id
+      fields: {id: $.id, url: $.url}
+  purge_cache:
+    kind: mutate
+    deadline: 30s
+    http:
+      method: PURGE
+      host: "{from-target}"
+      path: /v1/cache
+    record:
+      identity: $.id
+      fields: {id: $.id}

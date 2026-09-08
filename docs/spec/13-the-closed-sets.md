@@ -886,7 +886,9 @@ third admits no hole at all, and is two keys wide:
   declared in the Manifest — ADR-0029's arrival for a host and ADR-0051's for a command's first argv
   word, arriving a third time on the verb (§3, §5, ADR-0155). `method:` therefore reaches no Operation
   input, and one named only in a hole there is `manifest-inconsistent` like any other input nothing
-  reaches (§4).
+  reaches (§4). What is written there instead is read as what it now is: a `method:` that is not an
+  HTTP `token` is `manifest-inconsistent` too, on the grammar rather than on a registry of verbs (§3,
+  §4, ADR-0156).
 
 A hole resolving to none of these, one filled from the wrong source for its position, or one written in
 a position not on this list at all — a mapping key inside a `body:` is the case that arises (§3) — is a

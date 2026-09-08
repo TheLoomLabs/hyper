@@ -421,6 +421,87 @@ func TestCheckManifest_AnInputReachedOnlyByAMethodHoleIsUnreached(t *testing.T) 
 	}
 }
 
+// methodLiteralManifest is one Operation whose method: carries verb, with
+// nothing else in the file wrong — the shape all five token cases below vary
+// at one key (ADR-0156, issue #285).
+func methodLiteralManifest(verb string) string {
+	return `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: ` + verb + `
+      host: "{from-target}"
+      path: /
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+}
+
+// TestCheckManifest_ManifestInconsistentMethodIsNotAToken is the thirteenth
+// shape read from the file alone: a literal verb that is not RFC 9110's
+// token, which net/http refuses before the request leaves — so a read
+// records a host that answered nothing and a mutate names the far end for a
+// fault on the method: line (issue #285).
+func TestCheckManifest_ManifestInconsistentMethodIsNotAToken(t *testing.T) {
+	got := checkManifest(t, "providers/broken.yaml", methodLiteralManifest(`"GET "`))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.noop.http.method" {
+		t.Errorf("Field = %q, want operations.noop.http.method", p.Field)
+	}
+	if !strings.Contains(p.Message, `"GET "`) {
+		t.Errorf("Message = %q, want the literal quoted so an invisible character is visible", p.Message)
+	}
+}
+
+// TestCheckManifest_AnEmptyMethodIsNotAToken holds the degenerate end of the
+// same grammar: token is 1*tchar, so the empty string is not one, and the
+// schema's string type admits it (issue #285).
+func TestCheckManifest_AnEmptyMethodIsNotAToken(t *testing.T) {
+	got := checkManifest(t, "providers/broken.yaml", methodLiteralManifest(`""`))
+	p := mustCode(t, got, CodeManifestInconsistent)
+	if p.Field != "operations.noop.http.method" {
+		t.Errorf("Field = %q, want operations.noop.http.method", p.Field)
+	}
+}
+
+// TestCheckManifest_AVerbOutsideTheRegistryIsClean is the fence that keeps
+// this check the grammar and not a registry. HTTP's method space is
+// extensible, so a Manifest against an API shipping its own verb is correct
+// and a check refusing it would be the defect (ADR-0156, issue #285).
+func TestCheckManifest_AVerbOutsideTheRegistryIsClean(t *testing.T) {
+	for _, verb := range []string{"PATCH", "PURGE", "MKCALENDAR", "get", "M-SEARCH"} {
+		if got := checkManifest(t, "providers/broken.yaml", methodLiteralManifest(verb)); len(got) != 0 {
+			t.Errorf("method: %s = %+v, want no problems", verb, got)
+		}
+	}
+}
+
+// TestCheckManifest_AMethodHoleDrawsOneRow keeps the two method: checks from
+// naming one fault twice. A hole is not token text — { and } are not tchar,
+// so reading it as a literal would put a second row on the line
+// checkMethodHole has already cited (ADR-0155, ADR-0156, issue #285).
+func TestCheckManifest_AMethodHoleDrawsOneRow(t *testing.T) {
+	got := checkManifest(t, "providers/broken.yaml", methodHoleManifest)
+	var rows int
+	for _, p := range got {
+		if p.Field == "operations.noop.http.method" {
+			rows++
+		}
+	}
+	if rows != 1 {
+		t.Errorf("rows on operations.noop.http.method = %d, want 1: %+v", rows, got)
+	}
+	mustCode(t, got, CodeHoleIllegal)
+}
+
 func TestCheckManifest_HoleInABodyMappingKeyIsIllegal(t *testing.T) {
 	doc := `kind: provider
 provider: broken

@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 155 records**, numbered `0001`–`0155` with no gaps. They are chronological:
+**This corpus holds 156 records**, numbered `0001`–`0156` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -380,3 +380,4 @@ here fails the suite.
 - **0153** · [The spelling was right the first time, and the three repairs behind it were never reached](0153-the-spelling-was-right-the-first-time-and-the-three-repairs-behind-it-were-never-reached.md)
 - **0154** · [The list is the declaration, and *declares any* is derived from it](0154-the-list-is-the-declaration-and-declares-any-is-derived-from-it.md)
 - **0155** · [A request's `method:` is a literal](0155-a-requests-method-is-a-literal.md)
+- **0156** · [A `method:` that is not an HTTP token is refused where it is written](0156-a-method-that-is-not-an-http-token-is-refused-where-it-is-written.md)

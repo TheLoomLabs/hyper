@@ -107,6 +107,12 @@ declared and read by nothing — which is exactly the shape an Auth scheme's ref
   reaches `net/http` and still fails there. It is a different fault with a different shape — an author
   writing a malformed literal, not a value arriving from outside the artefact — and this record
   decides the second and not the first.
+
+  _ADR-0156 amends this:_ the limit was measured and closed. A literal that is not RFC 9110's `token`
+  is `manifest-inconsistent` at the same key, on `checkPathDelimiters`' argument rather than on this
+  record's. What is written here about the two faults being different in shape stays true — it is why
+  they are two checks on one key and not one — and what changes is that the second is no longer
+  standing.
 - **No sealed run is owed.** The change is enforced rather than taught in
   [`docs/agents/acceptance-re-runs.md`](../agents/acceptance-re-runs.md)'s sense: `check` now Refuses,
   and the golden and the package cases hold it. No clause of the orientation moves, no existing row is
