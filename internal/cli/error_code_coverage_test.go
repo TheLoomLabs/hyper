@@ -20,16 +20,21 @@ import (
 const checkCorpus = "testdata/check"
 
 // milestoneOneErrorCodes is the closed set issue #87 fixes for that
-// milestone: the thirty-seven error_code members milestone 1 brings to `hyper
+// milestone: the thirty-eight error_code members milestone 1 brings to `hyper
 // check`. It was every code reaching `check` until milestone 9 added
 // one, and it is milestone 1's contribution rather than the whole set now —
 // what `check` owes a fixture for is checkCorpusErrorCodes below. It is:
 //
-//   - §4's thirty-two static codes, in full. The last of them,
-//     procedure-cycle, is a member this milestone was written without: §6
-//     said a cyclic invocation graph was rejected before the first Step and
-//     §12 held no code for one, so nothing rejected it until issue #141 made
-//     the state reachable and issue #146 named the check (§4, §12).
+//   - §4's thirty-three static codes, in full. Two of them are members this
+//     milestone was written without and the list carries them because the
+//     set is §4's rather than the milestone's. procedure-cycle is the first:
+//     §6 said a cyclic invocation graph was rejected before the first Step
+//     and §12 held no code for one, so nothing rejected it until issue #141
+//     made the state reachable and issue #146 named the check (§4, §12).
+//     bound-not-positive is the second: `bound: 0` passed every check,
+//     Refused every Expansion it guarded, and left a Journal entry recording
+//     the member exactly as a Step declaring no Bound does, until issue #287
+//     refused the value where it is written (§4, ADR-0158).
 //   - The offline halves of three codes §4 and §6 share — bound-exceeded (an
 //     authored values: list longer than the Bound), predicate-type-mismatch
 //     (the authored operand faults), and record-identity-collision (its §3
@@ -72,6 +77,7 @@ var milestoneOneErrorCodes = []string{
 	"opaque-destroy-not-granted",
 	"bound-missing",
 	"bound-illegal",
+	"bound-not-positive",
 	"host-not-granted",
 	"command-malformed",
 	"destroy-unscoped",
@@ -190,7 +196,7 @@ func TestCheckCorpusErrorCodes_EveryMemberHasAFailingFixture(t *testing.T) {
 // over: which members of the closed set have a fixture, and which do not.
 const runCorpus = "testdata/run"
 
-// codesReachingARun is what §4's thirty-two codes reaching a Run is proved by:
+// codesReachingARun is what §4's thirty-three codes reaching a Run is proved by:
 // a representative spread rather than the whole set, and at least one code from
 // each of the five artefact kinds (issue #137).
 //
@@ -200,8 +206,8 @@ const runCorpus = "testdata/run"
 // under testdata/check — the list above this one — and what a Run adds is the
 // *path*: `check` is re-run in full with nothing skipped, so a repository that
 // `check` refuses is a repository a Run refuses (§6, ADR-0061). A corpus
-// re-driving all thirty-two through `run` would assert internal/verify runs
-// thirty-two times over, which is one claim and not thirty-two.
+// re-driving all thirty-three through `run` would assert internal/verify runs
+// thirty-three times over, which is one claim and not thirty-three.
 //
 // What a spread does have to cover is the **shape** of the path, and that is
 // what the five artefact kinds are for: the walk reaches every location, and a

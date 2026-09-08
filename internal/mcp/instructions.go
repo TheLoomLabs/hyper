@@ -198,11 +198,12 @@ delete one; the operator may want them destroyed through a Step first.
 **Format** — a strict YAML subset: no anchors, aliases, merge keys, tags or expression language. A
 ` + "`{hole}`" + ` in a request is filled from a Step's ` + "`args:`" + `; ` + "`$.body.…`" + ` in a ` + "`record:`" + ` is a path into the
 response, and an ` + "`over:`" + ` beside it projects a collection into one Record each. An effectful Step may
-declare a ` + "`bound:`" + `, the maximum Records it may affect; on a ` + "`destroy`" + ` it is **mandatory**, on an
-**opaque** ` + "`destroy`" + ` — one whose request is ` + "`shell:`" + `, which every ` + "`destroy`" + ` on the built-in ` + "`shell`" + `
-Provider is — it is **refused** instead, a count of the commands it ran saying nothing about what any
-of them did, and on an **opaque** ` + "`mutate`" + ` it is **accepted and buys nothing**: the same count,
-so ` + "`review`" + ` flags that Step ` + "`UNBOUNDED`" + ` whether you write one or not.
+declare a ` + "`bound:`" + `, the maximum Records it may affect — **at least ` + "`1`" + `**, one admitting none being
+refused; on a ` + "`destroy`" + ` it is **mandatory**, on an **opaque** ` + "`destroy`" + ` — one whose request is
+` + "`shell:`" + `, which every ` + "`destroy`" + ` on the built-in ` + "`shell`" + ` Provider is — it is **refused**
+instead, a count of the commands it ran saying nothing about what any of them did, and on an
+**opaque** ` + "`mutate`" + ` it is **accepted and buys nothing**: the same count, so ` + "`review`" + ` flags that
+Step ` + "`UNBOUNDED`" + ` whether you write one or not.
 **The credential is never in an artefact** — the Target names the environment variable,
 ` + "`hyper`" + ` puts it in the header the Manifest's ` + "`auth:`" + ` names, and no rendering prints it.
 **A credential a call hands *back* is the converse and the Manifest declares it**:

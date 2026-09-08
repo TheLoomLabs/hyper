@@ -153,9 +153,10 @@ func (r run) perform(position int, authored sequenced) (Step, []Refusal, error) 
 	//
 	// **`declaredBound`'s second answer is dropped deliberately.** Carrying
 	// *whether* a Bound was declared would buy nothing here: the member
-	// would still have to survive `store.Selector`'s absence rule, which
-	// drops a zero — so `bound: 0` records as absence either way, and what
-	// that costs is stated where that rule is.
+	// still meets `store.Selector`'s absence rule, which drops a zero, and
+	// a zero is a value no checked repository holds — a `bound:` below 1 is
+	// `bound-not-positive` and never reaches a Run (§4, ADR-0158, issue
+	// #287).
 	declared, _ := declaredBound(authored.Bound)
 	file.Selector = store.Selector{
 		Declared:   expanded.Selector.Declared,

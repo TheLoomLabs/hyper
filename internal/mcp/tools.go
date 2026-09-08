@@ -1325,7 +1325,7 @@ var runShowTool = tool{
 										"items": {"type": "string"},
 										"description": "What it expanded to, in Expansion order and never sorted: on a serial destroy the halt point is legible by position and nowhere else. Written whenever a selector exists, the empty list included."
 									},
-									"bound": {"type": "integer", "minimum": 0}
+									"bound": {"type": "integer", "minimum": 1, "description": "The Bound the Expansion was counted against, absent where the Step declared none. One is the smallest a Step may declare — a bound: below it is bound-not-positive — so the absence is a Step with no Bound and never a Bound of zero."}
 								}
 							},
 							"resolved": {

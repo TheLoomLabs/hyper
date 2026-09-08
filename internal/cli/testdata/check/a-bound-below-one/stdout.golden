@@ -1,0 +1,3 @@
+FILE                              LINE  FIELD           ERROR_CODE          MESSAGE
+procedures/refresh-previews.yaml  9     steps[0].bound  bound-not-positive  bound: 0 is below 1 — a Bound admitting no Record is one every Expansion that resolved anything exceeds, so the Step it guards can act on no Run
+procedures/refresh-previews.yaml  20    steps[1].bound  bound-not-positive  bound: -1 is below 1 — a Bound admitting no Record is one every Expansion that resolved anything exceeds, so the Step it guards can act on no Run

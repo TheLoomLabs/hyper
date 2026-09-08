@@ -32,7 +32,7 @@ import (
 // **What it defends is the failure mode a worked example has.** Prose that is
 // wrong is read and discarded; a Manifest that is wrong is *copied*, and the
 // agent that copied it spends its next three turns repairing an artefact the
-// tool taught it. §4 counts thirty-two static codes over §3's format, and a
+// tool taught it. §4 counts thirty-three static codes over §3's format, and a
 // hole where a `record.fields` wants a path is not a thing a reader spots.
 
 // TestInstructions_TheWorkedExampleChecksClean writes every artefact the
@@ -211,11 +211,13 @@ func kindOf(content string) string {
 // `review`'s `UNBOUNDED` flag rather than from the text whose whole job is to
 // spare it that (ADR-0100, ADR-0101).
 //
-// **So the claim is held to the checker and not to a reader.** The four
-// combinations below are the rule as `check` actually holds it, and each one
-// `check` declines names the word the orientation has to carry for an agent to
-// have avoided authoring it. A rule that moves in the binary and not in the text
-// fails here, which is the direction it moved last time.
+// **So the claim is held to the checker and not to a reader.** The five
+// combinations below are the rule as `check` actually holds it — four about
+// whether a Bound may stand and the fifth about what may be written in one
+// (`bound-not-positive`, ADR-0158) — and each one `check` declines names the
+// word the orientation has to carry for an agent to have avoided authoring it.
+// A rule that moves in the binary and not in the text fails here, which is the
+// direction it moved last time.
 func TestInstructions_TheBoundRuleIsTheOneCheckHolds(t *testing.T) {
 	sentence := boundSentence(t, mcp.Instructions("1.4.0"))
 
@@ -230,6 +232,7 @@ func TestInstructions_TheBoundRuleIsTheOneCheckHolds(t *testing.T) {
 		{name: "a destroy Step carrying none", repo: exampleRepository, code: artefact.CodeBoundMissing, stated: "mandatory"},
 		{name: "an opaque destroy Step carrying none", repo: opaqueRepository},
 		{name: "an opaque destroy Step carrying one", repo: opaqueRepository, bound: true, code: artefact.CodeBoundIllegal, stated: "refused"},
+		{name: "a destroy Step whose Bound admits nothing", repo: zeroBoundRepository, bound: true, code: artefact.CodeBoundNotPositive, stated: "at least"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			root := t.TempDir()
@@ -368,6 +371,41 @@ func exampleRepository(t *testing.T, bound bool) map[string]string {
 		}
 	}
 	written[at] = strings.Join(kept, "\n")
+	return written
+}
+
+// zeroBoundRepository is the orientation's worked example with its Bound
+// rewritten to the one value `check` refuses on every Kind that may carry one:
+// zero, which admits no Record and declines every Expansion that resolved one
+// (`bound-not-positive`, §4, ADR-0158, issue #287).
+//
+// It ignores the flag its two siblings read, and takes it so that the table
+// above reads one shape. *Whether* a Bound is written is what those cases are
+// about; this one is about what may be written in it, and a variant of it with
+// no Bound at all would be the sibling directly above.
+//
+// It rewrites exactly one line and says so by failing otherwise. The
+// orientation carries one Bound — `exampleRepository` fences that — so a walk
+// that found two would be rewriting a Bound this case never meant to be about,
+// and the assertion is cheaper than the reader who would have to notice.
+func zeroBoundRepository(t *testing.T, _ bool) map[string]string {
+	t.Helper()
+
+	written := exampleRepository(t, true)
+	rewritten := 0
+	for at, content := range written {
+		var kept []string
+		for _, line := range strings.Split(content, "\n") {
+			if key := strings.Index(line, "bound:"); key >= 0 && strings.TrimSpace(line[:key]) == "" {
+				line, rewritten = line[:key]+"bound: 0", rewritten+1
+			}
+			kept = append(kept, line)
+		}
+		written[at] = strings.Join(kept, "\n")
+	}
+	if rewritten != 1 {
+		t.Fatalf("rewrote %d bound: lines in the orientation's worked example, want exactly one", rewritten)
+	}
 	return written
 }
 

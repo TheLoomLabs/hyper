@@ -1028,6 +1028,11 @@ func namesText(named []string) string { return strings.Join(named, " · ") }
 // numberText is a number as a page cell, and the empty string at zero — the
 // absence rule holding on the page for the members whose zero value is their
 // absence in the entry (§7).
+//
+// The Bound is one of them and reads correctly under it: `bound:` is refused
+// below 1 where it is authored, so an entry carrying no Bound is a Step that
+// declared none and never one that declared the strictest there is (§4,
+// ADR-0158, issue #287).
 func numberText(n int) string {
 	if n == 0 {
 		return ""

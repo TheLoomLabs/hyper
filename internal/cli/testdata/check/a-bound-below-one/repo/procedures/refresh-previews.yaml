@@ -1,0 +1,27 @@
+kind: procedure
+procedure: refresh-previews
+targets: [cloudflare-prod]
+steps:
+  - id: publish
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    bound: 0
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: preview-42.example.com
+      type: A
+      content: 203.0.113.10
+
+  - id: retire
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: -1
+    over:
+      assets:
+        - field: name
+          starts_with: preview-
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $.id}

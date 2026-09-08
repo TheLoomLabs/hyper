@@ -989,6 +989,194 @@ steps:
 	}
 }
 
+// TestCheckProcedure_MutateWithBoundZeroIsBoundNotPositive is issue #287's
+// case, refused where it is authored. `bound: 0` is a Bound that admits
+// nothing: every Expansion that resolves a member exceeds it, so the Step it
+// guards can do work on no Run and its only reachable outcome is
+// bound-exceeded. A guardrail that can only decline is a Step nobody meant to
+// write, and the edit is on the line the row cites (§4, §5, issue #287).
+func TestCheckProcedure_MutateWithBoundZeroIsBoundNotPositive(t *testing.T) {
+	doc := `kind: procedure
+procedure: publish
+targets: [cloudflare-prod]
+steps:
+  - id: publish
+    definition: preview-dns
+    operation: create_dns_record
+    target: cloudflare-prod
+    bound: 0
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      name: preview-42.example.com
+      type: A
+      content: 203.0.113.10
+`
+	got := CheckProcedure("procedures/publish.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
+	p := mustCode(t, got, CodeBoundNotPositive)
+	if p.Field != "steps[0].bound" {
+		t.Errorf("Field = %q, want steps[0].bound", p.Field)
+	}
+	if !strings.Contains(p.Message, "0") {
+		t.Errorf("Message = %q, want the value it read in it", p.Message)
+	}
+}
+
+// TestCheckProcedure_DestroyWithNegativeBoundIsBoundNotPositive is the other
+// half of the same rule, and the reason the code is named for the count rather
+// than for the zero: a negative Bound declines every Expansion exactly as the
+// zero does, and the two are one fault rather than a fault and its neighbour.
+func TestCheckProcedure_DestroyWithNegativeBoundIsBoundNotPositive(t *testing.T) {
+	doc := `kind: procedure
+procedure: retire-preview-dns
+targets: [cloudflare-prod]
+steps:
+  - id: retire
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: -1
+    over:
+      assets:
+        - field: name
+          starts_with: preview-
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $.id}
+`
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
+	p := mustCode(t, got, CodeBoundNotPositive)
+	if p.Field != "steps[0].bound" {
+		t.Errorf("Field = %q, want steps[0].bound", p.Field)
+	}
+	for _, prob := range got {
+		if prob.ErrorCode == CodeBoundMissing {
+			t.Errorf("got bound-missing beside bound-not-positive; the Bound is written and the fault is its value")
+		}
+	}
+}
+
+// TestCheckProcedure_BoundZeroOverAValuesListIsOneRow holds the containment
+// past checkStepBound's own switch. `bound: 0` beside an authored `over:
+// values:` list is a list longer than its Bound, so the offline
+// bound-exceeded check would fire too — and the two rows name one edit. The
+// count is not the fact that is wrong; the number it was compared against is
+// (§4, ADR-0158, issue #287).
+func TestCheckProcedure_BoundZeroOverAValuesListIsOneRow(t *testing.T) {
+	doc := `kind: procedure
+procedure: retire-preview-dns
+targets: [cloudflare-prod]
+steps:
+  - id: retire
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: 0
+    over:
+      values: [rec-a, rec-b]
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $}
+`
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
+	mustCode(t, got, CodeBoundNotPositive)
+	mustNoCode(t, got, CodeBoundExceeded)
+}
+
+// TestCheckProcedure_BoundOfOneStillCountsTheList is the other side of that
+// suppression: a Bound the rule admits is compared against the authored
+// length exactly as it was, so nothing this ticket added narrows the check it
+// stands beside.
+func TestCheckProcedure_BoundOfOneStillCountsTheList(t *testing.T) {
+	doc := `kind: procedure
+procedure: retire-preview-dns
+targets: [cloudflare-prod]
+steps:
+  - id: retire
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: 1
+    over:
+      values: [rec-a, rec-b]
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $}
+`
+	got := CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, doc), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{})
+	mustCode(t, got, CodeBoundExceeded)
+	mustNoCode(t, got, CodeBoundNotPositive)
+}
+
+// TestCheckProcedure_BoundOfOneIsClean is where the rule stops. One is the
+// strictest Bound there is and it is a Bound a Step can act under: an Expansion
+// of one member fits inside it.
+func TestCheckProcedure_BoundOfOneIsClean(t *testing.T) {
+	mustNoCode(t, CheckProcedure("procedures/retire-preview-dns.yaml", parse(t, `kind: procedure
+procedure: retire-preview-dns
+targets: [cloudflare-prod]
+steps:
+  - id: retire
+    definition: preview-dns
+    operation: delete_dns_record
+    target: cloudflare-prod
+    bound: 1
+    over:
+      assets:
+        - field: name
+          starts_with: preview-
+    args:
+      zone_id: 023e105f4ecef8ad9ca31a8372d0c353
+      record_id: {item: $.id}
+`), cloudflareProcedureProviders(t), previewDNSDefinitions(), cloudflareTargets(t), ProcedureIndex{}), CodeBoundNotPositive)
+}
+
+// TestCheckProcedure_ReadWithBoundZeroIsUnknownKeyAlone holds the new check
+// inside the switch the three older ones share. A `read` Step carries no Bound
+// at all, so the key is refused before its value is read: a second row about
+// the count would name an edit — write a positive one — that the first row has
+// already refused outright.
+func TestCheckProcedure_ReadWithBoundZeroIsUnknownKeyAlone(t *testing.T) {
+	doc := `kind: procedure
+procedure: deploy
+targets: [local]
+steps:
+  - id: probe
+    definition: uptime
+    operation: read
+    target: local
+    bound: 0
+    args:
+      command: [uptime]
+`
+	got := CheckProcedure("procedures/deploy.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
+	mustCode(t, got, schema.CodeUnknownKey)
+	mustNoCode(t, got, CodeBoundNotPositive)
+}
+
+// TestCheckProcedure_OpaqueDestroyWithBoundZeroIsBoundIllegalAlone is the same
+// containment one Kind over: an opaque `destroy` is the one Step where a Bound
+// may not stand at all, and what it is worth is not a question that arises
+// (§4, §5, ADR-0053).
+func TestCheckProcedure_OpaqueDestroyWithBoundZeroIsBoundIllegalAlone(t *testing.T) {
+	doc := `kind: procedure
+procedure: cleanup
+targets: [local]
+steps:
+  - id: purge
+    definition: uptime
+    operation: destroy
+    target: local
+    over:
+      values: [/srv/app/releases/r41]
+    bound: 0
+    args:
+      command: [rm, -rf, {item: $}]
+`
+	got := CheckProcedure("procedures/cleanup.yaml", parse(t, doc), shellProviders(), uptimeDefinitions(), localTargets(), ProcedureIndex{})
+	mustCode(t, got, CodeBoundIllegal)
+	mustNoCode(t, got, CodeBoundNotPositive)
+}
+
 func TestCheckProcedure_OpaqueDestroyWithNoOverIsUnscoped(t *testing.T) {
 	doc := `kind: procedure
 procedure: cleanup

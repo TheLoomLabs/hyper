@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 157 records**, numbered `0001`–`0157` with no gaps. They are chronological:
+**This corpus holds 158 records**, numbered `0001`–`0158` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -383,3 +383,4 @@ here fails the suite.
 - **0155** · [A request's `method:` is a literal](0155-a-requests-method-is-a-literal.md)
 - **0156** · [A `method:` that is not an HTTP token is refused where it is written](0156-a-method-that-is-not-an-http-token-is-refused-where-it-is-written.md)
 - **0157** · [A Capability is an effect `hyper` performs with a credential it already has a position for](0157-a-capability-is-an-effect-hyper-performs-with-a-credential-it-already-has-a-position-for.md)
+- **0158** · [A Bound is a positive count](0158-a-bound-is-a-positive-count.md)

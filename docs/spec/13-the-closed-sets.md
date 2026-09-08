@@ -440,7 +440,7 @@ from data being what ADR-0024 closed.
 
 ## `error_code`
 
-**Closed.** Fifty-three members, each the identifier of a check that declined, named where that check is
+**Closed.** Fifty-four members, each the identifier of a check that declined, named where that check is
 stated, and none of them ever Provider-supplied (§9, ADR-0004).
 
 No failure carries one. A Refusal is `hyper` declining and has a check to name; a failure is the world
@@ -448,13 +448,13 @@ resisting and has none, and the ways it can resist are not a set anything could 
 failures are told apart by the exit code above rather than here.
 
 **Most of the set declines before Step 1.** A Run re-runs `check` in full at its start (§6), so all
-thirty-two of §4's static codes reach a Run that way, beside the credential pass, the sink gate, the
+thirty-three of §4's static codes reach a Run that way, beside the credential pass, the sink gate, the
 Cadence's and the Store's. Where one does, it is held on `outcome.json` and never on a Step file, `step` being an
 artefact coordinate rather than an execution fact (§7, ADR-0061). Only `bound-exceeded`,
 `run-once-recorded`, `record-identity-collision`, §6's `predicate-type-mismatch` and §6's
 `schema-mismatch` require a Step to
 have been reached at all — `record-identity-collision` at its Expansion site, its two authored sites
-reaching a Run the way §4's thirty-two do. `secret-sink-absent` is not among them and could have
+reaching a Run the way §4's thirty-three do. `secret-sink-absent` is not among them and could have
 been: its operands are in hand at Run start, so it is stated as the Run's gate rather than the Step's,
 and the reason is not tidiness — declining at the Step under a Cadence would run the Steps before it
 at every occurrence and never reach the tail (§6, ADR-0077).
@@ -464,7 +464,7 @@ coincidence of its members: a guardrail that declines after a call is a halt and
 carry (§6, ADR-0072). All five of these fire at or before Expansion, which resolves before the Step's
 first call.
 
-Thirty-two are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
+Thirty-three are contributed by §4's static checks alone: `strict-yaml-violation`, `unknown-key`,
 `schema-mismatch`, a value that does not satisfy the schema at its position — characters that will not
 read as the declared type, a declared input no `args:` supplies, a value outside its `enum` — which is
 the instance half of a schema where `unknown-key` is the key half, the two split on
@@ -488,7 +488,10 @@ and its own member because a reader handed that code on a `target:` line would e
 `envelope-exceeded`, `procedure-cycle`, an invocation graph that closes on itself — a Procedure
 invoking one that is already invoking it, directly or through a chain of any length — cited at the
 invocation entry that closes the loop, which is the line an author edits to break it (§4, §6,
-ADR-0002); `opaque-destroy-not-granted`, `bound-missing`, `bound-illegal`, `host-not-granted`,
+ADR-0002); `opaque-destroy-not-granted`, `bound-missing`, `bound-illegal`, `bound-not-positive`, a
+`bound:` below `1` — a guardrail admitting no Record, which every Expansion that resolved anything
+exceeds, so the Step it guards can act on no Run and its Journal entry would record the strictest
+Bound there is exactly as a Step declaring none does (§4, ADR-0158); `host-not-granted`,
 `command-malformed`, a shell Step's `command:` that is empty or names its executable by reference
 (§3, ADR-0051), `destroy-unscoped`, a `destroy` Step of any Capability carrying no `over:` selector
 and therefore reaching the world with nothing to write a Tombstone under — one code on the Kind

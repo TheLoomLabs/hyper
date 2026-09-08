@@ -16,7 +16,9 @@
 // #157 — which also lands the empty `over: values:` member beside it, the
 // other authored shape reaching an identity with no name. A Capability its
 // Target grants is checked already, in definition.go, needing no Step to
-// exist.
+// exist. Issue #287 adds the one rule those three read the *value* for
+// rather than the key: bound-not-positive, a Bound below 1 being a
+// guardrail no Step can act under (ADR-0158).
 //
 // Issue #97 lands here too: the closed eleven-member operator set's own
 // operand-type rules (predicate-type-mismatch), checked wherever a
@@ -115,6 +117,26 @@ const CodeBoundMissing = "bound-missing"
 // earns — the one Step that carries no Bound, a count of the commands it
 // ran saying nothing about what any of them did (§4, §5, issue #95).
 const CodeBoundIllegal = "bound-illegal"
+
+// CodeBoundNotPositive is the code a bound: below 1 earns — a Bound is the
+// maximum number of Records a Step may affect, and a Step admitting none is
+// one that can act on no Run at all: every Expansion resolving a member
+// exceeds it, so bound-exceeded is the Step's only reachable outcome and no
+// call it guards can ever go out (§4, §5, ADR-0158, issue #287).
+//
+// It is one code over the zero and the negatives because it is one fault. A
+// Bound errs in the declining direction by design — §4 holds bound: to an
+// integer and refuses one only where it may not stand at all, so a Bound
+// nobody meant declines rather than admits — and this is where that direction
+// runs out: past 1 the value stops being a guardrail that is too tight and
+// becomes one nothing can satisfy.
+//
+// It is also what keeps the Bound a Journal records unambiguous. A Step's
+// entry writes the member only where it is non-zero, so bound: 0 and no
+// bound: at all would record identically and a reader could not tell the
+// strictest Bound there is from none (§7, internal/store/step.go, issue
+// #286).
+const CodeBoundNotPositive = "bound-not-positive"
 
 // CodeDestroyUnscoped is the code a destroy Step carrying no over: selector
 // earns: without one it is invoked once, has no Expansion to write a
@@ -949,6 +971,13 @@ func checkSkipIfRecordedReachability(file, field string, entry, overVal *yaml.No
 // combination; a mutate Step's Bound is optional either way and draws no
 // code.
 //
+// Where a Bound may stand, its **value** is checked too: one below 1 is
+// bound-not-positive, a guardrail admitting no Record at all being one no
+// Step can act under (§4, §5, ADR-0158, issue #287). It is the switch's
+// last arm rather than a check of its own so that it never doubles a row —
+// the three above refuse the key where it may not stand, and a second row
+// naming the count would teach an edit the first has already refused.
+//
 // It also fires destroy-unscoped for any destroy Step carrying no over:
 // selector — the third requirement the Bound's own place stands in for (§5,
 // ADR-0053), and one that never depended on opacity. A destroy declares no
@@ -982,6 +1011,13 @@ func checkStepBound(file, field string, entry, boundVal, overVal *yaml.Node, op 
 			ErrorCode: CodeBoundMissing,
 			Message:   "a destroy Step carries no bound: — an absent Bound means unbounded, and unbounded is refused before anything runs",
 		})
+	case belowOne(boundVal):
+		problems = append(problems, problem.Problem{
+			File: file, Line: line, Column: column, Field: field + ".bound",
+			ErrorCode: CodeBoundNotPositive,
+			Message: fmt.Sprintf("bound: %s is below 1 — a Bound admitting no Record is one every Expansion that resolved anything exceeds, so the Step it guards can act on no Run",
+				boundVal.Value),
+		})
 	}
 
 	if op.Kind == "destroy" && overVal == nil {
@@ -993,6 +1029,31 @@ func checkStepBound(file, field string, entry, boundVal, overVal *yaml.Node, op 
 		})
 	}
 	return problems
+}
+
+// authoredBound is the Bound written at this node and whether one was
+// written at all — this file's one reading of that scalar, shared by the two
+// checks that need it, so that the count a Step is held to offline and the
+// value refused as no Bound at all can never be read two ways (§4).
+//
+// A value that will not read as an integer answers false rather than a fault:
+// `bound:` is a schema.Integer at its position, so characters that are not one
+// are schema-mismatch already, and a second row over the same scalar would name
+// a fault its author cannot act on yet (§4, ADR-0081).
+func authoredBound(boundVal *yaml.Node) (int, bool) {
+	if boundVal == nil || boundVal.Kind != yaml.ScalarNode {
+		return 0, false
+	}
+	declared, err := strconv.Atoi(boundVal.Value)
+	return declared, err == nil
+}
+
+// belowOne says the Bound written here reads as an integer smaller than 1 —
+// the value bound-not-positive refuses, and the value the count check below
+// stands down for.
+func belowOne(boundVal *yaml.Node) bool {
+	declared, written := authoredBound(boundVal)
+	return written && declared < 1
 }
 
 // checkStepArgs validates args: against op's input: schema (§3, §4): every
@@ -1412,12 +1473,15 @@ func checkOverValuesShape(file, field string, node *yaml.Node) []problem.Problem
 // #97). It says nothing where bound: or over: values: is absent or
 // illegible, or where over: is assets:/observations: — no file can count
 // what an Expansion over the Store resolves to, and that half is a Run's.
+//
+// It says nothing where the Bound is **below 1** either, that being
+// bound-not-positive and the row this comparison would double. Every list
+// exceeds such a Bound, so the count here is not a fact about the list: what
+// is wrong is the number it was compared against, and one edit answers one
+// row (§4, ADR-0158, issue #287).
 func checkBoundExceeded(file, field string, boundVal, overVal *yaml.Node) []problem.Problem {
-	if boundVal == nil || boundVal.Kind != yaml.ScalarNode {
-		return nil
-	}
-	bound, err := strconv.Atoi(boundVal.Value)
-	if err != nil {
+	bound, written := authoredBound(boundVal)
+	if !written || bound < 1 {
 		return nil
 	}
 	valuesVal := overValuesList(overVal)

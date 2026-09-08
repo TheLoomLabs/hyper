@@ -570,10 +570,13 @@ func (r run) exceededBound(held expansion, authored sequenced, cited citation) [
 // Bound* and never *this Bound could not be read*: a fault this file cannot
 // reach is still one it must not silently reinterpret (ADR-0064).
 //
-// A **negative** Bound reads as one and is not this file's to judge. §4 holds
-// `bound:` to an integer and refuses one only where it may not stand at all, so
-// `bound: -1` reaches here and Refuses every Expansion, which is the direction a
-// Bound errs in: a guardrail nobody meant declines rather than admits.
+// A Bound **below 1** is refused where it is written, so none reaches here from
+// a checked repository: `bound: 0` and `bound: -1` are `bound-not-positive`,
+// a guardrail admitting no Record being one no Step can act under (§4,
+// ADR-0158, issue #287). This function still reads one and still counts every
+// Expansion against it, which is the direction a Bound errs in — a guardrail
+// nobody meant declines rather than admits — and is what a fault this file
+// cannot reach is owed: refused above, and never silently widened here.
 func declaredBound(node *yaml.Node) (int, bool) {
 	if node == nil || node.Kind != yaml.ScalarNode {
 		return 0, false

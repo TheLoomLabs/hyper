@@ -310,6 +310,19 @@ rendering rather than on a check: such a Step is flagged `unbounded` whether it 
 which is where the difference between the number and the blast radius is said (§5, §12, ADR-0121). A
 `read` Step carries no Bound at all, having nothing for one to guard.
 
+**Where a Bound may stand at all, it is at least `1`**, and one below that is `bound-not-positive`. A
+Bound admitting no Record is one that every Expansion resolving anything exceeds, so `bound-exceeded`
+is such a Step's only reachable outcome and no call it guards can ever go out — a guardrail nothing
+can satisfy rather than a strict one. The zero and the negatives are one code because they are one
+fault; a Bound errs in the declining direction by design, and this is where that direction runs out.
+It is decided at the **value**, and only where the rules above admit the key at all: a `bound: 0` on a
+`read` Step is `unknown-key` and on an `opaque` `destroy` is `bound-illegal`, each the answer to the
+question that comes first. It is also the only row such a Step draws, the count check below standing
+down where the Bound it would compare against is the fault — two rows naming one edit is what a code
+per check is for and not what it costs. What it settles beyond the Step is the record: §7's selector
+carries the Bound where it is non-zero, so `bound: 0` and no `bound:` at all would leave the same
+Journal entry, and the strictest Bound there is would read back as none (§7, ADR-0158).
+
 Whether an Expansion's actual count exceeds a declared Bound is not decidable from the artefacts alone
 except in one case, and there it is decided here: an `over:` `values:` list is authored in the
 Procedure, so its length is read off the file, and a list longer than the Step's Bound is

@@ -2064,7 +2064,8 @@ Read one Journal entry back whole: its header, the Refusal its Run recorded, and
                   },
                   "bound": {
                     "type": "integer",
-                    "minimum": 0
+                    "minimum": 1,
+                    "description": "The Bound the Expansion was counted against, absent where the Step declared none. One is the smallest a Step may declare — a bound: below it is bound-not-positive — so the absence is a Step with no Bound and never a Bound of zero."
                   }
                 }
               },
