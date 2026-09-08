@@ -370,6 +370,57 @@ operations:
 	}
 }
 
+// methodHoleManifest writes a hole into method: naming an input the Operation
+// declares — the arrangement §12 refuses at the position rather than at the
+// source, and the one both tests below read (ADR-0155, issue #279).
+const methodHoleManifest = `kind: provider
+provider: broken
+schema-version: 1
+class: local
+capabilities: [http]
+operations:
+  noop:
+    kind: read
+    deadline: 1h
+    http:
+      method: "{verb}"
+      host: "{from-target}"
+      path: /
+    input:
+      type: object
+      properties:
+        verb: {type: string}
+    record:
+      identity: $.id
+      fields:
+        id: $.id
+`
+
+// TestCheckManifest_HoleInMethodIsIllegal holds §12's second position where a
+// hole is refused outright. Nothing about the source is wrong here — {verb}
+// names an input this Operation declares, which is what every ordinary
+// position asks for — so a fixture that got the name wrong would pass this
+// test for the wrong reason (ADR-0155, issue #279).
+func TestCheckManifest_HoleInMethodIsIllegal(t *testing.T) {
+	got := checkManifest(t, "providers/broken.yaml", methodHoleManifest)
+	p := mustCode(t, got, CodeHoleIllegal)
+	if p.Field != "operations.noop.http.method" {
+		t.Errorf("Field = %q, want operations.noop.http.method", p.Field)
+	}
+}
+
+// TestCheckManifest_AnInputReachedOnlyByAMethodHoleIsUnreached holds the
+// quieter half of the same decision: method: reaches no input, so an input
+// named only there is declared, supplied by every Step that binds the
+// Operation (ADR-0081), and read by nothing. It is the shape an Auth scheme's
+// refused hole already has (ADR-0155, issue #279).
+func TestCheckManifest_AnInputReachedOnlyByAMethodHoleIsUnreached(t *testing.T) {
+	got := checkManifest(t, "providers/broken.yaml", methodHoleManifest)
+	if fields := fieldsOfCode(got, CodeManifestInconsistent); !slices.Contains(fields, "operations.noop.input.properties.verb") {
+		t.Errorf("%s fields = %v, want operations.noop.input.properties.verb among them", CodeManifestInconsistent, fields)
+	}
+}
+
 func TestCheckManifest_HoleInABodyMappingKeyIsIllegal(t *testing.T) {
 	doc := `kind: provider
 provider: broken

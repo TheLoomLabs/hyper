@@ -65,14 +65,17 @@ var reservedHeaders = map[string]bool{
 
 // Request is one Operation's http: block, read (§3): the method, the host
 // template, the path, and the optional query, headers and body. It is the
-// declaration and not the call — every string here may still carry template
-// holes, and Build is what fills them.
+// declaration and not the call — every string here but Method may still carry
+// template holes, and Build is what fills them.
 //
 // Query and Headers are ordered rather than mappings because a request is
 // bytes: §3 fixes a body's keys in the order they were authored, and a query
 // string is the same fact one position over. Nothing downstream sorts them, so
 // what a Manifest wrote is what leaves.
 type Request struct {
+	// Method is the verb, and it is a literal: a hole here is one of the
+	// two §12 refuses outright, so what is read is what leaves (§3, §12,
+	// hole-illegal, ADR-0155).
 	Method  string
 	Host    string
 	Path    string
@@ -225,6 +228,12 @@ func ReadRequest(operation *yaml.Node) (Request, bool) {
 // (ADR-0081), so a hole with nothing behind it is a Manifest check has already
 // refused — and filling it with the empty string would put a request on the
 // wire that no artefact describes.
+//
+// Method is copied through rather than filled, and that is the whole of what
+// its position means here: §12 refuses a hole in method: outright, so there is
+// nothing to fill and no source that could have filled it. A Fill call on this
+// line would be the other exit — the verb decided by a value from outside the
+// artefact while the Kind stayed declared inside it (ADR-0155, issue #279).
 func (r Request) Build(host string, inputs map[string]schema.Scalar) (Call, error) {
 	call := Call{Host: host, Method: r.Method}
 

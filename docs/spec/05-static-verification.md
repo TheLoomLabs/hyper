@@ -28,11 +28,12 @@ outside its `enum` — is `schema-mismatch` (§3, ADR-0081); a `kind:` disagreei
 input schema outside the closed subset is `schema-unsupported`; a malformed or
 misplaced credential slot is `credential-slot-malformed`; a hole resolving outside its position's legal
 source, or written in a position §12 does not list, is `hole-illegal`, which covers a hole inside an
-Auth scheme's parameters, the one position with no legal source at all, and a hole in a `body:` mapping
-key, which is no position at all (§3); a reference naming an earlier Step of `series` cardinality is
-`series-reference`; a reference naming a field no Operation of that Provider projects is
-`reference-unresolvable` (§3); and a shell Step's `command:` that is empty, or whose first member is a
-reference rather than a literal, is `command-malformed` (§3, ADR-0051).
+Auth scheme's parameters and a hole in an Operation's `method:` — the two positions with no legal
+source at all — and a hole in a `body:` mapping key, which is no position at all (§3, ADR-0155); a
+reference naming an earlier Step of `series` cardinality is `series-reference`; a reference naming a
+field no Operation of that Provider projects is `reference-unresolvable` (§3); and a shell Step's
+`command:` that is empty, or whose first member is a reference rather than a literal, is
+`command-malformed` (§3, ADR-0051).
 
 `command-malformed` is one code over two faults because it is one check — *a shell Step names its
 executable literally* — and both faults are the same absence of one. It is stated here rather than

@@ -864,7 +864,8 @@ a response after the call went out, so what applies there is §6's *when a proje
 
 ## The template-hole positions
 
-**Closed.** One hole syntax, three legal positions:
+**Closed.** One hole syntax, three positions. Two of them fix where a hole's value may come from; the
+third admits no hole at all, and is two keys wide:
 
 - A **Capability-relevant position** resolves only to a declared closed enumeration or to `from-target`,
   never to an Operation input and never to a bare wildcard. `hyper` expands the cross-product of every
@@ -875,17 +876,25 @@ a response after the call went out, so what applies there is §6's *when a proje
   already granted (§3). The enumeration a hole names is declared in a Manifest's `enumerations:` and
   never in an Operation's input schema, whose `enum` constrains a value a caller supplies.
 - Every other position resolves only to an Operation input.
-- Inside `auth:` no hole is legal at all. A Manifest writes an Auth scheme's parameters as literals, and
-  the credential itself is never written there in any form: the scheme owns the position it occupies, so
-  there is nothing for a hole to stand in for (§3, ADR-0031). This is the one position where a hole is
-  refused outright rather than restricted to a source.
+- **The third position admits no hole at all**, and it is where a hole is refused outright rather than
+  restricted to a source. It is two keys, for one reason read at two places. Inside `auth:` no hole is
+  legal: a Manifest writes an Auth scheme's parameters as literals, and the credential itself is never
+  written there in any form — the scheme owns the position it occupies, so there is nothing for a hole
+  to stand in for (§3, ADR-0031). Nor is one legal in an Operation's `method:`, the request's own verb.
+  It is the one key of a request that decides what a call *does* rather than what it carries or where it
+  goes, and a hole there would hand that decision to whoever supplies the input while the Kind stayed
+  declared in the Manifest — ADR-0029's arrival for a host and ADR-0051's for a command's first argv
+  word, arriving a third time on the verb (§3, §5, ADR-0155). `method:` therefore reaches no Operation
+  input, and one named only in a hole there is `manifest-inconsistent` like any other input nothing
+  reaches (§4).
 
 A hole resolving to none of these, one filled from the wrong source for its position, or one written in
 a position not on this list at all — a mapping key inside a `body:` is the case that arises (§3) — is a
 load error.
 
-The positions above fix a hole's **source**. Its **type** is fixed by one further rule, and it has one
-site: **a hole carries the declared type of the Operation input it resolves to**, and the only position
+The positions above fix a hole's **source** where it has one. Its **type** is fixed by one further
+rule, and it has one site: **a hole carries the declared type of the Operation input it resolves
+to**, and the only position
 that can receive a type is a `body:`, every other being text on the wire (§3). A hole is the whole of
 its value or it is a composition and therefore a string. A hole naming an input declared `object` or
 `array` is refused wherever it stands, on the rule a reference already carries — a hole fills a scalar

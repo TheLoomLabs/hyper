@@ -44,9 +44,9 @@ const CodeSchemaUnsupported = "schema-unsupported"
 
 // CodeHoleIllegal is the code a template hole earns wherever it resolves
 // outside its position's legal source, or stands in a position §12 does not
-// list at all — inside an Auth scheme's parameters, the one position with
-// no legal source at all, and a body: mapping key, which is no position at
-// all (§3, §4, §12).
+// list at all — inside an Auth scheme's parameters and in an Operation's
+// method:, the two positions with no legal source at all, and a body:
+// mapping key, which is no position at all (§3, §4, §12, ADR-0155).
 const CodeHoleIllegal = "hole-illegal"
 
 // CodeCapabilityMismatch is the code a Manifest's declared capabilities:
@@ -842,19 +842,24 @@ func checkInputReachability(file, field string, fields map[string]*yaml.Node, is
 }
 
 // collectReachedNames marks, in reached, every input name an http: block's
-// ordinary positions reach: every hole in method:, path:, query: and
-// headers: values, every hole in body:, and host-input:'s own value (§3,
-// §4). host: is deliberately excluded — it is Capability-relevant and never
-// resolves to an Operation input (§12).
+// ordinary positions reach: every hole in path:, query: and headers:
+// values, every hole in body:, and host-input:'s own value (§3, §4).
+//
+// Two positions are deliberately excluded, for the two reasons a position
+// can be. host: is Capability-relevant and never resolves to an Operation
+// input (§12). method: admits no hole at all, so a name written there
+// reaches nothing — an input named only in one is declared, supplied by
+// every Step that binds the Operation (ADR-0081) and read by nothing, which
+// is the manifest-inconsistent row checkInputReachability exists to write.
+// Collecting it here would silence that row on the strength of a hole
+// checkMethodHoles has already refused (§12, ADR-0155, issue #279).
 func collectReachedNames(httpVal *yaml.Node, reached map[string]bool) {
 	if httpVal == nil || httpVal.Kind != yaml.MappingNode {
 		return
 	}
-	fields := topLevelFields(httpVal, "method", "path", "query", "headers", "body", "host-input")
-	for _, key := range []string{"method", "path"} {
-		if v := fields[key]; v != nil && v.Kind == yaml.ScalarNode {
-			collectHoleNames(v.Value, reached)
-		}
+	fields := topLevelFields(httpVal, "path", "query", "headers", "body", "host-input")
+	if v := fields["path"]; v != nil && v.Kind == yaml.ScalarNode {
+		collectHoleNames(v.Value, reached)
 	}
 	for _, key := range []string{"query", "headers"} {
 		if m := fields[key]; m != nil && m.Kind == yaml.MappingNode {
@@ -926,17 +931,17 @@ func checkExactlyOneOf(file, field string, node *yaml.Node, keys []string) []pro
 	}}
 }
 
-// checkHTTPRequest validates an http: block's own schema, then the two
+// checkHTTPRequest validates an http: block's own schema, then the three
 // hole rules the request's positions split on: host: is Capability-relevant
 // and its holes resolve only against a declared enumerations: entry or
-// from-target; every other position resolves only against this Operation's
-// own input (§3, §12).
+// from-target; method: admits no hole at all; every other position resolves
+// only against this Operation's own input (§3, §12, ADR-0155).
 func checkHTTPRequest(file, field string, node *yaml.Node, enumNames, inputProps map[string]bool, inputTypes map[string]string, ownedHeader string) []problem.Problem {
 	problems := schema.CheckAt(node, httpRequestDeclaration, field, file)
 	fields := topLevelFields(node, "method", "host", "path", "query", "headers", "body", "host-input")
 
 	if methodVal := fields["method"]; methodVal != nil && methodVal.Kind == yaml.ScalarNode {
-		problems = append(problems, checkOrdinaryHoles(file, field+".method", methodVal, inputProps, inputTypes)...)
+		problems = append(problems, checkMethodHole(file, field+".method", methodVal)...)
 	}
 	if hostVal := fields["host"]; hostVal != nil && hostVal.Kind == yaml.ScalarNode {
 		problems = append(problems, checkCapabilityHoles(file, field+".host", hostVal, enumNames)...)
@@ -1176,9 +1181,48 @@ func checkOrdinaryHoles(file, field string, node *yaml.Node, inputProps map[stri
 	return problems
 }
 
+// refuseHoleOutright reports one hole-illegal at node's own position where
+// node carries a hole at all, and is the whole of what each of §12's two
+// no-source positions needs. The name inside the hole is never read, so
+// neither which hole nor how many is a fact either refusal can report — one
+// row says the position admits none, and a second row on the same scalar
+// would name a second fault that is not there. message is the position's
+// own, there being nothing else to tell the two apart (§3, §4, §12,
+// ADR-0031, ADR-0155).
+func refuseHoleOutright(file, field string, node *yaml.Node, message string) []problem.Problem {
+	if !holePattern.MatchString(node.Value) {
+		return nil
+	}
+	return []problem.Problem{{
+		File: file, Line: node.Line, Column: node.Column, Field: field,
+		ErrorCode: CodeHoleIllegal,
+		Message:   message,
+	}}
+}
+
+// checkMethodHole reports a hole anywhere in an Operation's method: as
+// hole-illegal outright, whatever it would have resolved to — the second of
+// §12's two positions with no legal source at all, and the only one among
+// the request's own keys (§3, §4, §12, ADR-0155).
+//
+// The refusal is at the position and not at the source, so the name inside
+// the hole is never read: a hole naming a declared input is the case this
+// exists for, that being the one an author writes and the one every other
+// ordinary position admits. What it closes is the verb arriving from
+// outside the artefact while the Kind stays declared in the Manifest — a
+// kind: read Operation sending DELETE, checked against the Target's read
+// grant, drawing no DESTROY flag and reaching none of destroy's
+// requirements (§5, ADR-0029, ADR-0051, issue #279).
+func checkMethodHole(file, field string, node *yaml.Node) []problem.Problem {
+	return refuseHoleOutright(file, field, node,
+		"method: admits no hole of any kind — the verb a request performs is written literally, and a value from outside the artefact may not choose it")
+}
+
 // checkAuthHoles reports every hole found anywhere inside an Auth scheme's
 // parameters as hole-illegal outright, whatever it would have resolved to —
-// the one position with no legal source at all (§3, §4, §12).
+// one of the two positions with no legal source at all, and the one that is
+// a block rather than a key, so the walk below is what method: does not need
+// (§3, §4, §12, ADR-0155).
 func checkAuthHoles(file, field string, node *yaml.Node) []problem.Problem {
 	if node == nil {
 		return nil
@@ -1186,13 +1230,8 @@ func checkAuthHoles(file, field string, node *yaml.Node) []problem.Problem {
 	var problems []problem.Problem
 	switch node.Kind {
 	case yaml.ScalarNode:
-		if holePattern.MatchString(node.Value) {
-			problems = append(problems, problem.Problem{
-				File: file, Line: node.Line, Column: node.Column, Field: field,
-				ErrorCode: CodeHoleIllegal,
-				Message:   "an Auth scheme's parameters admit no hole of any kind",
-			})
-		}
+		problems = append(problems, refuseHoleOutright(file, field, node,
+			"an Auth scheme's parameters admit no hole of any kind")...)
 	case yaml.MappingNode:
 		for i := 0; i+1 < len(node.Content); i += 2 {
 			key, val := node.Content[i], node.Content[i+1]

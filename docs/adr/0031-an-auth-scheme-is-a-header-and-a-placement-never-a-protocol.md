@@ -56,6 +56,9 @@ stays as mechanical as it was when the name was fixed.
   while a scheme might name a host of its own; with that gone, the position does not fall back to the
   default of resolving to an Operation input, because that would let a Step's arguments choose the header
   a credential lands in. It becomes the one position in the format where a hole is refused outright.
+  _[ADR-0155](0155-a-requests-method-is-a-literal.md) amends this:_ there are two. An Operation's
+  `method:` joins it on the same reasoning read one key over — what a call *does* is written in the
+  artefact — and this decision is otherwise untouched.
 - **A Capability-relevant position is exactly one**, an Operation's `host:`. This narrows ADR-0029's
   fourth consequence, which named two while a scheme could reach somewhere.
 - **A scheme may not name a header `hyper` computes.** Five are reserved. `Host` is the one that makes it

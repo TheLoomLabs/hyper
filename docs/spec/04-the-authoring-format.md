@@ -666,6 +666,20 @@ type to carry into and schema-directed typing has nothing to guess at. `body:` i
 request that is not text, and it is stated below. A form-encoded, XML, or raw body is not writable, and
 joins the limits §13 states rather than becoming a second serialisation this format learns.
 
+`method:` is a literal verb, and it is the one key of a request that admits no template hole at all. A
+hole there would hand the verb to whoever supplies the input while the Kind stayed declared in the
+Manifest: a `kind: read` Operation could be given `DELETE` by a Step's argument, be checked against the
+Target's `read` grant, draw no `DESTROY` flag in the review, and reach none of the requirements §5 puts
+on a `destroy` — a mandatory Bound among them. What a call *does* is written in the artefact a reviewer
+reads, which is [ADR-0029](../adr/0029-a-host-is-a-candidate-set-a-grant-and-their-intersection.md)'s
+decision for a host and
+[ADR-0051](../adr/0051-a-shell-command-is-an-argv-list-with-a-literal-head.md)'s for a command's first
+argv word, arriving here on the request's verb. A hole in `method:` is `hole-illegal` (§4, §12,
+[ADR-0155](../adr/0155-a-requests-method-is-a-literal.md)), refused at the position rather than at the
+source, so the name inside it is never read. It follows that `method:` reaches no Operation input: one
+named only there is declared, supplied by every Step that binds the Operation, and read by nothing,
+which is `manifest-inconsistent` on the rule every unreached input carries (§4).
+
 `path:` is written as text and `hyper` percent-encodes it — `url.URL`'s `Path`, not a second convention
 — so an author writes the path a reader would say out loud and the escaping is `hyper`'s. Two characters
 therefore cannot mean there what they mean in a URL, and neither is silently accepted. A `?` does not
@@ -1136,11 +1150,11 @@ not two rules. `Host` is the reason the check is not merely tidiness: `hyper` de
 from `host:`, which is the value the Target's grant was checked against, so a scheme setting it would
 dial a granted host while claiming another.
 
-A scheme's parameters carry literals and admit no template hole of any kind, which makes them the one
-position in the format where a hole is illegal outright rather than restricted to a source
-(`hole-illegal`, §4). A hole here resolving to an Operation input would let a Step's arguments choose
-the header a credential lands in, which is the Manifest-chooses-placement door reopened from the far
-side.
+A scheme's parameters carry literals and admit no template hole of any kind, which makes them one of the
+two positions in the format where a hole is illegal outright rather than restricted to a source
+(`hole-illegal`, §4), an Operation's `method:` being the other. A hole here resolving to an Operation
+input would let a Step's arguments choose the header a credential lands in, which is the
+Manifest-chooses-placement door reopened from the far side.
 
 A scheme's credential slots are the scheme's, and neither a Manifest nor a Target declaration invents
 one. A Target declaration's `auth:` is a mapping of slot name to credential slot, and it names no scheme:

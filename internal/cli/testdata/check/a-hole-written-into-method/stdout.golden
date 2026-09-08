@@ -1,0 +1,3 @@
+FILE                   LINE  FIELD                                        ERROR_CODE             MESSAGE
+providers/uptime.yaml  11    operations.check_http.http.method            hole-illegal           method: admits no hole of any kind — the verb a request performs is written literally, and a value from outside the artefact may not choose it
+providers/uptime.yaml  19    operations.check_http.input.properties.verb  manifest-inconsistent  input "verb" is declared and no position of this Operation's request reaches it
