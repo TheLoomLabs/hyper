@@ -185,8 +185,14 @@ in the prose that introduces one, and the reason the word moves with every entry
   Kind: a `read` never halts on a status at all, which is what makes the same rule the reason `uptime`
   is writable rather than a further thing it cannot say.
 
-The process by which those sets grow — who adds a member, and when — is undecided, and §12 records it
-as undecided rather than answering it.
+The process by which those sets grow is §12's, and it is no longer undecided there. The set this
+ceiling is first about — the Capabilities, an effect being what a Provider needing one lacks — is
+admitted to by a sentence and the five criteria applying it, which §12 states and this section cites
+rather than restating (§12,
+[ADR-0157](../adr/0157-a-capability-is-an-effect-hyper-performs-with-a-credential-it-already-has-a-position-for.md)).
+Nothing on this list moves for it. What changes is that a candidate for an effect an entry here wants
+is assessed against a stated test rather than argued afresh, and that a `file` Capability is recorded
+as kept on file, with the condition that resumes its argument, rather than refused.
 
 One further cost of the Auth schemes is a rendering loss rather than an unwritable Provider, and it
 belongs beside that list rather than in it. A credential slot holds one opaque string, so where a

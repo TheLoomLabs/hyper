@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 156 records**, numbered `0001`–`0156` with no gaps. They are chronological:
+**This corpus holds 157 records**, numbered `0001`–`0157` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -98,7 +98,8 @@ none. The list below is the whole corpus and the only complete thing on this pag
 [0082](0082-the-scheme-is-https-and-there-is-no-second-one.md) ·
 [0087](0087-a-ref-is-a-location-and-hyper-names-no-registry.md) ·
 [0106](0106-a-manifest-is-writable-from-the-surface-and-both-costs-were-paid-at-the-world.md) ·
-[0107](0107-a-query-string-in-path-is-refused-where-it-is-written.md)
+[0107](0107-a-query-string-in-path-is-refused-where-it-is-written.md) ·
+[0157](0157-a-capability-is-an-effect-hyper-performs-with-a-credential-it-already-has-a-position-for.md)
 
 **Execution**
 [0003](0003-a-run-is-never-resumed.md) ·
@@ -381,3 +382,4 @@ here fails the suite.
 - **0154** · [The list is the declaration, and *declares any* is derived from it](0154-the-list-is-the-declaration-and-declares-any-is-derived-from-it.md)
 - **0155** · [A request's `method:` is a literal](0155-a-requests-method-is-a-literal.md)
 - **0156** · [A `method:` that is not an HTTP token is refused where it is written](0156-a-method-that-is-not-an-http-token-is-refused-where-it-is-written.md)
+- **0157** · [A Capability is an effect `hyper` performs with a credential it already has a position for](0157-a-capability-is-an-effect-hyper-performs-with-a-credential-it-already-has-a-position-for.md)

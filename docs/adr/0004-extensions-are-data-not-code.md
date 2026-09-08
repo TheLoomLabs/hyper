@@ -56,6 +56,11 @@ offline, without credentials, which gives an agent a correctness oracle that a p
   you must trust, which is the thing being replaced. The ceiling is not the price of verifiability —
   it is the same fact stated from the other side. What remains unowned is the *process* by which the
   closed set grows without becoming an open one by attrition.
+  _[ADR-0157](0157-a-capability-is-an-effect-hyper-performs-with-a-credential-it-already-has-a-position-for.md)
+  amends this:_ it is unowned no longer. A Capability is an effect `hyper` performs with a credential
+  it already has a position for, five criteria apply that sentence, and a candidate failing *not
+  composable* is refused where it passes the other four — which is where the attrition named here
+  would otherwise enter.
 - **A registry can exist and it makes no safety claim.** Distribution is a separate concern precisely
   because there is nothing to vet: `hyper` verifies that fetched bytes match a published digest, never
   that an extension is benign. The honest promise is not "this extension was checked" but "a hostile

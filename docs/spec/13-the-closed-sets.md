@@ -7,8 +7,16 @@ A set below is **closed** once the sections that draw on it stop adding members 
 **open** until then. Every set below carries its marker, none of them is open, and every one of them
 states its membership in full.
 
-The process by which a set in this chapter grows — who adds a member, and when — is undecided. It is
-not decided here (ADR-0004).
+Closure here is against an author adding a member, which is not the same as closure against this
+specification naming a state of the world it had not written down — the one instance being the
+Dispositions' seventh member
+([ADR-0062](../adr/0062-a-request-that-never-left-is-a-disposition-of-its-own.md)). That route does
+not reach the Capabilities, an effect `hyper` does not perform being no state of the world this
+specification failed to name, so that set is admitted to by a sentence instead — **a Capability is
+an effect `hyper` performs with a credential it already has a position for**, applied by five
+criteria, of which *not composable* refuses a candidate passing the other four
+([ADR-0004](../adr/0004-extensions-are-data-not-code.md),
+[ADR-0157](../adr/0157-a-capability-is-an-effect-hyper-performs-with-a-credential-it-already-has-a-position-for.md)).
 
 Two closed grammars are deliberately not here, each being the whole subject of the chapter that owns
 it: the YAML subset every artefact is written in (§3) and the cron grammar a Cadence is written in —
