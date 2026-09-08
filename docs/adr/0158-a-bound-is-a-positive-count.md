@@ -117,3 +117,6 @@ because the Store's encoder was taught a second value.
   agent already reads for the Bound's two harder rules, and because no transcript has ever shown an
   agent authoring a Bound below one — the run is worth buying the next time that task is bought for a
   reason of its own, not on this clause alone.
+  [#288](https://github.com/TheLoomLabs/hyper/issues/288) holds the obligation, beside ADR-0126's,
+  which the 2026-09-02 run of the same task never reached: two deferrals now stand on one run, which
+  is what `acceptance-re-runs.md` calls the argument for buying that task next.
