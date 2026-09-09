@@ -442,6 +442,134 @@ them one.
 writes nothing (§9). A scheduled Run that refuses there therefore leaves no trace in the repository
 at all, and what happened is in the executor's log or nowhere.
 
+## What a machine's inside costs
+
+Every limit above is stated per mechanism. This one is a scenario's worth of them meeting, and it is
+collected here because the question behind it is the one a reader arrives with: *can a service be
+installed on a machine `hyper` provisioned, and can a cluster be formed?* The answer is not a yes or
+a no but a price list, and the list below is what an implementer paid rather than what a reading
+inferred — [`docs/research/worked-example-immutable-cluster.md`](../research/worked-example-immutable-cluster.md)
+is the exercise, frozen at the commit it was worked at, and its numbered findings are cited wherever
+this section states one.
+
+**`hyper` is accountable for the command and never for the service.** An Opaque Operation's effect is
+a process `hyper` starts, waits for, and records the end of (§6, §12). Everything past that process
+boundary — whether the daemon it launched stayed up, whether the machine it asked for booted,
+whether the node it joined is serving — is outside what the Record claims, and no surface narrows the
+gap, nothing having looked. A command that reports success and does nothing writes the same Asset as
+one that worked: the same Definition, the same Target, the same single field, and a name differing
+only where the argv differed. The limit has a second shape reached from the far side, and an author
+who avoids `shell` for the reason this section gives lands on it — an Asset written against an
+asynchronous `http` create is accountable for the **job** rather than for the machine, every field on
+it coming off the create's own operation resource, so the Record is true and says nothing about
+whether a machine exists (finding **#14**). *The call was accepted* and *the command ran* are one
+limit in two Capabilities.
+
+**An opaque Asset is identified by its argv, and that is the whole of the handle.** The built-in
+Manifest declares `identity: $.command` (§12), so the Record's name is the JSON encoding of the argv
+words the Step ran. Changing one flag is therefore minting a new Record: the old series is untouched,
+stays headed by an Asset and reads alive on `records` and to every selector that ranges over it, so
+an edit a reviewer reads as *the machines get a size* is, in the Store, a second fleet standing beside
+the first. What the old series does not get is a Tombstone, `hyper` having ended nothing. Under
+`skip-if-recorded` that name is what the record-over-the-world limit above is decided against, and it
+names a command rather than a machine: deleted, rebuilt or replaced out of band are one case, the test
+reaching no machine at all, so the skip holds until somebody edits the argv and the only thing that can
+re-provision a fleet is an edit to the reviewed line (ADR-0056).
+
+**Nothing can wire that identity back into a Step.** An Expansion over `assets:` addresses the
+Manifest's projected fields, and the built-in's effectful Operations project `exit_code` alone (§12,
+ADR-0143), so `{item: $.name}` reaches nothing there and `{item: $}` is the whole member — an object
+where a command word is a string. Both are refused at Expansion with nothing touched (`schema-mismatch`,
+§6): an opaque population can be **selected**, and the one thing a member has that a `destroy` needs —
+its identity — reaches no `args:` position at all, the only value addressable there being the exit code
+the creating command returned. The route that works is a `values:` list carrying that command's argv
+back as a literal, which folds the Tombstone onto the standing series and hands the `destroy` command
+that JSON text to parse. The ordinary spelling — the machine's own name — opens a fresh series under
+it, which is the literal-identifier limit above arriving where it can never come out right: a projected
+opaque name is a JSON array and a `values:` member is a bare scalar, so the two cannot coincide, and
+the Asset series the author meant to end stays standing and reads alive beside a Tombstone series
+that describes nothing.
+
+**An effectful shell Operation projects `exit_code` and nothing else, and a `destroy` projects nothing
+at all.** The first is ADR-0143, whose Compaction half is stated above, and the second is ADR-0037's
+`record:` forbidden on a `destroy`, so a Tombstone of an opaque `destroy` carries its name and its
+metadata and no `fields:` at all (§3, §7). What that costs is the Comparison. `YOU DID THIS` renders
+`exit_code: 0` on the Run that minted a Record and renders an empty table on every Run after it,
+whatever happened to the fleet in between — the surface built to say what `hyper` changed is nearly
+mute about a fleet of machines, and the mutest reading of all is the correct one: a Run of an immutable
+fleet in its steady state skips every member, mints no version, and looks from the page like a Run that
+did nothing (finding **#11**).
+
+**The paired `read` is what answers that, and it is a practice an author performs rather than a
+mechanism the model has.** A `read` Step written beside the effectful ones for no reason but to record
+what the world says afterwards is the whole of what stands between a Comparison that renders an
+Observation and one that renders *a call was accepted* and stops. It gets no term in
+[`CONTEXT.md`](../../CONTEXT.md), which is a glossary and not a pattern book, and it is bounded twice.
+Its evidence is about the **previous** Run's effects wherever creation is asynchronous — a
+Requirement's predicate halts rather than waits, a Pattern polls inside one Operation and cannot poll a
+different system, and `skip-if-recorded` consults the Record — so a reader told *pair a `read` with your
+effectful Step* should expect the answer one Run later than the Step it is paired with (finding **#8**).
+And where the `read` is a `shell` one, its `stdout` is usually multi-line, which the Comparison renders
+as `changed` and never as two values (ADR-0059, below): the pairing's answer is in the Store and under
+`hyper show`, not on the page that was built to be scanned.
+
+**The immutable and the mutable arms are a fork, and only one of them is reachable.** Provisioning a
+machine that is already configured is reachable today with no new primitive: the configuration travels
+in the create request's body, which makes it a reviewed artefact on the screen beside the Step that
+sends it, and the worked example authors that fleet against the shipped binary with no new Capability,
+no new artefact key and no code. Configuring a machine that is already running is the other arm, and
+`hyper` has no transport to one. SSH is refused by the sentence that closes the Capability set — it
+needs a private key, a private key is not a header, and there is no position in any artefact where one
+could be written (ADR-0157) — and `capability-reserved` refuses the fork of the built-in that would
+route around it (§11). What is authored instead is `ssh` as the first argv word of a `shell` Step,
+which `check` accepts and which buys exactly what it looks like: the key is outside `hyper` entirely,
+the Record is named for the command rather than for the machine, and the reach is the unbounded one
+stated above — a Target granting `shell` alone declares no `hosts:` and may not, `target-inconsistent`
+refusing a host list beside a Capability that reaches none (§4, §12). Past that arm stands the thing
+this tool is not: a fleet configured by repeated commands wants convergence, and the reconciliation
+engine is the single largest thing `hyper` declined to build (ADR-0010).
+
+**A cluster's join secret depends on a secret store `hyper` does not own.** Two machines that must
+share a token have nowhere inside `hyper` to share it: an artefact holds no credential — a slot's value
+is a mapping whose sole key is `env:` and never a literal (`credential-slot-malformed`, §4) — a Record
+holds what a call returned, and a Step's arguments are on the reviewed page. The shape that works keeps
+the token machine-to-machine, published and fetched by the instances' own attached identities, so
+`hyper` holds the instruction to fetch a secret and never the secret (ADR-0007). That is the property
+worth having and it is not `hyper`'s to supply: without a store the operator already runs, the
+Procedure cannot form a cluster at all, and no Secret sink helps, `--secret-out` being for a value
+`hyper` itself received (§9, ADR-0148).
+
+**Trust in a cluster's own API is reached through the environment and never through an artefact.** A
+control plane signs its own API server certificate, so a `read` against it verifies against a root no
+public store holds, and there is no key to add one with: `hyper` owns no TLS configuration, the roots
+are Go's system pool, and the pool reads `SSL_CERT_FILE` — which is ADR-0105's decisive property, that
+the trust is unreachable from where the agent writes and reachable by the operator who runs the
+process. **The limit that route carries is conditional, and the condition is the half that falls off in
+the retelling** (finding **#9**). Go's pool is a file list and a directory list; `SSL_CERT_FILE`
+replaces the first and `SSL_CERT_DIR` the second, and neither replaces the other. So on a machine whose
+roots live in a hashed directory beside the bundle the named root is **added** and public hosts still
+verify, and only on a machine whose roots live in a bundle file alone is it **substituted**, that root
+becoming the only one for the length of the Run. Stated without its condition it warns a Debian-shaped
+operator about a breakage that cannot happen there and tells an operator on a minimal image nothing
+about what saves them.
+
+**Two review flags were considered for all of this, and §12's own rule refused both.** A flag cites a
+line the gutter already marked and introduces no claim of its own (§12, ADR-0026), which decides them
+without anyone weighing what is worth saying. A name for the unbounded output of a shell `read` — the
+one Kind that still projects `stdout` — would be a claim the gutter does not carry, the `opaque` marker
+beside that line saying *reaches an effect `hyper` cannot describe* and nothing about volume; it is the
+editorial voice ADR-0026 removed, arriving as a name rather than as a sentence. A name for an opaque
+Step whose population comes from the Store rather than from the page states nothing new either: such a
+Step already draws `unbounded` whatever `bound:` it declared, which is the blast-radius paragraph above
+arriving at a selector rather than at a list (§12, ADR-0121). What that costs a reviewer is stated
+rather than hidden: `FLAGS` is what a reviewing agent reads to decide whether to escalate (§12), and it
+says nothing there about how much a `read` may write into the Store or about a population no line of
+the Procedure enumerates — both are reached by reading the Step. If either deserves saying, it is a
+marker class question for §8 and not a flag: a marker class arriving there brings its flag without
+§12's enumeration moving, which is the only way this vocabulary has ever grown. Both refusals are worth
+noting beside ADR-0026's own list of rejected renderings — there the candidates were weighed and turned
+down, and here the stated rule turned them down with nobody exercising judgement at all.
+
 ## What the record costs
 
 **The Store grows monotonically, forever, and it is paid for twice on two different curves.** There is

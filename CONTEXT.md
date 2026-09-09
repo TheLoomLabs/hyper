@@ -204,7 +204,9 @@ _Avoid_: Reading, Sample, Fact, Resource
 **Asset**:
 A Record of something `hyper`'s own effect reached and is therefore accountable for. That effect is the
 whole test — usually because `hyper` created the thing, equally where it changed one it did not, and
-equally where it ended one it never saw — and a thing merely observed is never an Asset.
+equally where it ended one it never saw — and a thing merely observed is never an Asset. What an Opaque
+Operation's effect reached is the command and nothing past it, so the accountability is for the process
+`hyper` ran and never for the service it started.
 _Avoid_: Resource, Holding, Managed resource
 
 **Orphaned Asset**:
