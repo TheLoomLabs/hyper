@@ -1,6 +1,4 @@
-<img src="docs/images/hero.jpg" alt="hyper — a precision optical instrument photographed in a dark studio: five machined apertures held in line on a steel frame, each narrower than the one before, with a single beam entering the widest and emerging from the last as the word hyper.">
-
-# hyper
+# <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/logo.svg"><img src="docs/images/logo-light.svg" alt="" height="30" align="top"></picture> hyper
 
 [![suite](https://img.shields.io/github/actions/workflow/status/TheLoomLabs/hyper/suite.yml?style=flat-square&label=suite)](.github/workflows/suite.yml)
 [![release](https://img.shields.io/github/v/release/TheLoomLabs/hyper?style=flat-square&include_prereleases)](https://github.com/TheLoomLabs/hyper/releases)

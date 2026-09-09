@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"
+     width="256" height="256" fill="none" role="img"
+     aria-labelledby="logo-small-t logo-small-d">
+  <title id="logo-small-t">hyper</title>
+  <desc id="logo-small-d">One of the five apertures of the hyper array, seen along the beam, reduced for small sizes: a machined rim, six blades closed onto a hexagonal opening, and the beam a point at the centre.</desc>
+  <circle cx="128" cy="128" r="110" fill="none" stroke="currentColor" stroke-width="17"/>
+  <!-- six blades: each side of the opening, run out to the rim -->
+  <path d="M128.00 78.00L35.07 131.65" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
+  <path d="M84.70 103.00L84.70 210.30" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
+  <path d="M84.70 153.00L177.63 206.65" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
+  <path d="M128.00 178.00L220.93 124.35" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
+  <path d="M171.30 153.00L171.30 45.70" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
+  <path d="M171.30 103.00L78.37 49.35" stroke="currentColor" stroke-width="16" stroke-linecap="round"/>
+  <!-- the beam through it -->
+  <circle cx="128" cy="128" r="15" fill="currentColor"/>
+</svg>

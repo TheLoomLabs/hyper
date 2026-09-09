@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"
+     width="256" height="256" fill="none" role="img"
+     aria-labelledby="logo-light-t logo-light-d">
+  <title id="logo-light-t">hyper</title>
+  <desc id="logo-light-d">One of the five apertures of the hyper array, seen along the beam: a machined rim carrying twenty-four graduations, six blades closed onto a hexagonal opening, and the beam a point at the centre.</desc>
+  <circle cx="128" cy="128" r="110" fill="none" stroke="#39434E" stroke-width="13"/>
+  <!-- 24 graduations engraved on the rim -->
+  <path d="M128.00 40.00L128.00 29.00" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M105.22 43.00L102.38 32.37" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M84.00 51.79L78.50 42.26" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M65.77 65.77L58.00 58.00" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M51.79 84.00L42.26 78.50" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M43.00 105.22L32.37 102.38" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M40.00 128.00L29.00 128.00" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M43.00 150.78L32.37 153.62" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M51.79 172.00L42.26 177.50" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M65.77 190.23L58.00 198.00" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M84.00 204.21L78.50 213.74" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M105.22 213.00L102.38 223.63" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M128.00 216.00L128.00 227.00" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M150.78 213.00L153.62 223.63" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M172.00 204.21L177.50 213.74" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M190.23 190.23L198.00 198.00" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M204.21 172.00L213.74 177.50" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M213.00 150.78L223.63 153.62" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M216.00 128.00L227.00 128.00" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M213.00 105.22L223.63 102.38" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M204.21 84.00L213.74 78.50" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M190.23 65.77L198.00 58.00" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M172.00 51.79L177.50 42.26" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <path d="M150.78 43.00L153.62 32.37" stroke="#8B98A5" stroke-width="4" stroke-linecap="round"/>
+  <!-- six blades: each side of the opening, run out to the rim -->
+  <path d="M128.00 84.00L32.64 139.06" stroke="#39434E" stroke-width="12" stroke-linecap="round"/>
+  <path d="M89.89 106.00L89.89 216.11" stroke="#39434E" stroke-width="12" stroke-linecap="round"/>
+  <path d="M89.89 150.00L185.26 205.06" stroke="#39434E" stroke-width="12" stroke-linecap="round"/>
+  <path d="M128.00 172.00L223.36 116.94" stroke="#39434E" stroke-width="12" stroke-linecap="round"/>
+  <path d="M166.11 150.00L166.11 39.89" stroke="#39434E" stroke-width="12" stroke-linecap="round"/>
+  <path d="M166.11 106.00L70.74 50.94" stroke="#39434E" stroke-width="12" stroke-linecap="round"/>
+  <!-- the beam through it -->
+  <circle cx="128" cy="128" r="22" fill="#1E86C4" opacity=".28"/>
+  <circle cx="128" cy="128" r="11" fill="#0B6FAE"/>
+</svg>
