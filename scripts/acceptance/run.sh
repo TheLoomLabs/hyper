@@ -62,6 +62,19 @@
 # server is** (ADR-0109) — *binary* there meaning a `hyper`, the client being the
 # session rather than something inside it. The gap is not an oversight and
 # closing it is not available.
+#
+# **That claim is currently wider than what this script delivers, and issue #292
+# is the repair** (ADR-0162). `/tmp` is covered by nothing below and searched by
+# nothing in the assertion, and the sealed runs of 2026-09-09 both had a second
+# `hyper` — stamped at the pinned version, so the version gate would not have
+# refused it — and ten kilobytes of `docs/spec/` reachable under
+# `/tmp/claude-1000/<project>/<session>/scratchpad`, which is the directory the
+# client running these sessions hands every attended session on this project.
+# Neither run read any of it, and this is stated here rather than fixed here
+# because the shape is a decision: a `--tmpfs` over `/tmp` with a `keep` list, as
+# `$HOME` got, is not the same answer as widening the assertion's roots so an
+# uncovered path is fatal rather than silent. **Until it lands, clear that
+# directory before buying a run.**
 set -euo pipefail
 
 task=${1:?usage: run.sh <task-file> <output-directory>}

@@ -214,6 +214,25 @@
 # world not answering for it, and the session saying so and offering the step.
 # **Both worlds end where the operator asked; only the first run's Store agrees
 # with its world, and it got there without looking.**
+#
+# **A third sealed run was bought on 2026-09-09 and it is ADR-0162.** Fifty-five
+# tool calls, twelve at the world, five Runs, exit `0` — and the first of the
+# three whose Store agrees with its world on purpose. It found `pricing`'s drift
+# in the `confirm` Step it had authored into the create Procedure for exactly
+# that reason, and then retired against the record rather than against the world:
+# `DELETE` on a ref it knew answered `404`, the Tombstone laid, and the reason
+# written into a comment beside the Step — including why re-reading the ref first
+# would halt the Run and strand the Asset alive. That is issue #290's clause
+# firing, and it is the first transcript that repair has. Issue #289's
+# `REHEARSAL` column went unreached: the session called `runs` once, against an
+# empty Journal, and never again, so three sessions of three have beaten this
+# task without listing it. It authored seven Bounds, all `1`, five of them again
+# only after `review` answered five `UNBOUNDED` rows — but its commit message
+# gave the reason this time, which ADR-0159's did not. Issue #229's `?`-in-`path:`
+# row fired on the first `check` for the third time. **And it ran `find /` and
+# reached a second `hyper` and ten kilobytes of `docs/spec/` under `/tmp`, which
+# no cover here hides and no assertion here searches** — nothing was read, and
+# the seal's cover is issue #292.
 set -euo pipefail
 
 # **One file raises the lookout for all four lookout tasks** (issue #274). It is

@@ -132,6 +132,15 @@ source checkout, no second binary, no fixture internals*. Everything else it
 writes there — the fixture's binary, its credential, the reports, the logs and
 the transcript being written as the session runs — is not reachable from inside.
 
+**That claim is currently wider than what the harness delivers.** `/tmp` is
+covered by nothing and searched by nothing, and both sealed runs of 2026-09-09
+had a second `hyper` at the pinned version and ten kilobytes of `docs/spec/`
+reachable under `/tmp/claude-1000/<project>/<session>/scratchpad` — the
+directory every attended session on this project is handed
+([ADR-0162](docs/adr/0162-the-taught-destroy-fired-and-closed-the-record-and-the-seal-was-not-holding-while-it-did.md),
+[#292](https://github.com/TheLoomLabs/hyper/issues/292)). Neither run read any
+of it. **Until #292 lands, clear that directory before buying a run.**
+
 **A previous run's output directory is covered as well**, found by searching for
 the `mcp.json` this harness writes rather than by remembering a path, so a
 machine that has run the harness before does not hand the next session an older

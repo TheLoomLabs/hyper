@@ -25,6 +25,13 @@ So the claim `run.sh` now states of itself is narrower than the one ADR-0099 lef
 the honest one: **no source checkout, no second binary, no fixture internals — and the one binary
 that is reachable is the one the MCP server is.**
 
+That claim is not currently held. `/tmp` is covered by nothing and searched by nothing, and both
+sealed runs of 2026-09-09 had a second `hyper` at the pinned version and ten kilobytes of `docs/spec/`
+reachable under the scratchpad directory every attended session on this project is handed
+([ADR-0162](0162-the-taught-destroy-fired-and-closed-the-record-and-the-seal-was-not-holding-while-it-did.md),
+[#292](https://github.com/TheLoomLabs/hyper/issues/292)). Neither run read any of it. Nothing about
+the decision below changes; what was wrong was the belief that these covers were the whole of it.
+
 ## What was in there, and why *nothing was foraged* is not the answer
 
 The 2026-08-29 `monitor-coverage` run (ADR-0106) ran `ls -a` over the output directory looking for

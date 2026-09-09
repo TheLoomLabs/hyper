@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 161 records**, numbered `0001`–`0161` with no gaps. They are chronological:
+**This corpus holds 162 records**, numbered `0001`–`0162` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -389,3 +389,4 @@ here fails the suite.
 - **0159** · [The second session chose the sound root too, and left open the record the first one closed by accident](0159-the-second-session-chose-the-sound-root-too-and-left-open-the-record-the-first-one-closed-by-accident.md)
 - **0160** · [The rehearsal marker rides on the `runs` row, and the seven facts stay seven](0160-the-rehearsal-marker-rides-on-the-runs-row-and-the-seven-facts-stay-seven.md)
 - **0161** · [A record the world has lost is closed by a `destroy`, and the `404` is not a reason to withhold it](0161-a-record-the-world-has-lost-is-closed-by-a-destroy-and-the-404-is-not-a-reason-to-withhold-it.md)
+- **0162** · [The taught `destroy` fired and closed the record, and the seal was not holding while it did](0162-the-taught-destroy-fired-and-closed-the-record-and-the-seal-was-not-holding-while-it-did.md)

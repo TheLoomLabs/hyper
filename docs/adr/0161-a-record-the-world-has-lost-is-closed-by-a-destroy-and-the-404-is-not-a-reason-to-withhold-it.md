@@ -145,3 +145,9 @@ the question the task asks. It was in what the agent read.
   here rather than acted on — buying a run costs a session and real money, which this ADR does not get
   to spend. [#290](https://github.com/TheLoomLabs/hyper/issues/290) holds the obligation until somebody
   does.
+
+  _ADR-0162 amends this:_ the run was bought on 2026-09-09 and **this clause fired**. The session met
+  the same hazard off the same fixture, closed the record with a `destroy` that answered `404`, and
+  wrote *the `DELETE` is sent against what the record says we hold* into the Step. It is the first
+  transcript this repair has and the first of the three runs of this task whose Store agrees with its
+  world on purpose.

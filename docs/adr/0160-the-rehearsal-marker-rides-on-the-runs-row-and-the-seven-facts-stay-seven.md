@@ -124,6 +124,12 @@ is how two names for one thing get started.
   that question without being read about. It rides along with the next run of that task bought for a
   reason of its own, beside ADR-0158's unreached clause, and
   [#289](https://github.com/TheLoomLabs/hyper/issues/289) holds the obligation until then.
+
+  _ADR-0162 amends this:_ the run was bought on 2026-09-09 and this clause was not reached — the
+  session called `runs` once, against an empty Journal, and never again, though it did report the
+  rehearsal and the Run apart off `run`'s own answers. Three sessions of three have worked this task
+  without listing the Journal, so the run it owed is discharged and no further one is held open for
+  it: the transcript that lists a Journal holding a rehearsal is the measurement.
 - **ADR-0114's deferral closes.** It left this open in as many words — *putting the marker on `runs`
   as well: out of scope here and left as it stands* — and the three surfaces that name a Run now spell
   the marker the same way.
