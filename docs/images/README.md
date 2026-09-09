@@ -35,9 +35,11 @@ not a cost it pays, while the benefit is intact: every cut is hand-authored, one
 element per line, with no filter, no gradient and no embedded raster, so a `git
 diff` can speak about a change to it.
 
-**What went with them is stated rather than argued away.** The README opens on a
-title now, not on an image — a reader gets no two-second impression before
-deciding whether to keep scrolling, and that was the photograph's entire job.
+**What went with them is stated rather than argued away.** The README opens on
+the mark now — seventy-six pixels of linework where 1280×490 of studio lighting
+used to be. A mark identifies; it does not do the thing a hero does, which is
+hold a reader for the two seconds in which they decide whether to keep
+scrolling.
 GitHub's link-preview card falls back to whatever GitHub generates, which is not
 a decision anybody here made. And the array itself is no longer pictured
 anywhere: the mark is one plate of it, and the other four survive as a sentence.

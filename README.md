@@ -1,4 +1,6 @@
-# <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/logo.svg"><img src="docs/images/logo-light.svg" alt="" height="30" align="top"></picture> hyper
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/logo.svg"><img src="docs/images/logo-light.svg" alt="" width="76" height="76"></picture>
+
+# hyper
 
 [![suite](https://img.shields.io/github/actions/workflow/status/TheLoomLabs/hyper/suite.yml?style=flat-square&label=suite)](.github/workflows/suite.yml)
 [![release](https://img.shields.io/github/v/release/TheLoomLabs/hyper?style=flat-square&include_prereleases)](https://github.com/TheLoomLabs/hyper/releases)
