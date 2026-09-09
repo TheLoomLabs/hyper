@@ -1,3 +1,5 @@
+<div align="center">
+
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/logo.svg"><img src="docs/images/logo-light.svg" alt="" width="96" height="96"></picture>
 
 # hyper
@@ -6,6 +8,8 @@
 [![release](https://img.shields.io/github/v/release/TheLoomLabs/hyper?style=flat-square&include_prereleases)](https://github.com/TheLoomLabs/hyper/releases)
 [![licence](https://img.shields.io/github/license/TheLoomLabs/hyper?style=flat-square)](LICENSE)
 [![Go version](https://img.shields.io/github/go-mod/go-version/TheLoomLabs/hyper?style=flat-square&logo=go)](go.mod)
+
+</div>
 
 > **Nothing reaches the world unreviewed; nothing changes unseen.**
 
