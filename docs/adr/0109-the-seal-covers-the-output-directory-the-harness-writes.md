@@ -25,12 +25,20 @@ So the claim `run.sh` now states of itself is narrower than the one ADR-0099 lef
 the honest one: **no source checkout, no second binary, no fixture internals — and the one binary
 that is reachable is the one the MCP server is.**
 
-That claim is not currently held. `/tmp` is covered by nothing and searched by nothing, and both
-sealed runs of 2026-09-09 had a second `hyper` at the pinned version and ten kilobytes of `docs/spec/`
-reachable under the scratchpad directory every attended session on this project is handed
+That claim was not held between this decision and ADR-0163. `/tmp` was covered by nothing and
+searched by nothing, and both sealed runs of 2026-09-09 had a second `hyper` at the pinned version
+and ten kilobytes of `docs/spec/` reachable under the scratchpad directory every attended session on
+this project is handed
 ([ADR-0162](0162-the-taught-destroy-fired-and-closed-the-record-and-the-seal-was-not-holding-while-it-did.md),
 [#292](https://github.com/TheLoomLabs/hyper/issues/292)). Neither run read any of it. Nothing about
-the decision below changes; what was wrong was the belief that these covers were the whole of it.
+the decision below changed; what was wrong was the belief that these covers were the whole of it.
+
+_[ADR-0163](0163-the-seal-covers-tmp-and-the-assertion-is-widened-with-the-cover.md) amends this:_
+`/tmp` is covered the same way, one directory further out again — a tmpfs at `01777` with **nothing**
+bound back on top, the sealed session's client needing nothing that was in there before. The
+assertion below is widened with it rather than after it: `/tmp` joins the roots of both walks, and a
+regular file named `hyper` joins `lookout` in the names, since a cover nothing asserts is how this
+one went unnoticed for two paid runs (issue #292).
 
 ## What was in there, and why *nothing was foraged* is not the answer
 

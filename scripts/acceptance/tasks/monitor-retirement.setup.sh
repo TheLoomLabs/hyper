@@ -231,8 +231,8 @@
 # gave the reason this time, which ADR-0159's did not. Issue #229's `?`-in-`path:`
 # row fired on the first `check` for the third time. **And it ran `find /` and
 # reached a second `hyper` and ten kilobytes of `docs/spec/` under `/tmp`, which
-# no cover here hides and no assertion here searches** — nothing was read, and
-# the seal's cover is issue #292.
+# no cover then hid and no assertion then searched** — nothing was read, and
+# issue #292 covered `/tmp` and widened the assertion over it (ADR-0163).
 set -euo pipefail
 
 # **One file raises the lookout for all four lookout tasks** (issue #274). It is

@@ -220,11 +220,10 @@ func needSeal(t *testing.T) {
 // difference is what is being asserted. That case asserts a property of each
 // task's own repository, so a task fenced by nothing is rot; the seal is built
 // the same way whatever the task, so one is enough and the cheapest is the one
-// to pay for. A task that ships a service would spend a `go build` of the
-// fixture's API on a question about `$HOME`.
+// to pay for (`cheapestTask`).
 //
 // **The material is planted under two kinds of name, and both are load-bearing.**
-// The `hyper-249-*` names match none of the seal's three searches, which is the
+// The `hyper-249-*` names match none of the seal's four searches, which is the
 // finding this case is about: a harness that went back to a cover list would
 // pass here in silence. The `go.mod` and the `lookout` beside them do match, so
 // a harness that stopped covering `$HOME` — or one whose inventory stopped
@@ -258,22 +257,154 @@ func TestAcceptance_TheSealCoversWhatAnAttendedSessionLeftInTheHomeDirectory(t *
 		}
 	}
 
-	task := filepath.Join("scripts", "acceptance", "tasks", "snapshot-lifecycle.md")
-	if _, err := os.Stat(filepath.Join(root(t), task)); err != nil {
-		t.Fatalf("%s is what this case drives the harness with: %v", task, err)
-	}
-
 	into := t.TempDir()
 	environment := append([]string{"HOME=" + home}, goEnv(t, "GOPATH", "GOCACHE", "GOMODCACHE")...)
-	if out, err := setUp(t, task, into, environment...); err != nil {
+	if out, err := setUp(t, cheapestTask(t), into, environment...); err != nil {
 		t.Fatalf("the seal did not hold over a home directory holding session material: %v\n%s", err, out)
 	}
+}
+
+// TestAcceptance_TheSealCoversWhatCollectsInTheScratchpadDirectory plants the
+// material the 2026-09-09 runs found under `/tmp` and asserts the harness runs
+// against it (issue #292, ADR-0163).
+//
+// This is the case above one directory over, and the shape of the finding is the
+// same: `/tmp/claude-1000/<project>/<session>/scratchpad` is the directory the
+// client hands every attended session on this project, so it is where this
+// project's working material now collects — and what had collected in it while
+// two sealed runs went was a second `hyper` stamped at the version the fixture
+// pins, ten kilobytes of `docs/spec/` prose, a diff over the specification and a
+// program that prints the orientation. `/tmp` is a tmpfs in the seal now and the
+// `keep` list over it is empty.
+//
+// **It plants in the real `/tmp`, where the case above redirects `HOME`.** The
+// cover names the literal path — it is the client's directory rather than this
+// script's, and no variable moves it — so a case that planted somewhere else
+// would assert nothing. What it costs is a uniquely-named directory under `/tmp`
+// for the length of the case, removed on the way out.
+//
+// **Both kinds of name again, and both load-bearing.** Three of the plants —
+// `section.md`, `284.diff` and `orient.go` — match none of the seal's four
+// searches, which is the finding: a harness that covered `/tmp` by naming what
+// to hide would pass here in silence. The other three match: the `go.mod` names
+// this module, the `lookout` is the fixture's binary by name, and the `hyper` is
+// the second binary this same change taught the assertion to look for. So a
+// harness that stopped covering `/tmp` — or one whose walks stopped descending
+// it — fails loudly. Together they say the material is *covered* rather than
+// *complained about*, which is what keeps an operator from having to clear the
+// directory the harness's own client was handed before every run.
+func TestAcceptance_TheSealCoversWhatCollectsInTheScratchpadDirectory(t *testing.T) {
+	needTools(t, "bash", "bwrap", "git", "go", "python3")
+	needSeal(t)
+
+	scratchpad := plant(t, "/tmp", map[string]string{
+		// The 16 MB binary, stamped at the version the fixture pins — so the
+		// version gate that Refuses a dev build would have let it run.
+		"hyper": "a second binary, and the version gate would not have refused it\n",
+		// §13's opaque-machine subsection, the diff that landed it, and a
+		// program whose whole purpose is to print the orientation text.
+		"section.md": "ten kilobytes of docs/spec/ prose\n",
+		"284.diff":   "twelve kilobytes of diff over CONTEXT.md and the spec\n",
+		"orient.go":  "package main // prints a span of internal/mcp's orientation\n",
+		// The names the seal's own searches match, so that a seal which
+		// stopped covering `/tmp` fails under this case.
+		"checkout/go.mod": "module github.com/TheLoomLabs/hyper\n\ngo 1.25\n",
+		"bin/lookout":     "the fixture's answer key\n",
+	})
+
+	into := t.TempDir()
+	if out, err := setUp(t, cheapestTask(t), into); err != nil {
+		t.Fatalf("the seal did not hold over %s, holding what an attended session leaves there: %v\n%s", scratchpad, err, out)
+	}
+}
+
+// TestAcceptance_ASecondBinaryTheCoversDoNotReachStopsTheHarness plants a
+// `hyper` where no cover reaches and asserts the harness refuses to start
+// (issue #292, ADR-0163).
+//
+// **Covering without asserting is how the hole above went unnoticed for two paid
+// runs.** The assertion is the half that is supposed to catch what the covers
+// miss, and what it searched for was a `go.mod`, an `mcp.json` and a regular
+// file called `lookout` — so a sixteen-megabyte `hyper` under a root it did not
+// walk was neither hidden nor complained about. The root was widened with the
+// cover and the name was widened beside it, either one of which would have
+// caught what was there; this case holds the name, `/tmp` being covered now and
+// a case being unable to plant under both halves of one repair at once.
+//
+// `/var/tmp` because it is a root the assertion walks and a directory the seal
+// covers nothing in by name: what is covered there is a previous run's output
+// directory, found by its `mcp.json`, and a bare binary is in none of them. That
+// is the position the second `hyper` was in.
+//
+// **The refusal is the pass**, and the path in the message is what makes it one:
+// the harness stops before the session and says what it found, which is how a
+// silent hole becomes a run that does not start until the operator explains it.
+func TestAcceptance_ASecondBinaryTheCoversDoNotReachStopsTheHarness(t *testing.T) {
+	needTools(t, "bash", "bwrap", "git", "go", "python3")
+	needSeal(t)
+
+	stray := plant(t, "/var/tmp", map[string]string{"hyper": "a second binary\n"})
+
+	into := t.TempDir()
+	out, err := setUp(t, cheapestTask(t), into)
+	if err == nil {
+		t.Fatalf("the harness started with a second hyper reachable inside the seal:\n%s", out)
+	}
+	if !strings.Contains(out, filepath.Join(stray, "hyper")) {
+		t.Errorf("the harness stopped, but did not name what it found; an operator cannot act on that:\n%s", out)
+	}
+}
+
+// plant writes a directory of material under a root the seal is asserted over
+// and answers where it went. The root is the real one — `/tmp` and `/var/tmp`
+// are named literally in `run.sh` and no variable moves either — so the
+// directory is uniquely named and removed on the way out, and nothing of a
+// case's is left on the machine running the suite.
+//
+// **A root that cannot be written goes through `unavailable`**, so it skips on a
+// laptop and fails on a machine that claimed preparation. A writable `/tmp` is
+// something a preparation supplies, which is the line that gate draws — unlike
+// `hostPlatform`'s architecture, which no preparation could change.
+func plant(t *testing.T, root string, files map[string]string) string {
+	t.Helper()
+
+	directory, err := os.MkdirTemp(root, "hyper-292-")
+	if err != nil {
+		unavailable(t, "%s is not writable here (%v), so the seal cannot be asserted over it", root, err)
+	}
+	t.Cleanup(func() { os.RemoveAll(directory) })
+
+	for path, content := range files {
+		planted := filepath.Join(directory, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(planted), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(planted, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return directory
+}
+
+// cheapestTask is the task the three seal cases drive the harness with. Which
+// task is not what any of them asserts — the seal is built the same way whatever
+// the task — so they pay for the one that brings no service with it: a task
+// shipping one would spend a `go build` of the fixture's API on a question about
+// a cover.
+func cheapestTask(t *testing.T) string {
+	t.Helper()
+
+	task := filepath.Join("scripts", "acceptance", "tasks", "snapshot-lifecycle.md")
+	if _, err := os.Stat(filepath.Join(root(t), task)); err != nil {
+		t.Fatalf("%s is what these cases drive the harness with: %v", task, err)
+	}
+	return task
 }
 
 // setUp runs the harness's setup half — everything up to and including the
 // seal's own assertion, and not the session behind it — and answers what it
 // printed. `ACCEPTANCE_SETUP_ONLY` is what stops it there, a session not being
-// something a test can run (ADR-0099), and both cases in this file drive it
+// something a test can run (ADR-0099), and every case in this file drives it
 // through here so that the half a test *can* run is one invocation rather than
 // two that drift.
 func setUp(t *testing.T, task, into string, environment ...string) (string, error) {

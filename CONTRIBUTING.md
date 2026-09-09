@@ -132,15 +132,6 @@ source checkout, no second binary, no fixture internals*. Everything else it
 writes there — the fixture's binary, its credential, the reports, the logs and
 the transcript being written as the session runs — is not reachable from inside.
 
-**That claim is currently wider than what the harness delivers.** `/tmp` is
-covered by nothing and searched by nothing, and both sealed runs of 2026-09-09
-had a second `hyper` at the pinned version and ten kilobytes of `docs/spec/`
-reachable under `/tmp/claude-1000/<project>/<session>/scratchpad` — the
-directory every attended session on this project is handed
-([ADR-0162](docs/adr/0162-the-taught-destroy-fired-and-closed-the-record-and-the-seal-was-not-holding-while-it-did.md),
-[#292](https://github.com/TheLoomLabs/hyper/issues/292)). Neither run read any
-of it. **Until #292 lands, clear that directory before buying a run.**
-
 **A previous run's output directory is covered as well**, found by searching for
 the `mcp.json` this harness writes rather than by remembering a path, so a
 machine that has run the harness before does not hand the next session an older
@@ -159,6 +150,23 @@ tickets now require somebody to produce. So the seal names what to keep instead.
 **Leave that material wherever you like**: nothing about where it sits is
 load-bearing any more, and the harness neither reads it nor refuses because of
 it.
+
+**`/tmp` goes the same way, and nothing comes back**: a tmpfs, with an empty
+keep list ([ADR-0163](docs/adr/0163-the-seal-covers-tmp-and-the-assertion-is-widened-with-the-cover.md),
+[#292](https://github.com/TheLoomLabs/hyper/issues/292)). It was covered by
+nothing and searched by nothing until 2026-09-09, when both sealed runs of that
+day turned out to have a second `hyper` at the pinned version and ten kilobytes
+of `docs/spec/` reachable under `/tmp/claude-1000/<project>/<session>/scratchpad`
+— the directory every attended session on this project is handed, and so where
+this project's working material now collects. Neither run read any of it
+([ADR-0162](docs/adr/0162-the-taught-destroy-fired-and-closed-the-record-and-the-seal-was-not-holding-while-it-did.md)).
+The sealed session's client needs nothing that was in there before, so nothing
+comes back and **you may leave what you like in `/tmp`**, exactly as in `$HOME`.
+The assertion was widened with the cover rather than after it — `/tmp` is one of
+its roots now, and a regular file named `hyper` one of its names — because a
+cover nothing asserts is how this went unnoticed for two runs. A second `hyper`
+under `/opt`, `/srv` or `/var/tmp` stops the harness before the session, naming
+what it found.
 
 **A repair to what an agent reads owes a run.** The suite asserts what the
 harness did and never what an agent did (#221), so a clause added to the

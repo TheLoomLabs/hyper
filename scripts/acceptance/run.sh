@@ -63,18 +63,21 @@
 # session rather than something inside it. The gap is not an oversight and
 # closing it is not available.
 #
-# **That claim is currently wider than what this script delivers, and issue #292
-# is the repair** (ADR-0162). `/tmp` is covered by nothing below and searched by
-# nothing in the assertion, and the sealed runs of 2026-09-09 both had a second
+# **`/tmp` goes the same way `$HOME` did, and nothing comes back** (issue #292,
+# ADR-0163). It was covered by nothing here and searched by nothing in the
+# assertion until 2026-09-09, and both sealed runs of that day had a second
 # `hyper` — stamped at the pinned version, so the version gate would not have
 # refused it — and ten kilobytes of `docs/spec/` reachable under
 # `/tmp/claude-1000/<project>/<session>/scratchpad`, which is the directory the
 # client running these sessions hands every attended session on this project.
-# Neither run read any of it, and this is stated here rather than fixed here
-# because the shape is a decision: a `--tmpfs` over `/tmp` with a `keep` list, as
-# `$HOME` got, is not the same answer as widening the assertion's roots so an
-# uncovered path is fatal rather than silent. **Until it lands, clear that
-# directory before buying a run.**
+# Neither run read any of it (ADR-0162). A `--tmpfs` covers it now, mode `01777`
+# as the real one is, and the `keep` list over it is empty: what the sealed
+# session's client wants there it creates, and what an attended session left
+# there is a thing that grows, which is the shape issue #257 condemned a list
+# for. **The assertion is what failed silently for two runs**, so it is widened
+# with the cover rather than after it: `/tmp` joins both walks below, and a
+# regular file named `hyper` joins the names — either one alone would have
+# caught what was there.
 set -euo pipefail
 
 task=${1:?usage: run.sh <task-file> <output-directory>}
@@ -312,6 +315,12 @@ for value in supplied:
 #                       back on top by name. Every entry below that names a path
 #                       inside it is a consequence of this line rather than a
 #                       cover of its own.
+#   /tmp                **wholesale too, and nothing comes back** (issue #292).
+#                       A `--tmpfs` at `01777`. The scratchpad the client hands
+#                       every attended session on this project is under here, and
+#                       what collects in it is a second `hyper` and this project's
+#                       own prose. Same consequence as the line above: a path
+#                       inside it is not a cover of its own.
 #   the checkout        the specification, the ADRs, `internal/*.go` — the thing
 #                       three runs went and read. Its *parent* goes rather than
 #                       the checkout alone, the sibling directories being where a
@@ -378,17 +387,17 @@ seal=(
 
 # The rules the covers below are written in, stated once each.
 #
-# `cover` hides a path outside `$HOME`. Operands in `bwrap`'s own order —
-# option, source, destination — so that the calls read against the man page
-# rather than backwards from it. A destination this machine does not have is
-# skipped, `bwrap` treating a missing destination as a hard error rather than
-# something to create; and so is a destination inside `$HOME`, where an empty
-# bind would not hide a path but **create** one — an empty `~/dev` in a home
-# directory the tmpfs below has already emptied, and a line the inventory would
-# then have to be taught to expect.
+# `cover` hides a path outside the two directories that go wholesale. Operands in
+# `bwrap`'s own order — option, source, destination — so that the calls read
+# against the man page rather than backwards from it. A destination this machine
+# does not have is skipped, `bwrap` treating a missing destination as a hard
+# error rather than something to create; and so is a destination inside `$HOME`
+# or `/tmp`, where an empty bind would not hide a path but **create** one — an
+# empty `~/dev` in a home directory a tmpfs below has already emptied, and a line
+# the inventory would then have to be taught to expect.
 cover() {
 	case $3/ in
-	"$HOME"/*) return 0 ;;
+	"$HOME"/* | /tmp/*) return 0 ;;
 	esac
 	[ -e "$3" ] && seal+=("$1" "$2" "$3")
 	return 0
@@ -401,9 +410,13 @@ cover() {
 # the tmpfs as it binds, so `allow` records the whole chain rather than the path
 # alone. The chain is what an output directory nested under `$HOME` needs: the
 # walk below descends from `$HOME` to it and prints every directory on the way.
-# Past `$HOME` it keeps walking to `/`, which is looser than it needs to be and
-# costs nothing — those are ancestors of a walk's own root, which `find` never
-# prints, so nothing is ever compared against them.
+#
+# **It records the chain all the way to `/`**, which used to be looser than it
+# needed to be and is now load-bearing (issue #292): those were ancestors of a
+# walk's own root, which `find` never prints — but `/tmp` is a walk root now, and
+# a `$HOME` or an output directory inside it has ancestors under that root which
+# the walk does print. Stopping at `$HOME` would leave them unaccounted for and
+# the seal reading as broken over the two directories it just built.
 #
 # **`keep` is strict, unlike `cover`, and the difference is whose path it is.**
 # Everything handed to `keep` here is one this script created a few lines above —
@@ -418,9 +431,6 @@ allow() {
 	local path=$1
 	while [ "$path" != / ]; do
 		allowed+=("$path")
-		case $path in
-		"$HOME") break ;;
-		esac
 		path=$(dirname "$path")
 	done
 }
@@ -429,6 +439,30 @@ keep() {
 	seal+=("$1" "$source" "$destination")
 	allow "$destination"
 }
+
+# **`/tmp` goes whole as well, and nothing comes back** (issue #292, ADR-0163).
+#
+# It is laid down before the two below because either of them can sit inside it,
+# and a tmpfs over `/tmp` mounted after one over `$HOME` would shadow the home
+# directory and everything bound back into it. The suite's own cases put both
+# there — `t.TempDir()` lands under `/tmp` wherever `TMPDIR` is unset, which is
+# this machine.
+#
+# What was under here is what `$HOME` used to hold, and the header has the
+# finding. The argument for the shape is issue #257's, arriving one directory
+# over: the scratchpad the client hands every attended session on this project is
+# where this project's working material now collects, so the name it collects
+# under next is one no list here has heard of.
+#
+# **The keep list is empty, and that is the whole of the cost.** The tmpfs is
+# writable and carries `/tmp`'s own mode, so whatever the sealed session's client
+# wants in here it makes for itself; what it cannot do is read something that was
+# in here already, which is the point. Nothing this script binds needs a path
+# here either — a bind source is resolved against the old root, so the operands
+# naming `$outdir/.empty` and `$outdir/.claude.json` go on working with an output
+# directory inside `/tmp`, and `bwrap` creates a destination inside a tmpfs it
+# laid down itself, parents included.
+seal+=(--perms 01777 --tmpfs /tmp)
 
 # **`$HOME` goes whole, and three things come back** (issue #257).
 #
@@ -472,6 +506,11 @@ keep() {
 # authentication. The writer is the same client doing the same thing it does
 # outside the seal, and what it writes is the machine's own credential.
 seal+=(--tmpfs "$HOME")
+# `allow`ed rather than `keep`t, for the reason the output directory's tmpfs is
+# below: it is a mount rather than a bind, and where `$HOME` sits inside `/tmp`
+# — which is where the suite's own cases put it — this line creates the path and
+# the chain down to it in the `/tmp` tmpfs, and the walk below meets both.
+allow "$HOME"
 client=$(command -v claude || true)
 case $client/ in
 "$HOME"/*) keep --ro-bind "$client" ;;
@@ -572,43 +611,63 @@ seal+=(--proc /proc --dev /dev --die-with-parent --chdir "$repo")
 # The conditions are asserted rather than assumed, and asserted by looking for
 # the thing rather than by trusting the lists above. A checkout of `hyper` is
 # a `go.mod` naming its module path, so that is what is searched for — under the
-# home directory and the handful of places a second checkout is plausibly kept.
-# A `hyper` on `PATH` is the other condition issue #214's runs had, and an empty
-# `$HOME` is not the same fact as there being none.
+# home directory, under `/tmp`, and in the handful of places a second checkout is
+# plausibly kept. A `hyper` on `PATH` is the other condition issue #214's runs
+# had, and an empty `$HOME` is not the same fact as there being none.
 #
-# The three run as one walk rather than three: they share a root list and the
+# **`/tmp` is one of the roots because it was not one, for two paid runs** (issue
+# #292). The cover above is what makes those runs' finding impossible; this root
+# is what makes the *next* one loud. A cover that is never asserted is how the
+# hole went unnoticed, and the two halves are added together for that reason.
+#
+# The four run as one walk rather than four: they share a root list and the
 # `-name` tests are disjoint, so a second pass over `$HOME` would buy nothing but
 # the seconds this case pays on every `go test ./cmd/hyper`. Since issue #257
-# that leg walks a tmpfs holding half a dozen paths, so what it costs is nothing
-# and what it says is that the covers came back empty-handed.
+# that leg walks a tmpfs holding half a dozen paths, and since issue #292 so does
+# the `/tmp` one, so what it costs is nothing and what it says is that the covers
+# came back empty-handed.
 #
-# **Two directories are inventoried, and the inventory is the half of this that
-# survives a list going stale** (issue #231, issue #257).
+# **Three directories are inventoried, and the inventory is the half of this that
+# survives a list going stale** (issue #231, issue #257, issue #292).
 #
-# `$HOME` and the output directory are each a tmpfs with a `keep` list bound back
-# on top, and one walk asserts both: it prints everything reachable under them
-# with the repository pruned, and what `keep` and `allow` recorded is the
-# whole of what may come back. A list of forbidden names — a fourth `-name`
-# beside the three above — goes stale the first time a task leaves a file nobody
-# thought of, or the first time session material is kept under a name nobody has
-# used yet, which is how `$HOME` came to be uncovered for every sealed run so
-# far. An inventory does not go stale. It goes noisy, and a name it did not
-# expect is the operator's to explain.
+# `$HOME`, `/tmp` and the output directory are each a tmpfs — the first and the
+# last with a `keep` list bound back on top, the middle one with nothing — and
+# one walk asserts all three: it prints everything reachable under them with the
+# repository pruned, and what `keep` and `allow` recorded is the whole of what
+# may come back. A list of forbidden names — a fifth `-name` beside the four
+# above — goes stale the first time a task leaves a file nobody thought of, or
+# the first time session material is kept under a name nobody has used yet, which
+# is how `$HOME` came to be uncovered for every sealed run before issue #257 and
+# `/tmp` for every one after it. An inventory does not go stale. It goes noisy,
+# and a name it did not expect is the operator's to explain.
+#
+# Where one of the three sits inside another — an output directory under `/tmp`
+# is the ordinary case on this machine — the walk meets it from both roots and
+# answers the same both times. What that costs is a path it cannot explain being
+# named twice in the report.
 #
 # **A previous run's directory is asserted by name**, because it is covered by a
 # search rather than by a path and a search that quietly matched nothing would
 # be a cover that quietly covered nothing. So the same `mcp.json` rule runs
-# again in here, and beside it the fixture's binary as a regular file called
-# `lookout` — which catches a copy that is *not* in an output directory and so
-# was never covered at all. Either one is fatal: the operator moves it, deletes
-# it, or finds out why the cover above missed it.
+# again in here, and beside it two regular files by name: the fixture's binary
+# `lookout`, which catches a copy that is *not* in an output directory and so was
+# never covered at all, and **a second `hyper`** — the one name the claim above
+# turns on, and the one that was missing while a sixteen-megabyte one sat under
+# `/tmp` at the version this fixture pins (issue #292). `-type f` is what keeps
+# that leg quiet about the ordinary: a *directory* named `hyper` is nothing
+# unusual — a checkout of this project is one, and `.git/hyper/` is where a Run
+# puts the Store's own local state (`internal/store/lock.go`), so every
+# repository a Run has touched carries one. The Store's branch is `hyper-store`
+# and matches this name nowhere. Any of them is fatal: the operator moves it,
+# deletes it, or finds out why the cover above missed it.
 #
-# **This run's own `mcp.json` matches that search**, and is not a finding: it is
-# on `keep`'s list, and the filter below drops everything on that list before
-# anything is concluded. `endpoint.env` is deliberately *not* searched for by
-# name — it is too ordinary a filename to fire on only this harness's copies
-# (this machine has one under `~/.config`), and every copy of it that matters
-# sits in a directory the `mcp.json` rule already names.
+# **This run's own `mcp.json` and its own `bin/hyper` match that search**, and
+# neither is a finding: both are on `keep`'s list, and the filter below drops
+# everything on that list before anything is concluded. `endpoint.env` is
+# deliberately *not* searched for by name — it is too ordinary a filename to fire
+# on only this harness's copies (this machine has one under `~/.config`), and
+# every copy of it that matters sits in a directory the `mcp.json` rule already
+# names.
 #
 # **The sentinel is what makes this an assertion.** Without it an empty answer
 # reads as *sealed* whether the search found nothing or never ran, and a `bwrap`
@@ -618,8 +677,15 @@ seal+=(--proc /proc --dev /dev --die-with-parent --chdir "$repo")
 # failure rather than a pass. The inventory is the one search whose own failure
 # would be silence too — a covered directory is readable to us or it is nothing
 # — so it takes the sentinel with it on the way out rather than hiding its
-# errors, which is the `|| exit 1` and the `2>/dev/null` the other three have and
+# errors, which is the `|| exit 1` and the `2>/dev/null` the other four have and
 # it does not.
+#
+# **That is also how a `/tmp` this script failed to cover reports itself** (issue
+# #292): the machine's own `systemd-private-*` directories under there are
+# unreadable to us, so the walk exits non-zero and the sentinel never prints. The
+# cover and this root are one decision rather than two — the walk is only sound
+# over a `/tmp` that is a tmpfs of ours — and the error `find` writes to the
+# terminal on the way past says which paths it was.
 #
 # **A second sentinel says a Secret sink has somewhere to go** (issue #271).
 # `--secret-out` refuses a path that resolves inside the repository working tree,
@@ -643,11 +709,12 @@ seal+=(--proc /proc --dev /dev --die-with-parent --chdir "$repo")
 # be taught to expect, and it prints on success only — a `mkdir` that failed
 # prints nothing, and the missing line is the failure.
 report=$("${seal[@]}" /bin/sh -c '
-	find "$HOME" /opt /srv /var/tmp \
+	find "$HOME" /tmp /opt /srv /var/tmp \
 		\( -name go.mod -readable -exec grep -l "^module github.com/TheLoomLabs/hyper$" {} + \) -o \
 		\( -name mcp.json -readable -exec grep -l "HYPER_REPO_DIR" {} + \) -o \
-		\( -type f -name lookout -print \) 2>/dev/null
-	find "$HOME" "$1" -mindepth 1 -path "$2" -prune -o -print || exit 1
+		\( -type f -name lookout -print \) -o \
+		\( -type f -name hyper -print \) 2>/dev/null
+	find "$HOME" /tmp "$1" -mindepth 1 -path "$2" -prune -o -print || exit 1
 	command -v hyper 2>/dev/null
 	mkdir "$HOME/.sink-probe" "$1/.sink-probe" 2>/dev/null &&
 		rmdir "$HOME/.sink-probe" "$1/.sink-probe" && echo SINKABLE
