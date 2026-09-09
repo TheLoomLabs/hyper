@@ -1,4 +1,4 @@
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/logo.svg"><img src="docs/images/logo-light.svg" alt="" width="76" height="76"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/logo.svg"><img src="docs/images/logo-light.svg" alt="" width="96" height="96"></picture>
 
 # hyper
 

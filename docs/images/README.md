@@ -36,7 +36,7 @@ element per line, with no filter, no gradient and no embedded raster, so a `git
 diff` can speak about a change to it.
 
 **What went with them is stated rather than argued away.** The README opens on
-the mark now — seventy-six pixels of linework where 1280×490 of studio lighting
+the mark now — ninety-six pixels of linework where 1280×490 of studio lighting
 used to be. A mark identifies; it does not do the thing a hero does, which is
 hold a reader for the two seconds in which they decide whether to keep
 scrolling.
