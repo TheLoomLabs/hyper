@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 158 records**, numbered `0001`–`0158` with no gaps. They are chronological:
+**This corpus holds 159 records**, numbered `0001`–`0159` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -203,7 +203,8 @@ none. The list below is the whole corpus and the only complete thing on this pag
 [0129](0129-the-destroy-landed-inside-the-seal-and-what-held-the-hand-made-monitors-was-not-the-bound.md) ·
 [0130](0130-the-seal-covers-the-home-directory-and-the-session-comes-back-by-name.md) ·
 [0149](0149-the-sink-was-supplied-both-secrets-were-lost-and-check-was-clean-throughout.md) ·
-[0153](0153-the-spelling-was-right-the-first-time-and-the-three-repairs-behind-it-were-never-reached.md)
+[0153](0153-the-spelling-was-right-the-first-time-and-the-three-repairs-behind-it-were-never-reached.md) ·
+[0159](0159-the-second-session-chose-the-sound-root-too-and-left-open-the-record-the-first-one-closed-by-accident.md)
 
 **How this repository is built and held**
 [0007](0007-hyper-never-stores-a-secret.md) ·
@@ -384,3 +385,4 @@ here fails the suite.
 - **0156** · [A `method:` that is not an HTTP token is refused where it is written](0156-a-method-that-is-not-an-http-token-is-refused-where-it-is-written.md)
 - **0157** · [A Capability is an effect `hyper` performs with a credential it already has a position for](0157-a-capability-is-an-effect-hyper-performs-with-a-credential-it-already-has-a-position-for.md)
 - **0158** · [A Bound is a positive count](0158-a-bound-is-a-positive-count.md)
+- **0159** · [The second session chose the sound root too, and left open the record the first one closed by accident](0159-the-second-session-chose-the-sound-root-too-and-left-open-the-record-the-first-one-closed-by-accident.md)

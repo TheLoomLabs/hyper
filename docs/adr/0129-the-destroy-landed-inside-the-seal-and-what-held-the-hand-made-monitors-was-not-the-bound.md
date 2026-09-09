@@ -151,9 +151,11 @@ renders in `publish-aliases`. Both are legal and the transcript is not worse for
 form is what makes the population one reviewable line, and this session did not reach for it.
 
 **It probed the endpoint with `curl` before writing anything**, twice, and got `401` both times. The
-credential is in the MCP server's environment and is unreachable from the session's own shell, which
-is the arrangement working; the calls cost nothing and told it nothing it could not read in the
-documentation.
+credential is in the MCP server's environment and not in the session's own, so a bare `curl` gets
+nothing — but it is also written into `mcp.json`, which the seal cannot hide and a session may read
+(`run.sh`'s header says so, ADR-0105 and ADR-0109). This session did not look there; the 2026-09-09
+one did, and called the endpoint directly (ADR-0159). The two calls cost nothing and told it nothing
+it could not read in the documentation.
 
 ## What was considered
 
@@ -182,7 +184,9 @@ is the easy one, which is the trap-that-must-fire ADR-0106 already declined.
 - **Issue #229's repair has its first transcript**, unplanned, and the fault ADR-0106 paid for at the
   world is now paid for at `check`.
 - **Issue #251's deferred re-run is still owed**, and this run is why: the sentence was never reached.
-  The next run of `monitor-retirement` is where it is bought.
+  The next run of `monitor-retirement` is where it is bought. _ADR-0159 amends this:_ that run was
+  bought on 2026-09-09 and the second session chose the same sound root, so the re-run stopped being
+  an obligation of its own — the hazard is what nobody reaches, and no session is bought for it.
 - **`monitor-retirement` stands as authored.** No change to the task, the fixture, or its
   documentation follows from this run; its header gains the by-hand and sealed numbers and one
   corrected sentence about what the Bound does.

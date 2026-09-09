@@ -199,6 +199,21 @@
 # re-run is still owed — the next run of this task is where it is bought. Issue
 # #252's `answered` was reached, read and attributed correctly, and issue #229's
 # `check` code fired offline on the session's first `check`.
+#
+# **A second sealed run was bought on 2026-09-09 and it is ADR-0159.** Sixty-five
+# tool calls, twenty-two at the world, five Runs, exit `0`. It beat the task the
+# same way and differs from the first in three places. It rooted its Requirement
+# at a `one` read again — so the series-rooted halt sentence has now gone
+# unreached by two unaided sessions, and issue #251's re-run stopped being an
+# obligation on this task. It authored six Bounds, every one of them `1`, five of
+# them only after `review` answered five `UNBOUNDED` rows — so issue #287's
+# `bound-not-positive` went unreached too, no transcript having yet authored a
+# Bound below one. And it checked `pricing`'s ref before retiring anything, found
+# the `404`, and narrowed its `destroy` to `warehouse` alone: one `DELETE` where
+# the first run sent two, the `pricing` Asset left standing in the Store with the
+# world not answering for it, and the session saying so and offering the step.
+# **Both worlds end where the operator asked; only the first run's Store agrees
+# with its world, and it got there without looking.**
 set -euo pipefail
 
 # **One file raises the lookout for all four lookout tasks** (issue #274). It is

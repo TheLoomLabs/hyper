@@ -120,3 +120,6 @@ because the Store's encoder was taught a second value.
   [#288](https://github.com/TheLoomLabs/hyper/issues/288) holds the obligation, beside ADR-0126's,
   which the 2026-09-02 run of the same task never reached: two deferrals now stand on one run, which
   is what `acceptance-re-runs.md` calls the argument for buying that task next.
+  _ADR-0159 amends this:_ the run was bought on 2026-09-09 and this clause was not reached — the
+  session authored six Bounds and every one of them was `1`. Nothing here changes, and no run is
+  held open for it.

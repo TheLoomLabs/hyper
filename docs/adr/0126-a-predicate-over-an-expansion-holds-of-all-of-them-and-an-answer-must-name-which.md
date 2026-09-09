@@ -157,3 +157,11 @@ the list, the member and the two orders. **It is not being bought now because th
 the task that would measure it does not exist yet, which is the gap #253 was filed to say out loud, and
 buying a run against `change-window` or `monitor-coverage` would measure a surface neither of them
 reaches.
+
+_ADR-0159 amends this:_ the run was bought twice —
+[ADR-0129](0129-the-destroy-landed-inside-the-seal-and-what-held-the-hand-made-monitors-was-not-the-bound.md)
+on 2026-09-02 and
+[ADR-0159](0159-the-second-session-chose-the-sound-root-too-and-left-open-the-record-the-first-one-closed-by-accident.md)
+on 2026-09-09. The enforced half's `answered` was reached and read correctly on the first. The taught
+half was reached by neither: both sessions wrote the `series` read and rooted the Requirement at a
+`one` read unaided, so no further run is held open for it.
