@@ -13,7 +13,7 @@
 the artefact; you verify it offline before anything runs, and read exactly what changed after —
 including what the agent changed about the artefact.
 
-**Status: alpha.** The current release is `0.0.3-alpha`, and there is one built-in Provider,
+**Status: alpha.** The current release is `0.0.4-alpha`, and there is one built-in Provider,
 `shell`. The format,
 the CLI, the record and the review surface are specified in full in
 [`docs/spec/`](docs/spec/); the spec is the authority, and where the code disagrees with it the
@@ -93,7 +93,7 @@ One binary, on your `PATH`. No installer, no daemon, no post-install step, and i
 itself ([ADR-0019](docs/adr/0019-hyper-never-updates-itself.md)).
 
 ```bash
-VERSION=0.0.3-alpha
+VERSION=0.0.4-alpha
 PLATFORM=x86_64-linux   # or aarch64-linux, x86_64-darwin, aarch64-darwin
 BASE=https://github.com/TheLoomLabs/hyper/releases/download/v$VERSION
 
@@ -106,7 +106,7 @@ hyper version
 Or from source, with Go 1.25 or newer:
 
 ```bash
-go install github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.3-alpha
+go install github.com/TheLoomLabs/hyper/cmd/hyper@v0.0.4-alpha
 ```
 
 **[`docs/install.md`](docs/install.md) has the rest**, and you want it if any of these apply:
@@ -139,7 +139,7 @@ no Procedure declares a Cadence, and no generated workflow stands
 
 $ cat hyper.yaml
 kind: repository-declaration
-version: 0.0.3-alpha
+version: 0.0.4-alpha
 digest: sha256:…
 ```
 
@@ -257,13 +257,13 @@ $ hyper runs
 the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
 
 RUN             STARTED                   TRIGGER      OUTCOME    REHEARSAL  CONTESTED  PROCEDURE  TARGETS  HYPER
-01a043df-521e…  2026-08-27T15:38:24.158Z  you@machine  completed                        say-hello  local    0.0.3-alpha
+01a043df-521e…  2026-08-27T15:38:24.158Z  you@machine  completed                        say-hello  local    0.0.4-alpha
 
 $ hyper records
 the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
 
 TARGET  DEFINITION  RECORD                       ORDINAL  RUN             STEP  REHEARSAL  KIND         TOMBSTONE  ORPHANED  SECRETS  HYPER
-local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1                observation                                0.0.3-alpha
+local   host-ops    ["echo","hello from hyper"]  1        01a043df-521e…  1                observation                                0.0.4-alpha
 ```
 
 Neither listing is reading a directory. The record is an orphan branch, `hyper-store`, written
