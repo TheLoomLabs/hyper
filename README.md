@@ -256,8 +256,8 @@ completed · exit 0 · run 01a043df-521e-7a0a-b723-05eaa2bb0588
 $ hyper runs
 the record is the hyper-store branch of this repository — never checked out, and it travels with a clone
 
-RUN             STARTED                   TRIGGER      OUTCOME    CONTESTED  PROCEDURE  TARGETS  HYPER
-01a043df-521e…  2026-08-27T15:38:24.158Z  you@machine  completed             say-hello  local    0.0.3-alpha
+RUN             STARTED                   TRIGGER      OUTCOME    REHEARSAL  CONTESTED  PROCEDURE  TARGETS  HYPER
+01a043df-521e…  2026-08-27T15:38:24.158Z  you@machine  completed                        say-hello  local    0.0.3-alpha
 
 $ hyper records
 the record is the hyper-store branch of this repository — never checked out, and it travels with a clone

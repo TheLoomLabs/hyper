@@ -622,6 +622,24 @@ either. `--outcome` therefore selects a contested entry on its owner's outcome, 
 entry has. `show <run-id>` is where the contest is stated in full, one line per `closed-by/` file in the
 form §8's header uses.
 
+A **rehearsal** (§6) is an entry like any other here, and it carries a marker on the row for the reason
+the contest does. A `--dry-run` that reached its end recorded `completed` and one that stopped at the
+effect it withheld recorded `completed` too, so the outcome cell holds what the entry holds; *it
+withheld its effect* is a fact about how the Run was performed and not a fourth value in a column named
+for §12's triple. `--outcome` therefore selects a rehearsal on the outcome it has, and what tells it from
+the Run that acted on the world is the marker beside it. **The seven facts stay seven** — a marker is
+the qualifier the other cells are read under rather than an eighth item beside them, and this one
+qualifies two of them: `completed` means *it did that* on one row and *it withheld that* on the next,
+and a rehearsal bound the Targets it reached rather than the ones its Procedure names.
+
+**The marker is written always here, the bare `false` included**, which is §7's one exception to the
+absence rule arriving on the surface that ranges over the Journal. It is read off the entry the row
+*is*, rather than joined to it as `records` joins for the same marker, so the third state that surface
+carries — *the branch holds no entry for this Run* — is unreachable on this one and the member is a
+boolean rather than an absence (§7, ADR-0114). On the page it is the word `yes` where there is
+something to say and a blank where there is not, which is the reading `show`'s own header already takes
+over the same marker.
+
 `show <run-id>` takes a Run id whole — nothing anywhere resolves a partial one (ADR-0047) — and writes
 one entry in full: each Step's Disposition with the Record identities it acted on, `hyper`'s own account
 of what it did to reach that outcome — a Pattern's attempts, its pages, its poll iterations — and, on a
@@ -1556,7 +1574,10 @@ Four tools over the record, taking the typed, closed parameters their commands t
 
 ```jsonc
 runs(since?, procedure?, target?, outcome?, limit?)
-// → rows: [{ type: "run", id, started, trigger, outcome, procedure, targets, hyper_version }]
+// → rows: [{ type: "run", id, started, trigger, outcome,
+//            dry_run,                        // whether that Run was a rehearsal, off the entry the
+//                                            // row is; written always, the bare false included
+//            procedure, targets, hyper_version }]
 ```
 
 ```jsonc

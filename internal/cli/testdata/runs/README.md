@@ -27,20 +27,22 @@ every timestamp in a golden came out of a seeded file.
 
 ## The Journal every listing case reads
 
-Nine cases share one seeded Journal of six entries, which is one of each account
-§7 classifies an entry into and all three of §12's outcomes, across two
-Procedures, three Targets, both executors and two versions of `hyper`:
+Nine cases share one seeded Journal of seven entries, which is one of each
+account §7 classifies an entry into, all three of §12's outcomes and a rehearsal
+beside the Run it preceded, across two Procedures, three Targets, both executors
+and two versions of `hyper`:
 
 | Run | started | trigger | account | procedure | targets |
 | --- | --- | --- | --- | --- | --- |
-| `0199206d-4e15…` | 6 Aug 11:03 | `igor@thinkpad` | completed | `retire-preview-envs` | `local`, `staging` |
+| `0199206d-4e15…` | 6 Aug 11:03:18 | `igor@thinkpad` | completed | `retire-preview-envs` | `local`, `staging` |
+| `0199206d-36a5…` | 6 Aug 11:03:12 | `igor@thinkpad` | completed, **rehearsal** | `retire-preview-envs` | `local` |
 | `01991ea6-b118…` | 6 Aug 09:41 | `cron` | failed | `retire-preview-envs` | `cloudflare-prod` |
 | `01991d70-6a2f…` | 5 Aug 20:00 | `igor@thinkpad` | refused | `retire-preview-envs` | *none* |
 | `01991c3a-7d40…` | 5 Aug 14:20 | `igor` | **open** | `publish-preview` | `staging` |
 | `019917f2-2c81…` | 4 Aug 09:12 | `cron` | **reaped** | `retire-preview-envs` | `cloudflare-prod`, `local` |
 | `019912ab-5e60…` | 3 Aug 08:00 | `igor@thinkpad` | **contested** | `publish-preview` | `local`, `staging` |
 
-Four of those rows are the ones the ticket is about:
+Five of those rows are the ones the two tickets are about:
 
 - The **open** entry renders no outcome at all and still holds its position in
   the ordering, which is what ordering on the Run's start rather than its end
@@ -51,6 +53,13 @@ Four of those rows are the ones the ticket is about:
 - The **contested** entry renders its **owner's** outcome and carries the marker
   beside it. The cell is named for §12's triple, the owner's account is a member
   of it, and a second account is not a fourth value.
+- The **rehearsal** is the pair the sealed run of 2026-09-09 produced (ADR-0159,
+  ADR-0160, issue #289): a `--dry-run` of `retire-preview-envs` and, six seconds
+  later, the Run that acted. Both are `completed` under one Procedure, and the
+  only cell that tells them apart is `REHEARSAL` — which is the ticket. It bound
+  `local` alone because it stopped at the `mutate` on `staging` and withheld it,
+  a withheld Step writing no file (§6, §7). Its `dry_run` is `true` on the wire
+  where every other row's is the bare `false`, written always.
 - The **refused** entry declined before Step 1, so it holds no Step file and
   bound nothing. Its `TARGETS` cell is empty and its wire member is `[]` and
   never absent: a Run that bound none has an answer rather than no answer, which
@@ -59,9 +68,10 @@ Four of those rows are the ones the ticket is about:
 The `igor` row is the Trigger's third form: a person on the Actions executor,
 where no `host` is written and a runner is a machine nobody will look for again.
 
-- [`the-journal-listed/`](the-journal-listed) — all five, newest-first on
+- [`the-journal-listed/`](the-journal-listed) — all seven, newest-first on
   `started_at`. Its `-json` twin is the same rows on the wire, where the ids go
-  out **whole** and `contested` is the boolean the page renders as a word.
+  out **whole**, `contested` is the boolean the page renders as a word, and
+  `dry_run` is on every row including the six that are `false`.
 - [`ties-break-on-the-run-id-descending/`](ties-break-on-the-run-id-descending)
   — two Runs that began in the same millisecond, under a Journal of their own.
   A UUIDv7 is total over the tie, and nothing else here could decide it.
@@ -76,18 +86,21 @@ case, and each drives the shared Journal:
   because there it decides which rendering you get.
 - [`narrowed-by-target/`](narrowed-by-target) — the two entries that bound
   `cloudflare-prod`, one of them by way of a closing write.
-- [`narrowed-by-outcome/`](narrowed-by-outcome) — `completed` selects the two
+- [`narrowed-by-outcome/`](narrowed-by-outcome) — `completed` selects the three
   entries whose outcome is that, and **never the open one**: `--outcome` filters
   §12's triple, and *open* is a state and not a member of it. The contested
-  entry is selected on its owner's outcome, which is the one the entry has.
+  entry is selected on its owner's outcome, which is the one the entry has, and
+  **the rehearsal is selected like any other Run**: its outcome is `completed`,
+  which is a member of the triple, and the marker beside the cell is not.
 - [`narrowed-by-since/`](narrowed-by-since) — the bound **includes the instant
-  it names**, the fourth row's own `started_at`, which is why the page renders
-  an instant in the spelling `--since` reads rather than a friendlier date.
+  it names**, the `started_at` of the reaped entry the page then keeps as its
+  last row, which is why the page renders an instant in the spelling `--since`
+  reads rather than a friendlier date.
 
 ## Truncation
 
 - [`a-cut-listing-names-the-time-axis/`](a-cut-listing-names-the-time-axis) and
-  its `-json` twin — `--limit 2` over five entries. The marker names `axis:
+  its `-json` twin — `--limit 2` over seven entries. The marker names `axis:
   "time"`, what came back, what did not, and `--since` and `--target` as the
   narrowings; the page's counterpart is the line on stderr, in both modes. There
   is no cursor and no pagination, and a truncated result never looks complete.

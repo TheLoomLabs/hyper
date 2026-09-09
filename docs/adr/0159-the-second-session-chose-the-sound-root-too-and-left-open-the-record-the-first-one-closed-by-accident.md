@@ -239,8 +239,9 @@ question the task is asking.
 
 **`runs` does not say which entry is a rehearsal.** §9 fixes its row at seven facts — the Run id,
 when it started, its Trigger, its outcome, its Procedure, the Targets it bound, the version — and
-`dry_run` is not among them, while `show` renders *completed · dry-run · exit 0* and `changes` carries
-`dry_run` on both sides of its window. A rehearsal is a Journal entry like any other and reaches the
+`dry_run` is not among them, while `show` labels the entry `REHEARSAL yes` in its header, `run`'s own
+terminal line spells it *completed · dry-run · exit 0*, and `changes` carries `dry_run` on both sides
+of its window. A rehearsal is a Journal entry like any other and reaches the
 world like any other, a dry-run performing the reads it reaches (§6) — this one's two reads are in the
 endpoint's log at 14:21:13 — so what separates it from the Run six seconds later is the `destroy` it
 withheld, and the listing does not carry that. The session's report opens *Both jobs are done, five

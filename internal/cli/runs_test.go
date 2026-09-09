@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 
@@ -149,6 +150,87 @@ func TestTruncationLine_NamesTheNarrowingRatherThanALargerLimit(t *testing.T) {
 			}
 			if got := truncationLine("Runs", returned, found, c.parsed, c.narrowing); got != c.want {
 				t.Errorf("truncationLine() = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// aListedEntry is one Journal entry as `runs` receives it from the Store: the
+// one fact these cases turn on and enough beside it for a row to be built.
+func aListedEntry(rehearsal bool) store.Listed {
+	return store.Listed{
+		Entry: store.Entry{
+			RunFile: store.RunFile{
+				Run:       aRunID("01991f80-1a2b-7c3d-8e4f-5a6b7c8d9e10"),
+				Procedure: "retire-preview-envs",
+				DryRun:    rehearsal,
+			},
+			Owner: store.OutcomeFile{Outcome: store.OutcomeCompleted},
+		},
+		Targets: []string{"local"},
+	}
+}
+
+// TestJournalRows_CarriesTheRehearsalMarkerOnEveryRow. The marker goes out on
+// every row, the bare `false` included: §7 writes this one always because a
+// reader that takes its absence for `false` gets a permanent wrong answer, and
+// a row that dropped the `false` would be that absence built at the surface
+// (§9, ADR-0160, issue #289).
+//
+// **There is no third state here**, where `records` has one. Every row on this
+// surface is an entry, so there is no join to fail and no absence to spell.
+func TestJournalRows_CarriesTheRehearsalMarkerOnEveryRow(t *testing.T) {
+	for name, rehearsal := range map[string]bool{
+		"a rehearsal":      true,
+		"an effecting Run": false,
+	} {
+		t.Run(name, func(t *testing.T) {
+			rows := journalRows([]store.Listed{aListedEntry(rehearsal)}, narrowings{})
+			if len(rows) != 1 {
+				t.Fatalf("journalRows() returned %d rows, want 1", len(rows))
+			}
+			row, ok := rows[0].(runRow)
+			if !ok {
+				t.Fatalf("journalRows() returned a %T, want a runRow", rows[0])
+			}
+			if row.DryRun != rehearsal {
+				t.Errorf("the row carries dry_run: %t, want %t", row.DryRun, rehearsal)
+			}
+			wire, err := render.MarshalRow(row)
+			if err != nil {
+				t.Fatalf("encoding the row: %v", err)
+			}
+			if !strings.Contains(string(wire), `"dry_run":`) {
+				t.Errorf("the row encodes as %s, carrying no dry_run — the marker is written always", wire)
+			}
+		})
+	}
+}
+
+// TestJournalRows_RendersTheRehearsalAsAWordAndTheOrdinaryRunAsNothing is the
+// page half of that exception: the word where there is something to say and a
+// blank where there is not, which is the reading `show`'s own header and
+// `records`' own column already take over the same marker (§9, ADR-0114,
+// ADR-0160).
+func TestJournalRows_RendersTheRehearsalAsAWordAndTheOrdinaryRunAsNothing(t *testing.T) {
+	at := slices.Index(runsColumns, "REHEARSAL")
+	if at < 0 {
+		t.Fatal("the page has no REHEARSAL column; the marker has no place to render")
+	}
+	for name, one := range map[string]struct {
+		rehearsal bool
+		want      string
+	}{
+		"a rehearsal":      {rehearsal: true, want: "yes"},
+		"an effecting Run": {rehearsal: false, want: ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cells := journalRows([]store.Listed{aListedEntry(one.rehearsal)}, narrowings{})[0].Cells()
+			if len(cells) != len(runsColumns) {
+				t.Fatalf("the row renders %d cells under %d columns", len(cells), len(runsColumns))
+			}
+			if cells[at] != one.want {
+				t.Errorf("REHEARSAL renders %q, want %q", cells[at], one.want)
 			}
 		})
 	}

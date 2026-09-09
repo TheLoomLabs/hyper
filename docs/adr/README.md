@@ -5,7 +5,7 @@ Why `hyper` is the way it is, including the options that lost. The specification
 measured. Where a record and the spec disagree the spec is right — a record is a decision at a
 moment, and the moment does not come back.
 
-**This corpus holds 159 records**, numbered `0001`–`0159` with no gaps. They are chronological:
+**This corpus holds 160 records**, numbered `0001`–`0160` with no gaps. They are chronological:
 the number is the order they were written in and carries no other meaning. Nothing here is
 superseded by status — a later record that revises an earlier one says so in its own text, and
 the earlier one stays as it was written.
@@ -146,7 +146,8 @@ none. The list below is the whole corpus and the only complete thing on this pag
 [0067](0067-a-range-is-anchored-by-whether-the-artefact-carries-a-revision-not-by-its-kind.md) ·
 [0080](0080-a-code-fact-renders-whole-in-the-shape-it-was-written.md) ·
 [0086](0086-a-code-fact-is-read-where-it-is-authored.md) ·
-[0135](0135-the-comparison-names-its-own-failure-and-does-not-fail-the-job.md)
+[0135](0135-the-comparison-names-its-own-failure-and-does-not-fail-the-job.md) ·
+[0160](0160-the-rehearsal-marker-rides-on-the-runs-row-and-the-seven-facts-stay-seven.md)
 
 **The two surfaces: CLI and MCP**
 [0015](0015-the-cli-never-prompts.md) ·
@@ -386,3 +387,4 @@ here fails the suite.
 - **0157** · [A Capability is an effect `hyper` performs with a credential it already has a position for](0157-a-capability-is-an-effect-hyper-performs-with-a-credential-it-already-has-a-position-for.md)
 - **0158** · [A Bound is a positive count](0158-a-bound-is-a-positive-count.md)
 - **0159** · [The second session chose the sound root too, and left open the record the first one closed by accident](0159-the-second-session-chose-the-sound-root-too-and-left-open-the-record-the-first-one-closed-by-accident.md)
+- **0160** · [The rehearsal marker rides on the `runs` row, and the seven facts stay seven](0160-the-rehearsal-marker-rides-on-the-runs-row-and-the-seven-facts-stay-seven.md)

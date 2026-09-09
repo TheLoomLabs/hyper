@@ -1104,7 +1104,7 @@ const cutOrComplete = `{
 var runsTool = tool{
 	name:        "runs",
 	text:        locationBeneathSummary,
-	description: "List the Journal, newest first: one row per Run, with its Trigger, its outcome, the Targets it bound and the version of hyper that performed it.",
+	description: "List the Journal, newest first: one row per Run, with its Trigger, its outcome, whether it was a rehearsal, the Targets it bound and the version of hyper that performed it.",
 	input: closedObject(`{
 		"since": {
 			"type": "string",
@@ -1124,7 +1124,7 @@ var runsTool = tool{
 			"items": {
 				"type": "object",
 				"additionalProperties": false,
-				"required": ["type", "id", "started", "trigger", "procedure", "targets", "hyper_version"],
+				"required": ["type", "id", "started", "trigger", "dry_run", "procedure", "targets", "hyper_version"],
 				"properties": {
 					"type": {"const": "run"},
 					"id": {"type": "string", "description": "The Run id, whole: what a consumer does with one is hand it back to run_show."},
@@ -1136,6 +1136,10 @@ var runsTool = tool{
 					"outcome": {
 						"enum": ["completed", "refused", "failed"],
 						"description": "Absent on an open entry, the absence carrying that state rather than a fourth value: a started beside no outcome is the whole of what the Store holds about a Run nobody has closed."
+					},
+					"dry_run": {
+						"type": "boolean",
+						"description": "Whether that Run was a rehearsal, off the entry the row is. Written always, the bare false included: a reader that takes its absence for false gets a permanent wrong answer. It stands beside the outcome rather than inside it — a rehearsal's outcome is completed, which is the one the entry has, so outcome selects it like any other."
 					},
 					"contested": {
 						"type": "boolean",

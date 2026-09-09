@@ -38,6 +38,10 @@ var runsParameters = parameters{
 // **The Trigger is on every row**, being the only thing that distinguishes a
 // world that has not changed from one nobody has looked at (§7).
 //
+// **Two markers ride beside those seven** — the rehearsal and the contest — and
+// neither is an eighth fact: a marker is the qualification the other cells are
+// read under, where the seven are the Run's own account of its work (ADR-0160).
+//
 // **The ordering is time, and time runs newest-first** (ADR-0065), on
 // `started_at` with the `<run-id>` descending as the tie-break — §7's Head
 // shape, a time key with a name behind it, and a UUIDv7 is total over the tie.
@@ -176,10 +180,10 @@ func runsTerminal(kept []render.Row, dropped int) render.Row {
 }
 
 // runRow is `runs`'s row, and its members are §9's own, in §9's order:
-// {"type":"run","id":…,"started":…,"trigger":…,"outcome":…,"procedure":…,
-// "targets":[…],"hyper_version":…}. §9 writes that shape out once and milestone
-// 11's MCP tool reuses this contract rather than minting a second one, so the
-// declaration order here is the wire's and not a preference.
+// {"type":"run","id":…,"started":…,"trigger":…,"outcome":…,"dry_run":…,
+// "procedure":…,"targets":[…],"hyper_version":…}. §9 writes that shape out once
+// and milestone 11's MCP tool reuses this contract rather than minting a second
+// one, so the declaration order here is the wire's and not a preference.
 //
 // **`outcome` is absent on an open entry**, the member carrying that absence
 // rather than a fourth value: *open* is a state and not a member of §12's
@@ -187,6 +191,20 @@ func runsTerminal(kept []render.Row, dropped int) render.Row {
 // distinction by accident (§7, §9). A `started` beside an absent outcome is the
 // whole of what the Store holds about a Run nobody has closed, and the row says
 // exactly that much.
+//
+// **`dry_run` says whether the Run was a rehearsal, and it is written always**
+// — the bare `false` included, which is §7's one exception to the absence rule
+// carried onto the surface that ranges over the Journal. It is read off the
+// entry the row *is*, so the third state `records` carries — the branch holding
+// no entry for the Run at all — is unreachable here and this is a boolean
+// rather than an absence (§9, ADR-0114, ADR-0160, issue #289).
+//
+// It rides beside the outcome rather than inside it, for the reason the contest
+// does: a rehearsal's outcome is `completed`, which is a member of §12's triple
+// and the one the entry has, so `--outcome` selects it like any other. What the
+// marker qualifies is how to read the cells around it — `completed` means *it
+// did that* on one row and *it withheld that* on the next, and a rehearsal bound
+// the Targets it reached rather than the ones its Procedure names.
 //
 // **`contested` is the marker a contested entry carries**, and it stands beside
 // the outcome rather than inside it. The key is named for the triple, the
@@ -205,10 +223,12 @@ func runsTerminal(kept []render.Row, dropped int) render.Row {
 // per surface, and the surface that carries the parts is the one whose job is
 // the parts.
 //
-// **`targets` is written always, the empty set included**, which is the one
-// member here that departs from the ordinary absence rule — boundTargets below
-// says why. Every other absent member of this row is a fact the entry does not
-// carry.
+// **`targets` is written always, the empty set included** — boundTargets below
+// says why. It is the second of the two members here that depart from the
+// ordinary absence rule, and it departs for a reason of its own: `dry_run`'s is
+// §7's exception, where this one is that a Run binding no Target has an answer
+// rather than no answer. Every other absent member of this row is a fact the
+// entry does not carry.
 //
 // **`id` goes out whole here and abbreviated on the page**, like every other id
 // on a table read down a column (ADR-0047): the wire abbreviates nothing
@@ -220,6 +240,7 @@ type runRow struct {
 	Started      string   `json:"started"`
 	Trigger      string   `json:"trigger"`
 	Outcome      string   `json:"outcome,omitempty"`
+	DryRun       bool     `json:"dry_run"`
 	Contested    bool     `json:"contested,omitempty"`
 	Procedure    string   `json:"procedure"`
 	Targets      []string `json:"targets"`
@@ -230,16 +251,26 @@ type runRow struct {
 // members, so what a consumer filters on and what a reader reads down are one
 // list (§8, ADR-0026).
 //
-// Two of them render differently here and nowhere else: the id is abbreviated,
-// and the contest is the word `yes` under a column named for it rather than the
-// boolean the wire carries. Both are the page's reading of a fact the row holds
-// once.
+// Three of them render differently here and nowhere else: the id is
+// abbreviated, and each marker is the word `yes` under a column named for it
+// rather than the boolean the wire carries. All are the page's reading of a
+// fact the row holds once.
+//
+// **`REHEARSAL` is the word where there is something to say and nothing where
+// there is not**, which is the page half of §7's exception and the reading
+// `show`'s own header and `records`' own column already take over the same
+// marker: the wire carries it always because a reader that takes its absence
+// for `false` cannot recover, and a column carrying `no` down every row of an
+// ordinary listing says nothing a reader scans for. The blank has one meaning
+// here and only one — this Run was not a rehearsal — the entry a row is built
+// from never being absent (ADR-0160).
 func (r runRow) Cells() []string {
 	return []string{
 		abbreviatedRun(r.ID),
 		r.Started,
 		r.Trigger,
 		r.Outcome,
+		yesCell(r.DryRun),
 		yesCell(r.Contested),
 		r.Procedure,
 		namesText(r.Targets),
@@ -249,7 +280,7 @@ func (r runRow) Cells() []string {
 
 // runsColumns is the page's header: the row's own members in the row's own
 // order.
-var runsColumns = []string{"RUN", "STARTED", "TRIGGER", "OUTCOME", "CONTESTED", "PROCEDURE", "TARGETS", "HYPER"}
+var runsColumns = []string{"RUN", "STARTED", "TRIGGER", "OUTCOME", "REHEARSAL", "CONTESTED", "PROCEDURE", "TARGETS", "HYPER"}
 
 // journalRows is the answer: one row per Journal entry that survives the
 // parameters, in the order the Store listed them.
@@ -272,6 +303,7 @@ func journalRows(listed []store.Listed, narrowing narrowings) []render.Row {
 			ID:           entry.Run.String(),
 			Started:      store.InstantText(entry.StartedAt),
 			Trigger:      entry.Trigger.Text(),
+			DryRun:       entry.DryRun,
 			Contested:    entry.Account() == store.AccountContested,
 			Procedure:    entry.Procedure,
 			Targets:      boundTargets(entry.Targets),

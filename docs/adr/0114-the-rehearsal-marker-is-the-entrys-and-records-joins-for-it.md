@@ -130,6 +130,11 @@ same binary against the same revisions — that is the point of a rehearsal.
 **Putting the marker on `runs` as well.** Out of scope here and left as it stands. `runs` orders the
 Journal and `show` reads one entry whole; the ticket is about the surface that names a Run it did not
 range over, which is `records`.
+_ADR-0160 amends this:_ `runs` carries the marker too, decided on the sealed run of 2026-09-09, which
+read a rehearsal and the Run six seconds after it as two ordinary `completed` entries
+([#289](https://github.com/TheLoomLabs/hyper/issues/289)). It is not a join there — every row on that
+surface is an entry — so the member is a boolean with no third state, and the seven facts §9 fixes the
+row at stay seven.
 
 **Refusing a listing whose Records name Runs the Journal does not hold.** Refused. `records` writes
 nothing and exits `0` whatever the Records it listed hold (§9); a Store missing an entry is a fact
