@@ -218,7 +218,9 @@ _Avoid_: Dangling resource, Leaked resource, Abandoned resource
 The version of an Asset recording that what it described was destroyed, and what its last known state
 was. Terminal for the Asset's life rather than for the series: recreating under the same identity
 writes a further version above it. It may be a series' first version, where a destruction reached
-something `hyper` had no record of, and then it carries no last known state at all.
+something `hyper` had no record of, and then it carries no last known state at all. It is written by a
+`destroy` Step and by nothing else, so an Asset the world has lost keeps a Head that reads alive until a
+`destroy` reaches it and its own call confirms there is nothing there.
 _Avoid_: Deletion marker, Soft delete
 
 **Secret sink**:

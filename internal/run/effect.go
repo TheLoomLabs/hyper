@@ -27,12 +27,19 @@ import (
 // `destroy` told there is nothing there **has reached the state it exists to
 // reach**, and because the alternative halts that Step identically on every
 // re-run, leaving an Asset that can never be Tombstoned and the Steps after it
-// *never reached* for good (§6, issue #150). **A Step halted
-// by a status carries no `error_code`** — nothing declined, and a failure has
-// none — and its Disposition is *ran* whether the status was `400` or `500`.
-// The residual doubt about whether a `500` left something behind is real and is
-// **not** what *attempted, outcome unknown* carries: that value means no answer
-// came back at all.
+// *never reached* for good (§6, issue #150). **Read forwards rather than
+// defensively, it is the only route by which an Asset the world has already
+// lost is closed**, a Tombstone being written by a `destroy` and by nothing
+// else (§7) — which is why the orientation states this exception with what it
+// is for rather than on its own: a sealed session that met the `404` on a read
+// of its own and withheld the Step left a Head reading alive for a resource
+// nothing holds (§13, ADR-0161, issue #290).
+//
+// **A Step halted by a status carries no `error_code`** — nothing declined, and
+// a failure has none — and its Disposition is *ran* whether the status was
+// `400` or `500`. The residual doubt about whether a `500` left something
+// behind is real and is **not** what *attempted, outcome unknown* carries: that
+// value means no answer came back at all.
 //
 // **Under `shell` the same rule is read against a command's own vocabulary: it
 // completes on `0` and halts on everything else, on both effectful Kinds.**

@@ -122,6 +122,23 @@ func Instructions(version string) string {
 // TestInstructions_TheFieldARequirementRootsAtIsTheOneCheckHolds one package
 // over (§5, §8, ADR-0120, ADR-0122, issue #242).
 //
+// **And the `404` that completes a `destroy` is stated as the route it is.**
+// The sentence beside it said *a `destroy` completing on `404` besides* and
+// stopped, which is true and reads as a leniency — and a sealed session read it
+// exactly that way: having checked the ref, met the `404` and been told by the
+// task to make sure before taking anything off, it narrowed its `destroy` away
+// from that Asset and handed back a Store whose Head reads alive for a resource
+// the world no longer holds (ADR-0159). A `destroy` Step is the only thing that
+// writes a Tombstone (§7), so withholding it leaves the record open and there is
+// no second route. The clause states what the rule is for, and that a check the
+// operator has already made is no reason to withhold the Step — two calls, and
+// nothing holds the world still between them, so the answer that closes the
+// record is the `destroy`'s own. It stops there rather than claiming the check
+// is a reason to *send*: what is argued is that the earlier `404` leaves the
+// Step neither safer nor more dangerous, and the reason to send it is the open
+// record. Held by TestInstructions_SayADestroyIsHowARecordIsClosed (§6, §13,
+// ADR-0010, ADR-0050, ADR-0161, issue #290).
+//
 // **Its length is a design constraint rather than an aesthetic one.** It is
 // paid for on every session in every harness — as a handshake field whether or
 // not the model reads it, and as a file the harness reads up front — so it
@@ -374,6 +391,12 @@ recorded. The Run does **not** stop, and later Steps are not skipped.
 
 **An effectful Operation is the opposite**: it completes on ` + "`2xx`" + ` and halts on everything else, a
 ` + "`destroy`" + ` completing on ` + "`404`" + ` besides. Where no response arrived it is *attempted, world untouched*.
+
+**That ` + "`404`" + ` is a route and not a leniency.** A ` + "`destroy`" + ` Step writes the Tombstone and nothing else
+does, so an Asset whose resource the world has already lost reads *alive* in the record until a
+` + "`destroy`" + ` reaches it — and a ref you have just checked and found gone is **no reason to withhold the
+Step**, the check and the call being two calls with nothing holding the world still between them.
+**Retire against what the record says you hold**, not only against what the world still answers for.
 
 What does halt a ` + "`read`" + ` is its **projection** — a path that found nothing. An empty collection and a
 wrong path are not the same fact.

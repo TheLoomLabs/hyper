@@ -253,6 +253,36 @@ func TestInstructions_SayARefusalIsFinal(t *testing.T) {
 	}
 }
 
+// TestInstructions_SayADestroyIsHowARecordIsClosed is not a claim of its own on
+// §9's list — it is the half of the halting rule the sentence beside it left
+// implicit, inside the bullet that already stood (issue #290, ADR-0161).
+//
+// The sealed run of 2026-09-09 read *a `destroy` completing on `404` besides*
+// correctly and **declined to use it**. It had checked the ref, got the `404`,
+// narrowed its `destroy` away from that Asset, and handed back a Store whose
+// Head reads alive for a resource the world no longer holds — with the loose end
+// named and the missing Step offered (ADR-0159). Nothing it read was wrong;
+// what nothing said is that the `404` is the route by which such a record is
+// closed rather than a leniency a careful operator may decline, a `destroy`
+// Step being the only thing that writes a Tombstone (§7).
+//
+// So the rule is stated with what it is *for*, on this text's own rule that a
+// rule stated here is stated with its exception or not stated (§9, ADR-0101).
+func TestInstructions_SayADestroyIsHowARecordIsClosed(t *testing.T) {
+	carried := unwrapped(Instructions("1.4.0"))
+
+	for _, stated := range []string{
+		"A `destroy` Step writes the Tombstone and nothing else does",
+		"reads *alive* in the record until a `destroy` reaches it",
+		"no reason to withhold the Step",
+		"Retire against what the record says you hold",
+	} {
+		if !strings.Contains(carried, stated) {
+			t.Errorf("the orientation never says %q; an agent that has confirmed an absence withholds the one Step that closes the record, and leaves the Store disagreeing with the world it was asked to reach", stated)
+		}
+	}
+}
+
 // TestInstructions_TellTheAgentToOfferASectionWhereAnAGENTSFileStands is the
 // sixth, and it is the one the transcripts argued for rather than §9 (issues
 // #209 and #211).

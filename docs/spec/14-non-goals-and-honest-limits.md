@@ -244,6 +244,24 @@ acting on it does. Moving existing infrastructure under `hyper` means recreating
 carrying an enumerated list forever; the same holds for recovering an Orphaned Asset, where restoring
 the deleted Definition is the other way back (§7, ADR-0012).
 
+**And there is no retirement either.** A Tombstone is written by a `destroy` Step and by nothing else
+(§7), so an Asset whose resource somebody removed out from under `hyper` keeps a Head that reads alive,
+and nothing in the tool closes it. The route back is one Step and it is not a workaround: the `destroy`
+goes out, its answer confirms there is nothing there — a `404` under `http`, and under `shell` the
+ordinary exit `0`, there being no status for a command to answer *not there* with (§6) — and the
+Tombstone lands like any other (ADR-0050). What it costs is the moment before that call, where an
+operator who has just watched the ref answer `404` is asked to fire a delete at it anyway — and the
+confirmation is no reason to withhold it. The read and the `destroy` are two calls with nothing holding
+the world still between them, so a `404` seen first leaves the Step neither safer nor more dangerous,
+and the answer that decides the record is the `destroy`'s own, taken at the instant the effect applies.
+What is refused is the pair either side of it: a Step that wrote the version without the call would be a
+Record standing on no world, and a rendering flagging an Asset against a later Observation of the same
+Target is the drift the domain model declined (ADR-0010,
+[ADR-0161](../adr/0161-a-record-the-world-has-lost-is-closed-by-a-destroy-and-the-404-is-not-a-reason-to-withhold-it.md)).
+It is measured rather than supposed: of the two sealed runs of `monitor-retirement`, the one that closed
+the record did it by firing without looking, and the one that looked left the record open and said so
+(ADR-0129, ADR-0159).
+
 **A literal identifier is a Record name nothing can check.** Every other Record name is a
 Manifest-declared field of an upstream response; a `values:` member is authored, and where a `destroy`
 over one opens the series it ends, the author's spelling becomes the name (§7, ADR-0033). Where that

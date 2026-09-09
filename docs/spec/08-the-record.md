@@ -309,6 +309,14 @@ arriving beneath one already rendered moves every ordinal above it, and Compacti
 The version that is current is visible to anyone reading the branch, in a fresh checkout or a browser,
 with no git plumbing and no tool.
 
+**A Tombstone is written by a `destroy` Step and by nothing else.** It follows from the Kind rather
+than from a second declaration: a `destroy` projects nothing, so every version it writes is a Tombstone
+and no other Kind writes one at all (§3, ADR-0037). No command writes one either, and nothing in
+`hyper` writes one off the absence of a thing — a Head that stands is a Head only an effect can put
+down, the Store being append-only besides (ADR-0011). It is what the `404` on a `destroy` exists to keep
+reachable (§6, ADR-0050), and §13 carries what it costs where the world took the thing away first
+([ADR-0161](../adr/0161-a-record-the-world-has-lost-is-closed-by-a-destroy-and-the-404-is-not-a-reason-to-withhold-it.md)).
+
 A Tombstone is an ordinary version of the series, and the four things it carries are three ordinary
 keys and one marker: `tombstone: true` for the destruction (ADR-0011), the previous Head's `fields`
 copied forward for the Asset's last known state, and the `operation`, `run_id` and `step` every version

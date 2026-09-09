@@ -357,7 +357,11 @@ on `404` besides. A `mutate` or `destroy` the server did not accept did not do w
 the halting side because `hyper` follows no redirect, a redirect target being reach arriving from data
 (ADR-0029). `404` completes a `destroy` because a `destroy` told there is nothing there has reached the
 state it exists to reach, and because the alternative halts that Step identically on every re-run,
-leaving an Asset that can never be Tombstoned and Steps after it *never reached* for good.
+leaving an Asset that can never be Tombstoned and Steps after it *never reached* for good. It is
+therefore the route by which an Asset the world has already lost is closed, a Tombstone being written by
+a `destroy` and by nothing else (§7) — and §13 carries what that costs the operator who confirms the
+absence first
+([ADR-0161](../adr/0161-a-record-the-world-has-lost-is-closed-by-a-destroy-and-the-404-is-not-a-reason-to-withhold-it.md)).
 
 Where **no response arrived at all** — a refused connection, a name that does not resolve, a handshake
 that failed — the response object is the host and nothing else (§3, §12). A `read` records an

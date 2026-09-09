@@ -1065,9 +1065,28 @@ already in mind, and none of these is about a call:
   `projection-stale`.
 - **What halts and what is merely an answer.** A `read` never halts on what came back and records an
   absence as readily as a status (§6, ADR-0050); an effectful Operation completes on `2xx` and halts
-  otherwise. Narration is not an outcome — `probe` prints `no response arrived` and exits `0` — and an
-  agent that reads the prose beside a result rather than its Disposition reports a Run that halted when
-  none did.
+  otherwise, a `destroy` completing on `404` besides. Narration is not an outcome — `probe` prints `no
+  response arrived` and exits `0` — and an agent that reads the prose beside a result rather than its
+  Disposition reports a Run that halted when none did.
+
+  **The `404` is stated as the route it is rather than as a leniency.** A `destroy` Step writes the
+  Tombstone and nothing else does (§7), so it is the only way an Asset the world has already lost is
+  closed — and the exception named and left at that was read as permission a careful operator may
+  decline. A sealed session did exactly that: it checked the ref, met the `404`, withheld the Step, and
+  handed back a record it had to explain in prose (§13, ADR-0159,
+  [ADR-0161](../adr/0161-a-record-the-world-has-lost-is-closed-by-a-destroy-and-the-404-is-not-a-reason-to-withhold-it.md)).
+  So the text says what the exception is *for*, that such an Asset reads alive until a `destroy` reaches
+  it, and that a check already made is **no reason to withhold** the Step — stopping short of *a reason
+  to send*, which is more than the argument carries.
+
+  **It is a paragraph where the Bound's exception is a clause, and the difference is what failed.** The
+  rule below is that an exception is stated with its rule, under the length budget, as clauses of the
+  sentence that already stood — and that is right where the exception is a *limit* an author would
+  otherwise author past. This one is not: the sentence was read correctly and acted against, so what has
+  to arrive is the **consequence of declining it**, which is a fact about the Store rather than a
+  qualification of the status rule and does not fold into it. It is priced as a paragraph: roughly sixty
+  words on the one text paid for by every session in every harness, bought because the transcript that
+  did without it spent its handback explaining a record it could have closed (ADR-0096).
 - **That a Procedure invokes another, what an invocation admits, that a halt inside one halts the whole
   Run, that nothing else reaches across that boundary, and that a shared check therefore halts on a
   `require:` of its own.** Five facts and one paragraph, because separately none of them is actionable:
